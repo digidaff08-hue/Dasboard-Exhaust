@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Stamping Production</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#f4f5f7">
+<link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+  // set tema sebelum render, biar tidak "kedip" saat load
+  (function () {
+    var t = localStorage.getItem("theme_v1") || "light";
+    document.documentElement.setAttribute("data-theme", t);
+  })();
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="assets/supabaseClient.js"></script>
+</head>
+<body>
+
+<div class="app-shell" x-data="dashboard()" x-init="init()">
+  <div class="mobile-topbar">
+    <button class="hamburger" @click="mobileNavOpen = true">☰</button>
+    <span class="mobile-title">Dashboard</span>
+  </div>
+  <div class="sidebar-overlay" x-show="mobileNavOpen" @click="mobileNavOpen = false" x-cloak></div>
+  <aside class="sidebar" :class="[mobileNavOpen ? 'sidebar-open' : '', sidebarCollapsed ? 'sidebar-collapsed' : '']">
+    <button class="sidebar-collapse-btn" @click="sidebarCollapsed = !sidebarCollapsed">
+      <span x-show="!sidebarCollapsed">‹</span><span x-show="sidebarCollapsed">›</span>
+    </button>
+    <div class="sidebar-brand" x-show="!sidebarCollapsed">PRESS SHOP<span>·</span>SYSTEM</div>
+    <nav class="sidebar-nav" @click="mobileNavOpen = false">
+      <a href="index.html" class="sidebar-link active" title="Dashboard"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a>
+      <a href="input-produksi.html" class="sidebar-link" title="Input Produksi"><span>⚙️</span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-attendance.html" class="sidebar-link" title="Input Attendance"><span>👥</span><span x-show="!sidebarCollapsed">Input Attendance</span></a>
+      </template>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-scrap.html" class="sidebar-link" title="Input Scrap"><span>♻️</span><span x-show="!sidebarCollapsed">Input Scrap</span></a>
+      </template>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-safety.html" class="sidebar-link" title="Input Safety"><span>⛑️</span><span x-show="!sidebarCollapsed">Input Safety</span></a>
+      </template>
+    </nav>
+    <div class="sidebar-foot" x-show="!sidebarCollapsed">
+      <div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
+      <span class="badge" :class="profile?.role === 'admin' ? 'role-admin' : ''" x-text="profile?.role || '...'"></span>
+      <button class="btn-ghost btn-sm" @click="logout()">Keluar</button>
+    </div>
+    <button class="sidebar-logout-collapsed" x-show="sidebarCollapsed" @click="logout()" title="Keluar">⏻</button>
+  </aside>
+
+  <main class="main">
+    <!-- Topbar -->
+    <div class="dash-topbar">
+      <div class="dash-title-block">
+        <h1>STAMPING PRODUCTION DASHBOARD</h1>
+        <p>Monitoring &amp; Management Control</p>
+      </div>
+      <div class="dash-controls">
+        <div class="perf-toggle-row" style="margin:0;">
+          <button type="button" class="chip" :class="periodMode==='harian' ? 'chip-active' : ''" @click="setPeriodMode('harian')">Harian</button>
+          <button type="button" class="chip" :class="periodMode==='bulanan' ? 'chip-active' : ''" @click="setPeriodMode('bulanan')">Bulanan</button>
+          <button type="button" class="chip" :class="periodMode==='tahunan' ? 'chip-active' : ''" @click="setPeriodMode('tahunan')">Tahunan</button>
+        </div>
+        <input type="date" x-model="tanggal" @change="fetchAll()" x-show="periodMode==='harian'">
+        <template x-if="periodMode==='bulanan'">
+          <select x-model="bulanPilih" @change="applyBulan()">
+            <option value="0">Januari</option><option value="1">Februari</option>
+            <option value="2">Maret</option><option value="3">April</option>
+            <option value="4">Mei</option><option value="5">Juni</option>
+            <option value="6">Juli</option><option value="7">Agustus</option>
+            <option value="8">September</option><option value="9">Oktober</option>
+            <option value="10">November</option><option value="11">Desember</option>
+          </select>
+        </template>
+        <input type="number" min="2000" max="2100" x-model="tahunPilih" @change="applyTahun()"
+               x-show="periodMode==='bulanan' || periodMode==='tahunan'" style="max-width:100px;">
+        <select x-model="shiftFilter" @change="fetchAll()" x-show="periodMode==='harian'">
+          <option value="all">Semua Shift</option>
+          <option value="1">Shift 1 (07:00–19:30)</option>
+          <option value="2">Shift 2 (19:30–07:00)</option>
+        </select>
+        <button class="theme-toggle" @click="toggleTheme()" :title="theme === 'dark' ? 'Ke mode terang' : 'Ke mode gelap'">
+          <span x-text="theme === 'dark' ? '☀️' : '🌙'"></span>
+        </button>
+      </div>
+    </div>
+
+    <template x-if="loading"><p class="empty-state">Memuat data...</p></template>
+
+    <template x-if="!loading">
+      <div class="dash-body">
+        <div class="error-msg" x-show="machinesTanpaTarget.length > 0" x-cloak>
+          ⚠️ <b>Target GSPH belum diisi</b> untuk:
+          <span x-text="machinesTanpaTarget.join(', ')"></span>.
+          Akibatnya <b>Performance &amp; OEE tampil 0%</b>.
+          Isi dulu di halaman mesin → tab <b>Master Data</b> → panel <b>Target GSPH</b> (khusus admin/leader).
+        </div>
+
+        <!-- 5 kartu kontrol utama: Safety, Quality, Productivity, Cost, Moral -->
+        <div class="sqcpm-columns">
+          <!-- SAFETY -->
+          <div class="sqcpm-col" :class="safety.accident === 0 ? 'col-good' : 'col-bad'">
+            <div class="sqcpm-col-head">
+              <span class="sqcpm-col-icon">⛑️</span>
+              <div><div class="sqcpm-col-title">SAFETY</div><div class="sqcpm-col-sub">KESELAMATAN</div></div>
+            </div>
+            <div class="sqcpm-metric-label">Hari Tanpa Kecelakaan</div>
+            <div class="sqcpm-metric-value" x-text="fmtNum(safety.hariTanpaAccident)"></div>
+            <div class="sqcpm-bar"><div class="sqcpm-bar-fill" :style="'width:' + (safety.accident === 0 ? 100 : 20) + '%'"></div></div>
+            <div class="sqcpm-mini-label" x-text="fmtNum(safety.accident) + ' insiden tercatat'"></div>
+            <div class="sqcpm-chart"><canvas id="miniSafety"></canvas></div>
+          </div>
+
+          <!-- QUALITY -->
+          <div class="sqcpm-col" :class="'col-' + cardStatus(100 - ngRatePct * 2, 90, 80)">
+            <div class="sqcpm-col-head">
+              <span class="sqcpm-col-icon">🎯</span>
+              <div><div class="sqcpm-col-title">QUALITY</div><div class="sqcpm-col-sub">KUALITAS</div></div>
+            </div>
+            <div class="sqcpm-metric-label">NG Rate (Target ≤ 0,5%)</div>
+            <div class="sqcpm-metric-value" x-text="fmtNum(ngRatePct) + '%'"></div>
+            <div class="sqcpm-bar"><div class="sqcpm-bar-fill" :style="'width:' + Math.max(0, Math.min(100, 100 - ngRatePct * 20)) + '%'"></div></div>
+            <div class="sqcpm-mini-label" x-text="fmtNum(totals.ng) + ' pcs NG'"></div>
+            <div class="sqcpm-chart"><canvas id="miniQuality"></canvas></div>
+          </div>
+
+          <!-- PRODUCTIVITY -->
+          <div class="sqcpm-col" :class="'col-' + cardStatus(totals.performanceFactor, 95, 80)">
+            <div class="sqcpm-col-head">
+              <span class="sqcpm-col-icon">⚙️</span>
+              <div><div class="sqcpm-col-title">PRODUCTIVITY</div><div class="sqcpm-col-sub">PRODUKTIVITAS</div></div>
+            </div>
+            <div class="sqcpm-metric-label">OEE Keseluruhan</div>
+            <div class="sqcpm-metric-value" x-text="fmtNum(totals.oee) + '%'"></div>
+            <div class="sqcpm-bar"><div class="sqcpm-bar-fill" :style="'width:' + Math.max(0, Math.min(100, totals.oee)) + '%'"></div></div>
+            <div class="sqcpm-mini-label">GSPH <b x-text="fmtNum(totals.gsph)"></b> / target <b x-text="fmtNum(totals.targetGsph)"></b></div>
+            <div class="sqcpm-chart-title">AVG GSPH All Line</div>
+            <div class="sqcpm-chart sqcpm-chart-tall"><canvas id="miniProductivity"></canvas></div>
+          </div>
+
+          <!-- COST -->
+          <div class="sqcpm-col" :class="'col-' + costStatus()">
+            <div class="sqcpm-col-head">
+              <span class="sqcpm-col-icon">💰</span>
+              <div><div class="sqcpm-col-title">COST</div><div class="sqcpm-col-sub">BIAYA</div></div>
+            </div>
+            <div class="sqcpm-metric-label">Total Biaya</div>
+            <div class="sqcpm-metric-value" x-text="fmtRupiahShort(totals.ngValue + scrap.scrapValueRp)"></div>
+            <div class="cost-split">
+              <div class="cost-split-row">
+                <span class="cost-split-label">NG Inline</span>
+                <span class="cost-split-value" x-text="fmtRupiahShort(totals.ngValue)"></span>
+              </div>
+              <div class="cost-split-bar"><div class="cost-split-fill cost-fill-ng" :style="'width:' + costSharePct('ng') + '%'"></div></div>
+              <div class="cost-split-row" style="margin-top:6px;">
+                <span class="cost-split-label">Scrap Top End</span>
+                <span class="cost-split-value" x-text="fmtRupiahShort(scrap.scrapValueRp)"></span>
+              </div>
+              <div class="cost-split-bar"><div class="cost-split-fill cost-fill-scrap" :style="'width:' + costSharePct('scrap') + '%'"></div></div>
+            </div>
+            <div class="sqcpm-mini-label" x-show="scrap.rasio > 0">
+              Rasio scrap <b x-text="(scrap.rasio * 100).toFixed(2) + '%'"></b> / target <b x-text="(scrap.targetRasio * 100).toFixed(2) + '%'"></b>
+            </div>
+            <div class="sqcpm-chart sqcpm-chart-tall"><canvas id="miniCost"></canvas></div>
+          </div>
+
+          <!-- MORAL -->
+          <div class="sqcpm-col" :class="'col-' + cardStatus(attendance.pctExclCuti, 95, 85)">
+            <div class="sqcpm-col-head">
+              <span class="sqcpm-col-icon">👥</span>
+              <div><div class="sqcpm-col-title">ATTENDANCE</div><div class="sqcpm-col-sub">MORAL</div></div>
+            </div>
+            <div class="sqcpm-metric-label">
+              Tingkat Kehadiran
+              <span x-show="periodMode !== 'harian'" class="avg-tag">rata-rata</span>
+            </div>
+            <div class="sqcpm-metric-value" x-text="fmtNum(attendance.pctExclCuti) + '%'"></div>
+            <div class="sqcpm-bar"><div class="sqcpm-bar-fill" :style="'width:' + Math.max(0, Math.min(100, attendance.pctExclCuti)) + '%'"></div></div>
+            <div class="manpower-grid manpower-grid-5">
+              <div class="manpower-box">
+                <span class="manpower-icon">👥</span>
+                <span class="manpower-label">Total</span>
+                <span class="manpower-value" x-text="fmtNum(attendance.total_orang)"></span>
+                <span class="manpower-unit" x-text="periodMode === 'harian' ? 'Orang' : '/hari'"></span>
+              </div>
+              <div class="manpower-box manpower-hadir">
+                <span class="manpower-icon">🧍</span>
+                <span class="manpower-label">Hadir</span>
+                <span class="manpower-value" x-text="fmtNum(attendance.hadir)"></span>
+                <span class="manpower-unit" x-text="periodMode === 'harian' ? 'Orang' : '/hari'"></span>
+              </div>
+              <div class="manpower-box">
+                <span class="manpower-icon">🌴</span>
+                <span class="manpower-label">Cuti</span>
+                <span class="manpower-value" x-text="fmtNum(attendance.cuti)"></span>
+                <span class="manpower-unit" x-text="periodMode === 'harian' ? 'Orang' : '/hari'"></span>
+              </div>
+              <div class="manpower-box">
+                <span class="manpower-icon">🚫</span>
+                <span class="manpower-label">Absen</span>
+                <span class="manpower-value" x-text="fmtNum(attendance.absen)"></span>
+                <span class="manpower-unit" x-text="periodMode === 'harian' ? 'Orang' : '/hari'"></span>
+              </div>
+              <div class="manpower-box">
+                <span class="manpower-icon">⏰</span>
+                <span class="manpower-label">O.T</span>
+                <span class="manpower-value" x-text="fmtNum(attendance.overtime_jam)"></span>
+                <span class="manpower-unit">Jam</span>
+              </div>
+            </div>
+            <div class="moral-summary" x-show="periodMode !== 'harian'">
+              <div class="moral-summary-item">
+                <span class="moral-summary-value" x-text="fmtNum(attendance.totalHadir)"></span>
+                <span class="moral-summary-label">Total Hadir</span>
+              </div>
+              <div class="moral-summary-item">
+                <span class="moral-summary-value" x-text="fmtNum(attendance.totalCuti)"></span>
+                <span class="moral-summary-label">Total Cuti</span>
+              </div>
+              <div class="moral-summary-item">
+                <span class="moral-summary-value" x-text="fmtNum(attendance.totalAbsen)"></span>
+                <span class="moral-summary-label">Total Absen</span>
+              </div>
+              <div class="moral-summary-item">
+                <span class="moral-summary-value" x-text="fmtNum(attendance.totalOvertimeJam)"></span>
+                <span class="moral-summary-label">Total O.T (Jam)</span>
+              </div>
+            </div>
+            <div class="moral-summary moral-summary-2col" x-show="periodMode === 'harian'">
+              <div class="moral-summary-item">
+                <span class="moral-summary-value" x-text="fmtNum(attendanceByShift.shift1.hadir)"></span>
+                <span class="moral-summary-label">Hadir Shift 1</span>
+              </div>
+              <div class="moral-summary-item">
+                <span class="moral-summary-value" x-text="fmtNum(attendanceByShift.shift2.hadir)"></span>
+                <span class="moral-summary-label">Hadir Shift 2</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Grid TV: semua muat 1 layar -->
+        <div class="tv-grid">
+        <div class="dash-main-grid tv-row-1">
+          <div class="dash-panel">
+            <p class="dash-panel-title" x-text="'Trend GSPH per ' + (periodMode === 'harian' ? 'Jam' : periodMode === 'bulanan' ? 'Hari' : 'Bulan')"></p>
+            <div class="dash-chart-sm"><canvas id="gsphHourlyChart"></canvas></div>
+          </div>
+          <div class="dash-panel">
+            <p class="dash-panel-title">OEE Breakdown</p>
+            <div class="oee-donut-row oee-donut-row-3">
+              <div class="oee-donut-item">
+                <div class="oee-donut-wrap"><canvas id="donutAvail"></canvas></div>
+                <div class="oee-donut-label">Availability</div>
+              </div>
+              <div class="oee-donut-item">
+                <div class="oee-donut-wrap"><canvas id="donutPerf"></canvas></div>
+                <div class="oee-donut-label">Performance</div>
+              </div>
+              <div class="oee-donut-item">
+                <div class="oee-donut-wrap"><canvas id="donutQual"></canvas></div>
+                <div class="oee-donut-label">Quality</div>
+              </div>
+            </div>
+            <div class="oee-total-big">
+              <span class="oee-total-big-value" x-text="fmtNum(totals.oee) + '%'"></span>
+              <span class="oee-total-big-label">OEE Keseluruhan</span>
+            </div>
+            <p class="oee-kesimpulan" x-text="oeeKesimpulan()"></p>
+          </div>
+          <div class="dash-panel">
+            <p class="dash-panel-title">Line Status</p>
+            <div class="table-wrap">
+              <table class="table-compact line-status-table">
+                <thead>
+                  <tr>
+                    <th>Line</th><th>Stroke</th><th>Target</th><th>Actual</th>
+                    <th>Perf</th><th>OEE</th><th>DT</th><th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="m in machines" :key="m.key">
+                    <tr>
+                      <td><b x-text="m.shortLabel"></b></td>
+                      <td class="mono" x-text="fmtNum(m.data?.stroke)"></td>
+                      <td class="mono" x-text="fmtNum(m.data?.targetGsph)"></td>
+                      <td class="mono" x-text="fmtNum(m.data?.gsph)"></td>
+                      <td class="mono" x-text="fmtNum(m.data?.performanceFactor) + '%'"></td>
+                      <td class="mono" x-text="fmtNum(m.data?.oee) + '%'"></td>
+                      <td class="mono" x-text="fmtNum(m.data?.downtimeMenit)"></td>
+                      <td><span class="status-badge" :class="statusClass(m)" x-text="statusLabel(m)"></span></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Baris bawah: downtime per kategori (pie) + per kategori x line (bar) + 10 terburuk + pareto -->
+        <div class="dash-main-grid tv-row-3">
+          <div class="dash-panel">
+            <p class="dash-panel-title">Downtime per Kategori</p>
+            <div class="dash-chart-sm"><canvas id="categoryPieChart"></canvas></div>
+          </div>
+          <div class="dash-panel">
+            <p class="dash-panel-title">Downtime per Kategori × Line</p>
+            <div class="dash-chart-sm"><canvas id="fleetDowntimeChart"></canvas></div>
+          </div>
+          <div class="dash-panel">
+            <p class="dash-panel-title">10 Downtime Terburuk</p>
+            <div class="table-wrap">
+              <table class="table-compact">
+                <thead><tr><th>Line</th><th>Kategori</th><th>Problem</th><th>Menit</th></tr></thead>
+                <tbody>
+                  <template x-for="row in fleetTop10" :key="row.mesin + row.kategori + row.problem">
+                    <tr>
+                      <td><span class="badge" x-text="row.mesinLabel"></span></td>
+                      <td x-text="row.kategori"></td>
+                      <td x-text="row.problem"></td>
+                      <td class="mono" x-text="fmtNum(row.menit)"></td>
+                    </tr>
+                  </template>
+                  <tr x-show="fleetTop10.length === 0"><td colspan="4" class="empty-state">Tidak ada downtime.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="dash-panel">
+            <p class="dash-panel-title">Pareto Downtime (Menit)</p>
+            <template x-for="row in paretoDowntime" :key="row.problem">
+              <div class="pareto-row">
+                <span class="pareto-label" :title="row.problem" x-text="row.problem"></span>
+                <div class="pareto-bar-track">
+                  <div class="pareto-bar-fill" :style="'width:' + row.barPct + '%'"></div>
+                </div>
+                <span class="pareto-val" x-text="fmtNum(row.menit) + ' (' + fmtNum(row.pct) + '%)'"></span>
+              </div>
+            </template>
+            <p class="empty-state" x-show="paretoDowntime.length === 0">Tidak ada downtime.</p>
+          </div>
+        </div>
+        </div>
+      </div>
+    </template>
+  </main>
+</div>
+
+<script>
+const MACHINES = [
+  { key: "tandem", label: "Tandem", shortLabel: "Tandem", href: "machines/tandem.html" },
+  { key: "blanking", label: "Blanking", shortLabel: "Blanking", href: "machines/blanking.html" },
+  { key: "transfer_2000t", label: "Transfer 2000t", shortLabel: "TR 2000t", href: "machines/transfer-2000t.html" },
+  { key: "transfer_800t", label: "Transfer 800t", shortLabel: "TR 800t", href: "machines/transfer-800t.html" },
+  { key: "pc200t", label: "PC200t", shortLabel: "PC200t", href: "machines/pc200t.html" },
+];
+
+function fmtNum(n) {
+  if (n === null || n === undefined || Number.isNaN(Number(n))) return "-";
+  return Number(n).toLocaleString("en-US", { maximumFractionDigits: 1 });
+}
+
+// PENTING: jangan pakai date.toISOString().slice(0,10) untuk tanggal LOKAL.
+// toISOString() mengonversi ke UTC dulu -- karena WIB = UTC+7, tengah malam
+// lokal (00:00) jadi jam 17:00 HARI SEBELUMNYA di UTC, sehingga tanggal
+// terpotong mundur 1 hari. Fungsi ini mengambil Y/M/D langsung dari waktu
+// lokal browser, tanpa lewat UTC sama sekali.
+function localDateStr(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+// Plugin kecil: tulis angka total di tengah doughnut chart (dipakai di
+// "Downtime per Kategori"), tanpa perlu library tambahan.
+if (typeof Chart !== "undefined") {
+  Chart.register({
+    id: "pieCenterText",
+    afterDraw(chart, args, opts) {
+      if (!opts || !opts.value) return;
+      const { ctx, chartArea } = chart;
+      const cx = (chartArea.left + chartArea.right) / 2;
+      const cy = (chartArea.top + chartArea.bottom) / 2;
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = opts.color || "#1a2233";
+      ctx.font = "700 20px " + (opts.fontFamily || "sans-serif");
+      ctx.fillText(opts.value, cx, cy - (opts.label ? 8 : 0));
+      if (opts.label) {
+        ctx.fillStyle = opts.labelColor || "#8a93a6";
+        ctx.font = "600 9px " + (opts.fontFamily || "sans-serif");
+        ctx.fillText(opts.label, cx, cy + 11);
+      }
+      ctx.restore();
+    },
+  });
+  // Label di setiap slice pie/doughnut (dipakai di "Downtime per Kategori")
+  Chart.register({
+    id: "sliceLabels",
+    afterDraw(chart, args, opts) {
+      if (!opts || !opts.enabled) return;
+      const { ctx } = chart;
+      const meta = chart.getDatasetMeta(0);
+      const dataset = chart.data.datasets[0];
+      const total = (dataset.data || []).reduce((a, b) => a + (Number(b) || 0), 0);
+      if (total <= 0) return;
+      meta.data.forEach((arc, i) => {
+        const val = Number(dataset.data[i]) || 0;
+        if (val <= 0) return; // slice kosong tidak usah dilabeli, biar tidak numpuk
+        const pct = Math.round((val / total) * 100);
+        if (pct < 4) return; // slice terlalu kecil, teks tidak akan muat rapi
+        const pos = arc.tooltipPosition();
+        ctx.save();
+        ctx.fillStyle = opts.color || "#fff";
+        ctx.font = "700 11px " + (opts.fontFamily || "sans-serif");
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(pct + "%", pos.x, pos.y);
+        ctx.restore();
+      });
+    },
+  });
+}
+
+function dashboard() {
+  return {
+    session: null, profile: null, mobileNavOpen: false, sidebarCollapsed: true,
+    loading: true,
+    theme: localStorage.getItem("theme_v1") || "light",
+    tanggal: localDateStr(new Date()),
+    shiftFilter: "all",
+    periodMode: "harian",
+    bulanPilih: String(new Date().getMonth()),
+    tahunPilih: String(new Date().getFullYear()),
+    attendance: { pctInclCuti: 0, pctExclCuti: 0, hadir: 0, cuti: 0, absen: 0, total_orang: 0, overtime_jam: 0, totalHadir: 0, totalCuti: 0, totalAbsen: 0, totalOvertimeJam: 0 },
+    attendanceByShift: { shift1: { hadir: 0, total: 0 }, shift2: { hadir: 0, total: 0 } },
+    safety: { accident: 0, hariTanpaAccident: 0 },
+    miniTrend: { labels: [], safety: [], quality: [], productivity: [], cost: [], moral: [] },
+    // Tren GSPH per line, granularitas mengikuti mode periode:
+    //  harian -> per jam · bulanan -> per hari · tahunan -> per bulan
+    lineTrend: { labels: [], perLine: [] },
+    async fetchLineTrend() {
+      const base = new Date(this.tanggal + "T00:00:00");
+      if (this.periodMode === "harian") {
+        // per jam sudah ditangani RPC gsph_hourly di fetchAll
+        this.lineTrend = { mode: "jam", labels: [], perLine: [] };
+        return;
+      }
+
+      let start, end, bucket, labels, keyOf;
+      if (this.periodMode === "bulanan") {
+        const y = base.getFullYear(), m = base.getMonth();
+        const n = new Date(y, m + 1, 0).getDate();
+        start = new Date(y, m, 1); end = new Date(y, m + 1, 1);
+        bucket = "day";
+        labels = Array.from({ length: n }, (_, i) => String(i + 1));
+        keyOf = (d) => d.getDate() - 1;
+      } else {
+        const y = base.getFullYear();
+        start = new Date(y, 0, 1); end = new Date(y + 1, 0, 1);
+        bucket = "month";
+        labels = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+        keyOf = (d) => d.getMonth();
+      }
+
+      // 1 query per line (bukan per-periode) -- jauh lebih ringan
+      const res = await Promise.all(MACHINES.map((m) =>
+        supabaseClient.rpc("gsph_trend_bucketed", {
+          p_mesin: m.key, p_start: start.toISOString(), p_end: end.toISOString(), p_bucket: bucket,
+        })
+      ));
+
+      const perLine = MACHINES.map((m, idx) => {
+        const vals = new Array(labels.length).fill(null);
+        const rows = (res[idx] && res[idx].data) || [];
+        rows.forEach((r) => {
+          const d = new Date(r.bucket_start);
+          const i = keyOf(d);
+          if (i >= 0 && i < vals.length) {
+            const g = Number(r.gsph) || 0;
+            vals[i] = g > 0 ? Number(g.toFixed(1)) : null;
+          }
+        });
+        return { label: m.label, values: vals };
+      });
+
+      this.lineTrend = {
+        mode: this.periodMode === "bulanan" ? "hari" : "bulan",
+        labels, perLine,
+      };
+    },
+    // Ambil 6 periode terakhir utk sparkline tiap kolom SQCPM
+    async fetchMiniTrend() {
+      const COUNT = 6;
+      const base = new Date(this.tanggal + "T00:00:00");
+      const periods = [];
+      for (let i = COUNT - 1; i >= 0; i--) {
+        let start, end, label;
+        if (this.periodMode === "tahunan") {
+          const y = base.getFullYear() - i;
+          start = new Date(y, 0, 1); end = new Date(y + 1, 0, 1); label = String(y);
+        } else if (this.periodMode === "bulanan") {
+          start = new Date(base.getFullYear(), base.getMonth() - i, 1);
+          end = new Date(base.getFullYear(), base.getMonth() - i + 1, 1);
+          label = start.toLocaleDateString("id-ID", { month: "short" });
+        } else {
+          start = new Date(base.getFullYear(), base.getMonth(), base.getDate() - i);
+          end = new Date(base.getFullYear(), base.getMonth(), base.getDate() - i + 1);
+          label = start.toLocaleDateString("id-ID", { day: "2-digit", month: "short" });
+        }
+        periods.push({ start, end, label });
+      }
+
+      const out = { labels: periods.map((p) => p.label), safety: [], quality: [], productivity: [], cost: [], moral: [] };
+
+      // Semua periode ditembak PARALEL (sebelumnya berurutan -- lambat)
+      const perPeriod = await Promise.all(periods.map(async (p) => {
+        const sIso = p.start.toISOString(), eIso = p.end.toISOString();
+        const sDate = localDateStr(p.start), eDate = localDateStr(p.end);
+        const [aggAll, safetyRes, attRes, scrapRes] = await Promise.all([
+          Promise.all(MACHINES.map((m) =>
+            supabaseClient.rpc("performance_aggregate", { p_mesin: m.key, p_stasiun_list: null, p_start: sIso, p_end: eIso })
+          )),
+          supabaseClient.rpc("safety_summary", { p_start: sDate, p_end: eDate }),
+          supabaseClient.rpc("attendance_summary", { p_start: sDate, p_end: eDate }),
+          supabaseClient.rpc("scrap_top_end_summary", { p_start: sDate, p_end: eDate }),
+        ]);
+
+        let stroke = 0, ng = 0, ngValue = 0, whMenit = 0;
+        aggAll.forEach((r) => {
+          const row = (r.data && r.data[0]) || {};
+          stroke += Number(row.stroke) || 0;
+          ng += Number(row.ng) || 0;
+          ngValue += Number(row.ng_value) || 0;
+          whMenit += Number(row.wh_menit) || 0;
+        });
+        const whJam = whMenit / 60;
+        const gsph = whJam > 0 ? stroke / whJam : 0;
+
+        const sRow = (safetyRes.data && safetyRes.data[0]) || {};
+        const scRow = (scrapRes.data && scrapRes.data[0]) || {};
+        const aRow = (attRes.data && attRes.data[0]) || {};
+        const totalSlot = Number(aRow.total_orang) || 0;
+        const hadir = Number(aRow.hadir) || 0;
+
+        return {
+          safety: Number(sRow.accident_count) || 0,
+          quality: stroke > 0 ? Number(((ng / stroke) * 100).toFixed(3)) : 0,
+          productivity: Number(gsph.toFixed(1)),
+          cost: Number(((ngValue + (Number(scRow.scrap_value_kidr) || 0) * 1000) / 1e6).toFixed(2)),
+          moral: totalSlot > 0 ? Number(((hadir / totalSlot) * 100).toFixed(1)) : 0,
+        };
+      }));
+
+      perPeriod.forEach((v) => {
+        out.safety.push(v.safety);
+        out.quality.push(v.quality);
+        out.productivity.push(v.productivity);
+        out.cost.push(v.cost);
+        out.moral.push(v.moral);
+      });
+
+      this.miniTrend = out;
+    },
+    scrap: { scrapValueRp: 0, totalValueRp: 0, rasio: 0, targetRasio: 0 },
+    fmtRupiahShort(n) {
+      const v = Number(n) || 0;
+      if (v >= 1e9) return "Rp " + (v / 1e9).toFixed(1) + " M";
+      if (v >= 1e6) return "Rp " + (v / 1e6).toFixed(1) + " jt";
+      if (v >= 1e3) return "Rp " + (v / 1e3).toFixed(0) + " rb";
+      return "Rp " + Math.round(v);
+    },
+    // Kesimpulan otomatis dari 3 faktor OEE (Availability/Performance/Quality)
+    oeeKesimpulan() {
+      const a = Number(this.totals.availability) || 0;
+      const p = Number(this.totals.performanceFactor) || 0;
+      const q = Number(this.totals.quality) || 0;
+      const oee = Number(this.totals.oee) || 0;
+      if (oee === 0 && a === 0 && p === 0) return "Belum ada data produksi pada periode ini.";
+
+      const faktor = [
+        { nama: "Availability", val: a, saran: "kurangi downtime & dandori" },
+        { nama: "Performance", val: p, saran: "kejar GSPH mendekati target" },
+        { nama: "Quality", val: q, saran: "tekan angka NG" },
+      ];
+      const terlemah = faktor.reduce((a, b) => (b.val < a.val ? b : a));
+      const level = oee >= 75 ? "baik" : oee >= 50 ? "cukup" : "perlu perhatian";
+
+      let s = `OEE ${fmtNum(oee)}% (${level}). `;
+      if (terlemah.val >= 95) {
+        s += "Ketiga faktor sudah tinggi dan seimbang.";
+      } else {
+        s += `Faktor terlemah: ${terlemah.nama} ${fmtNum(terlemah.val)}% — ${terlemah.saran}.`;
+      }
+      return s;
+    },
+    costStatus() {
+      if (this.scrap.targetRasio > 0 && this.scrap.rasio > 0) {
+        return this.scrap.rasio <= this.scrap.targetRasio ? "good" : "bad";
+      }
+      return "warn";
+    },
+    costSharePct(which) {
+      const ng = Number(this.totals.ngValue) || 0;
+      const scrap = Number(this.scrap.scrapValueRp) || 0;
+      const total = ng + scrap;
+      if (total <= 0) return 0;
+      return ((which === "ng" ? ng : scrap) / total) * 100;
+    },
+    async fetchSafety() {
+      const { start, end } = this.bounds();
+      const { data, error } = await supabaseClient.rpc("safety_summary", {
+        p_start: localDateStr(start), p_end: localDateStr(end),
+      });
+      const row = (!error && data && data[0]) || {};
+      this.safety = {
+        accident: Number(row.accident_count) || 0,
+        hariTanpaAccident: Number(row.hari_tanpa_accident) || 0,
+      };
+    },
+    async fetchScrap() {
+      const { start, end } = this.bounds();
+      const { data, error } = await supabaseClient.rpc("scrap_top_end_summary", {
+        p_start: localDateStr(start), p_end: localDateStr(end),
+      });
+      const row = (!error && data && data[0]) || {};
+      // sumber data satuannya K IDR -> kalikan 1000 jadi Rupiah
+      this.scrap = {
+        scrapValueRp: (Number(row.scrap_value_kidr) || 0) * 1000,
+        totalValueRp: (Number(row.total_value_kidr) || 0) * 1000,
+        rasio: Number(row.rasio) || 0,
+        targetRasio: Number(row.target_rasio) || 0,
+      };
+    },
+    absenForm: { tanggal: localDateStr(new Date()), shift: "1", total_orang: "", hadir: "", cuti: "", absen: "", overtime_jam: "" },
+    achievementPct: 0,
+    ngRatePct: 0, downtimePct: 0,
+    isLeaderOrAdmin() { return this.profile && ["admin", "leader"].includes(this.profile.role); },
+    cardStatus(val, greenAt, amberAt) {
+      const v = Number(val) || 0;
+      if (v >= greenAt) return "good";
+      if (v >= amberAt) return "warn";
+      return "bad";
+    },
+    cardLabel(val, greenAt, amberAt) {
+      const s = this.cardStatus(val, greenAt, amberAt);
+      return s === "good" ? "GOOD" : s === "warn" ? "WARNING" : "CRITICAL";
+    },
+    async fetchAttendance() {
+      // Absensi disimpan 1 baris per (tanggal, shift) -- rentang tanggalnya
+      // harus tetap 1 hari/bulan/tahun penuh, filter shift dikirim terpisah
+      // lewat p_shift (bukan dari jendela jam 07:00-19:30 / 19:30-07:00 yang
+      // dipakai untuk data produksi/downtime).
+      const d = new Date(this.tanggal + "T00:00:00");
+      let start, end;
+      if (this.periodMode === "tahunan") {
+        start = new Date(d.getFullYear(), 0, 1); end = new Date(d.getFullYear() + 1, 0, 1);
+      } else if (this.periodMode === "bulanan") {
+        start = new Date(d.getFullYear(), d.getMonth(), 1); end = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+      } else {
+        start = new Date(d.getFullYear(), d.getMonth(), d.getDate()); end = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+      }
+      const pShift = (this.periodMode === "harian" && this.shiftFilter !== "all") ? this.shiftFilter : null;
+      const { data, error } = await supabaseClient.rpc("attendance_summary", {
+        p_start: localDateStr(start), p_end: localDateStr(end), p_shift: pShift,
+      });
+      const row = (!error && data && data[0]) || {};
+      const totalSlot = Number(row.total_orang) || 0;
+      const hadir = Number(row.hadir) || 0;
+      const cuti = Number(row.cuti) || 0;
+      const absen = Number(row.absen) || 0;
+      const hari = Math.max(1, Number(row.jumlah_hari) || 1);
+      // Mode bulanan/tahunan -> tampilkan RATA-RATA HARIAN (bukan total kumulatif)
+      const isRata = this.periodMode !== "harian";
+      this.attendance = {
+        total_orang: isRata ? Math.round(totalSlot / hari) : totalSlot,
+        hadir: isRata ? Math.round(hadir / hari) : hadir,
+        cuti: isRata ? Math.round(cuti / hari) : cuti,
+        absen: isRata ? Math.round(absen / hari) : absen,
+        overtime_jam: isRata ? Number((Number(row.overtime_jam) || 0) / hari).toFixed(1) : (Number(row.overtime_jam) || 0),
+        jumlah_hari: hari,
+        totalHadir: hadir,
+        totalCuti: cuti,
+        totalAbsen: absen,
+        totalOvertimeJam: Number(row.overtime_jam) || 0,
+        // persentase tetap sama (rasio tidak terpengaruh pembagian hari)
+        pctExclCuti: totalSlot > 0 ? (hadir / totalSlot) * 100 : 0,
+        pctInclCuti: totalSlot > 0 ? ((hadir + cuti) / totalSlot) * 100 : 0,
+      };
+      if (this.periodMode === "harian") {
+        await this.fetchAttendanceByShift(start, end);
+      }
+    },
+    async fetchAttendanceByShift(start, end) {
+      // Dipakai kartu Moral mode Harian: tampilkan hadir shift 1 & shift 2
+      // berdampingan, terlepas dari filter shift yang sedang aktif di topbar.
+      const [r1, r2] = await Promise.all([
+        supabaseClient.rpc("attendance_summary", { p_start: localDateStr(start), p_end: localDateStr(end), p_shift: "1" }),
+        supabaseClient.rpc("attendance_summary", { p_start: localDateStr(start), p_end: localDateStr(end), p_shift: "2" }),
+      ]);
+      const row1 = (!r1.error && r1.data && r1.data[0]) || {};
+      const row2 = (!r2.error && r2.data && r2.data[0]) || {};
+      this.attendanceByShift = {
+        shift1: { hadir: Number(row1.hadir) || 0, total: Number(row1.total_orang) || 0 },
+        shift2: { hadir: Number(row2.hadir) || 0, total: Number(row2.total_orang) || 0 },
+      };
+    },
+    async saveAbsensi() {
+      const f = this.absenForm;
+      if (!f.tanggal || f.total_orang === "" || f.hadir === "") { alert("Tanggal, Total Orang, dan Hadir wajib diisi."); return; }
+      const payload = {
+        tanggal: f.tanggal, shift: f.shift,
+        total_orang: Number(f.total_orang) || 0, hadir: Number(f.hadir) || 0,
+        cuti: Number(f.cuti) || 0,
+        absen: Number(f.absen) || 0, overtime_jam: Number(f.overtime_jam) || 0,
+        updated_by: this.session.user.id,
+      };
+      const { error } = await supabaseClient.from("attendance_log").upsert(payload, { onConflict: "tanggal,shift" });
+      if (error) { alert("Gagal simpan absensi: " + error.message); return; }
+      this.fetchAttendance();
+    },
+    applyBulan() {
+      const d = new Date(this.tanggal + "T00:00:00");
+      d.setDate(1);
+      d.setMonth(Number(this.bulanPilih));
+      this.tanggal = localDateStr(d);
+      this.fetchAll();
+    },
+    applyTahun() {
+      const y = Number(this.tahunPilih);
+      if (!y || y < 2000) return;
+      const d = new Date(this.tanggal + "T00:00:00");
+      d.setDate(1);
+      d.setFullYear(y);
+      this.tanggal = localDateStr(d);
+      this.fetchAll();
+    },
+    setPeriodMode(mode) {
+      this.periodMode = mode;
+      const d = new Date(this.tanggal + "T00:00:00");
+      this.bulanPilih = String(d.getMonth());
+      this.tahunPilih = String(d.getFullYear());
+      this.fetchAll();
+    },
+    machines: MACHINES.map((m) => ({ ...m, data: null, lastPart: null, lastEnd: null })),
+    totals: { stroke: 0, ng: 0, ngValue: 0, downtimeMenit: 0, dandoriMenit: 0, gsph: 0, targetGsph: 0, availability: 0, performanceFactor: 0, quality: 100, oee: 0 },
+    paretoDowntime: [], fleetTop10: [], lineAktif: 0,
+    machinesTanpaTarget: [],
+    charts: {},
+
+    fmtNum,
+
+    async init() {
+      this.session = await requireAuth();
+      if (!this.session) return;
+      try {
+        const { data } = await supabaseClient.from("profiles").select("*").eq("id", this.session.user.id).maybeSingle();
+        this.profile = data;
+      } catch (err) { console.error(err); }
+      await this.fetchAll();
+    },
+
+    toggleTheme() {
+      this.theme = this.theme === "dark" ? "light" : "dark";
+      localStorage.setItem("theme_v1", this.theme);
+      document.documentElement.setAttribute("data-theme", this.theme);
+      this.$nextTick(() => this.renderAllCharts());
+    },
+
+    periodeLabel() {
+      const d = new Date(this.tanggal + "T00:00:00");
+      if (this.periodMode === "tahunan") return String(d.getFullYear());
+      if (this.periodMode === "bulanan") return d.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+      return d.toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" });
+    },
+
+    bounds() {
+      const d = new Date(this.tanggal + "T00:00:00");
+      if (this.periodMode === "tahunan") {
+        return { start: new Date(d.getFullYear(), 0, 1), end: new Date(d.getFullYear() + 1, 0, 1) };
+      }
+      if (this.periodMode === "bulanan") {
+        return { start: new Date(d.getFullYear(), d.getMonth(), 1), end: new Date(d.getFullYear(), d.getMonth() + 1, 1) };
+      }
+      // harian -- boleh difilter per shift
+      if (this.shiftFilter === "1") {
+        return { start: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 7, 0), end: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 19, 30) };
+      }
+      if (this.shiftFilter === "2") {
+        return { start: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 19, 30), end: new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 7, 0) };
+      }
+      return { start: new Date(d.getFullYear(), d.getMonth(), d.getDate()), end: new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1) };
+    },
+
+    async fetchAll() {
+      this.loading = true;
+      const { start, end } = this.bounds();
+
+      const results = await Promise.all(MACHINES.map(async (m) => {
+        const [aggRes, settingsRes, topRes, catRes, hourlyRes, statusRes] = await Promise.all([
+          supabaseClient.rpc("performance_aggregate", { p_mesin: m.key, p_stasiun_list: null, p_start: start.toISOString(), p_end: end.toISOString() }),
+          supabaseClient.from("mesin_settings").select("*").eq("mesin", m.key).maybeSingle(),
+          supabaseClient.rpc("downtime_top_problems", { p_mesin: m.key, p_stasiun_list: null, p_start: start.toISOString(), p_end: end.toISOString(), p_limit: 10 }),
+          supabaseClient.rpc("downtime_by_category", { p_mesin: m.key, p_stasiun_list: null, p_start: start.toISOString(), p_end: end.toISOString() }),
+          supabaseClient.rpc("gsph_hourly", { p_mesin: m.key, p_start: start.toISOString(), p_end: end.toISOString() }),
+          supabaseClient.from("production_log").select("part_number, waktu_akhir").eq("mesin", m.key)
+            .gte("waktu_awal", start.toISOString()).lt("waktu_awal", end.toISOString())
+            .order("waktu_awal", { ascending: false }).limit(1),
+        ]);
+        const row = (aggRes.data && aggRes.data[0]) || {};
+        const settings = settingsRes.data || { gsph_target_mode: "fixed", gsph_target_fixed: 0 };
+        const whJam = (Number(row.wh_menit) || 0) / 60;
+        const stroke = Number(row.stroke) || 0;
+        const ng = Number(row.ng) || 0;
+        const ngValue = Number(row.ng_value) || 0;
+        const downtimeMenit = Math.round(Number(row.downtime_menit) || 0);
+        const dandoriMenit = Math.round(Number(row.dandori_menit) || 0);
+        const targetStdMenit = Number(row.target_std_menit) || 0;
+        let targetGsph = Number(settings.gsph_target_fixed) || 0;
+        if (settings.gsph_target_mode === "per_part" && targetStdMenit > 0) targetGsph = stroke / (targetStdMenit / 60);
+        const gsph = whJam > 0 ? stroke / whJam : 0;
+        const availability = whJam > 0 ? Math.max(0, (whJam * 60 - downtimeMenit) / (whJam * 60)) * 100 : 0;
+        const performanceFactor = targetGsph > 0 ? Math.min(gsph / targetGsph, 1) * 100 : 0;
+        const quality = stroke > 0 ? Math.max(0, (stroke - ng) / stroke) * 100 : 100;
+        const oee = (availability / 100) * (performanceFactor / 100) * (quality / 100) * 100;
+        const last = (statusRes.data && statusRes.data[0]) || null;
+        return {
+          mesin: m.key, label: m.label,
+          data: { stroke, ng, ngValue, downtimeMenit, dandoriMenit, whJam, gsph, targetGsph, availability, performanceFactor, quality, oee },
+          top: (topRes.data || []).map((r) => ({ mesin: m.key, mesinLabel: m.label, kategori: r.kategori, problem: r.problem, menit: Math.round(Number(r.total_menit) || 0) })),
+          byCategory: (catRes.data || []).map((r) => ({ kategori: r.kategori, menit: Math.round(Number(r.total_menit) || 0) })),
+          hourly: (hourlyRes.data || []).map((r) => ({ jam: Number(r.jam), gsph: Number(r.gsph) || 0 })),
+          lastPart: last ? last.part_number : null,
+          lastEnd: last ? last.waktu_akhir : null,
+        };
+      }));
+
+      this.machines = MACHINES.map((m) => {
+        const r = results.find((x) => x.mesin === m.key);
+        return { ...m, data: r.data, lastPart: r.lastPart, lastEnd: r.lastEnd };
+      });
+
+      // total gabungan
+      const t = results.reduce((acc, r) => ({
+        stroke: acc.stroke + r.data.stroke,
+        ng: acc.ng + r.data.ng,
+        ngValue: acc.ngValue + r.data.ngValue,
+        downtimeMenit: acc.downtimeMenit + r.data.downtimeMenit,
+        dandoriMenit: acc.dandoriMenit + r.data.dandoriMenit,
+        whJam: acc.whJam + r.data.whJam,
+        targetGsphSum: acc.targetGsphSum + (r.data.targetGsph > 0 ? r.data.targetGsph : 0),
+        targetGsphCount: acc.targetGsphCount + (r.data.targetGsph > 0 ? 1 : 0),
+      }), { stroke: 0, ng: 0, ngValue: 0, downtimeMenit: 0, dandoriMenit: 0, whJam: 0, targetGsphSum: 0, targetGsphCount: 0 });
+
+      const gsph = t.whJam > 0 ? t.stroke / t.whJam : 0;
+      const targetGsph = t.targetGsphCount > 0 ? t.targetGsphSum / t.targetGsphCount : 0;
+      const availability = t.whJam > 0 ? Math.max(0, (t.whJam * 60 - t.downtimeMenit) / (t.whJam * 60)) * 100 : 0;
+      const performanceFactor = targetGsph > 0 ? Math.min(gsph / targetGsph, 1) * 100 : 0;
+      const quality = t.stroke > 0 ? Math.max(0, (t.stroke - t.ng) / t.stroke) * 100 : 100;
+      this.totals = {
+        stroke: t.stroke, ng: t.ng, ngValue: t.ngValue, downtimeMenit: t.downtimeMenit, dandoriMenit: t.dandoriMenit,
+        gsph, targetGsph, availability, performanceFactor, quality,
+        oee: (availability / 100) * (performanceFactor / 100) * (quality / 100) * 100,
+      };
+
+      this.lineAktif = results.filter((r) => r.data.stroke > 0).length;
+      this.machinesTanpaTarget = results
+        .filter((r) => r.data.stroke > 0 && (!r.data.targetGsph || r.data.targetGsph <= 0))
+        .map((r) => r.label);
+
+      // pareto downtime gabungan (per problem)
+      const problemMap = {};
+      results.forEach((r) => r.top.forEach((p) => {
+        problemMap[p.problem] = (problemMap[p.problem] || 0) + p.menit;
+      }));
+      const totalDt = Object.values(problemMap).reduce((a, b) => a + b, 0);
+      this.paretoDowntime = Object.entries(problemMap)
+        .map(([problem, menit]) => ({ problem, menit, pct: totalDt > 0 ? (menit / totalDt) * 100 : 0 }))
+        .sort((a, b) => b.menit - a.menit).slice(0, 6);
+      // lebar bar diskalakan ke nilai terbesar YANG DITAMPILKAN (bukan ke total
+      // downtime keseluruhan pabrik), supaya batang paling besar mengisi penuh
+      // track -- persentase di label tetap "% dari total" seperti biasa.
+      const maxParetoMenit = Math.max(1, ...this.paretoDowntime.map((r) => r.menit));
+      this.paretoDowntime.forEach((r) => { r.barPct = (r.menit / maxParetoMenit) * 100; });
+
+      this.fleetTop10 = results.flatMap((r) => r.top).sort((a, b) => b.menit - a.menit).slice(0, 10);
+
+      // rasio turunan utk kartu SQCDMP
+      this.ngRatePct = t.stroke > 0 ? (t.ng / t.stroke) * 100 : 0;
+      this.downtimePct = t.whJam > 0 ? (t.downtimeMenit / (t.whJam * 60)) * 100 : 0;
+
+      // Achievement (aktual vs planning), gabungan semua line
+      const achRes = await Promise.all(MACHINES.map((m) =>
+        supabaseClient.rpc("achievement_aggregate", { p_mesin: m.key, p_start: start.toISOString(), p_end: end.toISOString() })
+      ));
+      const achTotal = achRes.reduce((acc, r) => {
+        const row = (r.data && r.data[0]) || {};
+        return { rencana: acc.rencana + (Number(row.qty_rencana) || 0), aktual: acc.aktual + (Number(row.qty_aktual) || 0) };
+      }, { rencana: 0, aktual: 0 });
+      this.achievementPct = achTotal.rencana > 0 ? (achTotal.aktual / achTotal.rencana) * 100 : 0;
+
+      await Promise.all([
+        this.fetchAttendance(), this.fetchSafety(), this.fetchScrap(),
+        this.fetchMiniTrend(), this.fetchLineTrend(),
+      ]);
+
+      this._results = results;
+      this.loading = false;
+      this.$nextTick(() => this.renderAllCharts());
+    },
+
+    // Penilaian line berdasarkan OEE (standar umum: 85% world-class, 60% rata-rata)
+    statusClass(m) {
+      if (!m.data || m.data.stroke === 0) return "status-idle";
+      const oee = m.data.oee || 0;
+      if (oee >= 75) return "status-running";
+      if (oee >= 50) return "status-warn";
+      return "status-stop";
+    },
+    statusLabel(m) {
+      if (!m.data || m.data.stroke === 0) return "OFF";
+      const oee = m.data.oee || 0;
+      if (oee >= 75) return "GOOD";
+      if (oee >= 50) return "FAIR";
+      return "POOR";
+    },
+
+    renderAllCharts() {
+      if (!this._results) return;
+      const safe = (fn, label) => { try { fn(); } catch (e) { console.error("Gagal render chart:", label, e); } };
+      safe(() => this.renderHourlyChart(), "hourly");
+      safe(() => this.renderFleetChart(), "fleet");
+      safe(() => this.renderCategoryPie(), "categoryPie");
+      safe(() => this.renderDonut("donutAvail", this.totals.availability, cssVar("--sky")), "donutAvail");
+      safe(() => this.renderDonut("donutPerf", this.totals.performanceFactor, cssVar("--teal")), "donutPerf");
+      safe(() => this.renderDonut("donutQual", this.totals.quality, cssVar("--navy")), "donutQual");
+      safe(() => this.renderSqcpmMinis(), "sqcpmMinis");
+    },
+
+    // ---- Mini chart (sparkline) di tiap kolom SQCPM ----
+    miniChartBase(canvasId, labels, data, color, type) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas || typeof Chart === "undefined") return;
+      if (this.charts[canvasId]) this.charts[canvasId].destroy();
+      const isBar = type === "bar";
+      this.charts[canvasId] = new Chart(canvas, {
+        type: isBar ? "bar" : "line",
+        data: {
+          labels,
+          datasets: [{
+            data, borderColor: color, backgroundColor: isBar ? color : "transparent",
+            borderWidth: 2.5, tension: 0.4, pointRadius: 0, pointHoverRadius: 4,
+            borderRadius: isBar ? 3 : 0, barPercentage: 0.6, categoryPercentage: 0.7,
+          }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"),
+              borderColor: cssVar("--border"), borderWidth: 1, padding: 8, displayColors: false,
+            },
+          },
+          scales: {
+            x: { ticks: { color: cssVar("--chart-tick"), font: { size: 8 } }, grid: { display: false }, border: { display: false } },
+            y: { ticks: { color: cssVar("--chart-tick"), font: { size: 8 }, maxTicksLimit: 3 },
+                 grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: false }, beginAtZero: true },
+          },
+        },
+      });
+    },
+    renderSqcpmMinis() {
+      const t = this.miniTrend || { labels: [], safety: [], quality: [], productivity: [], cost: [], moral: [] };
+      this.miniChartBase("miniSafety", t.labels, t.safety, cssVar("--teal"), "line");
+      this.miniChartBase("miniQuality", t.labels, t.quality, cssVar("--sky"), "line");
+      this.miniChartBase("miniProductivity", t.labels, t.productivity, cssVar("--teal"), "bar");
+      this.miniChartBase("miniCost", t.labels, t.cost, cssVar("--red"), "bar");
+    },
+
+    renderHourlyChart() {
+      const canvas = document.getElementById("gsphHourlyChart");
+      if (!canvas || typeof Chart === "undefined") return;
+      if (this.charts.hourly) this.charts.hourly.destroy();
+
+      const lineColors = [cssVar("--series-1"), cssVar("--series-2"), cssVar("--series-3"), cssVar("--series-4"), cssVar("--series-5")];
+      let labels, datasets;
+
+      if (this.periodMode === "harian") {
+        // per jam -- dari RPC gsph_hourly
+        const jamSet = new Set();
+        this._results.forEach((r) => r.hourly.forEach((h) => jamSet.add(h.jam)));
+        const jamList = Array.from(jamSet).sort((a, b) => a - b);
+        labels = jamList.map((j) => String(j).padStart(2, "0") + ":00");
+        datasets = this._results.map((r, idx) => {
+          const map = {};
+          r.hourly.forEach((h) => { map[h.jam] = h.gsph; });
+          return {
+            type: "line", label: r.label,
+            data: jamList.map((j) => (map[j] !== undefined ? Number(map[j].toFixed(1)) : null)),
+            borderColor: lineColors[idx % lineColors.length], backgroundColor: "transparent",
+            tension: 0.4, pointRadius: 0, pointHoverRadius: 4, spanGaps: true, borderWidth: 2.5,
+          };
+        });
+      } else {
+        // per hari (bulanan) / per bulan (tahunan)
+        const lt = this.lineTrend || { labels: [], perLine: [] };
+        labels = lt.labels;
+        datasets = (lt.perLine || []).map((pl, idx) => ({
+          type: "line", label: pl.label, data: pl.values,
+          borderColor: lineColors[idx % lineColors.length], backgroundColor: "transparent",
+          tension: 0.4, pointRadius: 0, pointHoverRadius: 4, spanGaps: true, borderWidth: 2.5,
+        }));
+      }
+
+      this.charts.hourly = new Chart(canvas, {
+        data: { labels, datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: { display: true, position: "top", align: "end",
+              labels: { color: cssVar("--muted"), boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 10 }, padding: 12 } },
+            tooltip: { backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"),
+              borderColor: cssVar("--border"), borderWidth: 1, padding: 10, displayColors: false },
+          },
+          scales: {
+            x: { ticks: { color: cssVar("--chart-tick"), font: { size: 10 } }, grid: { display: false }, border: { display: false } },
+            y: { ticks: { color: cssVar("--chart-tick"), font: { size: 10 }, maxTicksLimit: 5 },
+                 grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: false }, beginAtZero: true },
+          },
+        },
+      });
+    },
+
+    renderCategoryPie() {
+      const canvas = document.getElementById("categoryPieChart");
+      if (!canvas || typeof Chart === "undefined") return;
+      if (this.charts.categoryPie) this.charts.categoryPie.destroy();
+      const categories = ["MESIN", "DIES", "FINGER", "OTHER"];
+      const colors = { MESIN: cssVar("--blue"), DIES: cssVar("--red"), FINGER: cssVar("--green"), OTHER: cssVar("--category-other") };
+      const totalsPerCat = categories.map((cat) =>
+        this._results.reduce((sum, r) => sum + ((r.byCategory.find((c) => c.kategori === cat) || {}).menit || 0), 0)
+      );
+      const grandTotal = totalsPerCat.reduce((a, b) => a + b, 0);
+      this.charts.categoryPie = new Chart(canvas, {
+        type: "doughnut",
+        data: {
+          labels: categories,
+          datasets: [{ data: totalsPerCat, backgroundColor: categories.map((c) => colors[c]), borderWidth: 0 }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "bottom", labels: { color: cssVar("--muted"), boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 10 }, padding: 10 } },
+            pieCenterText: { value: fmtNum(grandTotal), label: "Menit Downtime", color: cssVar("--text"), labelColor: cssVar("--muted") },
+            sliceLabels: { enabled: true, color: "#ffffff" },
+            tooltip: {
+              backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"),
+              borderColor: cssVar("--border"), borderWidth: 1, padding: 10,
+              callbacks: {
+                label: (ctx) => {
+                  const total = totalsPerCat.reduce((a, b) => a + b, 0);
+                  const pct = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : "0";
+                  return `${ctx.label}: ${fmtNum(ctx.parsed)} menit (${pct}%)`;
+                },
+              },
+            },
+          },
+        },
+      });
+    },
+
+    renderFleetChart() {
+      const canvas = document.getElementById("fleetDowntimeChart");
+      if (!canvas || typeof Chart === "undefined") return;
+      if (this.charts.fleet) this.charts.fleet.destroy();
+      const categories = ["MESIN", "DIES", "FINGER", "OTHER"];
+      const colors = { MESIN: cssVar("--blue"), DIES: cssVar("--red"), FINGER: cssVar("--green"), OTHER: cssVar("--category-other") };
+      this.charts.fleet = new Chart(canvas, {
+        type: "bar",
+        data: {
+          labels: this._results.map((r) => r.label),
+          datasets: categories.map((cat) => ({
+            label: cat,
+            data: this._results.map((r) => (r.byCategory.find((c) => c.kategori === cat) || {}).menit || 0),
+            backgroundColor: colors[cat], borderRadius: 4, borderSkipped: false, barPercentage: 0.6, categoryPercentage: 0.7,
+          })),
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "top", align: "end",
+              labels: { color: cssVar("--muted"), boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 10 }, padding: 12 } },
+            tooltip: { backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"),
+              borderColor: cssVar("--border"), borderWidth: 1, padding: 10 },
+          },
+          scales: {
+            x: { stacked: true, ticks: { color: cssVar("--chart-tick"), font: { size: 10 } }, grid: { display: false }, border: { display: false } },
+            y: { stacked: true, ticks: { color: cssVar("--chart-tick"), font: { size: 10 }, maxTicksLimit: 5 },
+                 grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: false }, beginAtZero: true },
+          },
+        },
+      });
+    },
+
+    renderDonut(canvasId, value, color) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas || typeof Chart === "undefined") return;
+      if (this.charts[canvasId]) this.charts[canvasId].destroy();
+      const v = Math.max(0, Math.min(100, Number(value) || 0));
+      this.charts[canvasId] = new Chart(canvas, {
+        type: "doughnut",
+        data: { datasets: [{ data: [v, 100 - v], backgroundColor: [color, cssVar("--panel-2")], borderWidth: 0 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false, cutout: "72%",
+          plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        },
+        plugins: [{
+          id: "centerText",
+          afterDraw(chart) {
+            const { ctx, chartArea } = chart;
+            ctx.save();
+            ctx.font = "700 15px 'Space Grotesk', sans-serif";
+            ctx.fillStyle = cssVar("--text");
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(fmtNum(v) + "%", (chartArea.left + chartArea.right) / 2, (chartArea.top + chartArea.bottom) / 2);
+            ctx.restore();
+          },
+        }],
+      });
+    },
+
+    logout,
+  };
+}
+</script>
+</body>
+</html>

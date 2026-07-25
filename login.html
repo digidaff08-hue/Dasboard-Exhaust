@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login — Sistem Produksi & Downtime</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1a1e24">
+<link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.x.x/dist/cdn.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/supabaseClient.js"></script>
+</head>
+<body>
+
+<div class="login-shell" x-data="loginPage()" x-init="checkExisting()">
+  <div class="login-card">
+    <h1>Sistem Produksi <span style="color:var(--amber)">&amp;</span> Downtime</h1>
+    <p class="sub">Login untuk mencatat data produksi &amp; downtime mesin.</p>
+
+    <template x-if="errorMsg">
+      <div class="error-msg" x-text="errorMsg"></div>
+    </template>
+    <template x-if="infoMsg">
+      <div class="success-msg" x-text="infoMsg"></div>
+    </template>
+
+    <template x-if="mode === 'login'">
+      <form @submit.prevent="login">
+        <div class="field">
+          <label>Email</label>
+          <input type="email" x-model="email" required autocomplete="username">
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input type="password" x-model="password" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn-primary" :disabled="busy">
+          <span x-show="!busy">Masuk</span>
+          <span x-show="busy">Memproses…</span>
+        </button>
+        <p class="hint" style="text-align:center;margin-top:14px;">
+          Belum punya akun?
+          <a href="#" @click.prevent="mode = 'signup'">Daftar di sini</a>
+        </p>
+      </form>
+    </template>
+
+    <template x-if="mode === 'signup'">
+      <form @submit.prevent="signup">
+        <div class="field">
+          <label>Nama Lengkap</label>
+          <input type="text" x-model="fullName" required>
+        </div>
+        <div class="field">
+          <label>Email</label>
+          <input type="email" x-model="email" required autocomplete="username">
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input type="password" x-model="password" required minlength="6" autocomplete="new-password">
+          <p class="hint">Minimal 6 karakter.</p>
+        </div>
+        <button type="submit" class="btn-primary" :disabled="busy">
+          <span x-show="!busy">Daftar</span>
+          <span x-show="busy">Memproses…</span>
+        </button>
+        <p class="hint" style="text-align:center;margin-top:14px;">
+          Sudah punya akun?
+          <a href="#" @click.prevent="mode = 'login'">Masuk di sini</a>
+        </p>
+      </form>
+    </template>
+  </div>
+</div>
+
+<script>
+function loginPage() {
+  return {
+    mode: "login",
+    email: "", password: "", fullName: "",
+    errorMsg: "", infoMsg: "", busy: false,
+
+    async checkExisting() {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session) window.location.href = "index.html";
+    },
+
+    async login() {
+      this.busy = true; this.errorMsg = "";
+      const { error } = await supabaseClient.auth.signInWithPassword({
+        email: this.email, password: this.password
+      });
+      this.busy = false;
+      if (error) { this.errorMsg = "Login gagal: " + error.message; return; }
+      window.location.href = "index.html";
+    },
+
+    async signup() {
+      this.busy = true; this.errorMsg = "";
+      const { error } = await supabaseClient.auth.signUp({
+        email: this.email,
+        password: this.password,
+        options: { data: { full_name: this.fullName } }
+      });
+      this.busy = false;
+      if (error) { this.errorMsg = "Pendaftaran gagal: " + error.message; return; }
+      this.infoMsg = "Pendaftaran berhasil. Cek email untuk verifikasi (jika diaktifkan), lalu login.";
+      this.mode = "login";
+    }
+  };
+}
+</script>
+</body>
+</html>

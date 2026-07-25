@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Input Scrap — Press Shop System</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+  (function () {
+    var t = localStorage.getItem("theme_v1") || "light";
+    document.documentElement.setAttribute("data-theme", t);
+  })();
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/supabaseClient.js"></script>
+</head>
+<body>
+
+<div class="app-shell" x-data="scrapPage()" x-init="init()">
+  <div class="mobile-topbar">
+    <button class="hamburger" @click="mobileNavOpen = true">☰</button>
+    <span class="mobile-title">Input Scrap</span>
+  </div>
+  <div class="sidebar-overlay" x-show="mobileNavOpen" @click="mobileNavOpen = false" x-cloak></div>
+  <aside class="sidebar" :class="[mobileNavOpen ? 'sidebar-open' : '', sidebarCollapsed ? 'sidebar-collapsed' : '']">
+    <button class="sidebar-collapse-btn" @click="sidebarCollapsed = !sidebarCollapsed">
+      <span x-show="!sidebarCollapsed">‹</span><span x-show="sidebarCollapsed">›</span>
+    </button>
+    <div class="sidebar-brand" x-show="!sidebarCollapsed">PRESS SHOP<span>·</span>SYSTEM</div>
+    <nav class="sidebar-nav" @click="mobileNavOpen = false">
+      <a href="index.html" class="sidebar-link" title="Dashboard"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a>
+      <a href="input-produksi.html" class="sidebar-link" title="Input Produksi"><span>⚙️</span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-attendance.html" class="sidebar-link" title="Input Attendance"><span>👥</span><span x-show="!sidebarCollapsed">Input Attendance</span></a>
+      </template>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-scrap.html" class="sidebar-link active" title="Input Scrap"><span>♻️</span><span x-show="!sidebarCollapsed">Input Scrap</span></a>
+      </template>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-safety.html" class="sidebar-link" title="Input Safety"><span>⛑️</span><span x-show="!sidebarCollapsed">Input Safety</span></a>
+      </template>
+    </nav>
+    <div class="sidebar-foot" x-show="!sidebarCollapsed">
+      <div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
+      <span class="badge" :class="profile?.role === 'admin' ? 'role-admin' : ''" x-text="profile?.role || '...'"></span>
+      <button class="btn-ghost btn-sm" @click="logout()">Keluar</button>
+    </div>
+    <button class="sidebar-logout-collapsed" x-show="sidebarCollapsed" @click="logout()" title="Keluar">⏻</button>
+  </aside>
+
+  <main class="main">
+    <div class="page-header">
+      <h1 class="page-title"><span class="eyebrow">Input</span>Scrap Top End (Bulanan)</h1>
+    </div>
+    <template x-if="!isLeaderOrAdmin() && profile">
+      <div class="error-msg">Halaman ini khusus admin/leader.</div>
+    </template>
+    <template x-if="msg"><div :class="msgError ? 'error-msg' : 'success-msg'" x-text="msg"></div></template>
+
+    <template x-if="isLeaderOrAdmin()">
+      <div>
+        <div class="panel">
+          <p class="panel-title">Form Scrap Top End</p>
+          <p class="hint" style="margin-bottom:12px;">Satuan mengikuti laporan asli: <b>K IDR</b> (ribuan Rupiah).</p>
+          <div class="form-grid">
+            <div class="field"><label>Tahun</label><input type="number" min="2000" max="2100" x-model="form.tahun"></div>
+            <div class="field"><label>Bulan</label>
+              <select x-model="form.bulan">
+                <option value="1">Januari</option><option value="2">Februari</option><option value="3">Maret</option>
+                <option value="4">April</option><option value="5">Mei</option><option value="6">Juni</option>
+                <option value="7">Juli</option><option value="8">Agustus</option><option value="9">September</option>
+                <option value="10">Oktober</option><option value="11">November</option><option value="12">Desember</option>
+              </select>
+            </div>
+            <div class="field"><label>Scrap Value (K IDR)</label><input type="number" step="0.001" x-model="form.scrap_value_kidr"></div>
+            <div class="field"><label>Total Value (K IDR)</label><input type="number" step="0.001" x-model="form.total_value_kidr"></div>
+            <div class="field"><label>Target Rasio (mis. 0.0046)</label><input type="number" step="0.0001" x-model="form.target_rasio"></div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn-primary" @click="save()">Simpan Scrap</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <p class="panel-title">Riwayat Scrap <span class="count" x-text="rows.length + ' baris'"></span></p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Periode</th><th>Scrap (K IDR)</th><th>Total (K IDR)</th><th>Rasio</th><th>Target</th><th>Aksi</th></tr></thead>
+              <tbody>
+                <template x-for="r in rows" :key="r.id">
+                  <tr>
+                    <td class="mono" x-text="r.tahun + '-' + String(r.bulan).padStart(2,'0')"></td>
+                    <td class="mono" x-text="fmtNum(r.scrap_value_kidr)"></td>
+                    <td class="mono" x-text="fmtNum(r.total_value_kidr)"></td>
+                    <td class="mono" x-text="r.total_value_kidr > 0 ? fmtNum(r.scrap_value_kidr / r.total_value_kidr * 100) + '%' : '-'"></td>
+                    <td class="mono" x-text="r.target_rasio ? fmtNum(r.target_rasio * 100) + '%' : '-'"></td>
+                    <td><button class="btn-secondary btn-sm" @click="edit(r)">Edit</button></td>
+                  </tr>
+                </template>
+                <tr x-show="rows.length === 0"><td colspan="6" class="empty-state">Belum ada data.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </template>
+  </main>
+</div>
+<script>
+
+function baseInputPage() {
+  return {
+    session: null, profile: null, mobileNavOpen: false, sidebarCollapsed: true,
+    theme: localStorage.getItem("theme_v1") || "light",
+    msg: "", msgError: false,
+    isLeaderOrAdmin() { return this.profile && ["admin", "leader"].includes(this.profile.role); },
+    flash(m, isErr) {
+      this.msg = m; this.msgError = !!isErr;
+      setTimeout(() => { this.msg = ""; }, 4000);
+    },
+    async initBase() {
+      this.session = await requireAuth();
+      if (!this.session) return false;
+      const { data } = await supabaseClient.from("profiles").select("*").eq("id", this.session.user.id).maybeSingle();
+      this.profile = data;
+      return true;
+    },
+    logout,
+  };
+}
+function fmtNum(n) {
+  if (n === null || n === undefined || Number.isNaN(Number(n))) return "-";
+  return Number(n).toLocaleString("en-US", { maximumFractionDigits: 1 });
+}
+
+function scrapPage() {
+  const now = new Date();
+  return {
+    ...baseInputPage(),
+    fmtNum,
+    form: { tahun: now.getFullYear(), bulan: String(now.getMonth()+1), scrap_value_kidr: "", total_value_kidr: "", target_rasio: "" },
+    rows: [],
+    async init() {
+      if (!await this.initBase()) return;
+      await this.fetchRows();
+    },
+    async fetchRows() {
+      const { data, error } = await supabaseClient.from("scrap_top_end").select("*")
+        .order("tahun", { ascending: false }).order("bulan", { ascending: false }).limit(100);
+      if (!error && data) this.rows = data;
+    },
+    edit(r) {
+      this.form = { tahun: r.tahun, bulan: String(r.bulan), scrap_value_kidr: r.scrap_value_kidr, total_value_kidr: r.total_value_kidr, target_rasio: r.target_rasio ?? "" };
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    async save() {
+      const f = this.form;
+      if (!f.tahun || !f.bulan) { this.flash("Tahun dan Bulan wajib diisi.", true); return; }
+      const payload = {
+        tahun: Number(f.tahun), bulan: Number(f.bulan),
+        scrap_value_kidr: Number(f.scrap_value_kidr) || 0,
+        total_value_kidr: Number(f.total_value_kidr) || 0,
+        target_rasio: f.target_rasio === "" ? null : Number(f.target_rasio),
+      };
+      const { error } = await supabaseClient.from("scrap_top_end").upsert(payload, { onConflict: "tahun,bulan" });
+      if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
+      this.flash("Data scrap tersimpan.");
+      await this.fetchRows();
+    },
+  };
+}
+</script>
+</body>
+</html>

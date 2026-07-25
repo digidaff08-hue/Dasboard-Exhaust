@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Input Produksi — Press Shop System</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+  (function () {
+    var t = localStorage.getItem("theme_v1") || "light";
+    document.documentElement.setAttribute("data-theme", t);
+  })();
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/supabaseClient.js"></script>
+</head>
+<body>
+
+<div class="app-shell" x-data="produksiHub()" x-init="init()">
+  <div class="mobile-topbar">
+    <button class="hamburger" @click="mobileNavOpen = true">☰</button>
+    <span class="mobile-title">Input Produksi</span>
+  </div>
+  <div class="sidebar-overlay" x-show="mobileNavOpen" @click="mobileNavOpen = false" x-cloak></div>
+  <aside class="sidebar" :class="[mobileNavOpen ? 'sidebar-open' : '', sidebarCollapsed ? 'sidebar-collapsed' : '']">
+    <button class="sidebar-collapse-btn" @click="sidebarCollapsed = !sidebarCollapsed">
+      <span x-show="!sidebarCollapsed">‹</span><span x-show="sidebarCollapsed">›</span>
+    </button>
+    <div class="sidebar-brand" x-show="!sidebarCollapsed">PRESS SHOP<span>·</span>SYSTEM</div>
+    <nav class="sidebar-nav" @click="mobileNavOpen = false">
+      <a href="index.html" class="sidebar-link" title="Dashboard"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a>
+      <a href="input-produksi.html" class="sidebar-link active" title="Input Produksi"><span>⚙️</span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-attendance.html" class="sidebar-link" title="Input Attendance"><span>👥</span><span x-show="!sidebarCollapsed">Input Attendance</span></a>
+      </template>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-scrap.html" class="sidebar-link" title="Input Scrap"><span>♻️</span><span x-show="!sidebarCollapsed">Input Scrap</span></a>
+      </template>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-safety.html" class="sidebar-link" title="Input Safety"><span>⛑️</span><span x-show="!sidebarCollapsed">Input Safety</span></a>
+      </template>
+    </nav>
+    <div class="sidebar-foot" x-show="!sidebarCollapsed">
+      <div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
+      <span class="badge" :class="profile?.role === 'admin' ? 'role-admin' : ''" x-text="profile?.role || '...'"></span>
+      <button class="btn-ghost btn-sm" @click="logout()">Keluar</button>
+    </div>
+    <button class="sidebar-logout-collapsed" x-show="sidebarCollapsed" @click="logout()" title="Keluar">⏻</button>
+  </aside>
+
+  <main class="main">
+    <div class="page-header">
+      <h1 class="page-title"><span class="eyebrow">Input</span>Pilih Line Produksi</h1>
+    </div>
+    <div class="machine-cards-grid">
+      <a href="machines/tandem.html" class="machine-card"><div class="machine-card-top"><span class="machine-card-name">Tandem</span><span>⚙️</span></div><div class="hint">PA-1 s/d PA-10</div></a>
+      <a href="machines/blanking.html" class="machine-card"><div class="machine-card-top"><span class="machine-card-name">Blanking</span><span>⚙️</span></div><div class="hint">Blanking 500t</div></a>
+      <a href="machines/transfer-2000t.html" class="machine-card"><div class="machine-card-top"><span class="machine-card-name">Transfer 2000t</span><span>⚙️</span></div><div class="hint">PT-1</div></a>
+      <a href="machines/transfer-800t.html" class="machine-card"><div class="machine-card-top"><span class="machine-card-name">Transfer 800t</span><span>⚙️</span></div><div class="hint">PT-2</div></a>
+      <a href="machines/pc200t.html" class="machine-card"><div class="machine-card-top"><span class="machine-card-name">PC200t</span><span>⚙️</span></div><div class="hint">PC-1, PC-2</div></a>
+    </div>
+  </main>
+</div>
+<script>
+
+function baseInputPage() {
+  return {
+    session: null, profile: null, mobileNavOpen: false, sidebarCollapsed: true,
+    theme: localStorage.getItem("theme_v1") || "light",
+    msg: "", msgError: false,
+    isLeaderOrAdmin() { return this.profile && ["admin", "leader"].includes(this.profile.role); },
+    flash(m, isErr) {
+      this.msg = m; this.msgError = !!isErr;
+      setTimeout(() => { this.msg = ""; }, 4000);
+    },
+    async initBase() {
+      this.session = await requireAuth();
+      if (!this.session) return false;
+      const { data } = await supabaseClient.from("profiles").select("*").eq("id", this.session.user.id).maybeSingle();
+      this.profile = data;
+      return true;
+    },
+    logout,
+  };
+}
+function fmtNum(n) {
+  if (n === null || n === undefined || Number.isNaN(Number(n))) return "-";
+  return Number(n).toLocaleString("en-US", { maximumFractionDigits: 1 });
+}
+
+function produksiHub() {
+  return { ...baseInputPage(), async init() { await this.initBase(); } };
+}
+</script>
+</body>
+</html>

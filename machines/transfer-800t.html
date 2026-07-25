@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transfer 800t — Sistem Produksi &amp; Downtime</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1a1e24">
+<link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<script>
+  (function () {
+    var t = localStorage.getItem("theme_v1") || "light";
+    document.documentElement.setAttribute("data-theme", t);
+  })();
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="../assets/supabaseClient.js"></script>
+<script src="../assets/machine-page.js"></script>
+</head>
+<body>
+
+<div class="app-shell"
+     x-data='machinePage("transfer_800t", "Transfer 800t", [], 0, ["MESIN", "DIES", "FINGER", "OTHER"], {"mode": "none"})'
+     x-init="init()">
+  <div class="mobile-topbar">
+    <button class="hamburger" @click="mobileNavOpen = true">☰</button>
+    <span class="mobile-title">Transfer 800t</span>
+  </div>
+  <div class="sidebar-overlay" x-show="mobileNavOpen" @click="mobileNavOpen = false" x-cloak></div>
+  <aside class="sidebar" :class="[mobileNavOpen ? 'sidebar-open' : '', sidebarCollapsed ? 'sidebar-collapsed' : '']">
+    <button class="sidebar-collapse-btn" @click="sidebarCollapsed = !sidebarCollapsed" :title="sidebarCollapsed ? 'Buka menu' : 'Ciutkan menu'">
+      <span x-show="!sidebarCollapsed">‹</span><span x-show="sidebarCollapsed">›</span>
+    </button>
+    <div class="sidebar-brand" x-show="!sidebarCollapsed">PRODUKSI<span>&amp;</span>DOWNTIME</div>
+    <nav class="sidebar-nav" @click="mobileNavOpen = false">
+      <a href="../index.html" class="sidebar-link" title="Dashboard"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a>
+      <a href="../input-produksi.html" class="sidebar-link active" title="Input Produksi"><span>⚙️</span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="../input-attendance.html" class="sidebar-link" title="Input Attendance"><span>👥</span><span x-show="!sidebarCollapsed">Input Attendance</span></a>
+      </template>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="../input-scrap.html" class="sidebar-link" title="Input Scrap"><span>♻️</span><span x-show="!sidebarCollapsed">Input Scrap</span></a>
+      </template>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="../input-safety.html" class="sidebar-link" title="Input Safety"><span>⛑️</span><span x-show="!sidebarCollapsed">Input Safety</span></a>
+      </template>
+    </nav>
+    <div class="sidebar-foot" x-show="!sidebarCollapsed">
+      <div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
+      <span class="badge" :class="profile?.role === 'admin' ? 'role-admin' : ''" x-text="profile?.role || '...'"></span>
+      <div class="net-status" :class="isOnline ? 'net-online' : 'net-offline'">
+        <span x-text="isOnline ? '🟢 Online' : '🔴 Offline'"></span>
+        <span x-show="pendingCount > 0" x-text="'· ' + pendingCount + ' menunggu sinkron'"></span>
+      </div>
+      <button class="btn-ghost btn-sm" @click="logout()">Keluar</button>
+    </div>
+    <button class="sidebar-logout-collapsed" x-show="sidebarCollapsed" @click="logout()" title="Keluar">⏻</button>
+  </aside>
+
+  <main class="main">
+    <div class="page-header">
+      <h1 class="page-title"><span class="eyebrow">Mesin</span>Transfer 800t</h1>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn-secondary btn-sm" :class="tab==='produksi' ? 'btn-primary' : ''" @click="tab='produksi'">Input Produksi</button>
+        <button class="btn-secondary btn-sm" :class="tab==='riwayat' ? 'btn-primary' : ''" @click="tab='riwayat'">Riwayat Produksi</button>
+        <button class="btn-secondary btn-sm" :class="tab==='performance' ? 'btn-primary' : ''" @click="openPerformanceTab()">Performance</button>
+        <button class="btn-secondary btn-sm" :class="tab==='downtime' ? 'btn-primary' : ''" @click="tab='downtime'">Downtime</button>
+        <template x-if="isLeaderOrAdmin()">
+          <button class="btn-secondary btn-sm" :class="tab==='master' ? 'btn-primary' : ''" @click="tab='master'">Master Data</button>
+        </template>
+        <button class="theme-toggle" @click="toggleTheme()" :title="theme === 'dark' ? 'Ke mode terang' : 'Ke mode gelap'">
+          <span x-text="theme === 'dark' ? '☀️' : '🌙'"></span>
+        </button>
+      </div>
+    </div>
+
+    <template x-if="errorMsg"><div class="error-msg" x-text="errorMsg"></div></template>
+    <template x-if="successMsg"><div class="success-msg" x-text="successMsg"></div></template>
+    <template x-if="!isOnline">
+      <div class="offline-banner">📴 Tidak ada jaringan — data baru akan disimpan di HP dan disinkron otomatis begitu online lagi.</div>
+    </template>
+    <template x-if="loading"><div class="empty-state">Memuat data...</div></template>
+
+    <template x-if="!loading">
+      <div>
+        <!-- ===================== TAB PRODUKSI ===================== -->
+        <div x-show="tab === 'produksi'">
+
+          <div class="panel" x-show="stationConfig.mode === 'variant' && !tandemVariant">
+            <p class="panel-title">Pilih Line Tandem</p>
+            <div class="chip-row">
+              <button type="button" class="btn-primary" @click="setTandemVariant('lama')">TDM Lama (PA-1 s/d PA-5)</button>
+              <button type="button" class="btn-primary" @click="setTandemVariant('baru')">TDM Baru (PA-6 s/d PA-10)</button>
+            </div>
+          </div>
+          <p class="hint" style="margin-bottom:16px;" x-show="stationConfig.mode === 'variant' && tandemVariant">
+            Line aktif: <b x-text="tandemVariant === 'lama' ? 'TDM Lama (PA-1 s/d PA-5)' : 'TDM Baru (PA-6 s/d PA-10)'"></b>
+            — <a href="#" @click.prevent="tandemVariant = null">ganti line</a>
+          </p>
+
+          <template x-for="st in stationList()" :key="st.id">
+            <div class="panel station-card">
+              <p class="panel-title" x-show="st.label"><span x-text="st.label"></span></p>
+
+              <!-- IDLE -->
+              <div x-show="lines[st.id].state === 'idle'">
+                <button type="button" class="btn-primary" @click="clickMulai(st.id)">▶ Mulai Produksi</button>
+              </div>
+
+              <!-- AWAITING_GAP: klasifikasi jeda sebelum mulai -->
+              <div class="classification-box" x-show="lines[st.id].state === 'awaiting_gap'" x-cloak>
+                <p class="classification-title">⏱ Ada jeda sebelum ini — jenis non-produksi apa?</p>
+                <p class="hint" x-text="'Jeda: ' + fmtClock(lines[st.id].gapInfo?.gapStart) + ' → ' + fmtClock(lines[st.id].gapInfo?.gapEnd)"></p>
+                <div class="form-grid">
+                  <div class="field">
+                    <label>Jenis Non-Produksi</label>
+                    <select x-model="lines[st.id].gapForm.nonproduksi_nama">
+                      <option value="">- pilih -</option>
+                      <template x-for="t in nonProduksiTypeList" :key="t.id">
+                        <option :value="t.nama" x-text="t.nama"></option>
+                      </template>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-actions">
+                  <button type="button" class="btn-secondary" @click="cancelGapNonProduksi(st.id)">Batal</button>
+                  <button type="button" class="btn-primary" @click="confirmGapNonProduksi(st.id)">Konfirmasi</button>
+                </div>
+              </div>
+
+              <!-- AWAITING_ACTUAL_START: fase dandori, pilih part -->
+              <div x-show="lines[st.id].state === 'awaiting_actual_start'" x-cloak>
+                <div class="timer-badge" style="margin-bottom:14px;">
+                  <span class="timer-dot timer-dot-live"></span>
+                  <span>Dandori sejak <b x-text="fmtClock(lines[st.id].entryStart)"></b></span>
+                  <button type="button" class="btn-ghost btn-sm" @click="cancelLine(st.id)">Batal</button>
+                </div>
+                <p class="hint" style="margin-bottom:10px;">Pilih dari Planning kalau ada, atau ketik Part Number lain.</p>
+                <div class="chip-row" style="margin-bottom:14px;" x-show="planningForStation(st.id).filter(p => p.status==='pending').length > 0">
+                  <template x-for="p in planningForStation(st.id).filter(p => p.status==='pending')" :key="p.id">
+                    <button type="button" class="chip" @click="choosePlannedPart(st.id, p)"
+                            x-text="p.part_number + (p.qty_rencana ? (' · ' + p.qty_rencana + 'pcs') : '')"></button>
+                  </template>
+                </div>
+                <div class="form-grid">
+                  <div class="field">
+                    <label>Part Number</label>
+                    <div class="combo" x-data="comboBox(() => partNumberList.map(p => p.value), () => lines[st.id].form.part_number, (v) => lines[st.id].form.part_number = v, (v) => { autofillManpower(st.id, v) })" @click.outside="open = false">
+                      <input type="text" x-model="query" @input="onInput()" @focus="open = true" placeholder="Ketik atau pilih...">
+                      <div class="combo-list" x-show="open && filtered().length > 0" x-cloak>
+                        <template x-for="opt in filtered()" :key="opt">
+                          <div class="combo-item" @mousedown.prevent="select(opt)" x-text="opt"></div>
+                        </template>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field"><label>Qty</label><input type="number" x-model="lines[st.id].form.qty"></div>
+                  <div class="field"><label>Jumlah MP</label><input type="number" x-model="lines[st.id].form.manpower"></div>
+
+                </div>
+                <div class="field" x-show="routingMax > 0" style="margin-bottom:16px;">
+                  <label>Routing</label>
+                  <div class="chip-row">
+                    <button type="button" class="chip" :class="lines[st.id].routingType==='WIP' ? 'chip-active' : ''" @click="setRoutingType(st.id, 'WIP')">WIP</button>
+                    <button type="button" class="chip" :class="lines[st.id].routingType==='FG' ? 'chip-active' : ''" @click="setRoutingType(st.id, 'FG')">FG</button>
+                  </div>
+                  <div class="chip-row" x-show="lines[st.id].routingType" style="margin-top:8px;">
+                    <template x-for="n in routingRange()" :key="n">
+                      <button type="button" class="chip chip-num" :class="lines[st.id].routingNumbers.includes(n) ? 'chip-active' : ''" @click="toggleRoutingNumber(st.id, n)" x-text="n"></button>
+                    </template>
+                  </div>
+                </div>
+                <div class="form-actions">
+                  <button type="button" class="btn-primary" @click="confirmActualStart(st.id)">✅ Konfirmasi Produksi Mulai</button>
+                </div>
+              </div>
+
+              <!-- RUNNING -->
+              <div x-show="lines[st.id].state === 'running'" x-cloak>
+                <div class="timer-badge">
+                  <span class="timer-dot timer-dot-live"></span>
+                  <span>Produksi <b x-text="lines[st.id].form.part_number"></b> — mulai aktual <b x-text="fmtClock(lines[st.id].actualStartConfirmedAt)"></b></span>
+                  <button type="button" class="btn-danger btn-finish" @click="stopProduksi(st.id)">⏹ Selesai Produksi</button>
+                </div>
+              </div>
+
+              <!-- FINISHED: pilih Setup atau Non-Produksi -->
+              <div class="classification-box" x-show="lines[st.id].afterFinishChoice" x-cloak>
+                <p class="classification-title">Selesai jam <span x-text="fmtClock(lines[st.id].entryEnd)"></span> — lanjut apa?</p>
+                <div class="form-actions" style="justify-content:flex-start;">
+                  <button type="button" class="btn-primary" @click="chooseSetupNext(st.id)">🔧 Setup (ganti part)</button>
+                  <button type="button" class="btn-secondary" @click="chooseNonProduksiNext(st.id)">Non-Produksi</button>
+                </div>
+              </div>
+
+              <!-- NONPRODUKSI_RUNNING -->
+              <div class="classification-box" x-show="lines[st.id].state === 'nonproduksi_running'" x-cloak>
+                <p class="classification-title">⏱ Non-Produksi sejak <span x-text="fmtClock(lines[st.id].nonProdActiveStart)"></span></p>
+                <div class="form-grid">
+                  <div class="field">
+                    <label>Jenis</label>
+                    <select x-model="lines[st.id].nonProdForm.nama">
+                      <option value="">- pilih -</option>
+                      <template x-for="t in nonProduksiTypeList" :key="t.id">
+                        <option :value="t.nama" x-text="t.nama"></option>
+                      </template>
+                    </select>
+                  </div>
+                </div>
+                <p class="hint">"Mulai Produksi" kalau part berikutnya mau dikerjakan sekarang (otomatis menutup non-produksi ini). "Selesai (Tutup Shift)" kalau mesin memang berhenti beroperasi sampai shift berikutnya.</p>
+                <div class="form-actions" style="justify-content:flex-start;">
+                  <button type="button" class="btn-primary" @click="clickMulai(st.id)">▶ Mulai Produksi</button>
+                  <button type="button" class="btn-secondary" @click="endNonProduksiAndStop(st.id)">⏹ Selesai (Tutup Shift)</button>
+                </div>
+              </div>
+
+              <!-- EDIT (koreksi manual) -->
+              <form @submit.prevent="saveEditProduction(st.id)" x-show="lines[st.id].state === 'edit'" x-cloak>
+                <p class="hint" style="margin-bottom:10px;">Mode edit — koreksi data lama.</p>
+                <div class="form-grid">
+                  <div class="field"><label>Waktu Awal</label><input type="datetime-local" x-model="lines[st.id].editForm.waktu_awal"></div>
+                  <div class="field"><label>Waktu Akhir</label><input type="datetime-local" x-model="lines[st.id].editForm.waktu_akhir"></div>
+                  <div class="field"><label>Part Number</label><input type="text" x-model="lines[st.id].editForm.part_number"></div>
+                  <div class="field"><label>Qty</label><input type="number" x-model="lines[st.id].editForm.qty"></div>
+                  <div class="field"><label>NG (pcs)</label><input type="number" x-model="lines[st.id].editForm.ng"></div>
+                  <div class="field"><label>Jumlah MP</label><input type="number" x-model="lines[st.id].editForm.manpower"></div>
+                  <div class="field"><label>Dandori (menit)</label><input type="number" x-model="lines[st.id].editForm.dandori_menit"></div>
+                  <div class="field"><label>Break (menit)</label><input type="number" x-model="lines[st.id].editForm.break_menit"></div>
+
+                </div>
+                <div class="form-actions">
+                  <button type="button" class="btn-ghost" @click="cancelLine(st.id)">Batal</button>
+                  <button type="submit" class="btn-primary">Simpan Perubahan</button>
+                </div>
+              </form>
+
+              <!-- Planning vs Aktual -->
+              <div class="planning-actual-grid">
+                <div class="planning-col">
+                  <p class="panel-subtitle">Planning Produksi</p>
+                  <div class="planning-add-row" x-show="isLeaderOrAdmin()">
+                    <div class="combo" x-data="comboBox(() => partNumberList.map(p => p.value), () => newPlanning.part_number, (v) => newPlanning.part_number = v)" @click.outside="open = false">
+                      <input type="text" x-model="query" @input="onInput()" @focus="open = true" placeholder="Part Number">
+                      <div class="combo-list" x-show="open && filtered().length > 0" x-cloak>
+                        <template x-for="opt in filtered()" :key="opt">
+                          <div class="combo-item" @mousedown.prevent="select(opt)" x-text="opt"></div>
+                        </template>
+                      </div>
+                    </div>
+                    <input type="number" placeholder="Qty" x-model="newPlanning.qty_rencana" style="max-width:80px;">
+                    <input type="datetime-local" x-model="newPlanning.jam_mulai" title="Jam rencana mulai">
+                    <input type="datetime-local" x-model="newPlanning.jam_selesai" title="Jam rencana selesai">
+                    <button type="button" class="btn-primary btn-sm" @click="newPlanning.stasiun = dbStasiun(st.id); addPlanning()">+ Add</button>
+                  </div>
+                  <div class="planning-list">
+                    <template x-for="p in planningForStation(st.id)" :key="p.id">
+                      <div class="planning-item" :class="p.status === 'selesai' ? 'planning-done' : ''">
+                        <span x-text="p.part_number"></span>
+                        <span class="hint" x-text="(p.qty_rencana ?? '-') + 'pcs · ' + fmtClock(p.jam_rencana_mulai) + '-' + fmtClock(p.jam_rencana_selesai)"></span>
+                        <button type="button" class="btn-danger btn-sm" x-show="isLeaderOrAdmin()" @click="deletePlanning(p.id)">✕</button>
+                      </div>
+                    </template>
+                    <p class="empty-state" x-show="planningForStation(st.id).length === 0">Belum ada rencana.</p>
+                  </div>
+                </div>
+                <div class="planning-col">
+                  <p class="panel-subtitle">Aktual Produksi (Hari Ini)</p>
+                  <div class="planning-list">
+                    <template x-if="['awaiting_actual_start','running'].includes(lines[st.id].state) && lines[st.id].form.part_number">
+                      <div class="planning-item planning-current">
+                        <span class="timer-dot timer-dot-live"></span>
+                        <span x-text="lines[st.id].form.part_number"></span>
+                        <span class="hint" x-text="(lines[st.id].state === 'running' ? 'sedang produksi' : 'sedang dandori') + ' · mulai ' + fmtClock(lines[st.id].entryStart)"></span>
+                      </div>
+                    </template>
+                    <template x-for="r in productionRows.filter(r => (r.stasiun||null) === dbStasiun(st.id) && localDateStr(new Date(r.waktu_awal)) === localDateStr(new Date()))" :key="r.id">
+                      <div class="planning-item">
+                        <span x-text="r.part_number"></span>
+                        <span class="hint" x-text="(r.qty ?? '-') + 'pcs · ' + fmtClock(r.waktu_awal) + '-' + fmtClock(r.waktu_akhir)"></span>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <div class="panel">
+            <p class="panel-title">Riwayat Hari Ini <span class="count" x-text="riwayatHariIni().length + ' baris'"></span></p>
+            <p class="hint" style="margin-bottom:12px;">Riwayat lengkap semua tanggal ada di tab "Riwayat Produksi".</p>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Kode</th>
+                    <th x-show="stationConfig.mode !== 'none'">Stasiun</th>
+                    <th>Waktu Awal</th><th>Waktu Akhir</th>
+                    <th>Part Number</th><th>Qty</th><th>MP</th>
+                    <th>Earned</th><th>Operation</th><th>Availability</th>
+                    <th>Dandori</th><th>Downtime</th><th>Break</th>
+                    <th x-show="routingMax > 0">Routing</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="row in riwayatHariIni()" :key="row._tipe + '-' + row.id">
+                    <tr :class="row._pending ? 'row-pending' : ''">
+                      <td class="mono" x-text="row._tipe === 'produksi' ? (row.kode || (row._pending ? '⏳' : '-')) : '-'"></td>
+                      <td class="mono" x-show="stationConfig.mode !== 'none'" x-text="row.stasiun || '-'"></td>
+                      <td class="mono" x-text="fmt(row.waktu_awal)"></td>
+                      <td class="mono" x-text="fmt(row.waktu_akhir)"></td>
+                      <td x-text="detailRiwayat(row)"></td>
+                      <td x-text="row._tipe === 'produksi' ? fmtNum(row.qty) : '-'"></td>
+                      <td x-text="row._tipe === 'produksi' ? fmtNum(row.manpower) : '-'"></td>
+                      <td class="mono" x-text="earnedMenit(row) !== null ? fmtNum(earnedMenit(row)) + ' mnt' : '-'"></td>
+                      <td class="mono" x-text="operationMenit(row) !== null ? fmtNum(operationMenit(row)) + ' mnt' : '-'"></td>
+                      <td class="mono" x-text="rowAvailability(row) !== null ? fmtNum(rowAvailability(row)) + '%' : '-'"></td>
+                      <td class="mono" x-text="row._tipe === 'produksi' ? (fmtNum(row.dandori_menit ?? 0) + ' mnt') : '-'"></td>
+                      <td class="mono">
+                        <template x-if="row._tipe === 'produksi' && (row.downtime_menit ?? 0) > 0">
+                          <span class="downtime-link" @click="viewDowntimeForProduction(row)" x-text="fmtNum(row.downtime_menit) + ' mnt'"></span>
+                        </template>
+                        <template x-if="!(row._tipe === 'produksi' && (row.downtime_menit ?? 0) > 0)">
+                          <span x-text="row._tipe === 'produksi' ? (fmtNum(row.downtime_menit ?? 0) + ' mnt') : '-'"></span>
+                        </template>
+                      </td>
+                      <td class="mono" x-text="row._tipe === 'produksi' ? (fmtNum(row.break_menit ?? 0) + ' mnt') : '-'"></td>
+                      <td x-show="routingMax > 0" x-text="row._tipe === 'produksi' && row.extra?.routing_type ? (row.extra.routing_type + (row.extra.routing_numbers ? ' ' + row.extra.routing_numbers.join(',') : '')) : '-'"></td>
+                      <td>
+                        <span class="badge" x-show="row._pending">⏳ Belum sinkron</span>
+                        <div class="row-actions" x-show="!row._pending">
+                          <button class="btn-secondary btn-sm" @click="editRiwayat(row)">Edit</button>
+                          <button class="btn-danger btn-sm" @click="deleteRiwayat(row)">Hapus</button>
+                        </div>
+                      </td>
+                    </tr>
+                  </template>
+                  <tr x-show="riwayatHariIni().length === 0">
+                    <td colspan="20" class="empty-state">Belum ada data untuk hari ini.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================== TAB RIWAYAT PRODUKSI ===================== -->
+        <div x-show="tab === 'riwayat'">
+
+          <div class="panel" x-show="editingNonProduksiId" x-cloak>
+            <p class="panel-title">Edit Data Non-Produksi</p>
+            <div class="form-grid">
+              <div class="field"><label>Waktu Awal</label><input type="datetime-local" x-model="nonProduksiEditForm.waktu_awal"></div>
+              <div class="field"><label>Waktu Akhir</label><input type="datetime-local" x-model="nonProduksiEditForm.waktu_akhir"></div>
+              <div class="field" style="grid-column: span 2;">
+                <label>Jenis Non-Produksi</label>
+                <input type="text" list="nonProduksiTypeList-transfer_800t" x-model="nonProduksiEditForm.nama">
+                <datalist id="nonProduksiTypeList-transfer_800t">
+                  <template x-for="t in nonProduksiTypeList" :key="t.id"><option :value="t.nama"></option></template>
+                </datalist>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn-ghost" @click="cancelEditNonProduksi()">Batal</button>
+              <button type="button" class="btn-primary" @click="saveNonProduksiEdit()">Simpan</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <p class="panel-title">Riwayat Produksi</p>
+            <div class="filter-row">
+              <input type="date" x-model="riwayatFilter.dari" title="Dari tanggal">
+              <input type="date" x-model="riwayatFilter.sampai" title="Sampai tanggal">
+              <input type="text" x-model="riwayatFilter.part_number" placeholder="Filter Part Number...">
+              <button type="button" class="btn-ghost btn-sm" @click="resetRiwayatFilter()">Reset</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Kode</th>
+                    <th x-show="stationConfig.mode !== 'none'">Stasiun</th>
+                    <th>Waktu Awal</th><th>Waktu Akhir</th>
+                    <th>Part Number</th><th>Qty</th><th>MP</th>
+                    <th>Dandori</th><th>Downtime</th><th>Break</th>
+                    <th x-show="routingMax > 0">Routing</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="row in riwayatGabungan()" :key="row._tipe + '-' + row.id">
+                    <tr :class="row._pending ? 'row-pending' : ''">
+                      <td class="mono" x-text="row._tipe === 'produksi' ? (row.kode || (row._pending ? '⏳' : '-')) : '-'"></td>
+                      <td class="mono" x-show="stationConfig.mode !== 'none'" x-text="row.stasiun || '-'"></td>
+                      <td class="mono" x-text="fmt(row.waktu_awal)"></td>
+                      <td class="mono" x-text="fmt(row.waktu_akhir)"></td>
+                      <td x-text="detailRiwayat(row)"></td>
+                      <td x-text="row._tipe === 'produksi' ? fmtNum(row.qty) : '-'"></td>
+                      <td x-text="row._tipe === 'produksi' ? fmtNum(row.manpower) : '-'"></td>
+                      <td class="mono" x-text="row._tipe === 'produksi' ? (fmtNum(row.dandori_menit ?? 0) + ' mnt') : '-'"></td>
+                      <td class="mono">
+                        <template x-if="row._tipe === 'produksi' && (row.downtime_menit ?? 0) > 0">
+                          <span class="downtime-link" @click="viewDowntimeForProduction(row)" x-text="fmtNum(row.downtime_menit) + ' mnt'"></span>
+                        </template>
+                        <template x-if="!(row._tipe === 'produksi' && (row.downtime_menit ?? 0) > 0)">
+                          <span x-text="row._tipe === 'produksi' ? (fmtNum(row.downtime_menit ?? 0) + ' mnt') : '-'"></span>
+                        </template>
+                      </td>
+                      <td class="mono" x-text="row._tipe === 'produksi' ? (fmtNum(row.break_menit ?? 0) + ' mnt') : '-'"></td>
+                      <td x-show="routingMax > 0" x-text="row._tipe === 'produksi' && row.extra?.routing_type ? (row.extra.routing_type + (row.extra.routing_numbers ? ' ' + row.extra.routing_numbers.join(',') : '')) : '-'"></td>
+                      <td>
+                        <span class="badge" x-show="row._pending">⏳ Belum sinkron</span>
+                        <div class="row-actions" x-show="!row._pending">
+                          <button class="btn-secondary btn-sm" @click="editRiwayat(row)">Edit</button>
+                          <button class="btn-danger btn-sm" @click="deleteRiwayat(row)">Hapus</button>
+                        </div>
+                      </td>
+                    </tr>
+                  </template>
+                  <tr x-show="riwayatGabungan().length === 0">
+                    <td colspan="20" class="empty-state">Belum ada data untuk mesin ini.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================== TAB PERFORMANCE ===================== -->
+        <div x-show="tab === 'performance'">
+          <div class="perf-toggle-row">
+            <button type="button" class="chip chip-lg" :class="activePerfSection==='tahunan' ? 'chip-active' : ''" @click="setActivePerfSection('tahunan')">Tahunan</button>
+            <button type="button" class="chip chip-lg" :class="activePerfSection==='bulanan' ? 'chip-active' : ''" @click="setActivePerfSection('bulanan')">Bulanan</button>
+            <button type="button" class="chip chip-lg" :class="activePerfSection==='harian' ? 'chip-active' : ''" @click="setActivePerfSection('harian')">Harian</button>
+          </div>
+          <div class="panel" x-show="activePerfSection === 'tahunan'" x-cloak>
+            <div class="perf-header">
+              <p class="panel-title" style="margin:0;">Performance Tahunan</p>
+              <div class="perf-nav">
+                <input type="number" min="2000" max="2100" :value="perfYearValue('tahunan')" @change="setPerfYear('tahunan', $event.target.value)">
+                <span class="perf-period-label" x-text="perfLabel('tahunan')"></span>
+              </div>
+            </div>
+            <template x-if="perf.tahunan.loading"><p class="empty-state">Menghitung...</p></template>
+            <template x-if="!perf.tahunan.loading && perf.tahunan.data">
+              <div>
+                <div class="perf-top-grid">
+                  <div class="perf-cards-col">
+                    <div class="perf-card perf-card-oee">
+                      <span class="perf-label">OEE</span>
+                      <span class="perf-value perf-value-xl" x-text="fmtNum(perf.tahunan.data.oee) + '%'"></span>
+                      <span class="perf-oee-breakdown">
+                        A <b x-text="fmtNum(perf.tahunan.data.availability)"></b>% ·
+                        P <b x-text="fmtNum(perf.tahunan.data.performanceFactor)"></b>% ·
+                        Q <b x-text="fmtNum(perf.tahunan.data.quality)"></b>%
+                      </span>
+                    </div>
+                    <div class="perf-card perf-card-accent"><span class="perf-label">GSPH Aktual</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.gsph)"></span></div>
+                    <div class="perf-card"><span class="perf-label">GSPH Target</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.targetGsph)"></span></div>
+                    <div class="perf-card"><span class="perf-label">Stroke (Qty)</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.stroke)"></span></div>
+                    <div class="perf-card"><span class="perf-label">NG</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.ng)"></span></div>
+                    <div class="perf-card"><span class="perf-label">Downtime</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.downtimeMenit) + ' mnt'"></span></div>
+                    <div class="perf-card"><span class="perf-label">Dandori</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.dandoriMenit) + ' mnt'"></span></div>
+                    <div class="perf-card"><span class="perf-label">Break</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.breakMenit) + ' mnt'"></span></div>
+                    <div class="perf-card"><span class="perf-label">Jam Kerja</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.whJam) + ' jam'"></span></div>
+                  </div>
+                  <div class="perf-chart-col">
+                    <div class="perf-chart-wrap" x-show="'tahunan' !== 'harian'"><canvas id="perfChart_transfer_800t_tahunan"></canvas></div>
+                    <div x-show="'tahunan' === 'harian'" class="perf-daily-split">
+                      <div class="perf-daily-chart">
+                        <p class="panel-subtitle">GSPH Target vs Aktual</p>
+                        <div style="height:120px;position:relative;"><canvas id="perfChart_transfer_800t_tahunan_daily"></canvas></div>
+                      </div>
+                      <div class="perf-daily-list">
+                        <p class="panel-subtitle">Produksi Hari Itu <span class="count" x-text="perfDayRows.length + ' baris'"></span></p>
+                        <div class="table-wrap" style="max-height:230px;">
+                          <table class="table-compact">
+                            <thead>
+                              <tr>
+                                <th x-show="stationConfig.mode !== 'none'">Stasiun</th>
+                                <th>Mulai</th><th>Selesai</th><th>Part Number</th>
+                                <th>Qty</th><th>Dandori</th><th>DT</th><th>Break</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <template x-for="row in perfDayRows" :key="row.id">
+                                <tr>
+                                  <td class="mono" x-show="stationConfig.mode !== 'none'" x-text="row.stasiun || '-'"></td>
+                                  <td class="mono" x-text="fmtJam(row.waktu_awal)"></td>
+                                  <td class="mono" x-text="fmtJam(row.waktu_akhir)"></td>
+                                  <td x-text="row.part_number"></td>
+                                  <td class="mono" x-text="fmtNum(row.qty)"></td>
+                                  <td class="mono" x-text="fmtNum(row.dandori_menit ?? 0)"></td>
+                                  <td class="mono" x-text="fmtNum(row.downtime_menit ?? 0)"></td>
+                                  <td class="mono" x-text="fmtNum(row.break_menit ?? 0)"></td>
+                                </tr>
+                              </template>
+                              <tr x-show="perfDayRows.length === 0"><td colspan="8" class="empty-state">Tidak ada produksi di tanggal ini.</td></tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="perf-lower-grid">
+                  <div class="perf-lower-col">
+                    <p class="panel-subtitle">5 Downtime Terburuk</p>
+                    <div class="table-wrap">
+                      <table class="table-compact">
+                        <thead><tr><th>Kategori</th><th>Problem</th><th>Menit</th></tr></thead>
+                        <tbody>
+                          <template x-for="row in perf.tahunan.top5" :key="row.kategori + row.problem">
+                            <tr>
+                              <td><span class="badge" x-text="row.kategori"></span></td>
+                              <td x-text="row.problem"></td>
+                              <td class="mono" x-text="fmtNum(row.menit)"></td>
+                            </tr>
+                          </template>
+                          <tr x-show="perf.tahunan.top5.length === 0"><td colspan="3" class="empty-state">Tidak ada downtime.</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  <div class="perf-lower-col">
+                    <p class="panel-subtitle">Downtime per Kategori</p>
+                    <div class="perf-pie-wrap"><canvas id="perfPie_transfer_800t_tahunan"></canvas></div>
+                    <p class="perf-pie-summary" x-show="perf.tahunan.byCategory.length > 0"
+                       x-text="downtimeKesimpulan('tahunan')"></p>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+          <div class="panel" x-show="activePerfSection === 'bulanan'" x-cloak>
+            <div class="perf-header">
+              <p class="panel-title" style="margin:0;">Performance Bulanan</p>
+              <div class="perf-nav">
+                <input type="month" :value="perfMonthValue('bulanan')" @change="setPerfMonth('bulanan', $event.target.value)">
+                <span class="perf-period-label" x-text="perfLabel('bulanan')"></span>
+              </div>
+            </div>
+            <template x-if="perf.bulanan.loading"><p class="empty-state">Menghitung...</p></template>
+            <template x-if="!perf.bulanan.loading && perf.bulanan.data">
+              <div>
+                <div class="perf-top-grid">
+                  <div class="perf-cards-col">
+                    <div class="perf-card perf-card-oee">
+                      <span class="perf-label">OEE</span>
+                      <span class="perf-value perf-value-xl" x-text="fmtNum(perf.bulanan.data.oee) + '%'"></span>
+                      <span class="perf-oee-breakdown">
+                        A <b x-text="fmtNum(perf.bulanan.data.availability)"></b>% ·
+                        P <b x-text="fmtNum(perf.bulanan.data.performanceFactor)"></b>% ·
+                        Q <b x-text="fmtNum(perf.bulanan.data.quality)"></b>%
+                      </span>
+                    </div>
+                    <div class="perf-card perf-card-accent"><span class="perf-label">GSPH Aktual</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.gsph)"></span></div>
+                    <div class="perf-card"><span class="perf-label">GSPH Target</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.targetGsph)"></span></div>
+                    <div class="perf-card"><span class="perf-label">Stroke (Qty)</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.stroke)"></span></div>
+                    <div class="perf-card"><span class="perf-label">NG</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.ng)"></span></div>
+                    <div class="perf-card"><span class="perf-label">Downtime</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.downtimeMenit) + ' mnt'"></span></div>
+                    <div class="perf-card"><span class="perf-label">Dandori</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.dandoriMenit) + ' mnt'"></span></div>
+                    <div class="perf-card"><span class="perf-label">Break</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.breakMenit) + ' mnt'"></span></div>
+                    <div class="perf-card"><span class="perf-label">Jam Kerja</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.whJam) + ' jam'"></span></div>
+                  </div>
+                  <div class="perf-chart-col">
+                    <div class="perf-chart-wrap" x-show="'bulanan' !== 'harian'"><canvas id="perfChart_transfer_800t_bulanan"></canvas></div>
+                    <div x-show="'bulanan' === 'harian'" class="perf-daily-split">
+                      <div class="perf-daily-chart">
+                        <p class="panel-subtitle">GSPH Target vs Aktual</p>
+                        <div style="height:120px;position:relative;"><canvas id="perfChart_transfer_800t_bulanan_daily"></canvas></div>
+                      </div>
+                      <div class="perf-daily-list">
+                        <p class="panel-subtitle">Produksi Hari Itu <span class="count" x-text="perfDayRows.length + ' baris'"></span></p>
+                        <div class="table-wrap" style="max-height:230px;">
+                          <table class="table-compact">
+                            <thead>
+                              <tr>
+                                <th x-show="stationConfig.mode !== 'none'">Stasiun</th>
+                                <th>Mulai</th><th>Selesai</th><th>Part Number</th>
+                                <th>Qty</th><th>Dandori</th><th>DT</th><th>Break</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <template x-for="row in perfDayRows" :key="row.id">
+                                <tr>
+                                  <td class="mono" x-show="stationConfig.mode !== 'none'" x-text="row.stasiun || '-'"></td>
+                                  <td class="mono" x-text="fmtJam(row.waktu_awal)"></td>
+                                  <td class="mono" x-text="fmtJam(row.waktu_akhir)"></td>
+                                  <td x-text="row.part_number"></td>
+                                  <td class="mono" x-text="fmtNum(row.qty)"></td>
+                                  <td class="mono" x-text="fmtNum(row.dandori_menit ?? 0)"></td>
+                                  <td class="mono" x-text="fmtNum(row.downtime_menit ?? 0)"></td>
+                                  <td class="mono" x-text="fmtNum(row.break_menit ?? 0)"></td>
+                                </tr>
+                              </template>
+                              <tr x-show="perfDayRows.length === 0"><td colspan="8" class="empty-state">Tidak ada produksi di tanggal ini.</td></tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="perf-lower-grid">
+                  <div class="perf-lower-col">
+                    <p class="panel-subtitle">5 Downtime Terburuk</p>
+                    <div class="table-wrap">
+                      <table class="table-compact">
+                        <thead><tr><th>Kategori</th><th>Problem</th><th>Menit</th></tr></thead>
+                        <tbody>
+                          <template x-for="row in perf.bulanan.top5" :key="row.kategori + row.problem">
+                            <tr>
+                              <td><span class="badge" x-text="row.kategori"></span></td>
+                              <td x-text="row.problem"></td>
+                              <td class="mono" x-text="fmtNum(row.menit)"></td>
+                            </tr>
+                          </template>
+                          <tr x-show="perf.bulanan.top5.length === 0"><td colspan="3" class="empty-state">Tidak ada downtime.</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  <div class="perf-lower-col">
+                    <p class="panel-subtitle">Downtime per Kategori</p>
+                    <div class="perf-pie-wrap"><canvas id="perfPie_transfer_800t_bulanan"></canvas></div>
+                    <p class="perf-pie-summary" x-show="perf.bulanan.byCategory.length > 0"
+                       x-text="downtimeKesimpulan('bulanan')"></p>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+          <div class="panel" x-show="activePerfSection === 'harian'" x-cloak>
+            <div class="perf-header">
+              <p class="panel-title" style="margin:0;">Performance Harian</p>
+              <div class="perf-nav">
+                <input type="date" :value="perf.harian.anchor" @change="setPerfDate('harian', $event.target.value)">
+                <span class="perf-period-label" x-text="perfLabel('harian')"></span>
+              </div>
+            </div>
+            <template x-if="perf.harian.loading"><p class="empty-state">Menghitung...</p></template>
+            <template x-if="!perf.harian.loading && perf.harian.data">
+              <div>
+                <div class="perf-top-grid">
+                  <div class="perf-cards-col">
+                    <div class="perf-card perf-card-oee">
+                      <span class="perf-label">OEE</span>
+                      <span class="perf-value perf-value-xl" x-text="fmtNum(perf.harian.data.oee) + '%'"></span>
+                      <span class="perf-oee-breakdown">
+                        A <b x-text="fmtNum(perf.harian.data.availability)"></b>% ·
+                        P <b x-text="fmtNum(perf.harian.data.performanceFactor)"></b>% ·
+                        Q <b x-text="fmtNum(perf.harian.data.quality)"></b>%
+                      </span>
+                    </div>
+                    <div class="perf-card perf-card-accent"><span class="perf-label">GSPH Aktual</span><span class="perf-value" x-text="fmtNum(perf.harian.data.gsph)"></span></div>
+                    <div class="perf-card"><span class="perf-label">GSPH Target</span><span class="perf-value" x-text="fmtNum(perf.harian.data.targetGsph)"></span></div>
+                    <div class="perf-card"><span class="perf-label">Stroke (Qty)</span><span class="perf-value" x-text="fmtNum(perf.harian.data.stroke)"></span></div>
+                    <div class="perf-card"><span class="perf-label">NG</span><span class="perf-value" x-text="fmtNum(perf.harian.data.ng)"></span></div>
+                    <div class="perf-card"><span class="perf-label">Downtime</span><span class="perf-value" x-text="fmtNum(perf.harian.data.downtimeMenit) + ' mnt'"></span></div>
+                    <div class="perf-card"><span class="perf-label">Dandori</span><span class="perf-value" x-text="fmtNum(perf.harian.data.dandoriMenit) + ' mnt'"></span></div>
+                    <div class="perf-card"><span class="perf-label">Break</span><span class="perf-value" x-text="fmtNum(perf.harian.data.breakMenit) + ' mnt'"></span></div>
+                    <div class="perf-card"><span class="perf-label">Jam Kerja</span><span class="perf-value" x-text="fmtNum(perf.harian.data.whJam) + ' jam'"></span></div>
+                  </div>
+                  <div class="perf-chart-col">
+                    <div class="perf-chart-wrap" x-show="'harian' !== 'harian'"><canvas id="perfChart_transfer_800t_harian"></canvas></div>
+                    <div x-show="'harian' === 'harian'" class="perf-daily-split">
+                      <div class="perf-daily-chart">
+                        <p class="panel-subtitle">GSPH Target vs Aktual</p>
+                        <div style="height:120px;position:relative;"><canvas id="perfChart_transfer_800t_harian_daily"></canvas></div>
+                      </div>
+                      <div class="perf-daily-list">
+                        <p class="panel-subtitle">Produksi Hari Itu <span class="count" x-text="perfDayRows.length + ' baris'"></span></p>
+                        <div class="table-wrap" style="max-height:230px;">
+                          <table class="table-compact">
+                            <thead>
+                              <tr>
+                                <th x-show="stationConfig.mode !== 'none'">Stasiun</th>
+                                <th>Mulai</th><th>Selesai</th><th>Part Number</th>
+                                <th>Qty</th><th>Dandori</th><th>DT</th><th>Break</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <template x-for="row in perfDayRows" :key="row.id">
+                                <tr>
+                                  <td class="mono" x-show="stationConfig.mode !== 'none'" x-text="row.stasiun || '-'"></td>
+                                  <td class="mono" x-text="fmtJam(row.waktu_awal)"></td>
+                                  <td class="mono" x-text="fmtJam(row.waktu_akhir)"></td>
+                                  <td x-text="row.part_number"></td>
+                                  <td class="mono" x-text="fmtNum(row.qty)"></td>
+                                  <td class="mono" x-text="fmtNum(row.dandori_menit ?? 0)"></td>
+                                  <td class="mono" x-text="fmtNum(row.downtime_menit ?? 0)"></td>
+                                  <td class="mono" x-text="fmtNum(row.break_menit ?? 0)"></td>
+                                </tr>
+                              </template>
+                              <tr x-show="perfDayRows.length === 0"><td colspan="8" class="empty-state">Tidak ada produksi di tanggal ini.</td></tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="perf-lower-grid">
+                  <div class="perf-lower-col">
+                    <p class="panel-subtitle">5 Downtime Terburuk</p>
+                    <div class="table-wrap">
+                      <table class="table-compact">
+                        <thead><tr><th>Kategori</th><th>Problem</th><th>Menit</th></tr></thead>
+                        <tbody>
+                          <template x-for="row in perf.harian.top5" :key="row.kategori + row.problem">
+                            <tr>
+                              <td><span class="badge" x-text="row.kategori"></span></td>
+                              <td x-text="row.problem"></td>
+                              <td class="mono" x-text="fmtNum(row.menit)"></td>
+                            </tr>
+                          </template>
+                          <tr x-show="perf.harian.top5.length === 0"><td colspan="3" class="empty-state">Tidak ada downtime.</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  <div class="perf-lower-col">
+                    <p class="panel-subtitle">Downtime per Kategori</p>
+                    <div class="perf-pie-wrap"><canvas id="perfPie_transfer_800t_harian"></canvas></div>
+                    <p class="perf-pie-summary" x-show="perf.harian.byCategory.length > 0"
+                       x-text="downtimeKesimpulan('harian')"></p>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+
+        </div>
+
+        <!-- ===================== TAB DOWNTIME ===================== -->
+        <div x-show="tab === 'downtime'">
+          <div class="panel">
+            <p class="panel-title" x-text="editingDowntimeId ? 'Edit Data Downtime' : 'Catat Downtime'"></p>
+            <div class="timer-row" x-show="!editingDowntimeId">
+              <template x-if="dtState === 'idle'">
+                <button type="button" class="btn-primary" @click="startDowntime()">▶ Mulai Downtime</button>
+              </template>
+              <template x-if="dtState !== 'idle'">
+                <div class="timer-badge">
+                  <span class="timer-dot" :class="dtState==='running' ? 'timer-dot-live' : ''"></span>
+                  <span>Mulai <b x-text="fmtClock(dtStart)"></b></span>
+                  <template x-if="dtState === 'running'">
+                    <button type="button" class="btn-secondary btn-sm" @click="stopDowntime()">⏹ Selesai</button>
+                  </template>
+                  <template x-if="dtState === 'stopped'">
+                    <span>· Selesai <b x-text="fmtClock(dtEnd)"></b></span>
+                  </template>
+                  <button type="button" class="btn-ghost btn-sm" @click="cancelDowntime()">Batal</button>
+                </div>
+              </template>
+            </div>
+            <p class="hint">Waktu downtime harus pas di dalam satu baris produksi (tidak boleh melintasi 2 part) — sistem akan menolak otomatis kalau tidak cocok.</p>
+            <form @submit.prevent="submitDowntime" x-show="editingDowntimeId || dtState === 'stopped'" x-cloak>
+              <div class="form-grid">
+                <div class="field" x-show="stationConfig.mode !== 'none'">
+                  <label>Stasiun</label>
+                  <select x-model="dtForm.stasiun">
+                    <option value="">- pilih -</option>
+                    <template x-for="st in stationList()" :key="st.id">
+                      <option :value="dbStasiun(st.id)" x-text="st.label"></option>
+                    </template>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Kategori</label>
+                  <select x-model="dtForm.kategori">
+                    <option value="">- pilih -</option>
+                    <template x-for="k in kategoriOptions" :key="k"><option :value="k" x-text="k"></option></template>
+                  </select>
+                </div>
+                <div class="field" style="grid-column: span 2;">
+                  <label>Problem</label>
+                  <div class="combo" x-data="comboBox(() => problemList.map(p => p.value), () => dtForm.problem, (v) => dtForm.problem = v)" @click.outside="open = false">
+                    <input type="text" x-model="query" @input="onInput()" @focus="open = true" placeholder="Ketik atau pilih...">
+                    <div class="combo-list" x-show="open && filtered().length > 0" x-cloak>
+                      <template x-for="opt in filtered()" :key="opt">
+                        <div class="combo-item" @mousedown.prevent="select(opt)" x-text="opt"></div>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+                <div class="field" style="grid-column: span 2;"><label>Penyebab</label><input type="text" x-model="dtForm.penyebab"></div>
+                <div class="field" style="grid-column: span 2;"><label>Countermeasure</label><input type="text" x-model="dtForm.countermeasure"></div>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn-ghost" @click="cancelDowntime()">Batal</button>
+                <button type="submit" class="btn-primary" x-text="editingDowntimeId ? 'Simpan Perubahan' : 'Simpan Data'"></button>
+              </div>
+            </form>
+          </div>
+          <div class="panel">
+            <p class="panel-title">Riwayat Downtime <span class="count" x-text="downtimeRowsFiltered().length + ' baris'"></span></p>
+            <div class="offline-banner" x-show="downtimeFilterProductionId" style="display:flex;align-items:center;justify-content:space-between;">
+              <span>Filter aktif: cuma downtime untuk <b x-text="downtimeFilterLabel"></b></span>
+              <button type="button" class="btn-ghost btn-sm" @click="clearDowntimeFilter()">✕ Tampilkan semua</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th x-show="stationConfig.mode !== 'none'">Stasiun</th>
+                    <th>Waktu Awal</th><th>Waktu Akhir</th><th>Durasi</th>
+                    <th>Kategori</th><th>Problem</th><th>Penyebab</th><th>Countermeasure</th><th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="row in downtimeRowsFiltered()" :key="row.id">
+                    <tr>
+                      <td class="mono" x-show="stationConfig.mode !== 'none'" x-text="row.stasiun || '-'"></td>
+                      <td class="mono" x-text="fmt(row.waktu_awal)"></td>
+                      <td class="mono" x-text="fmt(row.waktu_akhir)"></td>
+                      <td class="mono" x-text="durasiMenit(row.waktu_awal, row.waktu_akhir)"></td>
+                      <td><span class="badge" x-text="row.kategori || '-'"></span></td>
+                      <td x-text="row.problem || '-'"></td>
+                      <td x-text="row.penyebab || '-'"></td>
+                      <td x-text="row.countermeasure || '-'"></td>
+                      <td>
+                        <div class="row-actions">
+                          <button class="btn-secondary btn-sm" @click="editDowntime(row)">Edit</button>
+                          <button class="btn-danger btn-sm" @click="deleteDowntime(row.id)">Hapus</button>
+                        </div>
+                      </td>
+                    </tr>
+                  </template>
+                  <tr x-show="downtimeRowsFiltered().length === 0"><td colspan="9" class="empty-state">Belum ada data downtime.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================== TAB MASTER DATA ===================== -->
+        <div x-show="tab === 'master'">
+          <div class="panel">
+            <p class="panel-title">Target GSPH</p>
+            <p class="hint" style="margin-bottom:14px;">Garis target di grafik Performance. Operator cuma bisa lihat, admin/leader yang bisa atur.</p>
+            <div class="form-grid" x-show="isLeaderOrAdmin()">
+              <div class="field" style="grid-column: span 2;">
+                <label>Mode</label>
+                <div class="chip-row">
+                  <button type="button" class="chip" :class="mesinSettingsDraft.gsph_target_mode==='fixed' ? 'chip-active' : ''" @click="mesinSettingsDraft.gsph_target_mode='fixed'">Target Sama (semua tanggal)</button>
+                  <button type="button" class="chip" :class="mesinSettingsDraft.gsph_target_mode==='per_part' ? 'chip-active' : ''" @click="mesinSettingsDraft.gsph_target_mode='per_part'">Target per Part (dari Std CT)</button>
+                </div>
+              </div>
+              <div class="field" x-show="mesinSettingsDraft.gsph_target_mode==='fixed'">
+                <label>Angka Target GSPH</label>
+                <input type="number" x-model="mesinSettingsDraft.gsph_target_fixed">
+              </div>
+            </div>
+            <div class="form-actions" x-show="isLeaderOrAdmin()">
+              <button type="button" class="btn-primary" @click="saveMesinSettings()">Simpan Target</button>
+            </div>
+            <p class="hint" x-show="!isLeaderOrAdmin()">
+              Mode saat ini: <b x-text="mesinSettings.gsph_target_mode === 'fixed' ? 'Target Sama' : 'Target per Part'"></b>
+              <span x-show="mesinSettings.gsph_target_mode === 'fixed'"> — <b x-text="fmtNum(mesinSettings.gsph_target_fixed)"></b></span>
+            </p>
+          </div>
+
+          <div class="panel">
+            <p class="panel-title">Daftar Part Number <span class="count" x-text="partNumberList.length + ' item'"></span></p>
+            <p class="hint" style="margin-bottom:12px;">Klik Edit untuk ubah teks atau atur "Proses Selanjutnya", lalu Simpan.</p>
+            <div class="master-add-row">
+              <input type="text" x-model="newPartNumberValue" @keyup.enter="addMasterPartNumber()" placeholder="Tambah part number baru...">
+              <button type="button" class="btn-primary btn-sm" @click="addMasterPartNumber()">+ Tambah</button>
+            </div>
+            <div class="master-list">
+              <template x-for="item in partNumberList" :key="item.id">
+                <div class="master-list-row">
+                  <template x-if="!item.editing">
+                    <div style="flex:1;">
+                      <span class="master-value" x-text="item.value"></span>
+                      <span class="hint" x-show="item.std_mp || item.std_ct" style="padding:0 10px;">
+                        <span x-show="item.std_mp">Std MP: <b x-text="item.std_mp"></b></span>
+                        <span x-show="item.std_ct"> · Std CT: <b x-text="item.std_ct"></b> mnt/stroke · SPM: <b x-text="spmFromCt(item.std_ct)"></b></span>
+                        <span x-show="item.harga_pcs"> · Harga: <b x-text="'Rp ' + fmtNum(item.harga_pcs)"></b>/pcs</span>
+                        <span x-show="item.alias_values && item.alias_values.length"> · Alias: <b x-text="item.alias_values.join(', ')"></b></span>
+                      </span>
+                      <div class="next-process-display" x-show="item.next_processes && item.next_processes.length">
+                        <template x-for="(p, i) in item.next_processes" :key="i">
+                          <div class="next-process-chip">
+                            <span class="hint">next proses:</span> <b x-text="machineLabel(p.line)"></b>
+                            <span class="hint">· part number:</span> <span x-text="p.part_number"></span>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+                  </template>
+                  <template x-if="item.editing">
+                    <div style="flex:1;display:flex;flex-direction:column;gap:10px;">
+                      <input type="text" x-model="item.draft" placeholder="Part number" @keyup.enter="saveMasterPartNumber(item)">
+                      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <div style="flex:1;min-width:120px;">
+                          <label class="hint" style="display:block;margin-bottom:4px;">Std MP (jumlah orang)</label>
+                          <input type="number" step="0.1" x-model="item.draftStdMp" placeholder="mis. 2">
+                        </div>
+                        <div style="flex:1;min-width:120px;">
+                          <label class="hint" style="display:block;margin-bottom:4px;">Std CT (menit/stroke)</label>
+                          <input type="number" step="0.0001" x-model="item.draftStdCt" placeholder="mis. 0.05">
+                        </div>
+                        <div style="flex:1;min-width:120px;">
+                          <label class="hint" style="display:block;margin-bottom:4px;">SPM (otomatis)</label>
+                          <input type="text" disabled :value="spmFromCt(item.draftStdCt)">
+                        </div>
+                        <div style="flex:1;min-width:120px;">
+                          <label class="hint" style="display:block;margin-bottom:4px;">Harga per Pcs (Rp)</label>
+                          <input type="number" step="1" x-model="item.draftHargaPcs" placeholder="mis. 5000">
+                        </div>
+                        <div style="flex:2;min-width:220px;">
+                          <label class="hint" style="display:block;margin-bottom:4px;">Alias / Nama Lama Part Number (pisah koma)</label>
+                          <input type="text" x-model="item.draftAliasText" placeholder="mis. 889FI-SH803S-NEW, 889FI-SH803S-OLD">
+                        </div>
+                      </div>
+                      <div>
+                        <label class="hint" style="display:block;margin-bottom:6px;">Proses Selanjutnya (boleh lebih dari satu)</label>
+                        <template x-for="proc in item.draftNextProcesses" :key="proc._key">
+                          <div class="next-process-row">
+                            <div style="flex:1;min-width:150px;">
+                              <label class="hint" style="display:block;margin-bottom:4px;">Ke Line</label>
+                              <select x-model="proc.line" @change="ensurePartNumbersForLine(proc.line)">
+                                <option value="">- pilih line -</option>
+                                <template x-for="m in machineOptions" :key="m.key"><option :value="m.key" x-text="m.label"></option></template>
+                              </select>
+                            </div>
+                            <div style="flex:1;min-width:150px;">
+                              <label class="hint" style="display:block;margin-bottom:4px;">Part Number di line itu</label>
+                            <div class="combo" x-data="comboBox(() => (partNumbersByLine[proc.line] || []), () => proc.part_number, (v) => proc.part_number = v)" @click.outside="open = false">
+                              <input type="text" x-model="query" @input="onInput()" @focus="open = true" placeholder="Part number di line itu">
+                              <div class="combo-list" x-show="open && filtered().length > 0" x-cloak>
+                                <template x-for="opt in filtered()" :key="opt">
+                                  <div class="combo-item" @mousedown.prevent="select(opt)" x-text="opt"></div>
+                                </template>
+                              </div>
+                            </div>
+                            </div>
+                            <button type="button" class="btn-danger btn-sm" style="margin-top:20px;" @click="removeNextProcessRow(item, proc._key)">✕</button>
+                          </div>
+                        </template>
+                        <button type="button" class="btn-secondary btn-sm" @click="addNextProcessRow(item)">+ Tambah proses selanjutnya</button>
+                      </div>
+                    </div>
+                  </template>
+                  <div class="master-row-actions">
+                    <template x-if="!item.editing"><button type="button" class="btn-secondary btn-sm" @click="startEditPartNumber(item)">Edit</button></template>
+                    <template x-if="item.editing"><button type="button" class="btn-primary btn-sm" @click="saveMasterPartNumber(item)">Simpan</button></template>
+                    <template x-if="item.editing"><button type="button" class="btn-ghost btn-sm" @click="cancelEditPartNumber(item)">Batal</button></template>
+                    <button type="button" class="btn-danger btn-sm" @click="deleteMasterPartNumber(item.id)">Hapus</button>
+                  </div>
+                </div>
+              </template>
+              <p class="empty-state" x-show="partNumberList.length === 0">Belum ada data.</p>
+            </div>
+          </div>
+
+          <div class="panel">
+            <p class="panel-title">Daftar Problem Downtime <span class="count" x-text="problemList.length + ' item'"></span></p>
+            <div class="master-add-row">
+              <input type="text" x-model="newProblemValue" @keyup.enter="addMasterProblem()" placeholder="Tambah problem baru...">
+              <button type="button" class="btn-primary btn-sm" @click="addMasterProblem()">+ Tambah</button>
+            </div>
+            <div class="master-list">
+              <template x-for="item in problemList" :key="item.id">
+                <div class="master-list-row">
+                  <template x-if="!item.editing"><span class="master-value" x-text="item.value"></span></template>
+                  <template x-if="item.editing"><input type="text" x-model="item.draft" @keyup.enter="saveMasterProblem(item)"></template>
+                  <div class="master-row-actions">
+                    <template x-if="!item.editing"><button type="button" class="btn-secondary btn-sm" @click="startEditProblem(item)">Edit</button></template>
+                    <template x-if="item.editing"><button type="button" class="btn-primary btn-sm" @click="saveMasterProblem(item)">Simpan</button></template>
+                    <template x-if="item.editing"><button type="button" class="btn-ghost btn-sm" @click="cancelEditProblem(item)">Batal</button></template>
+                    <button type="button" class="btn-danger btn-sm" @click="deleteMasterProblem(item.id)">Hapus</button>
+                  </div>
+                </div>
+              </template>
+              <p class="empty-state" x-show="problemList.length === 0">Belum ada data.</p>
+            </div>
+          </div>
+
+          <div class="panel">
+            <p class="panel-title">Daftar Jenis Non-Produksi <span class="count" x-text="nonProduksiTypeList.length + ' item'"></span></p>
+            <p class="hint" style="margin-bottom:12px;">Meeting Awal Shift, Watari, 5S, TPM, dll — dipilih operator saat klasifikasi jeda.</p>
+            <div class="master-add-row">
+              <input type="text" x-model="newNonProduksiTypeValue" @keyup.enter="addMasterNonProduksiType()" placeholder="Tambah jenis baru...">
+              <button type="button" class="btn-primary btn-sm" @click="addMasterNonProduksiType()">+ Tambah</button>
+            </div>
+            <div class="master-list">
+              <template x-for="t in nonProduksiTypeList" :key="t.id">
+                <div class="master-list-row">
+                  <span class="master-value" x-text="t.nama"></span>
+                  <div class="master-row-actions">
+                    <button type="button" class="btn-danger btn-sm" @click="deleteMasterNonProduksiType(t.id)">Hapus</button>
+                  </div>
+                </div>
+              </template>
+              <p class="empty-state" x-show="nonProduksiTypeList.length === 0">Belum ada data.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+  </main>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Input Safety — Press Shop System</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+  (function () {
+    var t = localStorage.getItem("theme_v1") || "light";
+    document.documentElement.setAttribute("data-theme", t);
+  })();
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/supabaseClient.js"></script>
+</head>
+<body>
+
+<div class="app-shell" x-data="safetyPage()" x-init="init()">
+  <div class="mobile-topbar">
+    <button class="hamburger" @click="mobileNavOpen = true">☰</button>
+    <span class="mobile-title">Input Safety</span>
+  </div>
+  <div class="sidebar-overlay" x-show="mobileNavOpen" @click="mobileNavOpen = false" x-cloak></div>
+  <aside class="sidebar" :class="[mobileNavOpen ? 'sidebar-open' : '', sidebarCollapsed ? 'sidebar-collapsed' : '']">
+    <button class="sidebar-collapse-btn" @click="sidebarCollapsed = !sidebarCollapsed">
+      <span x-show="!sidebarCollapsed">‹</span><span x-show="sidebarCollapsed">›</span>
+    </button>
+    <div class="sidebar-brand" x-show="!sidebarCollapsed">PRESS SHOP<span>·</span>SYSTEM</div>
+    <nav class="sidebar-nav" @click="mobileNavOpen = false">
+      <a href="index.html" class="sidebar-link" title="Dashboard"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a>
+      <a href="input-produksi.html" class="sidebar-link" title="Input Produksi"><span>⚙️</span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-attendance.html" class="sidebar-link" title="Input Attendance"><span>👥</span><span x-show="!sidebarCollapsed">Input Attendance</span></a>
+      </template>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-scrap.html" class="sidebar-link" title="Input Scrap"><span>♻️</span><span x-show="!sidebarCollapsed">Input Scrap</span></a>
+      </template>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-safety.html" class="sidebar-link active" title="Input Safety"><span>⛑️</span><span x-show="!sidebarCollapsed">Input Safety</span></a>
+      </template>
+    </nav>
+    <div class="sidebar-foot" x-show="!sidebarCollapsed">
+      <div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
+      <span class="badge" :class="profile?.role === 'admin' ? 'role-admin' : ''" x-text="profile?.role || '...'"></span>
+      <button class="btn-ghost btn-sm" @click="logout()">Keluar</button>
+    </div>
+    <button class="sidebar-logout-collapsed" x-show="sidebarCollapsed" @click="logout()" title="Keluar">⏻</button>
+  </aside>
+
+  <main class="main">
+    <div class="page-header">
+      <h1 class="page-title"><span class="eyebrow">Input</span>Safety / Insiden</h1>
+    </div>
+    <template x-if="!isLeaderOrAdmin() && profile">
+      <div class="error-msg">Halaman ini khusus admin/leader.</div>
+    </template>
+    <template x-if="msg"><div :class="msgError ? 'error-msg' : 'success-msg'" x-text="msg"></div></template>
+
+    <template x-if="isLeaderOrAdmin()">
+      <div>
+        <div class="panel">
+          <p class="panel-title">Catat Insiden</p>
+          <p class="hint" style="margin-bottom:12px;">Kalau tidak ada insiden, tidak perlu diisi — dashboard otomatis menghitung "hari tanpa kecelakaan".</p>
+          <div class="form-grid">
+            <div class="field"><label>Tanggal</label><input type="date" x-model="form.tanggal"></div>
+            <div class="field"><label>Kategori</label>
+              <select x-model="form.kategori">
+                <option value="ACCIDENT">Accident (kecelakaan kerja)</option>
+                <option value="NEAR_MISS">Near Miss (hampir celaka)</option>
+                <option value="OTHER">Lainnya</option>
+              </select>
+            </div>
+            <div class="field" style="grid-column: 1 / -1;"><label>Keterangan</label><input type="text" x-model="form.keterangan" placeholder="Kronologi singkat..."></div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn-primary" @click="save()">Simpan Insiden</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <p class="panel-title">Riwayat Insiden <span class="count" x-text="rows.length + ' baris'"></span></p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Tanggal</th><th>Kategori</th><th>Keterangan</th><th>Aksi</th></tr></thead>
+              <tbody>
+                <template x-for="r in rows" :key="r.id">
+                  <tr>
+                    <td class="mono" x-text="r.tanggal"></td>
+                    <td><span class="badge" x-text="r.kategori"></span></td>
+                    <td x-text="r.keterangan || '-'"></td>
+                    <td><button class="btn-danger btn-sm" @click="hapus(r.id)">Hapus</button></td>
+                  </tr>
+                </template>
+                <tr x-show="rows.length === 0"><td colspan="4" class="empty-state">Tidak ada insiden tercatat. 👍</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </template>
+  </main>
+</div>
+<script>
+
+function baseInputPage() {
+  return {
+    session: null, profile: null, mobileNavOpen: false, sidebarCollapsed: true,
+    theme: localStorage.getItem("theme_v1") || "light",
+    msg: "", msgError: false,
+    isLeaderOrAdmin() { return this.profile && ["admin", "leader"].includes(this.profile.role); },
+    flash(m, isErr) {
+      this.msg = m; this.msgError = !!isErr;
+      setTimeout(() => { this.msg = ""; }, 4000);
+    },
+    async initBase() {
+      this.session = await requireAuth();
+      if (!this.session) return false;
+      const { data } = await supabaseClient.from("profiles").select("*").eq("id", this.session.user.id).maybeSingle();
+      this.profile = data;
+      return true;
+    },
+    logout,
+  };
+}
+function fmtNum(n) {
+  if (n === null || n === undefined || Number.isNaN(Number(n))) return "-";
+  return Number(n).toLocaleString("en-US", { maximumFractionDigits: 1 });
+}
+// toISOString().slice(0,10) mengonversi ke UTC dulu -- WIB = UTC+7, jadi
+// tengah malam lokal bisa terpotong mundur 1 hari. Ambil Y/M/D lokal saja.
+function localDateStr(d) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function safetyPage() {
+  return {
+    ...baseInputPage(),
+    fmtNum,
+    form: { tanggal: localDateStr(new Date()), kategori: "ACCIDENT", keterangan: "" },
+    rows: [],
+    async init() {
+      if (!await this.initBase()) return;
+      await this.fetchRows();
+    },
+    async fetchRows() {
+      const { data, error } = await supabaseClient.from("safety_log").select("*").order("tanggal", { ascending: false }).limit(100);
+      if (!error && data) this.rows = data;
+    },
+    async save() {
+      const f = this.form;
+      if (!f.tanggal) { this.flash("Tanggal wajib diisi.", true); return; }
+      const { error } = await supabaseClient.from("safety_log").insert({
+        tanggal: f.tanggal, kategori: f.kategori, keterangan: f.keterangan || null,
+        created_by: this.session.user.id,
+      });
+      if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
+      this.flash("Insiden tercatat.");
+      this.form.keterangan = "";
+      await this.fetchRows();
+    },
+    async hapus(id) {
+      if (!confirm("Hapus catatan insiden ini?")) return;
+      const { error } = await supabaseClient.from("safety_log").delete().eq("id", id);
+      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
+      await this.fetchRows();
+    },
+  };
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Input Attendance — Press Shop System</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+  (function () {
+    var t = localStorage.getItem("theme_v1") || "light";
+    document.documentElement.setAttribute("data-theme", t);
+  })();
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/supabaseClient.js"></script>
+</head>
+<body>
+
+<div class="app-shell" x-data="attendancePage()" x-init="init()">
+  <div class="mobile-topbar">
+    <button class="hamburger" @click="mobileNavOpen = true">☰</button>
+    <span class="mobile-title">Input Attendance</span>
+  </div>
+  <div class="sidebar-overlay" x-show="mobileNavOpen" @click="mobileNavOpen = false" x-cloak></div>
+  <aside class="sidebar" :class="[mobileNavOpen ? 'sidebar-open' : '', sidebarCollapsed ? 'sidebar-collapsed' : '']">
+    <button class="sidebar-collapse-btn" @click="sidebarCollapsed = !sidebarCollapsed">
+      <span x-show="!sidebarCollapsed">‹</span><span x-show="sidebarCollapsed">›</span>
+    </button>
+    <div class="sidebar-brand" x-show="!sidebarCollapsed">PRESS SHOP<span>·</span>SYSTEM</div>
+    <nav class="sidebar-nav" @click="mobileNavOpen = false">
+      <a href="index.html" class="sidebar-link" title="Dashboard"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a>
+      <a href="input-produksi.html" class="sidebar-link" title="Input Produksi"><span>⚙️</span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-attendance.html" class="sidebar-link active" title="Input Attendance"><span>👥</span><span x-show="!sidebarCollapsed">Input Attendance</span></a>
+      </template>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-scrap.html" class="sidebar-link" title="Input Scrap"><span>♻️</span><span x-show="!sidebarCollapsed">Input Scrap</span></a>
+      </template>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-safety.html" class="sidebar-link" title="Input Safety"><span>⛑️</span><span x-show="!sidebarCollapsed">Input Safety</span></a>
+      </template>
+    </nav>
+    <div class="sidebar-foot" x-show="!sidebarCollapsed">
+      <div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
+      <span class="badge" :class="profile?.role === 'admin' ? 'role-admin' : ''" x-text="profile?.role || '...'"></span>
+      <button class="btn-ghost btn-sm" @click="logout()">Keluar</button>
+    </div>
+    <button class="sidebar-logout-collapsed" x-show="sidebarCollapsed" @click="logout()" title="Keluar">⏻</button>
+  </aside>
+
+  <main class="main">
+    <div class="page-header">
+      <h1 class="page-title"><span class="eyebrow">Input</span>Attendance Harian</h1>
+    </div>
+    <template x-if="!isLeaderOrAdmin() && profile">
+      <div class="error-msg">Halaman ini khusus admin/leader.</div>
+    </template>
+    <template x-if="msg"><div :class="msgError ? 'error-msg' : 'success-msg'" x-text="msg"></div></template>
+
+    <template x-if="isLeaderOrAdmin()">
+      <div>
+        <div class="panel">
+          <p class="panel-title">Form Absensi</p>
+          <div class="form-grid">
+            <div class="field"><label>Tanggal</label><input type="date" x-model="form.tanggal"></div>
+            <div class="field"><label>Shift</label>
+              <select x-model="form.shift"><option value="1">Shift 1</option><option value="2">Shift 2</option></select>
+            </div>
+            <div class="field"><label>Total Orang</label><input type="number" x-model="form.total_orang"></div>
+            <div class="field"><label>Hadir</label><input type="number" x-model="form.hadir"></div>
+            <div class="field"><label>Cuti</label><input type="number" x-model="form.cuti"></div>
+            <div class="field"><label>Absen</label><input type="number" x-model="form.absen"></div>
+            <div class="field"><label>Overtime (jam)</label><input type="number" step="0.5" x-model="form.overtime_jam"></div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn-primary" @click="save()">Simpan Absensi</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <p class="panel-title">Riwayat Absensi <span class="count" x-text="rows.length + ' baris'"></span></p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Tanggal</th><th>Shift</th><th>Total</th><th>Hadir</th><th>Cuti</th><th>Absen</th><th>OT (jam)</th><th>Aksi</th></tr></thead>
+              <tbody>
+                <template x-for="r in rows" :key="r.id">
+                  <tr>
+                    <td class="mono" x-text="r.tanggal"></td>
+                    <td x-text="'Shift ' + r.shift"></td>
+                    <td class="mono" x-text="fmtNum(r.total_orang)"></td>
+                    <td class="mono" x-text="fmtNum(r.hadir)"></td>
+                    <td class="mono" x-text="fmtNum(r.cuti)"></td>
+                    <td class="mono" x-text="fmtNum(r.absen)"></td>
+                    <td class="mono" x-text="fmtNum(r.overtime_jam)"></td>
+                    <td><button class="btn-secondary btn-sm" @click="edit(r)">Edit</button></td>
+                  </tr>
+                </template>
+                <tr x-show="rows.length === 0"><td colspan="8" class="empty-state">Belum ada data.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </template>
+  </main>
+</div>
+<script>
+
+function baseInputPage() {
+  return {
+    session: null, profile: null, mobileNavOpen: false, sidebarCollapsed: true,
+    theme: localStorage.getItem("theme_v1") || "light",
+    msg: "", msgError: false,
+    isLeaderOrAdmin() { return this.profile && ["admin", "leader"].includes(this.profile.role); },
+    flash(m, isErr) {
+      this.msg = m; this.msgError = !!isErr;
+      setTimeout(() => { this.msg = ""; }, 4000);
+    },
+    async initBase() {
+      this.session = await requireAuth();
+      if (!this.session) return false;
+      const { data } = await supabaseClient.from("profiles").select("*").eq("id", this.session.user.id).maybeSingle();
+      this.profile = data;
+      return true;
+    },
+    logout,
+  };
+}
+function fmtNum(n) {
+  if (n === null || n === undefined || Number.isNaN(Number(n))) return "-";
+  return Number(n).toLocaleString("en-US", { maximumFractionDigits: 1 });
+}
+// toISOString().slice(0,10) mengonversi ke UTC dulu -- WIB = UTC+7, jadi
+// tengah malam lokal bisa terpotong mundur 1 hari. Ambil Y/M/D lokal saja.
+function localDateStr(d) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function attendancePage() {
+  return {
+    ...baseInputPage(),
+    fmtNum,
+    form: { tanggal: localDateStr(new Date()), shift: "1", total_orang: "", hadir: "", cuti: "", absen: "", overtime_jam: "" },
+    rows: [],
+    async init() {
+      if (!await this.initBase()) return;
+      await this.fetchRows();
+    },
+    async fetchRows() {
+      const { data, error } = await supabaseClient.from("attendance_log").select("*").order("tanggal", { ascending: false }).limit(100);
+      if (!error && data) this.rows = data;
+    },
+    edit(r) {
+      this.form = { tanggal: r.tanggal, shift: r.shift, total_orang: r.total_orang, hadir: r.hadir, cuti: r.cuti, absen: r.absen, overtime_jam: r.overtime_jam };
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    async save() {
+      const f = this.form;
+      if (!f.tanggal || f.total_orang === "" || f.hadir === "") { this.flash("Tanggal, Total Orang, dan Hadir wajib diisi.", true); return; }
+      const payload = {
+        tanggal: f.tanggal, shift: f.shift,
+        total_orang: Number(f.total_orang) || 0, hadir: Number(f.hadir) || 0,
+        cuti: Number(f.cuti) || 0, absen: Number(f.absen) || 0,
+        overtime_jam: Number(f.overtime_jam) || 0,
+        updated_by: this.session.user.id,
+      };
+      const { error } = await supabaseClient.from("attendance_log").upsert(payload, { onConflict: "tanggal,shift" });
+      if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
+      this.flash("Absensi tersimpan.");
+      await this.fetchRows();
+    },
+  };
+}
+</script>
+</body>
+</html>
