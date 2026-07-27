@@ -785,36 +785,30 @@
                 </div>
                 <div class="field" style="grid-column: span 2;">
                   <label>Problem Kategori <span class="hint" x-show="!dtForm.pic">(pilih PIC dulu)</span></label>
-                  <div class="combo" x-data="comboBox(() => problemsForPic(dtForm.pic).map(p => p.value), () => dtForm.problem, (v) => dtForm.problem = v, () => { dtForm.penyebab = '' })" @click.outside="open = false">
-                    <input type="text" x-model="query" @input="onInput()" @focus="open = true" placeholder="Ketik atau pilih..." :disabled="!dtForm.pic">
-                    <div class="combo-list" x-show="open && filtered().length > 0" x-cloak>
-                      <template x-for="opt in filtered()" :key="opt">
-                        <div class="combo-item" @mousedown.prevent="select(opt)" x-text="opt"></div>
-                      </template>
-                    </div>
-                  </div>
+                  <select x-model="dtForm.problem" @change="dtForm.penyebab=''" :disabled="!dtForm.pic">
+                    <option value="">-- pilih --</option>
+                    <template x-for="p in problemsForPic(dtForm.pic)" :key="p.id">
+                      <option :value="p.value" x-text="p.value"></option>
+                    </template>
+                  </select>
                 </div>
                 <div class="field" style="grid-column: span 2;">
                   <label>Problem Detail <span class="hint" x-show="!dtForm.problem">(pilih Problem Kategori dulu)</span></label>
-                  <div class="combo" x-data="comboBox(() => causesForProblemValue(dtForm.problem).map(p => p.value), () => dtForm.penyebab, (v) => dtForm.penyebab = v)" @click.outside="open = false">
-                    <input type="text" x-model="query" @input="onInput()" @focus="open = true" placeholder="Ketik atau pilih..." :disabled="!dtForm.problem">
-                    <div class="combo-list" x-show="open && filtered().length > 0" x-cloak>
-                      <template x-for="opt in filtered()" :key="opt">
-                        <div class="combo-item" @mousedown.prevent="select(opt)" x-text="opt"></div>
-                      </template>
-                    </div>
-                  </div>
+                  <select x-model="dtForm.penyebab" :disabled="!dtForm.problem">
+                    <option value="">-- pilih --</option>
+                    <template x-for="c in causesForProblemValue(dtForm.problem)" :key="c.id">
+                      <option :value="c.value" x-text="c.value"></option>
+                    </template>
+                  </select>
                 </div>
                 <div class="field" style="grid-column: span 2;">
                   <label>Area</label>
-                  <div class="combo" x-data="comboBox(() => areaList.map(p => p.value), () => dtForm.area, (v) => dtForm.area = v)" @click.outside="open = false">
-                    <input type="text" x-model="query" @input="onInput()" @focus="open = true" placeholder="Ketik atau pilih...">
-                    <div class="combo-list" x-show="open && filtered().length > 0" x-cloak>
-                      <template x-for="opt in filtered()" :key="opt">
-                        <div class="combo-item" @mousedown.prevent="select(opt)" x-text="opt"></div>
-                      </template>
-                    </div>
-                  </div>
+                  <select x-model="dtForm.area">
+                    <option value="">-- pilih --</option>
+                    <template x-for="a in areaList" :key="a.id">
+                      <option :value="a.value" x-text="a.value"></option>
+                    </template>
+                  </select>
                 </div>
                 <div class="field" style="grid-column: span 2;"><label>Countermeasure</label><input type="text" x-model="dtForm.countermeasure"></div>
                 <div class="field" style="grid-column: span 2;">
