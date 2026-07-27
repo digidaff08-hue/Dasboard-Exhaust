@@ -763,15 +763,26 @@
                     </template>
                   </select>
                 </div>
-                <div class="field">
+                <div class="field" style="grid-column: span 2;">
                   <label>Kategori</label>
-                  <select x-model="dtForm.kategori">
-                    <option value="">- pilih -</option>
-                    <template x-for="k in kategoriOptions" :key="k"><option :value="k" x-text="k"></option></template>
-                  </select>
+                  <div class="chip-row">
+                    <template x-for="k in kategoriOptions" :key="k">
+                      <button type="button" class="chip" :class="dtForm.kategori===k ? 'chip-active' : ''" @click="dtForm.kategori=k" x-text="k"></button>
+                    </template>
+                  </div>
                 </div>
                 <div class="field" style="grid-column: span 2;">
-                  <label>Problem</label>
+                  <label>PIC</label>
+                  <div class="chip-row">
+                    <template x-for="p in picOptions" :key="p">
+                      <button type="button" class="chip" :class="dtForm.pic===p ? 'chip-active' : ''" @click="dtForm.pic=p" x-text="p"></button>
+                    </template>
+                  </div>
+                </div>
+                <div class="field"><label>Waktu Tunggu (menit)</label><input type="number" step="any" x-model="dtForm.waktu_tunggu"></div>
+                <div class="field"><label>Ket</label><input type="text" x-model="dtForm.ket"></div>
+                <div class="field" style="grid-column: span 2;">
+                  <label>Problem Kategori</label>
                   <div class="combo" x-data="comboBox(() => problemList.map(p => p.value), () => dtForm.problem, (v) => dtForm.problem = v)" @click.outside="open = false">
                     <input type="text" x-model="query" @input="onInput()" @focus="open = true" placeholder="Ketik atau pilih...">
                     <div class="combo-list" x-show="open && filtered().length > 0" x-cloak>
@@ -781,8 +792,37 @@
                     </div>
                   </div>
                 </div>
-                <div class="field" style="grid-column: span 2;"><label>Penyebab</label><input type="text" x-model="dtForm.penyebab"></div>
+                <div class="field" style="grid-column: span 2;">
+                  <label>Problem Detail</label>
+                  <div class="combo" x-data="comboBox(() => causeList.map(p => p.value), () => dtForm.penyebab, (v) => dtForm.penyebab = v)" @click.outside="open = false">
+                    <input type="text" x-model="query" @input="onInput()" @focus="open = true" placeholder="Ketik atau pilih...">
+                    <div class="combo-list" x-show="open && filtered().length > 0" x-cloak>
+                      <template x-for="opt in filtered()" :key="opt">
+                        <div class="combo-item" @mousedown.prevent="select(opt)" x-text="opt"></div>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+                <div class="field" style="grid-column: span 2;">
+                  <label>Area</label>
+                  <div class="combo" x-data="comboBox(() => areaList.map(p => p.value), () => dtForm.area, (v) => dtForm.area = v)" @click.outside="open = false">
+                    <input type="text" x-model="query" @input="onInput()" @focus="open = true" placeholder="Ketik atau pilih...">
+                    <div class="combo-list" x-show="open && filtered().length > 0" x-cloak>
+                      <template x-for="opt in filtered()" :key="opt">
+                        <div class="combo-item" @mousedown.prevent="select(opt)" x-text="opt"></div>
+                      </template>
+                    </div>
+                  </div>
+                </div>
                 <div class="field" style="grid-column: span 2;"><label>Countermeasure</label><input type="text" x-model="dtForm.countermeasure"></div>
+                <div class="field" style="grid-column: span 2;">
+                  <label>Status</label>
+                  <div class="chip-row">
+                    <template x-for="s in statusOptions" :key="s">
+                      <button type="button" class="chip" :class="dtForm.status===s ? 'chip-active' : ''" @click="dtForm.status=s" x-text="s"></button>
+                    </template>
+                  </div>
+                </div>
               </div>
               <div class="form-actions">
                 <button type="button" class="btn-ghost" @click="cancelDowntime()">Batal</button>
@@ -802,7 +842,9 @@
                   <tr>
                     <th x-show="stationConfig.mode !== 'none'">Stasiun</th>
                     <th>Waktu Awal</th><th>Waktu Akhir</th><th>Durasi</th>
-                    <th>Kategori</th><th>Problem</th><th>Penyebab</th><th>Countermeasure</th><th>Aksi</th>
+                    <th>Kategori</th><th>PIC</th><th>Waktu Tunggu</th><th>Ket</th>
+                    <th>Problem Kategori</th><th>Problem Detail</th><th>Area</th>
+                    <th>Countermeasure</th><th>Status</th><th>Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -813,9 +855,14 @@
                       <td class="mono" x-text="fmt(row.waktu_akhir)"></td>
                       <td class="mono" x-text="durasiMenit(row.waktu_awal, row.waktu_akhir)"></td>
                       <td><span class="badge" x-text="row.kategori || '-'"></span></td>
+                      <td x-text="row.pic || '-'"></td>
+                      <td class="mono" x-text="row.waktu_tunggu ?? '-'"></td>
+                      <td x-text="row.ket || '-'"></td>
                       <td x-text="row.problem || '-'"></td>
                       <td x-text="row.penyebab || '-'"></td>
+                      <td x-text="row.area || '-'"></td>
                       <td x-text="row.countermeasure || '-'"></td>
+                      <td x-text="row.status || '-'"></td>
                       <td>
                         <div class="row-actions">
                           <button class="btn-secondary btn-sm" @click="editDowntime(row)">Edit</button>
@@ -824,7 +871,7 @@
                       </td>
                     </tr>
                   </template>
-                  <tr x-show="downtimeRowsFiltered().length === 0"><td colspan="9" class="empty-state">Belum ada data downtime.</td></tr>
+                  <tr x-show="downtimeRowsFiltered().length === 0"><td colspan="14" class="empty-state">Belum ada data downtime.</td></tr>
                 </tbody>
               </table>
             </div>
@@ -973,6 +1020,52 @@
                 </div>
               </template>
               <p class="empty-state" x-show="problemList.length === 0">Belum ada data.</p>
+            </div>
+          </div>
+
+          <div class="panel">
+            <p class="panel-title">Daftar Problem Detail <span class="count" x-text="causeList.length + ' item'"></span></p>
+            <div class="master-add-row">
+              <input type="text" x-model="newCauseValue" @keyup.enter="addMasterCause()" placeholder="Tambah problem detail baru...">
+              <button type="button" class="btn-primary btn-sm" @click="addMasterCause()">+ Tambah</button>
+            </div>
+            <div class="master-list">
+              <template x-for="item in causeList" :key="item.id">
+                <div class="master-list-row">
+                  <template x-if="!item.editing"><span class="master-value" x-text="item.value"></span></template>
+                  <template x-if="item.editing"><input type="text" x-model="item.draft" @keyup.enter="saveMasterCause(item)"></template>
+                  <div class="master-row-actions">
+                    <template x-if="!item.editing"><button type="button" class="btn-secondary btn-sm" @click="startEditCause(item)">Edit</button></template>
+                    <template x-if="item.editing"><button type="button" class="btn-primary btn-sm" @click="saveMasterCause(item)">Simpan</button></template>
+                    <template x-if="item.editing"><button type="button" class="btn-ghost btn-sm" @click="cancelEditCause(item)">Batal</button></template>
+                    <button type="button" class="btn-danger btn-sm" @click="deleteMasterCause(item.id)">Hapus</button>
+                  </div>
+                </div>
+              </template>
+              <p class="empty-state" x-show="causeList.length === 0">Belum ada data.</p>
+            </div>
+          </div>
+
+          <div class="panel">
+            <p class="panel-title">Daftar Area <span class="count" x-text="areaList.length + ' item'"></span></p>
+            <div class="master-add-row">
+              <input type="text" x-model="newAreaValue" @keyup.enter="addMasterArea()" placeholder="Tambah area baru...">
+              <button type="button" class="btn-primary btn-sm" @click="addMasterArea()">+ Tambah</button>
+            </div>
+            <div class="master-list">
+              <template x-for="item in areaList" :key="item.id">
+                <div class="master-list-row">
+                  <template x-if="!item.editing"><span class="master-value" x-text="item.value"></span></template>
+                  <template x-if="item.editing"><input type="text" x-model="item.draft" @keyup.enter="saveMasterArea(item)"></template>
+                  <div class="master-row-actions">
+                    <template x-if="!item.editing"><button type="button" class="btn-secondary btn-sm" @click="startEditArea(item)">Edit</button></template>
+                    <template x-if="item.editing"><button type="button" class="btn-primary btn-sm" @click="saveMasterArea(item)">Simpan</button></template>
+                    <template x-if="item.editing"><button type="button" class="btn-ghost btn-sm" @click="cancelEditArea(item)">Batal</button></template>
+                    <button type="button" class="btn-danger btn-sm" @click="deleteMasterArea(item.id)">Hapus</button>
+                  </div>
+                </div>
+              </template>
+              <p class="empty-state" x-show="areaList.length === 0">Belum ada data.</p>
             </div>
           </div>
 

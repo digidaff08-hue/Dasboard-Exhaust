@@ -173,8 +173,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
 
     lines: {}, // per stasiun: state machine produksi
     productionRows: [], downtimeRows: [], nonProduksiRows: [], planningRows: [],
-    partNumberList: [], problemList: [], nonProduksiTypeList: [],
-    newPartNumberValue: "", newProblemValue: "", newNonProduksiTypeValue: "",
+    partNumberList: [], problemList: [], causeList: [], areaList: [], nonProduksiTypeList: [],
+    newPartNumberValue: "", newProblemValue: "", newCauseValue: "", newAreaValue: "", newNonProduksiTypeValue: "",
+    picOptions: ["MESIN", "PE", "PROD", "PC-SUPP", "QC", "PRESS"],
+    statusOptions: ["Temporary Action", "Permanent Action"],
     machineOptions: MACHINE_OPTIONS, partNumbersByLine: {},
 
     editingDowntimeId: null, dtForm: {},
@@ -207,7 +209,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         this.ensureLines();
         await Promise.all([
           this.fetchProduction(), this.fetchDowntime(), this.fetchNonProduksi(),
-          this.fetchPlanning(), this.fetchPartNumbers(), this.fetchProblems(), this.fetchNonProduksiTypes(),
+          this.fetchPlanning(), this.fetchPartNumbers(), this.fetchProblems(), this.fetchCauses(), this.fetchAreas(), this.fetchNonProduksiTypes(),
         ]);
         this.restoreLocalState();
         this.watchAndAutosave();
@@ -1085,7 +1087,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     cancelDowntime() { this.dtState = "idle"; this.dtStart = null; this.editingDowntimeId = null; this.dtForm = {}; },
     stopDowntime() {
       this.dtState = "stopped"; this.dtEnd = new Date().toISOString();
-      this.dtForm = { kategori: "", problem: "", penyebab: "", countermeasure: "", stasiun: "" };
+      this.dtForm = {
+        kategori: "", problem: "", penyebab: "", countermeasure: "", stasiun: "",
+        pic: "", waktu_tunggu: "", ket: "", area: "", status: "",
+      };
     },
     async submitDowntime() {
       const f = this.dtForm;
@@ -1093,8 +1098,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         mesin: machineKey, waktu_awal: this.dtStart, waktu_akhir: this.dtEnd,
         stasiun: f.stasiun || null, kategori: f.kategori || null, problem: f.problem || null,
         penyebab: f.penyebab || null, countermeasure: f.countermeasure || null,
+        pic: f.pic || null, waktu_tunggu: f.waktu_tunggu === "" ? null : Number(f.waktu_tunggu),
+        ket: f.ket || null, area: f.area || null, status: f.status || null,
       };
       if (f.problem) this.learnProblem(f.problem);
+      if (f.penyebab) this.learnCause(f.penyebab);
+      if (f.area) this.learnArea(f.area);
       if (this.editingDowntimeId) {
         const { error } = await supabaseClient.from("downtime_log").update(payload).eq("id", this.editingDowntimeId);
         if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
@@ -1118,6 +1127,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.dtForm = {
         kategori: row.kategori || "", problem: row.problem || "", penyebab: row.penyebab || "",
         countermeasure: row.countermeasure || "", stasiun: row.stasiun || "",
+        pic: row.pic || "", waktu_tunggu: row.waktu_tunggu ?? "", ket: row.ket || "",
+        area: row.area || "", status: row.status || "",
       };
       this.tab = "downtime";
     },
@@ -1173,6 +1184,16 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (error) { this.flash("Gagal memuat Problem: " + error.message, true); return; }
       this.problemList = data.map((r) => ({ ...r, editing: false, draft: r.value }));
     },
+    async fetchCauses() {
+      const { data, error } = await supabaseClient.from("downtime_causes").select("id, value").eq("mesin", machineKey).order("value");
+      if (error) { this.flash("Gagal memuat Problem Detail: " + error.message, true); return; }
+      this.causeList = data.map((r) => ({ ...r, editing: false, draft: r.value }));
+    },
+    async fetchAreas() {
+      const { data, error } = await supabaseClient.from("downtime_areas").select("id, value").eq("mesin", machineKey).order("value");
+      if (error) { this.flash("Gagal memuat Area: " + error.message, true); return; }
+      this.areaList = data.map((r) => ({ ...r, editing: false, draft: r.value }));
+    },
     async learnPartNumber(value) {
       if (!value || this.partNumberList.some((r) => r.value.toLowerCase() === value.toLowerCase())) return;
       const { data, error } = await supabaseClient.from("part_numbers").insert({ mesin: machineKey, value }).select().single();
@@ -1182,6 +1203,16 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (!value || this.problemList.some((r) => r.value.toLowerCase() === value.toLowerCase())) return;
       const { data, error } = await supabaseClient.from("downtime_problems").insert({ mesin: machineKey, value }).select().single();
       if (!error && data) this.problemList.push({ ...data, editing: false, draft: data.value });
+    },
+    async learnCause(value) {
+      if (!value || this.causeList.some((r) => r.value.toLowerCase() === value.toLowerCase())) return;
+      const { data, error } = await supabaseClient.from("downtime_causes").insert({ mesin: machineKey, value }).select().single();
+      if (!error && data) this.causeList.push({ ...data, editing: false, draft: data.value });
+    },
+    async learnArea(value) {
+      if (!value || this.areaList.some((r) => r.value.toLowerCase() === value.toLowerCase())) return;
+      const { data, error } = await supabaseClient.from("downtime_areas").insert({ mesin: machineKey, value }).select().single();
+      if (!error && data) this.areaList.push({ ...data, editing: false, draft: data.value });
     },
     async addMasterPartNumber() {
       const v = (this.newPartNumberValue || "").trim(); if (!v) return;
@@ -1264,6 +1295,54 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const { error } = await supabaseClient.from("downtime_problems").delete().eq("id", id);
       if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
       this.problemList = this.problemList.filter((r) => r.id !== id);
+    },
+
+    async addMasterCause() {
+      const v = (this.newCauseValue || "").trim(); if (!v) return;
+      const { data, error } = await supabaseClient.from("downtime_causes").insert({ mesin: machineKey, value: v }).select().single();
+      if (error) { this.flash("Gagal tambah: " + error.message, true); return; }
+      this.causeList.push({ ...data, editing: false, draft: data.value });
+      this.causeList.sort((a, b) => a.value.localeCompare(b.value));
+      this.newCauseValue = ""; this.flash("Problem Detail ditambahkan.");
+    },
+    startEditCause(item) { item.draft = item.value; item.editing = true; },
+    cancelEditCause(item) { item.draft = item.value; item.editing = false; },
+    async saveMasterCause(item) {
+      const v = (item.draft || "").trim(); if (!v) { this.flash("Tidak boleh kosong.", true); return; }
+      const { data, error } = await supabaseClient.from("downtime_causes").update({ value: v }).eq("id", item.id).select();
+      if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
+      if (!data || data.length === 0) { this.flash("Gagal simpan — cek izin akses.", true); return; }
+      item.value = v; item.editing = false;
+    },
+    async deleteMasterCause(id) {
+      if (!confirm("Hapus problem detail ini?")) return;
+      const { error } = await supabaseClient.from("downtime_causes").delete().eq("id", id);
+      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
+      this.causeList = this.causeList.filter((r) => r.id !== id);
+    },
+
+    async addMasterArea() {
+      const v = (this.newAreaValue || "").trim(); if (!v) return;
+      const { data, error } = await supabaseClient.from("downtime_areas").insert({ mesin: machineKey, value: v }).select().single();
+      if (error) { this.flash("Gagal tambah: " + error.message, true); return; }
+      this.areaList.push({ ...data, editing: false, draft: data.value });
+      this.areaList.sort((a, b) => a.value.localeCompare(b.value));
+      this.newAreaValue = ""; this.flash("Area ditambahkan.");
+    },
+    startEditArea(item) { item.draft = item.value; item.editing = true; },
+    cancelEditArea(item) { item.draft = item.value; item.editing = false; },
+    async saveMasterArea(item) {
+      const v = (item.draft || "").trim(); if (!v) { this.flash("Tidak boleh kosong.", true); return; }
+      const { data, error } = await supabaseClient.from("downtime_areas").update({ value: v }).eq("id", item.id).select();
+      if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
+      if (!data || data.length === 0) { this.flash("Gagal simpan — cek izin akses.", true); return; }
+      item.value = v; item.editing = false;
+    },
+    async deleteMasterArea(id) {
+      if (!confirm("Hapus area ini?")) return;
+      const { error } = await supabaseClient.from("downtime_areas").delete().eq("id", id);
+      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
+      this.areaList = this.areaList.filter((r) => r.id !== id);
     },
 
     async addMasterNonProduksiType() {
