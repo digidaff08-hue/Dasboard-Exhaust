@@ -779,8 +779,10 @@
                     </template>
                   </div>
                 </div>
-                <div class="field" style="max-width:140px;"><label>Waktu Tunggu (menit)</label><input type="number" step="any" x-model="dtForm.waktu_tunggu"></div>
-                <div class="field" style="grid-column: span 3;"><label>Ket</label><input type="text" x-model="dtForm.ket"></div>
+                <div class="field" style="grid-column: span 4; display:flex; gap:14px;">
+                  <div style="max-width:140px;flex-shrink:0;"><label>Waktu Tunggu (menit)</label><input type="number" step="any" x-model="dtForm.waktu_tunggu"></div>
+                  <div style="flex:1;"><label>Ket</label><input type="text" x-model="dtForm.ket"></div>
+                </div>
                 <div class="field" style="grid-column: span 2;">
                   <label>Problem Kategori</label>
                   <div class="combo" x-data="comboBox(() => problemList.map(p => p.value), () => dtForm.problem, (v) => dtForm.problem = v)" @click.outside="open = false">
