@@ -175,7 +175,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     productionRows: [], downtimeRows: [], nonProduksiRows: [], planningRows: [],
     partNumberList: [], problemList: [], causeList: [], areaList: [], nonProduksiTypeList: [],
     newPartNumberValue: "", newProblemValue: "", newCauseValue: "", newAreaValue: "", newNonProduksiTypeValue: "",
-    picOptions: ["MESIN", "PE", "PROD", "PC-SUPP", "QC", "PRESS"],
+    picOptions: ["DIES", "MESIN", "PE", "PROD", "PC-SUPP", "QC", "PRESS"],
+    newProblemPic: "", newCauseProblemId: "",
     statusOptions: ["Temporary Action", "Permanent Action"],
     machineOptions: MACHINE_OPTIONS, partNumbersByLine: {},
 
@@ -1101,8 +1102,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         pic: f.pic || null, waktu_tunggu: f.waktu_tunggu === "" ? null : Number(f.waktu_tunggu),
         ket: f.ket || null, area: f.area || null, status: f.status || null,
       };
-      if (f.problem) this.learnProblem(f.problem);
-      if (f.penyebab) this.learnCause(f.penyebab);
+      if (f.problem) {
+        const selProblem = this.problemList.find((p) => p.value === f.problem);
+        this.learnProblem(f.problem, f.pic);
+        if (f.penyebab) this.learnCause(f.penyebab, selProblem ? selProblem.id : null);
+      } else if (f.penyebab) {
+        this.learnCause(f.penyebab, null);
+      }
       if (f.area) this.learnArea(f.area);
       if (this.editingDowntimeId) {
         const { error } = await supabaseClient.from("downtime_log").update(payload).eq("id", this.editingDowntimeId);
@@ -1180,38 +1186,56 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       }));
     },
     async fetchProblems() {
-      const { data, error } = await supabaseClient.from("downtime_problems").select("id, value").eq("mesin", machineKey).order("value");
+      // Shared untuk semua line (E-02..E-07) -- TIDAK difilter per mesin lagi.
+      const { data, error } = await supabaseClient.from("downtime_problems").select("id, pic, value").order("pic").order("value");
       if (error) { this.flash("Gagal memuat Problem: " + error.message, true); return; }
       this.problemList = data.map((r) => ({ ...r, editing: false, draft: r.value }));
     },
     async fetchCauses() {
-      const { data, error } = await supabaseClient.from("downtime_causes").select("id, value").eq("mesin", machineKey).order("value");
+      // Shared untuk semua line -- TIDAK difilter per mesin lagi.
+      const { data, error } = await supabaseClient.from("downtime_causes").select("id, problem_id, value").order("value");
       if (error) { this.flash("Gagal memuat Problem Detail: " + error.message, true); return; }
       this.causeList = data.map((r) => ({ ...r, editing: false, draft: r.value }));
     },
     async fetchAreas() {
-      const { data, error } = await supabaseClient.from("downtime_areas").select("id, value").eq("mesin", machineKey).order("value");
+      // Shared untuk semua line -- TIDAK difilter per mesin lagi.
+      const { data, error } = await supabaseClient.from("downtime_areas").select("id, value").order("value");
       if (error) { this.flash("Gagal memuat Area: " + error.message, true); return; }
       this.areaList = data.map((r) => ({ ...r, editing: false, draft: r.value }));
+    },
+    // ---- Cascading PIC -> Problem Kategori -> Problem Detail ----
+    problemsForPic(pic) {
+      if (!pic) return this.problemList;
+      return this.problemList.filter((p) => p.pic === pic);
+    },
+    causesForProblemValue(problemValue) {
+      const sel = this.problemList.find((p) => p.value === problemValue);
+      if (!sel) return [];
+      return this.causeList.filter((c) => c.problem_id === sel.id);
+    },
+    problemPicLabel(item) { return item.pic ? "[" + item.pic + "] " : ""; },
+    causeKategoriLabel(item) {
+      const p = this.problemList.find((x) => x.id === item.problem_id);
+      return p ? "[" + p.value + "] " : "[belum ada kategori] ";
     },
     async learnPartNumber(value) {
       if (!value || this.partNumberList.some((r) => r.value.toLowerCase() === value.toLowerCase())) return;
       const { data, error } = await supabaseClient.from("part_numbers").insert({ mesin: machineKey, value }).select().single();
       if (!error && data) this.partNumberList.push({ ...data, editing: false, draft: data.value, draftStdMp: "", draftStdCt: "", draftNextProcesses: [] });
     },
-    async learnProblem(value) {
+    async learnProblem(value, pic) {
       if (!value || this.problemList.some((r) => r.value.toLowerCase() === value.toLowerCase())) return;
-      const { data, error } = await supabaseClient.from("downtime_problems").insert({ mesin: machineKey, value }).select().single();
+      const { data, error } = await supabaseClient.from("downtime_problems").insert({ pic: pic || null, value }).select().single();
       if (!error && data) this.problemList.push({ ...data, editing: false, draft: data.value });
     },
-    async learnCause(value) {
+    async learnCause(value, problemId) {
       if (!value || this.causeList.some((r) => r.value.toLowerCase() === value.toLowerCase())) return;
-      const { data, error } = await supabaseClient.from("downtime_causes").insert({ mesin: machineKey, value }).select().single();
+      const { data, error } = await supabaseClient.from("downtime_causes").insert({ problem_id: problemId || null, value }).select().single();
       if (!error && data) this.causeList.push({ ...data, editing: false, draft: data.value });
     },
     async learnArea(value) {
       if (!value || this.areaList.some((r) => r.value.toLowerCase() === value.toLowerCase())) return;
-      const { data, error } = await supabaseClient.from("downtime_areas").insert({ mesin: machineKey, value }).select().single();
+      const { data, error } = await supabaseClient.from("downtime_areas").insert({ value }).select().single();
       if (!error && data) this.areaList.push({ ...data, editing: false, draft: data.value });
     },
     async addMasterPartNumber() {
@@ -1275,10 +1299,11 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
 
     async addMasterProblem() {
       const v = (this.newProblemValue || "").trim(); if (!v) return;
-      const { data, error } = await supabaseClient.from("downtime_problems").insert({ mesin: machineKey, value: v }).select().single();
+      if (!this.newProblemPic) { this.flash("Pilih PIC dulu untuk kategori baru ini.", true); return; }
+      const { data, error } = await supabaseClient.from("downtime_problems").insert({ pic: this.newProblemPic, value: v }).select().single();
       if (error) { this.flash("Gagal tambah: " + error.message, true); return; }
       this.problemList.push({ ...data, editing: false, draft: data.value });
-      this.problemList.sort((a, b) => a.value.localeCompare(b.value));
+      this.problemList.sort((a, b) => (a.pic || "").localeCompare(b.pic || "") || a.value.localeCompare(b.value));
       this.newProblemValue = ""; this.flash("Problem ditambahkan.");
     },
     startEditProblem(item) { item.draft = item.value; item.editing = true; },
@@ -1299,7 +1324,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
 
     async addMasterCause() {
       const v = (this.newCauseValue || "").trim(); if (!v) return;
-      const { data, error } = await supabaseClient.from("downtime_causes").insert({ mesin: machineKey, value: v }).select().single();
+      if (!this.newCauseProblemId) { this.flash("Pilih Problem Kategori dulu untuk detail baru ini.", true); return; }
+      const { data, error } = await supabaseClient.from("downtime_causes").insert({ problem_id: this.newCauseProblemId, value: v }).select().single();
       if (error) { this.flash("Gagal tambah: " + error.message, true); return; }
       this.causeList.push({ ...data, editing: false, draft: data.value });
       this.causeList.sort((a, b) => a.value.localeCompare(b.value));
@@ -1323,7 +1349,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
 
     async addMasterArea() {
       const v = (this.newAreaValue || "").trim(); if (!v) return;
-      const { data, error } = await supabaseClient.from("downtime_areas").insert({ mesin: machineKey, value: v }).select().single();
+      const { data, error } = await supabaseClient.from("downtime_areas").insert({ value: v }).select().single();
       if (error) { this.flash("Gagal tambah: " + error.message, true); return; }
       this.areaList.push({ ...data, editing: false, draft: data.value });
       this.areaList.sort((a, b) => a.value.localeCompare(b.value));

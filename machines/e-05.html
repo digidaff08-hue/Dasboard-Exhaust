@@ -775,7 +775,7 @@
                   <label>PIC</label>
                   <div class="chip-row">
                     <template x-for="p in picOptions" :key="p">
-                      <button type="button" class="chip" :class="dtForm.pic===p ? 'chip-active' : ''" @click="dtForm.pic=p" x-text="p"></button>
+                      <button type="button" class="chip" :class="dtForm.pic===p ? 'chip-active' : ''" @click="dtForm.pic=p; dtForm.problem=''; dtForm.penyebab=''" x-text="p"></button>
                     </template>
                   </div>
                 </div>
@@ -784,9 +784,9 @@
                   <div style="flex:1;min-width:0;"><label>Ket</label><input type="text" x-model="dtForm.ket"></div>
                 </div>
                 <div class="field" style="grid-column: span 2;">
-                  <label>Problem Kategori</label>
-                  <div class="combo" x-data="comboBox(() => problemList.map(p => p.value), () => dtForm.problem, (v) => dtForm.problem = v)" @click.outside="open = false">
-                    <input type="text" x-model="query" @input="onInput()" @focus="open = true" placeholder="Ketik atau pilih...">
+                  <label>Problem Kategori <span class="hint" x-show="!dtForm.pic">(pilih PIC dulu)</span></label>
+                  <div class="combo" x-data="comboBox(() => problemsForPic(dtForm.pic).map(p => p.value), () => dtForm.problem, (v) => dtForm.problem = v, () => { dtForm.penyebab = '' })" @click.outside="open = false">
+                    <input type="text" x-model="query" @input="onInput()" @focus="open = true" placeholder="Ketik atau pilih..." :disabled="!dtForm.pic">
                     <div class="combo-list" x-show="open && filtered().length > 0" x-cloak>
                       <template x-for="opt in filtered()" :key="opt">
                         <div class="combo-item" @mousedown.prevent="select(opt)" x-text="opt"></div>
@@ -795,9 +795,9 @@
                   </div>
                 </div>
                 <div class="field" style="grid-column: span 2;">
-                  <label>Problem Detail</label>
-                  <div class="combo" x-data="comboBox(() => causeList.map(p => p.value), () => dtForm.penyebab, (v) => dtForm.penyebab = v)" @click.outside="open = false">
-                    <input type="text" x-model="query" @input="onInput()" @focus="open = true" placeholder="Ketik atau pilih...">
+                  <label>Problem Detail <span class="hint" x-show="!dtForm.problem">(pilih Problem Kategori dulu)</span></label>
+                  <div class="combo" x-data="comboBox(() => causesForProblemValue(dtForm.problem).map(p => p.value), () => dtForm.penyebab, (v) => dtForm.penyebab = v)" @click.outside="open = false">
+                    <input type="text" x-model="query" @input="onInput()" @focus="open = true" placeholder="Ketik atau pilih..." :disabled="!dtForm.problem">
                     <div class="combo-list" x-show="open && filtered().length > 0" x-cloak>
                       <template x-for="opt in filtered()" :key="opt">
                         <div class="combo-item" @mousedown.prevent="select(opt)" x-text="opt"></div>
@@ -1009,13 +1009,17 @@
           <div class="panel">
             <p class="panel-title">Daftar Problem Downtime <span class="count" x-text="problemList.length + ' item'"></span></p>
             <div class="master-add-row">
+              <select x-model="newProblemPic" style="max-width:140px;">
+                <option value="">PIC...</option>
+                <template x-for="p in picOptions" :key="p"><option :value="p" x-text="p"></option></template>
+              </select>
               <input type="text" x-model="newProblemValue" @keyup.enter="addMasterProblem()" placeholder="Tambah problem baru...">
               <button type="button" class="btn-primary btn-sm" @click="addMasterProblem()">+ Tambah</button>
             </div>
             <div class="master-list">
               <template x-for="item in problemList" :key="item.id">
                 <div class="master-list-row">
-                  <template x-if="!item.editing"><span class="master-value" x-text="item.value"></span></template>
+                  <template x-if="!item.editing"><span class="master-value"><span class="badge" x-text="item.pic"></span> <span x-text="item.value"></span></span></template>
                   <template x-if="item.editing"><input type="text" x-model="item.draft" @keyup.enter="saveMasterProblem(item)"></template>
                   <div class="master-row-actions">
                     <template x-if="!item.editing"><button type="button" class="btn-secondary btn-sm" @click="startEditProblem(item)">Edit</button></template>
@@ -1032,13 +1036,17 @@
           <div class="panel">
             <p class="panel-title">Daftar Problem Detail <span class="count" x-text="causeList.length + ' item'"></span></p>
             <div class="master-add-row">
+              <select x-model="newCauseProblemId" style="max-width:220px;">
+                <option value="">Problem Kategori...</option>
+                <template x-for="p in problemList" :key="p.id"><option :value="p.id" x-text="(p.pic ? '['+p.pic+'] ' : '') + p.value"></option></template>
+              </select>
               <input type="text" x-model="newCauseValue" @keyup.enter="addMasterCause()" placeholder="Tambah problem detail baru...">
               <button type="button" class="btn-primary btn-sm" @click="addMasterCause()">+ Tambah</button>
             </div>
             <div class="master-list">
               <template x-for="item in causeList" :key="item.id">
                 <div class="master-list-row">
-                  <template x-if="!item.editing"><span class="master-value" x-text="item.value"></span></template>
+                  <template x-if="!item.editing"><span class="master-value" x-text="causeKategoriLabel(item) + item.value"></span></template>
                   <template x-if="item.editing"><input type="text" x-model="item.draft" @keyup.enter="saveMasterCause(item)"></template>
                   <div class="master-row-actions">
                     <template x-if="!item.editing"><button type="button" class="btn-secondary btn-sm" @click="startEditCause(item)">Edit</button></template>
