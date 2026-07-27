@@ -779,8 +779,8 @@
                     </template>
                   </div>
                 </div>
-                <div class="field"><label>Waktu Tunggu (menit)</label><input type="number" step="any" x-model="dtForm.waktu_tunggu"></div>
-                <div class="field"><label>Ket</label><input type="text" x-model="dtForm.ket"></div>
+                <div class="field" style="max-width:140px;"><label>Waktu Tunggu (menit)</label><input type="number" step="any" x-model="dtForm.waktu_tunggu"></div>
+                <div class="field" style="grid-column: span 3;"><label>Ket</label><input type="text" x-model="dtForm.ket"></div>
                 <div class="field" style="grid-column: span 2;">
                   <label>Problem Kategori</label>
                   <div class="combo" x-data="comboBox(() => problemList.map(p => p.value), () => dtForm.problem, (v) => dtForm.problem = v)" @click.outside="open = false">
@@ -822,6 +822,10 @@
                       <button type="button" class="chip" :class="dtForm.status===s ? 'chip-active' : ''" @click="dtForm.status=s" x-text="s"></button>
                     </template>
                   </div>
+                </div>
+                <div class="field" style="grid-column: span 2;">
+                  <label>Total Losstime</label>
+                  <div class="mono" style="padding:10px 0;font-weight:600;font-size:15px;" x-text="durasiMenit(dtStart, dtEnd)"></div>
                 </div>
               </div>
               <div class="form-actions">
