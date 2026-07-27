@@ -991,7 +991,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     durasiMenit(a, b) {
       if (!a || !b) return "-";
       const d = (new Date(b) - new Date(a)) / 60000;
-      return d >= 0 ? d + " mnt" : "-";
+      return d >= 0 ? d.toFixed(1) + " mnt" : "-";
     },
 
     // ================= EDIT / HAPUS (riwayat, koreksi manual) =================
