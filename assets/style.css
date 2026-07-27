@@ -278,6 +278,7 @@ a { color: var(--amber); }
   font-size: 14px;
   font-family: var(--font-body);
 }
+.field select option { font-size: 14px; }
 .field input:focus, .field select:focus, .field textarea:focus {
   outline: none;
   border-color: var(--amber);
@@ -932,6 +933,9 @@ td.mono, .mono { font-family: var(--font-mono); }
 
   /* target sentuh lebih besar untuk operator di lapangan */
   .field input, .field select, .field textarea { padding: 12px 12px; font-size: 16px; }
+  /* select/option teksnya dikecilkan lagi -- 16px di atas cuma perlu buat
+     input teks (supaya iOS tidak auto-zoom pas fokus); select tidak butuh itu */
+  .field select, .field select option { font-size: 14px; }
   button, .btn { padding: 12px 18px; font-size: 14px; }
   .btn-sm { padding: 9px 14px; }
   .sidebar-link { padding: 14px 20px; font-size: 15px; }
