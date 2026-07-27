@@ -4,7 +4,7 @@
 // sinyal di lapangan lemah. Data tetap butuh koneksi (via Supabase),
 // ini cuma men-cache HTML/CSS/JS-nya, bukan data produksi.
 // =========================================================
-const CACHE_NAME = "produksi-downtime-shell-v1";
+const CACHE_NAME = "produksi-downtime-shell-v2-welding";
 
 const SHELL_FILES = [
   "/login.html",
@@ -12,11 +12,12 @@ const SHELL_FILES = [
   "/assets/style.css",
   "/assets/supabaseClient.js",
   "/assets/machine-page.js",
-  "/machines/tandem.html",
-  "/machines/blanking.html",
-  "/machines/transfer-2000t.html",
-  "/machines/transfer-800t.html",
-  "/machines/pc200t.html",
+  "/machines/e-02.html",
+  "/machines/e-03.html",
+  "/machines/e-04.html",
+  "/machines/e-05.html",
+  "/machines/e-06.html",
+  "/machines/e-07.html",
 ];
 
 self.addEventListener("install", (event) => {

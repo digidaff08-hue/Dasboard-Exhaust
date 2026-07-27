@@ -1,7 +1,7 @@
 {
   "name": "Sistem Produksi & Downtime",
   "short_name": "Produksi",
-  "description": "Input data produksi & downtime mesin — Tandem, Blanking, Transfer 2000t, Transfer 800t, PC200t.",
+  "description": "Input data produksi & downtime line Welding — E-02, E-03, E-04, E-05, E-06, E-07.",
   "start_url": "/index.html",
   "scope": "/",
   "display": "standalone",

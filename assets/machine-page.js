@@ -40,9 +40,9 @@ function isNetworkError(err) {
 }
 
 const MACHINE_OPTIONS = [
-  { key: "tandem", label: "Tandem" }, { key: "blanking", label: "Blanking" },
-  { key: "transfer_2000t", label: "Transfer 2000t" }, { key: "transfer_800t", label: "Transfer 800t" },
-  { key: "pc200t", label: "PC200t" },
+  { key: "E-02", label: "E-02" }, { key: "E-03", label: "E-03" },
+  { key: "E-04", label: "E-04" }, { key: "E-05", label: "E-05" },
+  { key: "E-06", label: "E-06" }, { key: "E-07", label: "E-07" },
 ];
 
 // ---------- Combobox custom (ganti <datalist>) ----------
