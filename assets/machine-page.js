@@ -1095,6 +1095,16 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
     async submitDowntime() {
       const f = this.dtForm;
+      const required = [
+        ["kategori", "Kategori"], ["pic", "PIC"], ["problem", "Problem Kategori"],
+        ["penyebab", "Problem Detail"], ["area", "Area"],
+        ["countermeasure", "Countermeasure"], ["status", "Status"],
+      ];
+      const missing = required.filter(([key]) => !f[key] || String(f[key]).trim() === "");
+      if (missing.length > 0) {
+        this.flash("Wajib diisi: " + missing.map(([, label]) => label).join(", "), true);
+        return;
+      }
       const payload = {
         mesin: machineKey, waktu_awal: this.dtStart, waktu_akhir: this.dtEnd,
         stasiun: f.stasiun || null, kategori: f.kategori || null, problem: f.problem || null,

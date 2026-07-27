@@ -764,7 +764,7 @@
                   </select>
                 </div>
                 <div class="field" style="grid-column: span 2;">
-                  <label>Kategori</label>
+                  <label>Kategori *</label>
                   <div class="chip-row">
                     <template x-for="k in kategoriOptions" :key="k">
                       <button type="button" class="chip" :class="dtForm.kategori===k ? 'chip-active' : ''" @click="dtForm.kategori=k" x-text="k"></button>
@@ -772,7 +772,7 @@
                   </div>
                 </div>
                 <div class="field" style="grid-column: span 2;">
-                  <label>PIC</label>
+                  <label>PIC *</label>
                   <div class="chip-row">
                     <template x-for="p in picOptions" :key="p">
                       <button type="button" class="chip" :class="dtForm.pic===p ? 'chip-active' : ''" @click="dtForm.pic=p; dtForm.problem=''; dtForm.penyebab=''" x-text="p"></button>
@@ -784,7 +784,7 @@
                   <div style="flex:1;min-width:0;"><label>Ket</label><input type="text" x-model="dtForm.ket"></div>
                 </div>
                 <div class="field" style="grid-column: span 2;">
-                  <label>Problem Kategori <span class="hint" x-show="!dtForm.pic">(pilih PIC dulu)</span></label>
+                  <label>Problem Kategori * <span class="hint" x-show="!dtForm.pic">(pilih PIC dulu)</span></label>
                   <select x-model="dtForm.problem" @change="dtForm.penyebab=''" :disabled="!dtForm.pic">
                     <option value="">-- pilih --</option>
                     <template x-for="p in problemsForPic(dtForm.pic)" :key="p.id">
@@ -793,7 +793,7 @@
                   </select>
                 </div>
                 <div class="field" style="grid-column: span 2;">
-                  <label>Problem Detail <span class="hint" x-show="!dtForm.problem">(pilih Problem Kategori dulu)</span></label>
+                  <label>Problem Detail * <span class="hint" x-show="!dtForm.problem">(pilih Problem Kategori dulu)</span></label>
                   <select x-model="dtForm.penyebab" :disabled="!dtForm.problem">
                     <option value="">-- pilih --</option>
                     <template x-for="c in causesForProblemValue(dtForm.problem)" :key="c.id">
@@ -802,7 +802,7 @@
                   </select>
                 </div>
                 <div class="field" style="grid-column: span 2;">
-                  <label>Area</label>
+                  <label>Area *</label>
                   <select x-model="dtForm.area">
                     <option value="">-- pilih --</option>
                     <template x-for="a in areaList" :key="a.id">
@@ -810,9 +810,9 @@
                     </template>
                   </select>
                 </div>
-                <div class="field" style="grid-column: span 2;"><label>Countermeasure</label><input type="text" x-model="dtForm.countermeasure"></div>
+                <div class="field" style="grid-column: span 2;"><label>Countermeasure *</label><input type="text" x-model="dtForm.countermeasure"></div>
                 <div class="field" style="grid-column: span 2;">
-                  <label>Status</label>
+                  <label>Status *</label>
                   <div class="chip-row">
                     <template x-for="s in statusOptions" :key="s">
                       <button type="button" class="chip" :class="dtForm.status===s ? 'chip-active' : ''" @click="dtForm.status=s" x-text="s"></button>
