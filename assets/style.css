@@ -312,7 +312,21 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-sm { padding: 5px 10px; font-size: 12px; }
 
 /* ---------- Tables ---------- */
-.table-wrap { overflow-x: auto; overflow-y: auto; max-height: 620px; }
+.table-wrap {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 620px;
+  -webkit-overflow-scrolling: touch; /* momentum scroll di iOS */
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: var(--primary) var(--panel-2);
+}
+/* Scrollbar horizontal dibuat selalu keliatan & gampang digeser jari
+   (default browser sering nyembunyiin scrollbar di HP, jadi orang
+   nggak sadar tabelnya bisa digeser ke samping). */
+.table-wrap::-webkit-scrollbar { height: 10px; width: 10px; }
+.table-wrap::-webkit-scrollbar-track { background: var(--panel-2); border-radius: 6px; }
+.table-wrap::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 6px; }
+.table-wrap::-webkit-scrollbar-thumb:hover { background: var(--navy); }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 thead th {
   position: sticky;

@@ -832,7 +832,7 @@
             </form>
           </div>
           <div class="panel">
-            <p class="panel-title">Riwayat Downtime <span class="count" x-text="downtimeRowsFiltered().length + ' baris'"></span></p>
+            <p class="panel-title">Riwayat Downtime <span class="count" x-text="downtimeRowsFiltered().length + ' baris'"></span> <span class="count" x-text="'Total Losstime: ' + totalLosstimeMenit()"></span></p>
             <div class="offline-banner" x-show="downtimeFilterProductionId" style="display:flex;align-items:center;justify-content:space-between;">
               <span>Filter aktif: cuma downtime untuk <b x-text="downtimeFilterLabel"></b></span>
               <button type="button" class="btn-ghost btn-sm" @click="clearDowntimeFilter()">✕ Tampilkan semua</button>
@@ -874,6 +874,13 @@
                   </template>
                   <tr x-show="downtimeRowsFiltered().length === 0"><td colspan="14" class="empty-state">Belum ada data downtime.</td></tr>
                 </tbody>
+                <tfoot x-show="downtimeRowsFiltered().length > 0">
+                  <tr>
+                    <td :colspan="stationConfig.mode !== 'none' ? 3 : 2" style="text-align:right;font-weight:600;">Total Losstime</td>
+                    <td class="mono" style="font-weight:600;" x-text="totalLosstimeMenit()"></td>
+                    <td colspan="10"></td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>
