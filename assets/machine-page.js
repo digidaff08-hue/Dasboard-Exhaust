@@ -1774,9 +1774,15 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const [THREE, loaderMod, controlsMod] = await Promise.all([
           import("https://esm.sh/three@0.160.0"),
           import("https://esm.sh/three@0.160.0/examples/jsm/loaders/STLLoader.js"),
-          import("https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js"),
+          // TrackballControls dipakai (bukan OrbitControls) SUPAYA rotasi
+          // bener-bener bebas tanpa sumbu atas-bawah tetap -- OrbitControls
+          // punya "kutub" (atas/bawah) yang bikin putaran vertikal mentok
+          // dan harus balik arah. TrackballControls tidak punya batasan itu:
+          // muter dari titik A, keliling terus ke segala arah, balik lagi
+          // ke A tanpa pernah kejeduk.
+          import("https://esm.sh/three@0.160.0/examples/jsm/controls/TrackballControls.js"),
         ]);
-        window.__threeLib = { THREE, STLLoader: loaderMod.STLLoader, OrbitControls: controlsMod.OrbitControls };
+        window.__threeLib = { THREE, STLLoader: loaderMod.STLLoader, TrackballControls: controlsMod.TrackballControls };
       }
       return window.__threeLib;
     },
@@ -1797,7 +1803,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     async loadRepairModel(container, view) {
       this.repairModelLoading = true;
       try {
-        const { THREE, STLLoader, OrbitControls } = await this.ensureThreeLib();
+        const { THREE, STLLoader, TrackballControls } = await this.ensureThreeLib();
         this.teardownRepair3D();
         container.innerHTML = "";
 
@@ -1831,18 +1837,20 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         mesh.position.set(-center.x, -center.y, -center.z);
         scene.add(mesh);
 
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.08;
+        // --- TrackballControls: rotasi BENER-BENER BEBAS, tanpa "kutub" ---
+        // Beda sama OrbitControls yang punya sumbu atas-bawah tetap (jadi
+        // putaran vertikal mentok di kutub & harus balik arah),
+        // TrackballControls muter berdasarkan rotasi bola bebas (arcball) --
+        // bisa digulir terus-menerus ke segala arah, dari titik A keliling
+        // penuh balik lagi ke A, tanpa pernah kejeduk/mentok.
+        const controls = new TrackballControls(camera, renderer.domElement);
+        controls.rotateSpeed = 3.2;
+        controls.zoomSpeed = 1.1;
+        controls.staticMoving = false;        // ada inertia halus pas dilepas
+        controls.dynamicDampingFactor = 0.12; // makin kecil = makin "licin"/lama redanya
 
-        // --- ROTASI 100% BEBAS, TANPA BATASAN ---
-        // Di-set eksplisit (bukan cuma andalkan default Three.js) biar jelas
-        // & gak ke-reset kalau lib Three.js di-upgrade suatu saat nanti.
-        controls.minPolarAngle = 0;           // boleh puter sampai lihat dari atas...
-        controls.maxPolarAngle = Math.PI;     // ...sampai lihat dari bawah, full 180°.
-        controls.minAzimuthAngle = -Infinity; // puter kiri-kanan 360° tanpa henti,
-        controls.maxAzimuthAngle = Infinity;  // tidak "mentok" di sudut tertentu.
-        controls.minDistance = 0;             // zoom in/out juga bebas, tanpa batas.
+        // --- ZOOM BEBAS, TANPA BATAS ---
+        controls.minDistance = 0;
         controls.maxDistance = Infinity;
 
         // --- POSISI PART SELALU DI TENGAH (TIDAK BOLEH GESER) ---
@@ -1850,18 +1858,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         // maupun drag 2 jari di HP -- supaya target kamera permanen di
         // titik (0,0,0), pas di tengah part. User cuma bisa PUTAR & ZOOM,
         // part tidak akan pernah "kabur" dari tengah kolom.
-        controls.enablePan = false;
-        controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_ROTATE };
+        controls.noPan = true;
 
-        // Arah lihat default -- TAMPAK DEPAN. Berdasarkan bounding box STL
-        // part pertama (25051-BZ040), sumbu Y adalah sisi paling tipis
-        // (~6.8 vs X ~11.5 & Z ~15.8) -- artinya Y adalah sumbu "depan ke
-        // belakang" part ini, jadi kamera awal diarahkan lurus dari sumbu
-        // Y supaya part kelihatan tampak depan (flat), bukan miring/isometrik
-        // seperti sebelumnya. Kalau ternyata part lain (atau part ini)
-        // hasilnya kebalik/dari belakang, tinggal balik tandanya jadi
-        // (0, 1, 0.001) di baris di bawah ini.
-        const viewDir = new THREE.Vector3(0, -1, 0.001).normalize();
+        // Arah lihat default -- dikembalikan ke sudut diagonal semula
+        // (sesuai referensi gambar: besar, di tengah, kelihatan semua sisi
+        // part sekaligus). camera.up TIDAK diubah (default 0,1,0).
+        const viewDir = new THREE.Vector3(1, 0.65, 1).normalize();
 
         // Jarak kamera dihitung PAS berdasarkan proyeksi kotak part ke layar
         // (bukan cuma perkiraan bola), jadi part tampil sebesar mungkin
@@ -1942,6 +1944,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const w = r.container.clientWidth || 320, h = r.container.clientHeight || 360;
       r.camera.aspect = w / h; r.camera.updateProjectionMatrix();
       r.renderer.setSize(w, h);
+      // TrackballControls nyimpen ukuran & posisi kolom secara internal --
+      // wajib dikasih tau tiap kali kolomnya resize, kalau enggak nanti
+      // hitungan drag-nya jadi ngaco (beda dari OrbitControls yg gak perlu ini).
+      if (r.controls && r.controls.handleResize) r.controls.handleResize();
     },
     observeRepair3DResize(container) {
       const r = repairThreeState; if (!r) return;
