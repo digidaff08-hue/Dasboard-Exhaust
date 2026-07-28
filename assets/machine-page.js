@@ -1834,7 +1834,19 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.08;
-        camera.position.set(maxDim * 1.4, maxDim * 1.1, maxDim * 1.6);
+
+        // Auto-fit kamera: hitung jarak pas berdasarkan ukuran part & ukuran
+        // kotak (aspect ratio), supaya modelnya selalu tampil besar & pas
+        // di tengah kolom, konsisten tiap kali dibuka -- bukan asal taruh.
+        const boundingRadius = size.length() / 2;
+        const aspect = width / height;
+        const vFovRad = camera.fov * (Math.PI / 180);
+        const hFovRad = 2 * Math.atan(Math.tan(vFovRad / 2) * aspect);
+        const limitingHalfFov = Math.min(vFovRad, hFovRad) / 2;
+        const paddingFactor = 1.12; // sedikit ruang napas di tepi
+        const fitDistance = (boundingRadius / Math.sin(limitingHalfFov)) * paddingFactor;
+        const viewDir = new THREE.Vector3(1, 0.65, 1).normalize();
+        camera.position.copy(viewDir.multiplyScalar(fitDistance));
         controls.target.set(0, 0, 0);
         controls.update();
 
@@ -1909,7 +1921,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         ctx.fillText(label.slice(0, 2), 64, 68);
       }
       const texture = new THREE.CanvasTexture(canvas);
-      const mat = new THREE.SpriteMaterial({ map: texture, depthTest: false, depthWrite: false });
+      const mat = new THREE.SpriteMaterial({ map: texture, depthTest: true, depthWrite: false });
       const sprite = new THREE.Sprite(mat);
       sprite.renderOrder = 999;
       return sprite;
@@ -1923,10 +1935,33 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const size = new THREE.Vector3(); bbox.getSize(size);
       const maxDim = Math.max(size.x, size.y, size.z) || 1;
       const spriteScale = maxDim * 0.09;
+      // dorong marker sedikit keluar dari permukaan (searah normal) biar
+      // tidak "z-fighting" (kedip) pas persis nempel permukaan, tapi tetap
+      // ketutup badan model kalau posisinya lagi di sisi yang membelakangi kamera.
+      const offsetDist = maxDim * 0.02;
+      // titik tengah bbox dalam koordinat LOKAL (sama ruang dgn titik point) --
+      // dipakai sebagai cadangan arah normal buat Point lama yang belum
+      // punya nx/ny/nz tersimpan.
+      const centerWorld = new THREE.Vector3(); bbox.getCenter(centerWorld);
+      const centerLocal = r.mesh.worldToLocal(centerWorld.clone());
+
       this.repairPoints.forEach((pt) => {
         const sprite = this.makeRepairMarkerSprite(THREE, pt.label);
         sprite.scale.set(spriteScale, spriteScale, 1);
-        sprite.position.set(pt.x || 0, pt.y || 0, pt.z || 0);
+        let normal;
+        if (pt.nx != null && pt.ny != null && pt.nz != null) {
+          normal = new THREE.Vector3(pt.nx, pt.ny, pt.nz);
+          if (normal.lengthSq() < 1e-8) normal = null; else normal.normalize();
+        }
+        if (!normal) {
+          normal = new THREE.Vector3(pt.x - centerLocal.x, pt.y - centerLocal.y, pt.z - centerLocal.z);
+          if (normal.lengthSq() < 1e-8) normal.set(0, 0, 1); else normal.normalize();
+        }
+        sprite.position.set(
+          (pt.x || 0) + normal.x * offsetDist,
+          (pt.y || 0) + normal.y * offsetDist,
+          (pt.z || 0) + normal.z * offsetDist
+        );
         sprite.userData.pointId = pt.id;
         r.mesh.add(sprite); // anak dari mesh -> otomatis ikut transform centering
         r.markers.push(sprite);
@@ -1952,28 +1987,33 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       r.pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
       r.raycaster.setFromCamera(r.pointer, r.camera);
 
-      // 1) Klik kena Point yang sudah ada?
-      const markerHits = r.raycaster.intersectObjects(r.markers, false);
-      if (markerHits.length > 0) {
-        const pointId = markerHits[0].object.userData.pointId;
-        const point = this.repairPoints.find((p) => p.id === pointId);
+      // Raycast gabungan (model + semua marker) lalu ambil yang PALING DEKAT
+      // ke kamera -- ini otomatis bikin Point yang ketutup badan model (lagi
+      // di sisi belakang) tidak ke-klik, sama seperti secara visual tertutup.
+      const hits = r.raycaster.intersectObjects([r.mesh, ...r.markers], false);
+      if (hits.length === 0) return;
+      const closest = hits[0];
+
+      if (closest.object.userData && closest.object.userData.pointId) {
+        const point = this.repairPoints.find((p) => p.id === closest.object.userData.pointId);
         if (!point) return;
         if (this.repairEditMode) this.deleteRepairPoint(point.id);
         else this.openRepairPoint(point);
         return;
       }
-      // 2) Klik kena permukaan model -> tambah Point baru (cuma di Mode Edit)
+      // Kena permukaan model -> tambah Point baru (cuma di Mode Edit)
       if (!this.repairEditMode) return;
-      const meshHits = r.raycaster.intersectObject(r.mesh, false);
-      if (meshHits.length === 0) return;
-      const localPoint = r.mesh.worldToLocal(meshHits[0].point.clone());
-      this.addRepairPoint3D(localPoint);
+      const localPoint = r.mesh.worldToLocal(closest.point.clone());
+      const normal = closest.face ? closest.face.normal.clone() : null;
+      this.addRepairPoint3D(localPoint, normal);
     },
-    async addRepairPoint3D(localPoint) {
+    async addRepairPoint3D(localPoint, normal) {
       if (!this.repairActiveViewId) return;
       const label = prompt("Label Point ini (boleh kosong):", "") || null;
+      const payload = { view_id: this.repairActiveViewId, x: localPoint.x, y: localPoint.y, z: localPoint.z, label };
+      if (normal) { payload.nx = normal.x; payload.ny = normal.y; payload.nz = normal.z; }
       const { data, error } = await supabaseClient.from("repair_points")
-        .insert({ view_id: this.repairActiveViewId, x: localPoint.x, y: localPoint.y, z: localPoint.z, label })
+        .insert(payload)
         .select().single();
       if (error) { this.flash("Gagal tambah Point: " + error.message, true); return; }
       this.repairPoints.push(data);
