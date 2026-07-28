@@ -323,16 +323,30 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   overflow-y: auto;
   max-height: 620px;
   -webkit-overflow-scrolling: touch; /* momentum scroll di iOS */
-  scrollbar-width: thin; /* Firefox */
+  scrollbar-width: thin; /* Firefox desktop */
   scrollbar-color: var(--primary) var(--panel-2);
 }
-/* Scrollbar horizontal dibuat selalu keliatan & gampang digeser jari
-   (default browser sering nyembunyiin scrollbar di HP, jadi orang
-   nggak sadar tabelnya bisa digeser ke samping). */
 .table-wrap::-webkit-scrollbar { height: 10px; width: 10px; }
 .table-wrap::-webkit-scrollbar-track { background: var(--panel-2); border-radius: 6px; }
 .table-wrap::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 6px; }
 .table-wrap::-webkit-scrollbar-thumb:hover { background: var(--navy); }
+/* Indikator scroll custom (digambar via JS) -- dipakai karena browser HP
+   (Chrome/Safari mobile) SEMBUNYIIN scrollbar bawaan secara default,
+   jadi orang nggak pernah lihat kalau tabel itu bisa digeser. Bar ini
+   selalu keliatan, nggak gantung ke scrollbar OS. */
+.table-scroll-indicator {
+  height: 6px;
+  background: var(--panel-2);
+  border-radius: 3px;
+  margin-top: 6px;
+  overflow: hidden;
+  display: none;
+}
+.table-scroll-indicator-thumb {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 3px;
+}
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 thead th {
   position: sticky;

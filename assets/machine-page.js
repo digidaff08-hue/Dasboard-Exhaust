@@ -1586,3 +1586,54 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     logout,
   };
 }
+
+// =========================================================
+// Indikator scroll horizontal custom untuk .table-wrap.
+// Browser di HP (Chrome/Safari mobile) nyembunyiin scrollbar bawaan
+// kecuali lagi disentuh, jadi orang nggak sadar tabel itu bisa digeser
+// ke samping. Bar biru ini digambar manual & selalu keliatan kalau
+// tabelnya memang lebih lebar dari layar.
+// =========================================================
+(function initTableScrollIndicators() {
+  function ensureIndicator(wrap) {
+    let ind = wrap._scrollIndicatorEl;
+    if (ind) return ind;
+    ind = document.createElement("div");
+    ind.className = "table-scroll-indicator";
+    const thumb = document.createElement("div");
+    thumb.className = "table-scroll-indicator-thumb";
+    ind.appendChild(thumb);
+    wrap.insertAdjacentElement("afterend", ind);
+    wrap._scrollIndicatorEl = ind;
+    wrap.addEventListener("scroll", () => updateIndicator(wrap), { passive: true });
+    return ind;
+  }
+  function updateIndicator(wrap) {
+    const ind = ensureIndicator(wrap);
+    const thumb = ind.firstElementChild;
+    const { scrollWidth, clientWidth, scrollLeft } = wrap;
+    if (clientWidth === 0 || scrollWidth <= clientWidth + 2) {
+      ind.style.display = "none";
+      return;
+    }
+    ind.style.display = "block";
+    const thumbPct = Math.max((clientWidth / scrollWidth) * 100, 8);
+    const maxScroll = scrollWidth - clientWidth;
+    const scrollPct = maxScroll > 0 ? scrollLeft / maxScroll : 0;
+    thumb.style.width = thumbPct + "%";
+    thumb.style.marginLeft = scrollPct * (100 - thumbPct) + "%";
+  }
+  function scanAll() {
+    document.querySelectorAll(".table-wrap").forEach(updateIndicator);
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", scanAll);
+  } else {
+    scanAll();
+  }
+  // Tabel yang sedang tersembunyi (tab lain / data belum dimuat) punya
+  // clientWidth 0 saat pertama dicek, jadi kita cek ulang berkala biar
+  // begitu kelihatan / datanya berubah, indikatornya otomatis muncul.
+  setInterval(scanAll, 500);
+  window.addEventListener("resize", scanAll);
+})();
