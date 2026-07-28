@@ -150,6 +150,11 @@ function localDateStr(d) {
 // Komponen utama
 // =========================================================
 function machinePage(machineKey, machineLabel, extraFields, routingMax, kategoriOptions, stationConfig) {
+  // State viewer 3D (Three.js) disimpan di variabel closure biasa (BUKAN
+  // properti reactive Alpine) karena objek internal Three.js (matrix,
+  // buffer, dsb) punya property non-configurable yang bentrok kalau
+  // dibungkus Proxy reaktif Alpine -> error "read-only ... proxy".
+  let repairThreeState = null;
   return {
     session: null, profile: null, tab: "produksi", loading: true,
     errorMsg: "", successMsg: "",
@@ -207,7 +212,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // Mode admin buat naruh titik baru di Master Data
     repairEditMode: false, repairNewViewLabel: "", repairNewViewFile: null, repairViewUploading: false,
     // State viewer 3D (Three.js) -- diisi runtime, bukan reactive data biasa
-    repairModelLoading: false, repairThree: null,
+    repairModelLoading: false,
 
     // ---- Performance dashboard (3 seksi independen) ----
     perf: {
@@ -1783,7 +1788,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       await this.$nextTick();
       const container = this.$refs.repair3dCanvas;
       if (!container) return;
-      if (this.repairThree && this.repairThree.currentViewId === view.id) {
+      if (repairThreeState && repairThreeState.currentViewId === view.id) {
         this.resumeRepair3D();
         return;
       }
@@ -1833,7 +1838,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         controls.target.set(0, 0, 0);
         controls.update();
 
-        this.repairThree = {
+        repairThreeState = {
           THREE, scene, camera, renderer, controls, mesh,
           raycaster: new THREE.Raycaster(), pointer: new THREE.Vector2(),
           markers: [], container, currentViewId: view.id, animId: null, paused: false,
@@ -1850,9 +1855,9 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       }
     },
     startRepair3DLoop() {
-      const r = this.repairThree;
+      const r = repairThreeState;
       const tick = () => {
-        if (!this.repairThree || this.repairThree !== r) return; // sudah di-teardown
+        if (!repairThreeState || repairThreeState !== r) return; // sudah di-teardown
         if (!r.paused) {
           r.controls.update();
           r.renderer.render(r.scene, r.camera);
@@ -1862,34 +1867,34 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       tick();
     },
     pauseRepair3D() {
-      if (this.repairThree) this.repairThree.paused = true;
+      if (repairThreeState) repairThreeState.paused = true;
     },
     resumeRepair3D() {
-      if (!this.repairThree) return;
-      this.repairThree.paused = false;
+      if (!repairThreeState) return;
+      repairThreeState.paused = false;
       this.resizeRepair3D();
     },
     resizeRepair3D() {
-      const r = this.repairThree; if (!r) return;
+      const r = repairThreeState; if (!r) return;
       const w = r.container.clientWidth || 320, h = r.container.clientHeight || 360;
       r.camera.aspect = w / h; r.camera.updateProjectionMatrix();
       r.renderer.setSize(w, h);
     },
     observeRepair3DResize(container) {
-      const r = this.repairThree; if (!r) return;
+      const r = repairThreeState; if (!r) return;
       const ro = new ResizeObserver(() => this.resizeRepair3D());
       ro.observe(container);
       r.resizeObserver = ro;
     },
     teardownRepair3D() {
-      const r = this.repairThree; if (!r) return;
+      const r = repairThreeState; if (!r) return;
       if (r.animId) cancelAnimationFrame(r.animId);
       if (r.resizeObserver) r.resizeObserver.disconnect();
       if (r.controls) r.controls.dispose();
       (r.markers || []).forEach((m) => { m.material.map && m.material.map.dispose(); m.material.dispose(); });
       if (r.mesh) { r.mesh.geometry.dispose(); r.mesh.material.dispose(); }
       if (r.renderer) { r.renderer.dispose(); r.renderer.domElement.remove(); }
-      this.repairThree = null;
+      repairThreeState = null;
     },
     makeRepairMarkerSprite(THREE, label) {
       const canvas = document.createElement("canvas");
@@ -1910,7 +1915,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       return sprite;
     },
     rebuildRepairMarkers() {
-      const r = this.repairThree; if (!r) return;
+      const r = repairThreeState; if (!r) return;
       const THREE = r.THREE;
       (r.markers || []).forEach((m) => { r.mesh.remove(m); m.material.map && m.material.map.dispose(); m.material.dispose(); });
       r.markers = [];
@@ -1941,7 +1946,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       container.addEventListener("pointerup", onUp);
     },
     handleRepair3DClick(ev, container) {
-      const r = this.repairThree; if (!r) return;
+      const r = repairThreeState; if (!r) return;
       const rect = container.getBoundingClientRect();
       r.pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
       r.pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
