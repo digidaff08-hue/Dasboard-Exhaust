@@ -933,15 +933,22 @@
                 </div>
                 <div class="field" style="grid-column: span 2;"><label>Reason *</label><input type="text" x-model="ngForm.reason" placeholder="Alasan / kronologi NG..."></div>
                 <div class="field" style="grid-column: span 2;">
-                  <label>Gambar *</label>
+                  <label x-text="editingNgId ? 'Gambar (kosongkan kalau tidak ganti)' : 'Gambar *'"></label>
                   <input type="file" accept="image/*" capture="environment" @change="onNgFotoSelected($event)" x-ref="ngFotoInput">
                   <template x-if="ngFotoPreviewUrl">
                     <img :src="ngFotoPreviewUrl" style="max-width:140px;margin-top:8px;border-radius:8px;display:block;">
                   </template>
+                  <template x-if="!ngFotoPreviewUrl && ngExistingFotoUrl">
+                    <div style="margin-top:8px;">
+                      <p class="hint" style="margin-bottom:4px;">Foto saat ini:</p>
+                      <img :src="ngExistingFotoUrl" style="max-width:140px;border-radius:8px;display:block;">
+                    </div>
+                  </template>
                 </div>
               </div>
               <div class="form-actions">
-                <button type="submit" class="btn-primary" :disabled="ngSaving" x-text="ngSaving ? 'Menyimpan...' : 'Simpan NG Inline'"></button>
+                <button type="button" class="btn-ghost" x-show="editingNgId" @click="cancelEditNgInline()">Batal Edit</button>
+                <button type="submit" class="btn-primary" :disabled="ngSaving" x-text="ngSaving ? 'Menyimpan...' : (editingNgId ? 'Update NG Inline' : 'Simpan NG Inline')"></button>
               </div>
             </form>
           </div>
@@ -974,7 +981,10 @@
                           <img :src="row.foto_url" style="width:44px;height:44px;object-fit:cover;border-radius:6px;" loading="lazy">
                         </a>
                       </td>
-                      <td><button class="btn-danger btn-sm" @click="deleteNgInline(row.id)">Hapus</button></td>
+                      <td style="white-space:nowrap;">
+                        <button class="btn-secondary btn-sm" @click="editNgInline(row)">Edit</button>
+                        <button class="btn-danger btn-sm" @click="deleteNgInline(row.id)">Hapus</button>
+                      </td>
                     </tr>
                   </template>
                   <tr x-show="ngInlineRows.length === 0"><td colspan="12" class="empty-state">Belum ada data NG Inline.</td></tr>
