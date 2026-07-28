@@ -1008,15 +1008,12 @@
             <template x-if="isLeaderOrAdmin()">
               <button type="button" class="btn-secondary btn-sm" :class="repairEditMode ? 'btn-primary' : ''" @click="toggleRepairEditMode()" style="margin-bottom:12px;" x-text="repairEditMode ? '✓ Mode Edit Point aktif' : '✏️ Mode Edit Point'"></button>
             </template>
-            <p class="repair-edit-hint" x-show="repairEditMode">Klik area kosong di gambar buat nambah Point baru. Klik Point yang sudah ada buat menghapusnya.</p>
-            <p class="empty-state" x-show="repairViews.length === 0">Belum ada gambar Repair. Admin bisa upload lewat tab Master Data.</p>
-            <div class="repair-image-wrap" x-show="activeRepairView()" @click="onRepairImageClick($event)">
-              <img :src="activeRepairView()?.image_url" draggable="false">
-              <template x-for="pt in repairPoints" :key="pt.id">
-                <button type="button" class="repair-point-dot" :style="'left:' + pt.x_pct + '%;top:' + pt.y_pct + '%;'" @click.stop="repairEditMode ? deleteRepairPoint(pt.id) : openRepairPoint(pt)" :title="pt.label || 'Point'">
-                  <span class="repair-point-label" x-show="pt.label" x-text="pt.label"></span>
-                </button>
-              </template>
+            <p class="repair-edit-hint" x-show="repairEditMode">Klik permukaan model buat nambah Point baru. Klik Point yang sudah ada buat menghapusnya.</p>
+            <p class="empty-state" x-show="repairViews.length === 0">Belum ada model 3D Repair. Admin bisa upload lewat tab Master Data.</p>
+            <div class="repair-3d-wrap" x-show="activeRepairView()" x-effect="tab === 'repair' && initRepair3DViewerIfNeeded()">
+              <div class="repair-3d-canvas" x-ref="repair3dCanvas"></div>
+              <div class="repair-3d-loading" x-show="repairModelLoading">Memuat model 3D...</div>
+              <p class="repair-3d-hint">Seret buat putar &middot; scroll/cubit buat zoom</p>
             </div>
           </div>
 
@@ -1287,14 +1284,14 @@
           </div>
 
           <div class="panel">
-            <p class="panel-title">Repair — Tampilan Gambar <span class="count" x-text="repairViews.length + ' gambar'"></span></p>
-            <p class="hint" style="margin-bottom:12px;">Upload gambar part (mis. Tampak Depan/Belakang). Point-point-nya diatur langsung di tab <b>Repair</b> lewat tombol "Mode Edit Point".</p>
+            <p class="panel-title">Repair — Model 3D Part <span class="count" x-text="repairViews.length + ' part'"></span></p>
+            <p class="hint" style="margin-bottom:12px;">Upload file model 3D (.stl) per part -- bisa diputar 360&deg; di tab <b>Repair</b>, tidak perlu lagi tampilan Depan/Belakang terpisah. Point-nya diatur langsung di tab <b>Repair</b> lewat tombol "Mode Edit Point" (klik di permukaan model).</p>
             <div class="form-grid">
-              <div class="field"><label>Label Tampilan</label><input type="text" x-model="repairNewViewLabel" placeholder="mis. Tampak Kanan"></div>
-              <div class="field"><label>Gambar</label><input type="file" accept="image/*" @change="onRepairNewViewFileChange($event)"></div>
+              <div class="field"><label>Nama Part</label><input type="text" x-model="repairNewViewLabel" placeholder="mis. 25051-BZ040 / C15-01137"></div>
+              <div class="field"><label>File Model (.stl)</label><input type="file" accept=".stl" @change="onRepairNewViewFileChange($event)"></div>
             </div>
             <div class="form-actions">
-              <button type="button" class="btn-primary" @click="addRepairView()" :disabled="repairViewUploading" x-text="repairViewUploading ? 'Mengupload...' : '+ Tambah Tampilan'"></button>
+              <button type="button" class="btn-primary" @click="addRepairView()" :disabled="repairViewUploading" x-text="repairViewUploading ? 'Mengupload...' : '+ Tambah Part 3D'"></button>
             </div>
             <div class="master-list" style="margin-top:14px;">
               <template x-for="v in repairViews" :key="v.id">
@@ -1305,17 +1302,17 @@
                   </div>
                 </div>
               </template>
-              <p class="empty-state" x-show="repairViews.length === 0">Belum ada gambar.</p>
+              <p class="empty-state" x-show="repairViews.length === 0">Belum ada model 3D.</p>
             </div>
           </div>
 
           <div class="panel">
             <p class="panel-title">Repair — Point di "<span x-text="activeRepairView()?.label || '-'"></span>" <span class="count" x-text="repairPoints.length + ' point'"></span></p>
-            <p class="hint" style="margin-bottom:12px;">Ganti tampilan aktif &amp; tambah titik baru lewat tab <b>Repair</b> (tombol "Mode Edit Point" → klik di gambar).</p>
+            <p class="hint" style="margin-bottom:12px;">Ganti part aktif &amp; tambah titik baru lewat tab <b>Repair</b> (tombol "Mode Edit Point" → klik di permukaan model 3D).</p>
             <div class="master-list">
               <template x-for="pt in repairPoints" :key="pt.id">
                 <div class="master-list-row">
-                  <span class="master-value" x-text="(pt.label || '(tanpa label)') + ' — ' + pt.x_pct.toFixed(1) + '%, ' + pt.y_pct.toFixed(1) + '%'"></span>
+                  <span class="master-value" x-text="(pt.label || '(tanpa label)') + ' — x:' + Number(pt.x).toFixed(1) + ' y:' + Number(pt.y).toFixed(1) + ' z:' + Number(pt.z).toFixed(1)"></span>
                   <div class="master-row-actions">
                     <button type="button" class="btn-danger btn-sm" @click="deleteRepairPoint(pt.id)">Hapus</button>
                   </div>

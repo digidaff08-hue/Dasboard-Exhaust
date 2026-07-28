@@ -30,6 +30,9 @@ direstrukturisasi total untuk Welding (line flat, tanpa sub-stasiun).
 ├── seed_welding_part_numbers.sql                  # 4) Isi awal Part Number + Std Cycle Time
 ├── seed_downtime_master.sql                       # 5) Isi awal Problem Kategori/Detail/Area
 ├── seed_nonproduksi_types.sql                     # 6) Isi awal jenis Non-Produksi (Dandori)
+├── migration_repair_v1.sql                        # 7) Tab Repair (titik di gambar, versi lama)
+├── migration_repair_v2.sql                        # 8) Rename label titik + seed Kategori Repair
+├── migration_repair_v3_3d.sql                     # 9) Repair jadi 3D (.stl) -- jalankan setelah v1 & v2
 └── reset_welding.sql                              # Utilitas: reset total kalau setup gagal di tengah
 ```
 
@@ -91,25 +94,31 @@ kepakai di semua line.
 Jenis: Agenda Perusahaan, Meeting Awal, Meeting Akhir, 5S, Equipment, SPM,
 Watari — dikelola per line di tabel `nonproduksi_types`.
 
-### Repair (klik titik di gambar part)
-Tab baru setelah NG Inline. Konsepnya: gambar part (bisa >1 tampilan, mis.
-Depan/Belakang) ditandai titik-titik lokasi — klik titik → popup isi
-**Qty** + **Kategori Repair** → simpan.
+### Repair (klik titik di model 3D part, bisa diputar)
+Tab baru setelah NG Inline. Konsepnya: model 3D part (file `.stl`, bisa
+diputar/zoom bebas pakai Three.js) ditandai titik-titik lokasi — klik
+titik → popup isi **Qty** + **Kategori Repair** → simpan.
 
-- **Tampilan gambar saat ini masih placeholder** — 2 entri ("Tampak Depan"
-  & "Tampak Belakang") sama-sama pakai gambar `Jig_8.png` yang pernah
-  dikirim, dan **titik-titiknya ditaruh ngasal** (5 titik per gambar)
-  cuma buat uji alur klik → popup → simpan. Ganti gambarnya kapan saja
-  lewat tab **Master Data > Repair — Tampilan Gambar** (upload gambar
-  baru, hapus yang lama).
-- **Belum ada rotasi 3D asli** — yang ada sekarang cuma switch antar-
-  gambar (tombol chip di atas gambar). Rotasi 3D beneran butuh file
-  model 3D (.glb/.obj), bukan cuma foto/render 2D.
-- **Titik dikelola manual oleh admin/leader** — toggle "Mode Edit Titik"
-  di tab Repair, lalu klik di gambar buat nambah titik (klik titik yang
-  sudah ada buat menghapusnya).
+- **1 model 3D = 1 part** — karena bisa diputar 360°, tidak perlu lagi
+  pisah "Tampak Depan"/"Tampak Belakang" seperti versi foto 2D
+  sebelumnya. Kalau ada part lain yang perlu di-tandai juga, tinggal
+  tambah lewat tab **Master Data > Repair — Model 3D Part** (upload
+  `.stl` baru).
+- **Part pertama sudah diisi**: `25051-BZ040 / C15-01137`, file-nya ada
+  statis di `assets/repair/25051-BZ040_C15-01137.stl` (ikut di paket
+  ini). Belum ada titik Repair sama sekali di part ini — silakan
+  ditandai sendiri lewat "Mode Edit Point".
+- **Titik disimpan sebagai koordinat 3D (x, y, z)** di ruang koordinat
+  asli file STL, bukan lagi persen posisi di foto — otomatis tetap
+  nempel di permukaan model walau diputar/di-zoom.
+- **Titik dikelola manual oleh admin/leader** — toggle "Mode Edit
+  Point" di tab Repair, lalu klik langsung di permukaan model 3D buat
+  nambah titik (klik titik yang sudah ada buat menghapusnya).
 - **Kategori Repair** — master data kosong dulu (`repair_kategori`),
   diisi lewat tab Master Data > Repair — Kategori Repair.
+- Model 3D dirender pakai [Three.js](https://threejs.org) yang dimuat
+  lewat CDN saat tab Repair pertama kali dibuka (butuh koneksi internet
+  pas pertama load; setelah itu browser biasanya sudah cache library-nya).
 
 ---
 

@@ -206,6 +206,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     editingRepairId: null,
     // Mode admin buat naruh titik baru di Master Data
     repairEditMode: false, repairNewViewLabel: "", repairNewViewFile: null, repairViewUploading: false,
+    // State viewer 3D (Three.js) -- diisi runtime, bukan reactive data biasa
+    repairModelLoading: false, repairThree: null,
 
     // ---- Performance dashboard (3 seksi independen) ----
     perf: {
@@ -1612,6 +1614,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     async selectRepairView(viewId) {
       this.repairActiveViewId = viewId;
       await this.fetchRepairPoints(viewId);
+      await this.initRepair3DViewerIfNeeded();
     },
     activeRepairView() {
       return this.repairViews.find((v) => v.id === this.repairActiveViewId) || null;
@@ -1628,7 +1631,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
 
     openRepairPoint(point) {
-      if (this.repairEditMode) return; // di mode edit titik, klik = mode lain (lihat onRepairImageClick)
+      if (this.repairEditMode) return; // di mode edit, klik ditangani handleRepair3DClick (lihat viewer 3D)
       this.editingRepairId = null;
       this.repairModalPoint = point;
       this.repairForm = { tanggal: localDateStr(new Date()), qty: "", kategori_repair: "" };
@@ -1699,67 +1702,278 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.repairKategoriOptions = this.repairKategoriOptions.filter((r) => r.id !== id);
     },
 
-    // ---- Master Data: Titik & Gambar (admin) ----
+    // ---- Master Data: Point & Model 3D (admin) ----
     toggleRepairEditMode() {
       this.repairEditMode = !this.repairEditMode;
-    },
-    async onRepairImageClick(ev) {
-      if (!this.repairEditMode || !this.repairActiveViewId) return;
-      const rect = ev.currentTarget.getBoundingClientRect();
-      const x_pct = ((ev.clientX - rect.left) / rect.width) * 100;
-      const y_pct = ((ev.clientY - rect.top) / rect.height) * 100;
-      const label = prompt("Label Point ini (boleh kosong):", "") || null;
-      const { data, error } = await supabaseClient.from("repair_points")
-        .insert({ view_id: this.repairActiveViewId, x_pct, y_pct, label }).select().single();
-      if (error) { this.flash("Gagal tambah Point: " + error.message, true); return; }
-      this.repairPoints.push(data);
-      this.flash("Point ditambahkan.");
     },
     async deleteRepairPoint(id) {
       if (!confirm("Hapus Point ini?")) return;
       const { error } = await supabaseClient.from("repair_points").delete().eq("id", id);
       if (error) { this.flash("Gagal hapus Point: " + error.message, true); return; }
       this.repairPoints = this.repairPoints.filter((p) => p.id !== id);
+      this.rebuildRepairMarkers();
     },
     onRepairNewViewFileChange(ev) {
       this.repairNewViewFile = ev.target.files[0] || null;
     },
     async addRepairView() {
       const label = (this.repairNewViewLabel || "").trim();
-      if (!label || !this.repairNewViewFile) { this.flash("Label dan gambar wajib diisi.", true); return; }
+      if (!label || !this.repairNewViewFile) { this.flash("Nama Part dan file .stl wajib diisi.", true); return; }
+      const ext = (this.repairNewViewFile.name.split(".").pop() || "").toLowerCase();
+      if (ext !== "stl") { this.flash("File model harus format .stl", true); return; }
       this.repairViewUploading = true;
       try {
         const file = this.repairNewViewFile;
-        const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-        const path = `views/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const { error: upErr } = await supabaseClient.storage.from("repair-photos").upload(path, file);
+        const path = `models/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.stl`;
+        const { error: upErr } = await supabaseClient.storage.from("repair-models").upload(path, file);
         if (upErr) throw upErr;
-        const { data: pub } = supabaseClient.storage.from("repair-photos").getPublicUrl(path);
+        const { data: pub } = supabaseClient.storage.from("repair-models").getPublicUrl(path);
         const nextOrder = this.repairViews.length > 0 ? Math.max(...this.repairViews.map((v) => v.sort_order || 0)) + 1 : 1;
         const { data, error } = await supabaseClient.from("repair_views")
-          .insert({ label, image_url: pub.publicUrl, sort_order: nextOrder }).select().single();
+          .insert({ label, model_url: pub.publicUrl, kind: "3d", sort_order: nextOrder }).select().single();
         if (error) throw error;
         this.repairViews.push(data);
         this.repairActiveViewId = data.id;
         this.repairPoints = [];
         this.repairNewViewLabel = ""; this.repairNewViewFile = null;
-        this.flash("Tampilan gambar baru ditambahkan.");
+        this.flash("Model 3D part baru ditambahkan.");
+        await this.initRepair3DViewerIfNeeded();
       } catch (err) {
-        this.flash("Gagal upload gambar: " + (err.message || err), true);
+        this.flash("Gagal upload model 3D: " + (err.message || err), true);
       } finally {
         this.repairViewUploading = false;
       }
     },
     async deleteRepairView(id) {
-      if (!confirm("Hapus tampilan gambar ini beserta semua point-nya?")) return;
+      if (!confirm("Hapus model 3D ini beserta semua point-nya?")) return;
       const { error } = await supabaseClient.from("repair_views").delete().eq("id", id);
       if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
       this.repairViews = this.repairViews.filter((v) => v.id !== id);
       if (this.repairActiveViewId === id) {
         this.repairActiveViewId = this.repairViews[0]?.id || null;
         this.repairPoints = [];
-        if (this.repairActiveViewId) await this.fetchRepairPoints(this.repairActiveViewId);
+        this.teardownRepair3D();
+        if (this.repairActiveViewId) {
+          await this.fetchRepairPoints(this.repairActiveViewId);
+          await this.initRepair3DViewerIfNeeded();
+        }
       }
+    },
+
+    // ================= REPAIR 3D VIEWER (Three.js) =================
+    // Library Three.js dimuat lewat dynamic import (lazy, baru dipanggil
+    // pas tab Repair pertama kali dibuka) supaya halaman tetap ringan
+    // kalau user tidak pernah buka tab Repair.
+    async ensureThreeLib() {
+      if (!window.__threeLib) {
+        const [THREE, loaderMod, controlsMod] = await Promise.all([
+          import("https://esm.sh/three@0.160.0"),
+          import("https://esm.sh/three@0.160.0/examples/jsm/loaders/STLLoader.js"),
+          import("https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js"),
+        ]);
+        window.__threeLib = { THREE, STLLoader: loaderMod.STLLoader, OrbitControls: controlsMod.OrbitControls };
+      }
+      return window.__threeLib;
+    },
+    // Dipanggil lewat x-effect tiap kali tab / view aktif berubah.
+    async initRepair3DViewerIfNeeded() {
+      if (this.tab !== "repair") { this.pauseRepair3D(); return; }
+      const view = this.activeRepairView();
+      if (!view || view.kind !== "3d" || !view.model_url) { this.pauseRepair3D(); return; }
+      await this.$nextTick();
+      const container = this.$refs.repair3dCanvas;
+      if (!container) return;
+      if (this.repairThree && this.repairThree.currentViewId === view.id) {
+        this.resumeRepair3D();
+        return;
+      }
+      await this.loadRepairModel(container, view);
+    },
+    async loadRepairModel(container, view) {
+      this.repairModelLoading = true;
+      try {
+        const { THREE, STLLoader, OrbitControls } = await this.ensureThreeLib();
+        this.teardownRepair3D();
+        container.innerHTML = "";
+
+        const width = container.clientWidth || 320;
+        const height = container.clientHeight || 360;
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 5000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        renderer.setSize(width, height);
+        container.appendChild(renderer.domElement);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+        const dir1 = new THREE.DirectionalLight(0xffffff, 0.55); dir1.position.set(1, 1.4, 1); scene.add(dir1);
+        const dir2 = new THREE.DirectionalLight(0xffffff, 0.3); dir2.position.set(-1, -0.6, -1); scene.add(dir2);
+
+        const loader = new STLLoader();
+        const geometry = await loader.loadAsync(view.model_url);
+        geometry.computeVertexNormals();
+        geometry.computeBoundingBox();
+        const bbox = geometry.boundingBox;
+        const center = new THREE.Vector3(); bbox.getCenter(center);
+        const size = new THREE.Vector3(); bbox.getSize(size);
+        const maxDim = Math.max(size.x, size.y, size.z) || 1;
+
+        const material = new THREE.MeshStandardMaterial({ color: 0x9aa4ad, metalness: 0.2, roughness: 0.6 });
+        const mesh = new THREE.Mesh(geometry, material);
+        // Geser mesh biar center-nya di titik (0,0,0) -- titik Repair TETAP
+        // disimpan dalam koordinat asli STL (anak dari mesh ini), jadi ikut
+        // pindah otomatis kalau transform mesh berubah.
+        mesh.position.set(-center.x, -center.y, -center.z);
+        scene.add(mesh);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        camera.position.set(maxDim * 1.4, maxDim * 1.1, maxDim * 1.6);
+        controls.target.set(0, 0, 0);
+        controls.update();
+
+        this.repairThree = {
+          THREE, scene, camera, renderer, controls, mesh,
+          raycaster: new THREE.Raycaster(), pointer: new THREE.Vector2(),
+          markers: [], container, currentViewId: view.id, animId: null, paused: false,
+        };
+
+        this.attachRepair3DEvents(container);
+        this.rebuildRepairMarkers();
+        this.startRepair3DLoop();
+        this.observeRepair3DResize(container);
+      } catch (err) {
+        this.flash("Gagal memuat model 3D: " + (err.message || err), true);
+      } finally {
+        this.repairModelLoading = false;
+      }
+    },
+    startRepair3DLoop() {
+      const r = this.repairThree;
+      const tick = () => {
+        if (!this.repairThree || this.repairThree !== r) return; // sudah di-teardown
+        if (!r.paused) {
+          r.controls.update();
+          r.renderer.render(r.scene, r.camera);
+        }
+        r.animId = requestAnimationFrame(tick);
+      };
+      tick();
+    },
+    pauseRepair3D() {
+      if (this.repairThree) this.repairThree.paused = true;
+    },
+    resumeRepair3D() {
+      if (!this.repairThree) return;
+      this.repairThree.paused = false;
+      this.resizeRepair3D();
+    },
+    resizeRepair3D() {
+      const r = this.repairThree; if (!r) return;
+      const w = r.container.clientWidth || 320, h = r.container.clientHeight || 360;
+      r.camera.aspect = w / h; r.camera.updateProjectionMatrix();
+      r.renderer.setSize(w, h);
+    },
+    observeRepair3DResize(container) {
+      const r = this.repairThree; if (!r) return;
+      const ro = new ResizeObserver(() => this.resizeRepair3D());
+      ro.observe(container);
+      r.resizeObserver = ro;
+    },
+    teardownRepair3D() {
+      const r = this.repairThree; if (!r) return;
+      if (r.animId) cancelAnimationFrame(r.animId);
+      if (r.resizeObserver) r.resizeObserver.disconnect();
+      if (r.controls) r.controls.dispose();
+      (r.markers || []).forEach((m) => { m.material.map && m.material.map.dispose(); m.material.dispose(); });
+      if (r.mesh) { r.mesh.geometry.dispose(); r.mesh.material.dispose(); }
+      if (r.renderer) { r.renderer.dispose(); r.renderer.domElement.remove(); }
+      this.repairThree = null;
+    },
+    makeRepairMarkerSprite(THREE, label) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 128; canvas.height = 128;
+      const ctx = canvas.getContext("2d");
+      ctx.beginPath(); ctx.arc(64, 64, 50, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(220,38,38,0.88)"; ctx.fill();
+      ctx.lineWidth = 6; ctx.strokeStyle = "#ffffff"; ctx.stroke();
+      if (label) {
+        ctx.fillStyle = "#ffffff"; ctx.font = "bold 46px sans-serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(label.slice(0, 2), 64, 68);
+      }
+      const texture = new THREE.CanvasTexture(canvas);
+      const mat = new THREE.SpriteMaterial({ map: texture, depthTest: false, depthWrite: false });
+      const sprite = new THREE.Sprite(mat);
+      sprite.renderOrder = 999;
+      return sprite;
+    },
+    rebuildRepairMarkers() {
+      const r = this.repairThree; if (!r) return;
+      const THREE = r.THREE;
+      (r.markers || []).forEach((m) => { r.mesh.remove(m); m.material.map && m.material.map.dispose(); m.material.dispose(); });
+      r.markers = [];
+      const bbox = new THREE.Box3().setFromObject(r.mesh);
+      const size = new THREE.Vector3(); bbox.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z) || 1;
+      const spriteScale = maxDim * 0.09;
+      this.repairPoints.forEach((pt) => {
+        const sprite = this.makeRepairMarkerSprite(THREE, pt.label);
+        sprite.scale.set(spriteScale, spriteScale, 1);
+        sprite.position.set(pt.x || 0, pt.y || 0, pt.z || 0);
+        sprite.userData.pointId = pt.id;
+        r.mesh.add(sprite); // anak dari mesh -> otomatis ikut transform centering
+        r.markers.push(sprite);
+      });
+    },
+    attachRepair3DEvents(container) {
+      let downX = 0, downY = 0, downTime = 0;
+      const onDown = (ev) => { downX = ev.clientX; downY = ev.clientY; downTime = Date.now(); };
+      const onUp = (ev) => {
+        const dx = ev.clientX - downX, dy = ev.clientY - downY;
+        const moved = Math.sqrt(dx * dx + dy * dy);
+        // Gerakan kecil & cepat = klik beneran. Gerakan besar/lama = drag putar model, abaikan.
+        if (moved > 6 || Date.now() - downTime > 600) return;
+        this.handleRepair3DClick(ev, container);
+      };
+      container.addEventListener("pointerdown", onDown);
+      container.addEventListener("pointerup", onUp);
+    },
+    handleRepair3DClick(ev, container) {
+      const r = this.repairThree; if (!r) return;
+      const rect = container.getBoundingClientRect();
+      r.pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+      r.pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+      r.raycaster.setFromCamera(r.pointer, r.camera);
+
+      // 1) Klik kena Point yang sudah ada?
+      const markerHits = r.raycaster.intersectObjects(r.markers, false);
+      if (markerHits.length > 0) {
+        const pointId = markerHits[0].object.userData.pointId;
+        const point = this.repairPoints.find((p) => p.id === pointId);
+        if (!point) return;
+        if (this.repairEditMode) this.deleteRepairPoint(point.id);
+        else this.openRepairPoint(point);
+        return;
+      }
+      // 2) Klik kena permukaan model -> tambah Point baru (cuma di Mode Edit)
+      if (!this.repairEditMode) return;
+      const meshHits = r.raycaster.intersectObject(r.mesh, false);
+      if (meshHits.length === 0) return;
+      const localPoint = r.mesh.worldToLocal(meshHits[0].point.clone());
+      this.addRepairPoint3D(localPoint);
+    },
+    async addRepairPoint3D(localPoint) {
+      if (!this.repairActiveViewId) return;
+      const label = prompt("Label Point ini (boleh kosong):", "") || null;
+      const { data, error } = await supabaseClient.from("repair_points")
+        .insert({ view_id: this.repairActiveViewId, x: localPoint.x, y: localPoint.y, z: localPoint.z, label })
+        .select().single();
+      if (error) { this.flash("Gagal tambah Point: " + error.message, true); return; }
+      this.repairPoints.push(data);
+      this.rebuildRepairMarkers();
+      this.flash("Point ditambahkan.");
     },
 
     logout,
