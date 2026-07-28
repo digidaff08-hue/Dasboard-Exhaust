@@ -1606,7 +1606,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
     async fetchRepairPoints(viewId) {
       const { data, error } = await supabaseClient.from("repair_points").select("*").eq("view_id", viewId).order("created_at");
-      if (error) { this.flash("Gagal memuat titik Repair: " + error.message, true); return; }
+      if (error) { this.flash("Gagal memuat Point Repair: " + error.message, true); return; }
       this.repairPoints = data || [];
     },
     async selectRepairView(viewId) {
@@ -1708,17 +1708,17 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const rect = ev.currentTarget.getBoundingClientRect();
       const x_pct = ((ev.clientX - rect.left) / rect.width) * 100;
       const y_pct = ((ev.clientY - rect.top) / rect.height) * 100;
-      const label = prompt("Label titik ini (boleh kosong):", "") || null;
+      const label = prompt("Label Point ini (boleh kosong):", "") || null;
       const { data, error } = await supabaseClient.from("repair_points")
         .insert({ view_id: this.repairActiveViewId, x_pct, y_pct, label }).select().single();
-      if (error) { this.flash("Gagal tambah titik: " + error.message, true); return; }
+      if (error) { this.flash("Gagal tambah Point: " + error.message, true); return; }
       this.repairPoints.push(data);
-      this.flash("Titik ditambahkan.");
+      this.flash("Point ditambahkan.");
     },
     async deleteRepairPoint(id) {
-      if (!confirm("Hapus titik ini?")) return;
+      if (!confirm("Hapus Point ini?")) return;
       const { error } = await supabaseClient.from("repair_points").delete().eq("id", id);
-      if (error) { this.flash("Gagal hapus titik: " + error.message, true); return; }
+      if (error) { this.flash("Gagal hapus Point: " + error.message, true); return; }
       this.repairPoints = this.repairPoints.filter((p) => p.id !== id);
     },
     onRepairNewViewFileChange(ev) {
@@ -1751,7 +1751,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       }
     },
     async deleteRepairView(id) {
-      if (!confirm("Hapus tampilan gambar ini beserta semua titiknya?")) return;
+      if (!confirm("Hapus tampilan gambar ini beserta semua point-nya?")) return;
       const { error } = await supabaseClient.from("repair_views").delete().eq("id", id);
       if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
       this.repairViews = this.repairViews.filter((v) => v.id !== id);

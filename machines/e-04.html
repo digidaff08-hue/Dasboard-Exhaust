@@ -1006,14 +1006,14 @@
               </template>
             </div>
             <template x-if="isLeaderOrAdmin()">
-              <button type="button" class="btn-secondary btn-sm" :class="repairEditMode ? 'btn-primary' : ''" @click="toggleRepairEditMode()" style="margin-bottom:12px;" x-text="repairEditMode ? '✓ Mode Edit Titik aktif' : '✏️ Mode Edit Titik'"></button>
+              <button type="button" class="btn-secondary btn-sm" :class="repairEditMode ? 'btn-primary' : ''" @click="toggleRepairEditMode()" style="margin-bottom:12px;" x-text="repairEditMode ? '✓ Mode Edit Point aktif' : '✏️ Mode Edit Point'"></button>
             </template>
-            <p class="repair-edit-hint" x-show="repairEditMode">Klik area kosong di gambar buat nambah titik baru. Klik titik yang sudah ada buat menghapusnya.</p>
+            <p class="repair-edit-hint" x-show="repairEditMode">Klik area kosong di gambar buat nambah Point baru. Klik Point yang sudah ada buat menghapusnya.</p>
             <p class="empty-state" x-show="repairViews.length === 0">Belum ada gambar Repair. Admin bisa upload lewat tab Master Data.</p>
             <div class="repair-image-wrap" x-show="activeRepairView()" @click="onRepairImageClick($event)">
               <img :src="activeRepairView()?.image_url" draggable="false">
               <template x-for="pt in repairPoints" :key="pt.id">
-                <button type="button" class="repair-point-dot" :style="'left:' + pt.x_pct + '%;top:' + pt.y_pct + '%;'" @click.stop="repairEditMode ? deleteRepairPoint(pt.id) : openRepairPoint(pt)" :title="pt.label || 'Titik'">
+                <button type="button" class="repair-point-dot" :style="'left:' + pt.x_pct + '%;top:' + pt.y_pct + '%;'" @click.stop="repairEditMode ? deleteRepairPoint(pt.id) : openRepairPoint(pt)" :title="pt.label || 'Point'">
                   <span class="repair-point-label" x-show="pt.label" x-text="pt.label"></span>
                 </button>
               </template>
@@ -1024,7 +1024,7 @@
             <p class="panel-title">Riwayat Repair <span class="count" x-text="repairLogRows.length + ' baris'"></span></p>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Tanggal</th><th>Titik</th><th>Qty</th><th>Kategori Repair</th><th>Aksi</th></tr></thead>
+                <thead><tr><th>Tanggal</th><th>Point</th><th>Qty</th><th>Kategori Repair</th><th>Aksi</th></tr></thead>
                 <tbody>
                   <template x-for="row in repairLogRows" :key="row.id">
                     <tr>
@@ -1048,7 +1048,7 @@
         <!-- Popup Qty + Kategori Repair -->
         <div class="modal-overlay" x-show="repairModalOpen" x-cloak @click.self="closeRepairModal()">
           <div class="panel" style="max-width:360px;width:100%;">
-            <p class="panel-title" x-text="(editingRepairId ? 'Edit ' : '') + 'Repair — ' + (repairModalPoint?.label || 'Titik')"></p>
+            <p class="panel-title" x-text="(editingRepairId ? 'Edit ' : '') + 'Repair — ' + (repairModalPoint?.label || 'Point')"></p>
             <div class="form-grid">
               <div class="field" style="grid-column: span 2;"><label>Tanggal *</label><input type="date" x-model="repairForm.tanggal"></div>
               <div class="field" style="grid-column: span 2;"><label>Qty *</label><input type="number" min="1" x-model="repairForm.qty"></div>
@@ -1288,7 +1288,7 @@
 
           <div class="panel">
             <p class="panel-title">Repair — Tampilan Gambar <span class="count" x-text="repairViews.length + ' gambar'"></span></p>
-            <p class="hint" style="margin-bottom:12px;">Upload gambar part (mis. Tampak Depan/Belakang). Titik-titiknya diatur langsung di tab <b>Repair</b> lewat tombol "Mode Edit Titik".</p>
+            <p class="hint" style="margin-bottom:12px;">Upload gambar part (mis. Tampak Depan/Belakang). Point-point-nya diatur langsung di tab <b>Repair</b> lewat tombol "Mode Edit Point".</p>
             <div class="form-grid">
               <div class="field"><label>Label Tampilan</label><input type="text" x-model="repairNewViewLabel" placeholder="mis. Tampak Kanan"></div>
               <div class="field"><label>Gambar</label><input type="file" accept="image/*" @change="onRepairNewViewFileChange($event)"></div>
@@ -1310,8 +1310,8 @@
           </div>
 
           <div class="panel">
-            <p class="panel-title">Repair — Titik di "<span x-text="activeRepairView()?.label || '-'"></span>" <span class="count" x-text="repairPoints.length + ' titik'"></span></p>
-            <p class="hint" style="margin-bottom:12px;">Ganti tampilan aktif &amp; tambah titik baru lewat tab <b>Repair</b> (tombol "Mode Edit Titik" → klik di gambar).</p>
+            <p class="panel-title">Repair — Point di "<span x-text="activeRepairView()?.label || '-'"></span>" <span class="count" x-text="repairPoints.length + ' point'"></span></p>
+            <p class="hint" style="margin-bottom:12px;">Ganti tampilan aktif &amp; tambah titik baru lewat tab <b>Repair</b> (tombol "Mode Edit Point" → klik di gambar).</p>
             <div class="master-list">
               <template x-for="pt in repairPoints" :key="pt.id">
                 <div class="master-list-row">
@@ -1321,7 +1321,7 @@
                   </div>
                 </div>
               </template>
-              <p class="empty-state" x-show="repairPoints.length === 0">Belum ada titik di tampilan ini.</p>
+              <p class="empty-state" x-show="repairPoints.length === 0">Belum ada Point di tampilan ini.</p>
             </div>
           </div>
 

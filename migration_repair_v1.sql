@@ -131,11 +131,11 @@ insert into public.repair_points (view_id, x_pct, y_pct, label)
 select v.id, p.x_pct, p.y_pct, p.label
 from public.repair_views v
 cross join (values
-  (15.0, 45.0, 'Titik 1'),
-  (35.0, 20.0, 'Titik 2'),
-  (55.0, 55.0, 'Titik 3'),
-  (72.0, 30.0, 'Titik 4'),
-  (85.0, 65.0, 'Titik 5')
+  (15.0, 45.0, 'Point A'),
+  (35.0, 20.0, 'Point B'),
+  (55.0, 55.0, 'Point C'),
+  (72.0, 30.0, 'Point D'),
+  (85.0, 65.0, 'Point E')
 ) as p(x_pct, y_pct, label)
 where v.label in ('Tampak Depan', 'Tampak Belakang (placeholder)')
 on conflict do nothing;
