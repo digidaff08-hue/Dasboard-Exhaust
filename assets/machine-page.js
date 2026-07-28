@@ -180,8 +180,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     statusOptions: ["Temporary Action", "Permanent Action"],
     machineOptions: MACHINE_OPTIONS, partNumbersByLine: {},
 
-    // ---- NG Inline ----
-    ngInlineRows: [], ngAreaList: [], ngModelList: [],
+    // ---- NG Inline (cascading: Line -> Model -> Part No / Area -> NG Proses) ----
+    ngInlineRows: [], ngModelList: [], ngPartNoList: [], ngAreaOptions: [],
     ngTypeOptions: ["NG PRODUKSI", "NG TRIAL"],
     ngPicOptions: ["AGUS WIBOWO", "IIN FAJRIN MUNIR", "DAFIT ARISTIANTO", "ASEP SUPRIYATNA", "IMAM BAROKAH", "LAMIJO"],
     ngKategoriOptions: [
@@ -189,9 +189,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       "DOUBLE WELDING", "WELDING KECIL", "WELDING KURANG", "WELDING OVER",
       "PENDEK", "CRACK", "MATI LISTRIK", "OTHER",
     ],
-    ngForm: { tanggal: localDateStr(new Date()), type_ng: "", model: "", pic: "", part_number: "", area: "", ng_proses: "", qty: "", ng_kategori: "", reason: "" },
+    ngForm: { tanggal: localDateStr(new Date()), type_ng: "", pic: "", model: "", part_number: "", area_id: "", area: "", ng_proses: "", qty: "", ng_kategori: "", reason: "" },
     ngFotoFile: null, ngFotoPreviewUrl: "", ngSaving: false,
-    newNgAreaValue: "", newNgProsesValue: "", newNgModelValue: "",
 
     editingDowntimeId: null, dtForm: {},
     riwayatFilter: { dari: "", sampai: "", part_number: "" },
@@ -224,7 +223,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         await Promise.all([
           this.fetchProduction(), this.fetchDowntime(), this.fetchNonProduksi(),
           this.fetchPlanning(), this.fetchPartNumbers(), this.fetchProblems(), this.fetchCauses(), this.fetchAreas(), this.fetchNonProduksiTypes(),
-          this.fetchNgAreas(), this.fetchNgModels(), this.fetchNgInline(),
+          this.fetchNgModelsForLine(), this.fetchNgInline(),
         ]);
         this.restoreLocalState();
         this.watchAndAutosave();
@@ -1434,16 +1433,11 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.$watch("tandemVariant", persist);
     },
 
-    // ================= NG INLINE =================
-    async fetchNgAreas() {
-      const { data, error } = await supabaseClient.from("ng_areas").select("id, area, ng_proses").order("area");
-      if (error) { this.flash("Gagal memuat Area NG Inline: " + error.message, true); return; }
-      this.ngAreaList = data.map((r) => ({ ...r, editing: false, draft: r.area, draftProses: r.ng_proses }));
-    },
-    async fetchNgModels() {
-      const { data, error } = await supabaseClient.from("ng_models").select("id, model").order("model");
+    // ================= NG INLINE (cascading) =================
+    async fetchNgModelsForLine() {
+      const { data, error } = await supabaseClient.from("ng_line_models").select("id, model").eq("mesin", machineKey).order("model");
       if (error) { this.flash("Gagal memuat Model NG Inline: " + error.message, true); return; }
-      this.ngModelList = data.map((r) => ({ ...r, editing: false, draft: r.model }));
+      this.ngModelList = data;
     },
     async fetchNgInline() {
       const { data, error } = await supabaseClient
@@ -1452,8 +1446,32 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (error) { this.flash("Gagal memuat NG Inline: " + error.message, true); return; }
       this.ngInlineRows = data;
     },
+    async onModelChangeNg() {
+      // reset field turunan tiap kali Model diganti
+      this.ngForm.part_number = ""; this.ngForm.area_id = ""; this.ngForm.area = ""; this.ngForm.ng_proses = "";
+      this.ngPartNoList = []; this.ngAreaOptions = [];
+      if (!this.ngForm.model) return;
+
+      const [partRes, areaRes] = await Promise.all([
+        supabaseClient.from("ng_model_parts").select("id, part_no").eq("model", this.ngForm.model).order("part_no"),
+        supabaseClient.from("ng_model_areas").select("id, area, ng_proses").eq("mesin", machineKey).eq("model", this.ngForm.model).order("area"),
+      ]);
+      if (partRes.error) { this.flash("Gagal memuat Part No: " + partRes.error.message, true); return; }
+      if (areaRes.error) { this.flash("Gagal memuat Area: " + areaRes.error.message, true); return; }
+
+      this.ngPartNoList = partRes.data;
+      // Kalau ada Area dengan nama sama tapi NG Proses beda, tampilkan
+      // label "Area (NG Proses)" biar bisa dibedakan di dropdown.
+      const nameCount = {};
+      areaRes.data.forEach((a) => { nameCount[a.area] = (nameCount[a.area] || 0) + 1; });
+      this.ngAreaOptions = areaRes.data.map((a) => ({
+        ...a,
+        label: nameCount[a.area] > 1 ? `${a.area} (${a.ng_proses})` : a.area,
+      }));
+    },
     onAreaChangeNg() {
-      const sel = this.ngAreaList.find((a) => a.area === this.ngForm.area);
+      const sel = this.ngAreaOptions.find((a) => a.id === this.ngForm.area_id);
+      this.ngForm.area = sel ? sel.area : "";
       this.ngForm.ng_proses = sel ? sel.ng_proses : "";
     },
     onNgFotoSelected(evt) {
@@ -1464,14 +1482,15 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.ngFotoPreviewUrl = URL.createObjectURL(file);
     },
     resetNgForm() {
-      this.ngForm = { tanggal: localDateStr(new Date()), type_ng: "", model: "", pic: "", part_number: "", area: "", ng_proses: "", qty: "", ng_kategori: "", reason: "" };
+      this.ngForm = { tanggal: localDateStr(new Date()), type_ng: "", pic: "", model: "", part_number: "", area_id: "", area: "", ng_proses: "", qty: "", ng_kategori: "", reason: "" };
+      this.ngPartNoList = []; this.ngAreaOptions = [];
       if (this.ngFotoPreviewUrl) URL.revokeObjectURL(this.ngFotoPreviewUrl);
       this.ngFotoFile = null; this.ngFotoPreviewUrl = "";
       if (this.$refs.ngFotoInput) this.$refs.ngFotoInput.value = "";
     },
     async saveNgInline() {
       const f = this.ngForm;
-      if (!f.tanggal || !f.type_ng || !f.model || !f.pic || !f.part_number || !f.area || !f.ng_proses || !f.qty || !f.ng_kategori || !(f.reason || "").trim() || !this.ngFotoFile) {
+      if (!f.tanggal || !f.type_ng || !f.pic || !f.model || !f.part_number || !f.area_id || !f.ng_proses || !f.qty || !f.ng_kategori || !(f.reason || "").trim() || !this.ngFotoFile) {
         this.flash("Semua kolom wajib diisi, termasuk foto.", true); return;
       }
       if (!navigator.onLine) {
@@ -1507,61 +1526,6 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const { error } = await supabaseClient.from("ng_inline_log").delete().eq("id", id);
       if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
       this.ngInlineRows = this.ngInlineRows.filter((r) => r.id !== id);
-    },
-
-    // ---- Master Data: Area & NG Proses (untuk NG Inline) ----
-    async addMasterNgArea() {
-      const a = (this.newNgAreaValue || "").trim();
-      const p = (this.newNgProsesValue || "").trim();
-      if (!a || !p) { this.flash("Area dan NG Proses wajib diisi.", true); return; }
-      const { data, error } = await supabaseClient.from("ng_areas").insert({ area: a, ng_proses: p }).select().single();
-      if (error) { this.flash("Gagal tambah: " + error.message, true); return; }
-      this.ngAreaList.push({ ...data, editing: false, draft: data.area, draftProses: data.ng_proses });
-      this.ngAreaList.sort((x, y) => x.area.localeCompare(y.area));
-      this.newNgAreaValue = ""; this.newNgProsesValue = ""; this.flash("Area NG Inline ditambahkan.");
-    },
-    startEditNgArea(item) { item.draft = item.area; item.draftProses = item.ng_proses; item.editing = true; },
-    cancelEditNgArea(item) { item.draft = item.area; item.draftProses = item.ng_proses; item.editing = false; },
-    async saveMasterNgArea(item) {
-      const a = (item.draft || "").trim(); const p = (item.draftProses || "").trim();
-      if (!a || !p) { this.flash("Area dan NG Proses tidak boleh kosong.", true); return; }
-      const { data, error } = await supabaseClient.from("ng_areas").update({ area: a, ng_proses: p }).eq("id", item.id).select();
-      if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
-      if (!data || data.length === 0) { this.flash("Gagal simpan — cek izin akses.", true); return; }
-      item.area = a; item.ng_proses = p; item.editing = false;
-    },
-    async deleteMasterNgArea(id) {
-      if (!confirm("Hapus area ini?")) return;
-      const { error } = await supabaseClient.from("ng_areas").delete().eq("id", id);
-      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
-      this.ngAreaList = this.ngAreaList.filter((r) => r.id !== id);
-    },
-
-    // ---- Master Data: Model (untuk NG Inline) ----
-    async addMasterNgModel() {
-      const m = (this.newNgModelValue || "").trim();
-      if (!m) { this.flash("Model wajib diisi.", true); return; }
-      const { data, error } = await supabaseClient.from("ng_models").insert({ model: m }).select().single();
-      if (error) { this.flash("Gagal tambah: " + error.message, true); return; }
-      this.ngModelList.push({ ...data, editing: false, draft: data.model });
-      this.ngModelList.sort((x, y) => x.model.localeCompare(y.model));
-      this.newNgModelValue = ""; this.flash("Model NG Inline ditambahkan.");
-    },
-    startEditNgModel(item) { item.draft = item.model; item.editing = true; },
-    cancelEditNgModel(item) { item.draft = item.model; item.editing = false; },
-    async saveMasterNgModel(item) {
-      const m = (item.draft || "").trim();
-      if (!m) { this.flash("Model tidak boleh kosong.", true); return; }
-      const { data, error } = await supabaseClient.from("ng_models").update({ model: m }).eq("id", item.id).select();
-      if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
-      if (!data || data.length === 0) { this.flash("Gagal simpan — cek izin akses.", true); return; }
-      item.model = m; item.editing = false;
-    },
-    async deleteMasterNgModel(id) {
-      if (!confirm("Hapus model ini?")) return;
-      const { error } = await supabaseClient.from("ng_models").delete().eq("id", id);
-      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
-      this.ngModelList = this.ngModelList.filter((r) => r.id !== id);
     },
 
     logout,

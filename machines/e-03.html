@@ -903,23 +903,23 @@
                 </div>
                 <div class="field">
                   <label>Model *</label>
-                  <select x-model="ngForm.model">
+                  <select x-model="ngForm.model" @change="onModelChangeNg()">
                     <option value="">-- pilih --</option>
                     <template x-for="m in ngModelList" :key="m.id"><option :value="m.model" x-text="m.model"></option></template>
                   </select>
                 </div>
                 <div class="field">
                   <label>Part No *</label>
-                  <select x-model="ngForm.part_number">
-                    <option value="">-- pilih --</option>
-                    <template x-for="pn in partNumberList" :key="pn.id"><option :value="pn.value" x-text="pn.value"></option></template>
+                  <select x-model="ngForm.part_number" :disabled="!ngForm.model">
+                    <option value="">-- pilih model dulu --</option>
+                    <template x-for="pn in ngPartNoList" :key="pn.id"><option :value="pn.part_no" x-text="pn.part_no"></option></template>
                   </select>
                 </div>
                 <div class="field">
                   <label>Area *</label>
-                  <select x-model="ngForm.area" @change="onAreaChangeNg()">
-                    <option value="">-- pilih --</option>
-                    <template x-for="a in ngAreaList" :key="a.id"><option :value="a.area" x-text="a.area"></option></template>
+                  <select x-model="ngForm.area_id" @change="onAreaChangeNg()" :disabled="!ngForm.model">
+                    <option value="">-- pilih model dulu --</option>
+                    <template x-for="a in ngAreaOptions" :key="a.id"><option :value="a.id" x-text="a.label"></option></template>
                   </select>
                 </div>
                 <div class="field"><label>NG Proses</label><input type="text" x-model="ngForm.ng_proses" readonly placeholder="Otomatis dari Area"></div>
@@ -1180,61 +1180,6 @@
                 </div>
               </template>
               <p class="empty-state" x-show="areaList.length === 0">Belum ada data.</p>
-            </div>
-          </div>
-
-          <div class="panel">
-            <p class="panel-title">NG Inline — Master Model <span class="count" x-text="ngModelList.length + ' item'"></span></p>
-            <div class="master-add-row">
-              <input type="text" x-model="newNgModelValue" @keyup.enter="addMasterNgModel()" placeholder="Tambah model baru...">
-              <button type="button" class="btn-primary btn-sm" @click="addMasterNgModel()">+ Tambah</button>
-            </div>
-            <div class="master-list">
-              <template x-for="item in ngModelList" :key="item.id">
-                <div class="master-list-row">
-                  <template x-if="!item.editing"><span class="master-value" x-text="item.model"></span></template>
-                  <template x-if="item.editing"><input type="text" x-model="item.draft" @keyup.enter="saveMasterNgModel(item)"></template>
-                  <div class="master-row-actions">
-                    <template x-if="!item.editing"><button type="button" class="btn-secondary btn-sm" @click="startEditNgModel(item)">Edit</button></template>
-                    <template x-if="item.editing"><button type="button" class="btn-primary btn-sm" @click="saveMasterNgModel(item)">Simpan</button></template>
-                    <template x-if="item.editing"><button type="button" class="btn-ghost btn-sm" @click="cancelEditNgModel(item)">Batal</button></template>
-                    <button type="button" class="btn-danger btn-sm" @click="deleteMasterNgModel(item.id)">Hapus</button>
-                  </div>
-                </div>
-              </template>
-              <p class="empty-state" x-show="ngModelList.length === 0">Belum ada data. Tambahkan Model di atas.</p>
-            </div>
-          </div>
-
-          <div class="panel">
-            <p class="panel-title">NG Inline — Master Area &amp; NG Proses <span class="count" x-text="ngAreaList.length + ' item'"></span></p>
-            <p class="hint" style="margin-bottom:12px;">Area di form NG Inline beda dari Area Downtime. NG Proses otomatis muncul berdasarkan Area yang dipilih di form.</p>
-            <div class="master-add-row">
-              <input type="text" x-model="newNgAreaValue" placeholder="Nama Area...">
-              <input type="text" x-model="newNgProsesValue" @keyup.enter="addMasterNgArea()" placeholder="NG Proses...">
-              <button type="button" class="btn-primary btn-sm" @click="addMasterNgArea()">+ Tambah</button>
-            </div>
-            <div class="master-list">
-              <template x-for="item in ngAreaList" :key="item.id">
-                <div class="master-list-row">
-                  <template x-if="!item.editing">
-                    <span class="master-value" x-text="item.area + ' → ' + item.ng_proses"></span>
-                  </template>
-                  <template x-if="item.editing">
-                    <div style="display:flex;gap:8px;flex:1;">
-                      <input type="text" x-model="item.draft" placeholder="Area">
-                      <input type="text" x-model="item.draftProses" @keyup.enter="saveMasterNgArea(item)" placeholder="NG Proses">
-                    </div>
-                  </template>
-                  <div class="master-row-actions">
-                    <template x-if="!item.editing"><button type="button" class="btn-secondary btn-sm" @click="startEditNgArea(item)">Edit</button></template>
-                    <template x-if="item.editing"><button type="button" class="btn-primary btn-sm" @click="saveMasterNgArea(item)">Simpan</button></template>
-                    <template x-if="item.editing"><button type="button" class="btn-ghost btn-sm" @click="cancelEditNgArea(item)">Batal</button></template>
-                    <button type="button" class="btn-danger btn-sm" @click="deleteMasterNgArea(item.id)">Hapus</button>
-                  </div>
-                </div>
-              </template>
-              <p class="empty-state" x-show="ngAreaList.length === 0">Belum ada data. Tambahkan Area &amp; NG Proses di atas.</p>
             </div>
           </div>
 
