@@ -70,6 +70,7 @@
         <button class="btn-secondary btn-sm" :class="tab==='riwayat' ? 'btn-primary' : ''" @click="tab='riwayat'">Riwayat Produksi</button>
         <button class="btn-secondary btn-sm" :class="tab==='performance' ? 'btn-primary' : ''" @click="openPerformanceTab()">Performance</button>
         <button class="btn-secondary btn-sm" :class="tab==='downtime' ? 'btn-primary' : ''" @click="tab='downtime'">Downtime</button>
+        <button class="btn-secondary btn-sm" :class="tab==='ng_inline' ? 'btn-primary' : ''" @click="tab='ng_inline'">NG Inline</button>
         <template x-if="isLeaderOrAdmin()">
           <button class="btn-secondary btn-sm" :class="tab==='master' ? 'btn-primary' : ''" @click="tab='master'">Master Data</button>
         </template>
@@ -878,6 +879,103 @@
           </div>
         </div>
 
+        <!-- ===================== TAB NG INLINE ===================== -->
+        <div x-show="tab === 'ng_inline'">
+          <div class="panel">
+            <p class="panel-title">Input NG Inline</p>
+            <form @submit.prevent="saveNgInline">
+              <div class="form-grid">
+                <div class="field"><label>Tanggal *</label><input type="date" x-model="ngForm.tanggal"></div>
+                <div class="field" style="grid-column: span 2;">
+                  <label>Type NG *</label>
+                  <div class="chip-row">
+                    <template x-for="t in ngTypeOptions" :key="t">
+                      <button type="button" class="chip" :class="ngForm.type_ng===t ? 'chip-active' : ''" @click="ngForm.type_ng=t" x-text="t"></button>
+                    </template>
+                  </div>
+                </div>
+                <div class="field">
+                  <label>PIC *</label>
+                  <select x-model="ngForm.pic">
+                    <option value="">-- pilih --</option>
+                    <template x-for="p in ngPicOptions" :key="p"><option :value="p" x-text="p"></option></template>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Part No *</label>
+                  <select x-model="ngForm.part_number">
+                    <option value="">-- pilih --</option>
+                    <template x-for="pn in partNumberList" :key="pn.id"><option :value="pn.value" x-text="pn.value"></option></template>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Area *</label>
+                  <select x-model="ngForm.area" @change="onAreaChangeNg()">
+                    <option value="">-- pilih --</option>
+                    <template x-for="a in ngAreaList" :key="a.id"><option :value="a.area" x-text="a.area"></option></template>
+                  </select>
+                </div>
+                <div class="field"><label>NG Proses</label><input type="text" x-model="ngForm.ng_proses" readonly placeholder="Otomatis dari Area"></div>
+                <div class="field"><label>Qty *</label><input type="number" min="1" step="1" x-model.number="ngForm.qty"></div>
+                <div class="field">
+                  <label>NG Kategori *</label>
+                  <select x-model="ngForm.ng_kategori">
+                    <option value="">-- pilih --</option>
+                    <template x-for="k in ngKategoriOptions" :key="k"><option :value="k" x-text="k"></option></template>
+                  </select>
+                </div>
+                <div class="field" style="grid-column: span 2;"><label>Reason *</label><input type="text" x-model="ngForm.reason" placeholder="Alasan / kronologi NG..."></div>
+                <div class="field" style="grid-column: span 2;">
+                  <label>Gambar *</label>
+                  <input type="file" accept="image/*" capture="environment" @change="onNgFotoSelected($event)" x-ref="ngFotoInput">
+                  <template x-if="ngFotoPreviewUrl">
+                    <img :src="ngFotoPreviewUrl" style="max-width:140px;margin-top:8px;border-radius:8px;display:block;">
+                  </template>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn-primary" :disabled="ngSaving" x-text="ngSaving ? 'Menyimpan...' : 'Simpan NG Inline'"></button>
+              </div>
+            </form>
+          </div>
+
+          <div class="panel">
+            <p class="panel-title">Riwayat NG Inline <span class="count" x-text="ngInlineRows.length + ' baris'"></span></p>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tanggal</th><th>Type</th><th>PIC</th><th>Part No</th><th>Area</th>
+                    <th>NG Proses</th><th>Qty</th><th>Kategori</th><th>Reason</th><th>Foto</th><th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="row in ngInlineRows" :key="row.id">
+                    <tr>
+                      <td class="mono" x-text="row.tanggal"></td>
+                      <td><span class="badge" x-text="row.type_ng"></span></td>
+                      <td x-text="row.pic"></td>
+                      <td x-text="row.part_number"></td>
+                      <td x-text="row.area"></td>
+                      <td x-text="row.ng_proses"></td>
+                      <td class="mono" x-text="row.qty"></td>
+                      <td x-text="row.ng_kategori"></td>
+                      <td x-text="row.reason"></td>
+                      <td>
+                        <a :href="row.foto_url" target="_blank" rel="noopener">
+                          <img :src="row.foto_url" style="width:44px;height:44px;object-fit:cover;border-radius:6px;" loading="lazy">
+                        </a>
+                      </td>
+                      <td><button class="btn-danger btn-sm" @click="deleteNgInline(row.id)">Hapus</button></td>
+                    </tr>
+                  </template>
+                  <tr x-show="ngInlineRows.length === 0"><td colspan="11" class="empty-state">Belum ada data NG Inline.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <!-- ===================== TAB MASTER DATA ===================== -->
         <div x-show="tab === 'master'">
           <div class="panel">
@@ -1074,6 +1172,38 @@
                 </div>
               </template>
               <p class="empty-state" x-show="areaList.length === 0">Belum ada data.</p>
+            </div>
+          </div>
+
+          <div class="panel">
+            <p class="panel-title">NG Inline — Master Area &amp; NG Proses <span class="count" x-text="ngAreaList.length + ' item'"></span></p>
+            <p class="hint" style="margin-bottom:12px;">Area di form NG Inline beda dari Area Downtime. NG Proses otomatis muncul berdasarkan Area yang dipilih di form.</p>
+            <div class="master-add-row">
+              <input type="text" x-model="newNgAreaValue" placeholder="Nama Area...">
+              <input type="text" x-model="newNgProsesValue" @keyup.enter="addMasterNgArea()" placeholder="NG Proses...">
+              <button type="button" class="btn-primary btn-sm" @click="addMasterNgArea()">+ Tambah</button>
+            </div>
+            <div class="master-list">
+              <template x-for="item in ngAreaList" :key="item.id">
+                <div class="master-list-row">
+                  <template x-if="!item.editing">
+                    <span class="master-value" x-text="item.area + ' → ' + item.ng_proses"></span>
+                  </template>
+                  <template x-if="item.editing">
+                    <div style="display:flex;gap:8px;flex:1;">
+                      <input type="text" x-model="item.draft" placeholder="Area">
+                      <input type="text" x-model="item.draftProses" @keyup.enter="saveMasterNgArea(item)" placeholder="NG Proses">
+                    </div>
+                  </template>
+                  <div class="master-row-actions">
+                    <template x-if="!item.editing"><button type="button" class="btn-secondary btn-sm" @click="startEditNgArea(item)">Edit</button></template>
+                    <template x-if="item.editing"><button type="button" class="btn-primary btn-sm" @click="saveMasterNgArea(item)">Simpan</button></template>
+                    <template x-if="item.editing"><button type="button" class="btn-ghost btn-sm" @click="cancelEditNgArea(item)">Batal</button></template>
+                    <button type="button" class="btn-danger btn-sm" @click="deleteMasterNgArea(item.id)">Hapus</button>
+                  </div>
+                </div>
+              </template>
+              <p class="empty-state" x-show="ngAreaList.length === 0">Belum ada data. Tambahkan Area &amp; NG Proses di atas.</p>
             </div>
           </div>
 
