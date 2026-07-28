@@ -1007,8 +1007,16 @@
             </div>
             <template x-if="isLeaderOrAdmin()">
               <button type="button" class="btn-secondary btn-sm" :class="repairEditMode ? 'btn-primary' : ''" @click="toggleRepairEditMode()" style="margin-bottom:12px;" x-text="repairEditMode ? '✓ Mode Edit Point aktif' : '✏️ Mode Edit Point'"></button>
+              <button type="button" class="btn-secondary btn-sm" :class="repairAdjustingView ? 'btn-primary' : ''" @click="toggleAdjustRepairView()" style="margin-bottom:12px; margin-left:8px;" x-text="repairAdjustingView ? '✓ Mode Atur Tampilan aktif' : '🎥 Atur Tampilan Awal'"></button>
+            </template>
+            <template x-if="repairAdjustingView">
+              <div style="margin-bottom:12px;">
+                <button type="button" class="btn-primary btn-sm" @click="saveRepairDefaultCameraView()" :disabled="repairSavingView" x-text="repairSavingView ? 'Menyimpan...' : '💾 Simpan Tampilan Ini'"></button>
+                <button type="button" class="btn-secondary btn-sm" @click="toggleAdjustRepairView()" style="margin-left:8px;">Batal</button>
+              </div>
             </template>
             <p class="repair-edit-hint" x-show="repairEditMode">Klik permukaan model buat nambah Point baru. Klik Point yang sudah ada buat menghapusnya.</p>
+            <p class="repair-edit-hint" x-show="repairAdjustingView">Puter &amp; zoom model ke posisi yang kamu mau, lalu klik <b>Simpan Tampilan Ini</b>. Posisi ini jadi tampilan awal PERMANEN untuk part ini, dan berlaku untuk semua user.</p>
             <p class="empty-state" x-show="repairViews.length === 0">Belum ada model 3D Repair. Admin bisa upload lewat tab Master Data.</p>
             <div class="repair-3d-wrap" x-show="activeRepairView()" x-effect="tab === 'repair' && initRepair3DViewerIfNeeded()">
               <div class="repair-3d-canvas" x-ref="repair3dCanvas"></div>

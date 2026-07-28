@@ -211,6 +211,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     editingRepairId: null,
     // Mode admin buat naruh titik baru di Master Data
     repairEditMode: false, repairNewViewLabel: "", repairNewViewFile: null, repairViewUploading: false,
+    // Mode admin buat atur & simpan tampilan awal kamera (manual, permanen per part)
+    repairAdjustingView: false, repairSavingView: false,
     // State viewer 3D (Three.js) -- diisi runtime, bukan reactive data biasa
     repairModelLoading: false,
 
@@ -1894,7 +1896,23 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const distH = maxRight / Math.tan(hFovRad / 2);
         const fitDistance = Math.max(distV, distH) * paddingFactor;
 
-        camera.position.copy(viewDir.clone().multiplyScalar(fitDistance));
+        // --- TAMPILAN AWAL: pakai yang SUDAH DIATUR MANUAL kalau ada ---
+        // Admin/leader bisa atur & simpan tampilan awal sendiri lewat
+        // tombol "Atur Tampilan Awal" (lihat saveRepairDefaultCameraView).
+        // Kalau part ini belum pernah diatur (default_camera kosong),
+        // fallback ke perhitungan diagonal otomatis seperti biasa.
+        let initPos, initUp;
+        const dc = view.default_camera;
+        if (dc && Array.isArray(dc.pos) && Array.isArray(dc.up)) {
+          initPos = new THREE.Vector3(dc.pos[0], dc.pos[1], dc.pos[2]);
+          initUp = new THREE.Vector3(dc.up[0], dc.up[1], dc.up[2]);
+        } else {
+          initPos = viewDir.clone().multiplyScalar(fitDistance);
+          initUp = new THREE.Vector3(0, 1, 0);
+        }
+
+        camera.position.copy(initPos);
+        camera.up.copy(initUp);
         controls.target.set(0, 0, 0);
         controls.update();
 
@@ -1904,7 +1922,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           markers: [], container, currentViewId: view.id, animId: null, paused: false,
           // Disimpan supaya bisa dipakai reset kamera tiap kali tab Repair
           // dibuka lagi -- lihat resetRepairCameraView() & resumeRepair3D().
+          // PENTING: TrackballControls (beda dari OrbitControls) ikut
+          // MEMUTAR camera.up tiap kali user muter model bebas -- jadi
+          // "up" juga WAJIB disimpan & dikembalikan, bukan cuma posisi &
+          // target, kalau enggak tampilan bakal kelihatan "miring" walau
+          // posisi kamera sudah balik ke tempat semula.
           initialCameraPos: camera.position.clone(),
+          initialCameraUp: camera.up.clone(),
           initialTarget: new THREE.Vector3(0, 0, 0),
         };
 
@@ -1941,7 +1965,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     resumeRepair3D() {
       if (!repairThreeState) return;
       repairThreeState.paused = false;
-      this.resetRepairCameraView();
+      if (!this.repairAdjustingView) this.resetRepairCameraView();
       this.resizeRepair3D();
     },
     // Balikin kamera ke posisi & sudut AWAL (diagonal, besar, di tengah)
@@ -1952,8 +1976,45 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     resetRepairCameraView() {
       const r = repairThreeState; if (!r) return;
       r.camera.position.copy(r.initialCameraPos);
+      r.camera.up.copy(r.initialCameraUp);
       r.controls.target.copy(r.initialTarget);
       r.controls.update();
+    },
+    // ============ ATUR & SIMPAN TAMPILAN AWAL (manual, per part) ============
+    // Admin/leader puter & zoom model ke posisi yang diinginkan, lalu klik
+    // "Simpan Tampilan Ini" -- posisi itu disimpan permanen ke kolom
+    // repair_views.default_camera (berlaku untuk SEMUA user, part itu saja).
+    toggleAdjustRepairView() {
+      this.repairAdjustingView = !this.repairAdjustingView;
+      if (!this.repairAdjustingView) {
+        // keluar tanpa simpan -> balikin ke tampilan tersimpan sebelumnya
+        this.resetRepairCameraView();
+      }
+    },
+    async saveRepairDefaultCameraView() {
+      const r = repairThreeState; if (!r) return;
+      const view = this.activeRepairView();
+      if (!view) return;
+      this.repairSavingView = true;
+      try {
+        const payload = {
+          pos: [r.camera.position.x, r.camera.position.y, r.camera.position.z],
+          up: [r.camera.up.x, r.camera.up.y, r.camera.up.z],
+        };
+        const { error } = await supabaseClient.from("repair_views")
+          .update({ default_camera: payload }).eq("id", view.id);
+        if (error) throw error;
+        // Update lokal supaya konsisten tanpa perlu reload model
+        view.default_camera = payload;
+        r.initialCameraPos = r.camera.position.clone();
+        r.initialCameraUp = r.camera.up.clone();
+        this.repairAdjustingView = false;
+        this.flash("Tampilan awal berhasil disimpan untuk part ini.");
+      } catch (err) {
+        this.flash("Gagal simpan tampilan: " + (err.message || err), true);
+      } finally {
+        this.repairSavingView = false;
+      }
     },
     resizeRepair3D() {
       const r = repairThreeState; if (!r) return;

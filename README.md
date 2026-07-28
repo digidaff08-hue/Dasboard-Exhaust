@@ -34,6 +34,7 @@ direstrukturisasi total untuk Welding (line flat, tanpa sub-stasiun).
 ├── migration_repair_v2.sql                        # 8) Rename label titik + seed Kategori Repair
 ├── migration_repair_v3_3d.sql                     # 9) Repair jadi 3D (.stl) -- jalankan setelah v1 & v2
 ├── migration_repair_v4_point_normals.sql          # 10) Arah normal Point (biar ketutup model saat diputar)
+├── migration_repair_v5_camera_view.sql            # 11) Kolom tampilan awal kamera (diatur manual per part)
 └── reset_welding.sql                              # Utilitas: reset total kalau setup gagal di tengah
 ```
 
@@ -120,6 +121,16 @@ titik → popup isi **Qty** + **Kategori Repair** → simpan.
 - Model 3D dirender pakai [Three.js](https://threejs.org) yang dimuat
   lewat CDN saat tab Repair pertama kali dibuka (butuh koneksi internet
   pas pertama load; setelah itu browser biasanya sudah cache library-nya).
+- **Rotasi 100% bebas** -- pakai `TrackballControls` (bukan `OrbitControls`),
+  jadi bisa diputar ke segala arah tanpa mentok/kejeduk. Geser (pan)
+  dimatikan total supaya part selalu tetap di tengah.
+- **Atur Tampilan Awal (manual, permanen per part)** -- admin/leader bisa
+  klik tombol **"🎥 Atur Tampilan Awal"** di tab Repair, lalu putar/zoom
+  model ke posisi yang diinginkan, klik **"💾 Simpan Tampilan Ini"**.
+  Posisi itu tersimpan ke kolom `repair_views.default_camera` dan otomatis
+  jadi tampilan default setiap kali part itu dibuka -- berlaku untuk
+  SEMUA user, permanen sampai diubah lagi. Kalau belum pernah diatur,
+  fallback ke sudut diagonal otomatis seperti sebelumnya.
 
 ---
 
