@@ -1835,10 +1835,33 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         controls.enableDamping = true;
         controls.dampingFactor = 0.08;
 
-        // Arah lihat default -- sederhana & tetap, biar konsisten & gak
-        // ribet. camera.up TIDAK diubah-ubah (default 0,1,0) supaya putar
-        // bebas normal, tidak terasa "terbatas".
-        const viewDir = new THREE.Vector3(1, 0.65, 1).normalize();
+        // --- ROTASI 100% BEBAS, TANPA BATASAN ---
+        // Di-set eksplisit (bukan cuma andalkan default Three.js) biar jelas
+        // & gak ke-reset kalau lib Three.js di-upgrade suatu saat nanti.
+        controls.minPolarAngle = 0;           // boleh puter sampai lihat dari atas...
+        controls.maxPolarAngle = Math.PI;     // ...sampai lihat dari bawah, full 180°.
+        controls.minAzimuthAngle = -Infinity; // puter kiri-kanan 360° tanpa henti,
+        controls.maxAzimuthAngle = Infinity;  // tidak "mentok" di sudut tertentu.
+        controls.minDistance = 0;             // zoom in/out juga bebas, tanpa batas.
+        controls.maxDistance = Infinity;
+
+        // --- POSISI PART SELALU DI TENGAH (TIDAK BOLEH GESER) ---
+        // Pan (geser) dimatikan total -- baik drag klik-kanan di desktop
+        // maupun drag 2 jari di HP -- supaya target kamera permanen di
+        // titik (0,0,0), pas di tengah part. User cuma bisa PUTAR & ZOOM,
+        // part tidak akan pernah "kabur" dari tengah kolom.
+        controls.enablePan = false;
+        controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_ROTATE };
+
+        // Arah lihat default -- TAMPAK DEPAN. Berdasarkan bounding box STL
+        // part pertama (25051-BZ040), sumbu Y adalah sisi paling tipis
+        // (~6.8 vs X ~11.5 & Z ~15.8) -- artinya Y adalah sumbu "depan ke
+        // belakang" part ini, jadi kamera awal diarahkan lurus dari sumbu
+        // Y supaya part kelihatan tampak depan (flat), bukan miring/isometrik
+        // seperti sebelumnya. Kalau ternyata part lain (atau part ini)
+        // hasilnya kebalik/dari belakang, tinggal balik tandanya jadi
+        // (0, 1, 0.001) di baris di bawah ini.
+        const viewDir = new THREE.Vector3(0, -1, 0.001).normalize();
 
         // Jarak kamera dihitung PAS berdasarkan proyeksi kotak part ke layar
         // (bukan cuma perkiraan bola), jadi part tampil sebesar mungkin
@@ -1864,7 +1887,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const aspect = width / height;
         const vFovRad = camera.fov * (Math.PI / 180);
         const hFovRad = 2 * Math.atan(Math.tan(vFovRad / 2) * aspect);
-        const paddingFactor = 1.08; // sedikit ruang napas di tepi
+        const paddingFactor = 1.02; // ruang napas tipis di tepi -- part tampil lebih besar
         const distV = maxUp / Math.tan(vFovRad / 2);
         const distH = maxRight / Math.tan(hFovRad / 2);
         const fitDistance = Math.max(distV, distH) * paddingFactor;
@@ -1894,6 +1917,11 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const tick = () => {
         if (!repairThreeState || repairThreeState !== r) return; // sudah di-teardown
         if (!r.paused) {
+          // Jaring pengaman ekstra: paksa target selalu di titik (0,0,0)
+          // tiap frame, jadi part dijamin 100% tetap di tengah walau ada
+          // kejadian tak terduga yang menggeser target (mis. lib pihak
+          // ketiga lain ikut memodifikasi controls).
+          r.controls.target.set(0, 0, 0);
           r.controls.update();
           r.renderer.render(r.scene, r.camera);
         }
