@@ -1007,16 +1007,6 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const d = (new Date(b) - new Date(a)) / 60000;
       return d >= 0 ? d.toFixed(1) + " mnt" : "-";
     },
-    totalLosstimeMenit() {
-      const totalMin = this.downtimeRowsFiltered().reduce((sum, row) => {
-        if (!row.waktu_awal || !row.waktu_akhir) return sum;
-        const d = (new Date(row.waktu_akhir) - new Date(row.waktu_awal)) / 60000;
-        return d >= 0 ? sum + d : sum;
-      }, 0);
-      const jam = Math.floor(totalMin / 60);
-      const mnt = Math.round(totalMin % 60);
-      return `${totalMin.toFixed(1)} mnt (${jam} jam ${mnt} mnt)`;
-    },
 
     // ================= EDIT / HAPUS (riwayat, koreksi manual) =================
     editRiwayat(row) {

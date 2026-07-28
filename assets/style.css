@@ -204,6 +204,12 @@ a { color: var(--amber); }
   flex-direction: column;
   gap: var(--row-gap);
 }
+/* FIX: div pembungkus tiap tab (x-show="tab === '...'") adalah flex-item
+   langsung dari .main -- tanpa min-width:0 ini, tabel lebar di dalamnya
+   bakal dorong SELURUH HALAMAN melebar (scroll di level body), bukan
+   bikin scrollbar lokal di .table-wrap seperti yang diharapkan. */
+.main > div { min-width: 0; }
+.panel { min-width: 0; }
 
 .page-header {
   display: flex;
