@@ -1006,8 +1006,10 @@
               </template>
             </div>
             <template x-if="isLeaderOrAdmin()">
-              <button type="button" class="btn-secondary btn-sm" :class="repairEditMode ? 'btn-primary' : ''" @click="toggleRepairEditMode()" style="margin-bottom:12px;" x-text="repairEditMode ? '✓ Mode Edit Point aktif' : '✏️ Mode Edit Point'"></button>
-            </template>
+              <span style="display:inline-flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+                <button type="button" class="btn-secondary btn-sm" :class="repairEditMode ? 'btn-primary' : ''" @click="toggleRepairEditMode()" x-text="repairEditMode ? '✓ Mode Edit Point aktif' : '✏️ Mode Edit Point'"></button>
+                <button type="button" class="btn-secondary btn-sm" @click="saveRepairDefaultView()" title="Putar dulu ke sudut yang diinginkan, lalu klik ini biar jadi tampilan awal buat semua orang">📌 Simpan Sudut Ini</button>
+              </span>
             <p class="repair-edit-hint" x-show="repairEditMode">Klik permukaan model buat nambah Point baru. Klik Point yang sudah ada buat menghapusnya.</p>
             <p class="empty-state" x-show="repairViews.length === 0">Belum ada model 3D Repair. Admin bisa upload lewat tab Master Data.</p>
             <div class="repair-3d-wrap" x-show="activeRepairView()" x-effect="tab === 'repair' && initRepair3DViewerIfNeeded()">

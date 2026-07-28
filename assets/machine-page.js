@@ -1708,6 +1708,17 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
 
     // ---- Master Data: Point & Model 3D (admin) ----
+    async saveRepairDefaultView() {
+      const r = repairThreeState;
+      if (!r || !this.repairActiveViewId) { this.flash("Model 3D belum siap.", true); return; }
+      const dir = r.camera.position.clone().normalize();
+      const { data, error } = await supabaseClient.from("repair_views")
+        .update({ cam_dir_x: dir.x, cam_dir_y: dir.y, cam_dir_z: dir.z })
+        .eq("id", this.repairActiveViewId).select().single();
+      if (error) { this.flash("Gagal simpan tampilan awal: " + error.message, true); return; }
+      this.repairViews = this.repairViews.map((v) => (v.id === data.id ? data : v));
+      this.flash("Sudut ini disimpan jadi tampilan awal buat semua orang.");
+    },
     toggleRepairEditMode() {
       this.repairEditMode = !this.repairEditMode;
     },
@@ -1835,25 +1846,32 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         controls.enableDamping = true;
         controls.dampingFactor = 0.08;
 
-        // Auto-fit kamera:
-        // 1) Pilih arah lihat dari sisi TERLEBAR part (bukan arah acak) --
-        //    caranya: cari sumbu yang ukurannya paling TIPIS, lalu kamera
-        //    menghadap ke situ (kayak lihat foto part dari depan), dikasih
-        //    sedikit kemiringan biar tetap kelihatan bentuk 3D-nya.
-        // 2) Jarak kamera dihitung PAS berdasarkan proyeksi kotak part ke
-        //    layar (bukan cuma perkiraan bola), jadi part tampil sebesar
-        //    mungkin memenuhi kolom tanpa kepotong.
-        const half = new THREE.Vector3(size.x / 2, size.y / 2, size.z / 2);
+        // Arah lihat default:
+        // - Kalau admin sudah pernah klik "Simpan Sudut Ini" buat part ini,
+        //   pakai sudut tersimpan itu (cam_dir_x/y/z) -- INI YANG UTAMA,
+        //   supaya tampilan awal selalu persis sama yang diinginkan admin,
+        //   bukan hasil tebakan komputer.
+        // - Kalau belum pernah disimpan, pakai default umum sederhana.
+        // camera.up SENGAJA TIDAK diubah-ubah (tetap default 0,1,0) supaya
+        // putar/orbit-nya tetap bebas & tidak terasa "terbatas".
         let viewDir;
-        if (half.x <= half.y && half.x <= half.z) viewDir = new THREE.Vector3(1, 0.3, 0.3);
-        else if (half.y <= half.x && half.y <= half.z) viewDir = new THREE.Vector3(0.3, 1, 0.3);
-        else viewDir = new THREE.Vector3(0.3, 0.3, 1);
+        if (view.cam_dir_x != null && view.cam_dir_y != null && view.cam_dir_z != null) {
+          viewDir = new THREE.Vector3(view.cam_dir_x, view.cam_dir_y, view.cam_dir_z);
+          if (viewDir.lengthSq() < 1e-8) viewDir.set(1, 0.65, 1);
+        } else {
+          viewDir = new THREE.Vector3(1, 0.65, 1);
+        }
         viewDir.normalize();
 
-        let up = Math.abs(viewDir.dot(new THREE.Vector3(0, 1, 0))) > 0.95
+        // Jarak kamera dihitung PAS berdasarkan proyeksi kotak part ke layar
+        // (bukan cuma perkiraan bola), jadi part tampil sebesar mungkin
+        // memenuhi kolom tanpa kepotong -- basis "right/up" di sini CUMA
+        // dipakai buat hitung ukuran, TIDAK memengaruhi camera.up beneran.
+        const half = new THREE.Vector3(size.x / 2, size.y / 2, size.z / 2);
+        const upHint = Math.abs(viewDir.dot(new THREE.Vector3(0, 1, 0))) > 0.95
           ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0);
-        const right = new THREE.Vector3().crossVectors(up, viewDir).normalize();
-        const camUp = new THREE.Vector3().crossVectors(viewDir, right).normalize();
+        const right = new THREE.Vector3().crossVectors(upHint, viewDir).normalize();
+        const projUp = new THREE.Vector3().crossVectors(viewDir, right).normalize();
 
         let maxRight = 0, maxUp = 0;
         for (let i = 0; i < 8; i++) {
@@ -1863,7 +1881,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
             (i & 4 ? half.z : -half.z)
           );
           maxRight = Math.max(maxRight, Math.abs(corner.dot(right)));
-          maxUp = Math.max(maxUp, Math.abs(corner.dot(camUp)));
+          maxUp = Math.max(maxUp, Math.abs(corner.dot(projUp)));
         }
 
         const aspect = width / height;
@@ -1875,7 +1893,6 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const fitDistance = Math.max(distV, distH) * paddingFactor;
 
         camera.position.copy(viewDir.clone().multiplyScalar(fitDistance));
-        camera.up.copy(camUp);
         controls.target.set(0, 0, 0);
         controls.update();
 
