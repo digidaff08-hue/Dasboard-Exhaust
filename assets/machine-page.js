@@ -1835,18 +1835,47 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         controls.enableDamping = true;
         controls.dampingFactor = 0.08;
 
-        // Auto-fit kamera: hitung jarak pas berdasarkan ukuran part & ukuran
-        // kotak (aspect ratio), supaya modelnya selalu tampil besar & pas
-        // di tengah kolom, konsisten tiap kali dibuka -- bukan asal taruh.
-        const boundingRadius = size.length() / 2;
+        // Auto-fit kamera:
+        // 1) Pilih arah lihat dari sisi TERLEBAR part (bukan arah acak) --
+        //    caranya: cari sumbu yang ukurannya paling TIPIS, lalu kamera
+        //    menghadap ke situ (kayak lihat foto part dari depan), dikasih
+        //    sedikit kemiringan biar tetap kelihatan bentuk 3D-nya.
+        // 2) Jarak kamera dihitung PAS berdasarkan proyeksi kotak part ke
+        //    layar (bukan cuma perkiraan bola), jadi part tampil sebesar
+        //    mungkin memenuhi kolom tanpa kepotong.
+        const half = new THREE.Vector3(size.x / 2, size.y / 2, size.z / 2);
+        let viewDir;
+        if (half.x <= half.y && half.x <= half.z) viewDir = new THREE.Vector3(1, 0.3, 0.3);
+        else if (half.y <= half.x && half.y <= half.z) viewDir = new THREE.Vector3(0.3, 1, 0.3);
+        else viewDir = new THREE.Vector3(0.3, 0.3, 1);
+        viewDir.normalize();
+
+        let up = Math.abs(viewDir.dot(new THREE.Vector3(0, 1, 0))) > 0.95
+          ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0);
+        const right = new THREE.Vector3().crossVectors(up, viewDir).normalize();
+        const camUp = new THREE.Vector3().crossVectors(viewDir, right).normalize();
+
+        let maxRight = 0, maxUp = 0;
+        for (let i = 0; i < 8; i++) {
+          const corner = new THREE.Vector3(
+            (i & 1 ? half.x : -half.x),
+            (i & 2 ? half.y : -half.y),
+            (i & 4 ? half.z : -half.z)
+          );
+          maxRight = Math.max(maxRight, Math.abs(corner.dot(right)));
+          maxUp = Math.max(maxUp, Math.abs(corner.dot(camUp)));
+        }
+
         const aspect = width / height;
         const vFovRad = camera.fov * (Math.PI / 180);
         const hFovRad = 2 * Math.atan(Math.tan(vFovRad / 2) * aspect);
-        const limitingHalfFov = Math.min(vFovRad, hFovRad) / 2;
-        const paddingFactor = 1.12; // sedikit ruang napas di tepi
-        const fitDistance = (boundingRadius / Math.sin(limitingHalfFov)) * paddingFactor;
-        const viewDir = new THREE.Vector3(1, 0.65, 1).normalize();
-        camera.position.copy(viewDir.multiplyScalar(fitDistance));
+        const paddingFactor = 1.08; // sedikit ruang napas di tepi
+        const distV = maxUp / Math.tan(vFovRad / 2);
+        const distH = maxRight / Math.tan(hFovRad / 2);
+        const fitDistance = Math.max(distV, distH) * paddingFactor;
+
+        camera.position.copy(viewDir.clone().multiplyScalar(fitDistance));
+        camera.up.copy(camUp);
         controls.target.set(0, 0, 0);
         controls.update();
 
