@@ -91,6 +91,26 @@ kepakai di semua line.
 Jenis: Agenda Perusahaan, Meeting Awal, Meeting Akhir, 5S, Equipment, SPM,
 Watari — dikelola per line di tabel `nonproduksi_types`.
 
+### Repair (klik titik di gambar part)
+Tab baru setelah NG Inline. Konsepnya: gambar part (bisa >1 tampilan, mis.
+Depan/Belakang) ditandai titik-titik lokasi — klik titik → popup isi
+**Qty** + **Kategori Repair** → simpan.
+
+- **Tampilan gambar saat ini masih placeholder** — 2 entri ("Tampak Depan"
+  & "Tampak Belakang") sama-sama pakai gambar `Jig_8.png` yang pernah
+  dikirim, dan **titik-titiknya ditaruh ngasal** (5 titik per gambar)
+  cuma buat uji alur klik → popup → simpan. Ganti gambarnya kapan saja
+  lewat tab **Master Data > Repair — Tampilan Gambar** (upload gambar
+  baru, hapus yang lama).
+- **Belum ada rotasi 3D asli** — yang ada sekarang cuma switch antar-
+  gambar (tombol chip di atas gambar). Rotasi 3D beneran butuh file
+  model 3D (.glb/.obj), bukan cuma foto/render 2D.
+- **Titik dikelola manual oleh admin/leader** — toggle "Mode Edit Titik"
+  di tab Repair, lalu klik di gambar buat nambah titik (klik titik yang
+  sudah ada buat menghapusnya).
+- **Kategori Repair** — master data kosong dulu (`repair_kategori`),
+  diisi lewat tab Master Data > Repair — Kategori Repair.
+
 ---
 
 ## Yang masih bisa dikembangkan

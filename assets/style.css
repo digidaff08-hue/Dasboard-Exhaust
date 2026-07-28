@@ -1719,3 +1719,24 @@ body, .sqcpm-col, .dash-panel, .kpi-card, .perf-card, .panel,
   /* tabel 10 terburuk: batasi supaya tidak melebihi tinggi baris */
   .tv-row-3 .table-wrap { max-height: 100%; }
 }
+
+/* ===================== REPAIR (gambar + titik klik) ===================== */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.55);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200; padding: 16px;
+}
+.repair-image-wrap { position: relative; display: inline-block; max-width: 100%; }
+.repair-image-wrap img { max-width: 100%; display: block; border-radius: 8px; user-select: none; -webkit-user-drag: none; }
+.repair-point-dot {
+  position: absolute; width: 26px; height: 26px; margin-left: -13px; margin-top: -13px;
+  border-radius: 50%; border: 2px dashed var(--red); background: rgba(220,38,38,.15);
+  cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center;
+}
+.repair-point-dot:hover { background: rgba(220,38,38,.35); }
+.repair-point-label {
+  position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+  font-size: 10px; white-space: nowrap; background: var(--panel); color: var(--text);
+  padding: 1px 4px; border-radius: 3px; margin-top: 2px; border: 1px solid var(--border);
+}
+.repair-edit-hint { font-size: 12px; color: var(--muted); margin-top: 8px; }

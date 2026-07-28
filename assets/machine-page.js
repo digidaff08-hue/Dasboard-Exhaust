@@ -197,6 +197,16 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     riwayatFilter: { dari: "", sampai: "", part_number: "" },
     downtimeFilterProductionId: null, downtimeFilterLabel: "",
 
+    // ---- Repair (klik titik di gambar part -> popup Qty + Kategori) ----
+    repairViews: [], repairActiveViewId: null, repairPoints: [],
+    repairKategoriOptions: [], newRepairKategoriValue: "",
+    repairLogRows: [],
+    repairForm: { tanggal: localDateStr(new Date()), qty: "", kategori_repair: "" },
+    repairModalOpen: false, repairModalPoint: null, repairSaving: false,
+    editingRepairId: null,
+    // Mode admin buat naruh titik baru di Master Data
+    repairEditMode: false, repairNewViewLabel: "", repairNewViewFile: null, repairViewUploading: false,
+
     // ---- Performance dashboard (3 seksi independen) ----
     perf: {
       tahunan: { anchor: localDateStr(new Date()), loading: false, data: null, trend: [], chart: null, pieChart: null, top5: [], byCategory: [] },
@@ -225,6 +235,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           this.fetchProduction(), this.fetchDowntime(), this.fetchNonProduksi(),
           this.fetchPlanning(), this.fetchPartNumbers(), this.fetchProblems(), this.fetchCauses(), this.fetchAreas(), this.fetchNonProduksiTypes(),
           this.fetchNgModelsForLine(), this.fetchNgInline(),
+          this.fetchRepairViews(), this.fetchRepairKategori(), this.fetchRepairLog(),
         ]);
         this.restoreLocalState();
         this.watchAndAutosave();
@@ -1581,6 +1592,174 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
       this.ngInlineRows = this.ngInlineRows.filter((r) => r.id !== id);
       if (this.editingNgId === id) this.resetNgForm();
+    },
+
+    // ================= REPAIR (klik titik di gambar -> popup) =================
+    async fetchRepairViews() {
+      const { data, error } = await supabaseClient.from("repair_views").select("*").order("sort_order");
+      if (error) { this.flash("Gagal memuat gambar Repair: " + error.message, true); return; }
+      this.repairViews = data || [];
+      if (this.repairViews.length > 0 && !this.repairActiveViewId) {
+        this.repairActiveViewId = this.repairViews[0].id;
+      }
+      if (this.repairActiveViewId) await this.fetchRepairPoints(this.repairActiveViewId);
+    },
+    async fetchRepairPoints(viewId) {
+      const { data, error } = await supabaseClient.from("repair_points").select("*").eq("view_id", viewId).order("created_at");
+      if (error) { this.flash("Gagal memuat titik Repair: " + error.message, true); return; }
+      this.repairPoints = data || [];
+    },
+    async selectRepairView(viewId) {
+      this.repairActiveViewId = viewId;
+      await this.fetchRepairPoints(viewId);
+    },
+    activeRepairView() {
+      return this.repairViews.find((v) => v.id === this.repairActiveViewId) || null;
+    },
+    async fetchRepairKategori() {
+      const { data, error } = await supabaseClient.from("repair_kategori").select("*").order("value");
+      if (error) { this.flash("Gagal memuat Kategori Repair: " + error.message, true); return; }
+      this.repairKategoriOptions = data || [];
+    },
+    async fetchRepairLog() {
+      const { data, error } = await supabaseClient.from("repair_log").select("*").eq("mesin", machineKey).order("tanggal", { ascending: false }).order("created_at", { ascending: false }).limit(200);
+      if (error) { this.flash("Gagal memuat Riwayat Repair: " + error.message, true); return; }
+      this.repairLogRows = data || [];
+    },
+
+    openRepairPoint(point) {
+      if (this.repairEditMode) return; // di mode edit titik, klik = mode lain (lihat onRepairImageClick)
+      this.editingRepairId = null;
+      this.repairModalPoint = point;
+      this.repairForm = { tanggal: localDateStr(new Date()), qty: "", kategori_repair: "" };
+      this.repairModalOpen = true;
+    },
+    editRepairLog(row) {
+      const point = this.repairPoints.find((p) => p.id === row.point_id) || { id: row.point_id, label: row.point_label };
+      this.editingRepairId = row.id;
+      this.repairModalPoint = point;
+      this.repairForm = { tanggal: row.tanggal, qty: row.qty, kategori_repair: row.kategori_repair };
+      this.repairModalOpen = true;
+    },
+    closeRepairModal() {
+      this.repairModalOpen = false; this.repairModalPoint = null; this.editingRepairId = null;
+    },
+    async submitRepairPoint() {
+      const f = this.repairForm;
+      if (!f.tanggal || !f.qty || Number(f.qty) <= 0 || !f.kategori_repair) {
+        this.flash("Tanggal, Qty, dan Kategori Repair wajib diisi.", true); return;
+      }
+      this.repairSaving = true;
+      const payload = {
+        mesin: machineKey, tanggal: f.tanggal,
+        view_id: this.repairActiveViewId, point_id: this.repairModalPoint?.id || null,
+        point_label: this.repairModalPoint?.label || null,
+        qty: Number(f.qty), kategori_repair: f.kategori_repair,
+      };
+      try {
+        if (this.editingRepairId) {
+          const { data, error } = await supabaseClient.from("repair_log").update(payload).eq("id", this.editingRepairId).select().single();
+          if (error) throw error;
+          this.repairLogRows = this.repairLogRows.map((r) => (r.id === data.id ? data : r));
+          this.flash("Data Repair berhasil diupdate.");
+        } else {
+          payload.created_by = this.session.user.id;
+          const { data, error } = await supabaseClient.from("repair_log").insert(payload).select().single();
+          if (error) throw error;
+          this.repairLogRows.unshift(data);
+          this.flash("Data Repair tersimpan.");
+        }
+        this.closeRepairModal();
+      } catch (err) {
+        this.flash("Gagal simpan Repair: " + (err.message || err), true);
+      } finally {
+        this.repairSaving = false;
+      }
+    },
+    async deleteRepairLog(id) {
+      if (!confirm("Hapus data Repair ini?")) return;
+      const { error } = await supabaseClient.from("repair_log").delete().eq("id", id);
+      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
+      this.repairLogRows = this.repairLogRows.filter((r) => r.id !== id);
+    },
+
+    // ---- Master Data: Kategori Repair ----
+    async addMasterRepairKategori() {
+      const v = (this.newRepairKategoriValue || "").trim(); if (!v) return;
+      const { data, error } = await supabaseClient.from("repair_kategori").insert({ value: v }).select().single();
+      if (error) { this.flash("Gagal tambah: " + error.message, true); return; }
+      this.repairKategoriOptions.push(data);
+      this.repairKategoriOptions.sort((a, b) => a.value.localeCompare(b.value));
+      this.newRepairKategoriValue = ""; this.flash("Kategori Repair ditambahkan.");
+    },
+    async deleteMasterRepairKategori(id) {
+      if (!confirm("Hapus kategori repair ini?")) return;
+      const { error } = await supabaseClient.from("repair_kategori").delete().eq("id", id);
+      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
+      this.repairKategoriOptions = this.repairKategoriOptions.filter((r) => r.id !== id);
+    },
+
+    // ---- Master Data: Titik & Gambar (admin) ----
+    toggleRepairEditMode() {
+      this.repairEditMode = !this.repairEditMode;
+    },
+    async onRepairImageClick(ev) {
+      if (!this.repairEditMode || !this.repairActiveViewId) return;
+      const rect = ev.currentTarget.getBoundingClientRect();
+      const x_pct = ((ev.clientX - rect.left) / rect.width) * 100;
+      const y_pct = ((ev.clientY - rect.top) / rect.height) * 100;
+      const label = prompt("Label titik ini (boleh kosong):", "") || null;
+      const { data, error } = await supabaseClient.from("repair_points")
+        .insert({ view_id: this.repairActiveViewId, x_pct, y_pct, label }).select().single();
+      if (error) { this.flash("Gagal tambah titik: " + error.message, true); return; }
+      this.repairPoints.push(data);
+      this.flash("Titik ditambahkan.");
+    },
+    async deleteRepairPoint(id) {
+      if (!confirm("Hapus titik ini?")) return;
+      const { error } = await supabaseClient.from("repair_points").delete().eq("id", id);
+      if (error) { this.flash("Gagal hapus titik: " + error.message, true); return; }
+      this.repairPoints = this.repairPoints.filter((p) => p.id !== id);
+    },
+    onRepairNewViewFileChange(ev) {
+      this.repairNewViewFile = ev.target.files[0] || null;
+    },
+    async addRepairView() {
+      const label = (this.repairNewViewLabel || "").trim();
+      if (!label || !this.repairNewViewFile) { this.flash("Label dan gambar wajib diisi.", true); return; }
+      this.repairViewUploading = true;
+      try {
+        const file = this.repairNewViewFile;
+        const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+        const path = `views/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: upErr } = await supabaseClient.storage.from("repair-photos").upload(path, file);
+        if (upErr) throw upErr;
+        const { data: pub } = supabaseClient.storage.from("repair-photos").getPublicUrl(path);
+        const nextOrder = this.repairViews.length > 0 ? Math.max(...this.repairViews.map((v) => v.sort_order || 0)) + 1 : 1;
+        const { data, error } = await supabaseClient.from("repair_views")
+          .insert({ label, image_url: pub.publicUrl, sort_order: nextOrder }).select().single();
+        if (error) throw error;
+        this.repairViews.push(data);
+        this.repairActiveViewId = data.id;
+        this.repairPoints = [];
+        this.repairNewViewLabel = ""; this.repairNewViewFile = null;
+        this.flash("Tampilan gambar baru ditambahkan.");
+      } catch (err) {
+        this.flash("Gagal upload gambar: " + (err.message || err), true);
+      } finally {
+        this.repairViewUploading = false;
+      }
+    },
+    async deleteRepairView(id) {
+      if (!confirm("Hapus tampilan gambar ini beserta semua titiknya?")) return;
+      const { error } = await supabaseClient.from("repair_views").delete().eq("id", id);
+      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
+      this.repairViews = this.repairViews.filter((v) => v.id !== id);
+      if (this.repairActiveViewId === id) {
+        this.repairActiveViewId = this.repairViews[0]?.id || null;
+        this.repairPoints = [];
+        if (this.repairActiveViewId) await this.fetchRepairPoints(this.repairActiveViewId);
+      }
     },
 
     logout,
