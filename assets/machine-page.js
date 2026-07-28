@@ -1902,6 +1902,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           THREE, scene, camera, renderer, controls, mesh,
           raycaster: new THREE.Raycaster(), pointer: new THREE.Vector2(),
           markers: [], container, currentViewId: view.id, animId: null, paused: false,
+          // Disimpan supaya bisa dipakai reset kamera tiap kali tab Repair
+          // dibuka lagi -- lihat resetRepairCameraView() & resumeRepair3D().
+          initialCameraPos: camera.position.clone(),
+          initialTarget: new THREE.Vector3(0, 0, 0),
         };
 
         this.attachRepair3DEvents(container);
@@ -1937,7 +1941,19 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     resumeRepair3D() {
       if (!repairThreeState) return;
       repairThreeState.paused = false;
+      this.resetRepairCameraView();
       this.resizeRepair3D();
+    },
+    // Balikin kamera ke posisi & sudut AWAL (diagonal, besar, di tengah)
+    // setiap kali tab Repair dibuka lagi -- baik pertama kali maupun
+    // setelah pindah ke tab lain lalu balik lagi. Tanpa ini, kamera cuma
+    // "resume" dari posisi terakhir user puter-puter manual sebelumnya,
+    // jadi kelihatan seperti "belum reset" padahal cuma nyisa rotasi lama.
+    resetRepairCameraView() {
+      const r = repairThreeState; if (!r) return;
+      r.camera.position.copy(r.initialCameraPos);
+      r.controls.target.copy(r.initialTarget);
+      r.controls.update();
     },
     resizeRepair3D() {
       const r = repairThreeState; if (!r) return;
