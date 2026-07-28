@@ -1708,17 +1708,6 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
 
     // ---- Master Data: Point & Model 3D (admin) ----
-    async saveRepairDefaultView() {
-      const r = repairThreeState;
-      if (!r || !this.repairActiveViewId) { this.flash("Model 3D belum siap.", true); return; }
-      const dir = r.camera.position.clone().normalize();
-      const { data, error } = await supabaseClient.from("repair_views")
-        .update({ cam_dir_x: dir.x, cam_dir_y: dir.y, cam_dir_z: dir.z })
-        .eq("id", this.repairActiveViewId).select().single();
-      if (error) { this.flash("Gagal simpan tampilan awal: " + error.message, true); return; }
-      this.repairViews = this.repairViews.map((v) => (v.id === data.id ? data : v));
-      this.flash("Sudut ini disimpan jadi tampilan awal buat semua orang.");
-    },
     toggleRepairEditMode() {
       this.repairEditMode = !this.repairEditMode;
     },
@@ -1846,22 +1835,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         controls.enableDamping = true;
         controls.dampingFactor = 0.08;
 
-        // Arah lihat default:
-        // - Kalau admin sudah pernah klik "Simpan Sudut Ini" buat part ini,
-        //   pakai sudut tersimpan itu (cam_dir_x/y/z) -- INI YANG UTAMA,
-        //   supaya tampilan awal selalu persis sama yang diinginkan admin,
-        //   bukan hasil tebakan komputer.
-        // - Kalau belum pernah disimpan, pakai default umum sederhana.
-        // camera.up SENGAJA TIDAK diubah-ubah (tetap default 0,1,0) supaya
-        // putar/orbit-nya tetap bebas & tidak terasa "terbatas".
-        let viewDir;
-        if (view.cam_dir_x != null && view.cam_dir_y != null && view.cam_dir_z != null) {
-          viewDir = new THREE.Vector3(view.cam_dir_x, view.cam_dir_y, view.cam_dir_z);
-          if (viewDir.lengthSq() < 1e-8) viewDir.set(1, 0.65, 1);
-        } else {
-          viewDir = new THREE.Vector3(1, 0.65, 1);
-        }
-        viewDir.normalize();
+        // Arah lihat default -- sederhana & tetap, biar konsisten & gak
+        // ribet. camera.up TIDAK diubah-ubah (default 0,1,0) supaya putar
+        // bebas normal, tidak terasa "terbatas".
+        const viewDir = new THREE.Vector3(1, 0.65, 1).normalize();
 
         // Jarak kamera dihitung PAS berdasarkan proyeksi kotak part ke layar
         // (bukan cuma perkiraan bola), jadi part tampil sebesar mungkin

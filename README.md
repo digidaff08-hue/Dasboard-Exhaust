@@ -34,7 +34,6 @@ direstrukturisasi total untuk Welding (line flat, tanpa sub-stasiun).
 ├── migration_repair_v2.sql                        # 8) Rename label titik + seed Kategori Repair
 ├── migration_repair_v3_3d.sql                     # 9) Repair jadi 3D (.stl) -- jalankan setelah v1 & v2
 ├── migration_repair_v4_point_normals.sql          # 10) Arah normal Point (biar ketutup model saat diputar)
-├── migration_repair_v5_default_view.sql           # 11) Sudut kamera default per part (tombol "Simpan Sudut Ini")
 └── reset_welding.sql                              # Utilitas: reset total kalau setup gagal di tengah
 ```
 
