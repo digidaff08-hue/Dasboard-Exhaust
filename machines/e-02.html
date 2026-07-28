@@ -895,17 +895,17 @@
                   </div>
                 </div>
                 <div class="field">
-                  <label>Model *</label>
-                  <select x-model="ngForm.model">
-                    <option value="">-- pilih --</option>
-                    <template x-for="m in ngModelList" :key="m.id"><option :value="m.model" x-text="m.model"></option></template>
-                  </select>
-                </div>
-                <div class="field">
                   <label>PIC *</label>
                   <select x-model="ngForm.pic">
                     <option value="">-- pilih --</option>
                     <template x-for="p in ngPicOptions" :key="p"><option :value="p" x-text="p"></option></template>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Model *</label>
+                  <select x-model="ngForm.model">
+                    <option value="">-- pilih --</option>
+                    <template x-for="m in ngModelList" :key="m.id"><option :value="m.model" x-text="m.model"></option></template>
                   </select>
                 </div>
                 <div class="field">
