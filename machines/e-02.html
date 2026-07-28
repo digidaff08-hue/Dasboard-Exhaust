@@ -895,6 +895,13 @@
                   </div>
                 </div>
                 <div class="field">
+                  <label>Model *</label>
+                  <select x-model="ngForm.model">
+                    <option value="">-- pilih --</option>
+                    <template x-for="m in ngModelList" :key="m.id"><option :value="m.model" x-text="m.model"></option></template>
+                  </select>
+                </div>
+                <div class="field">
                   <label>PIC *</label>
                   <select x-model="ngForm.pic">
                     <option value="">-- pilih --</option>
@@ -916,7 +923,7 @@
                   </select>
                 </div>
                 <div class="field"><label>NG Proses</label><input type="text" x-model="ngForm.ng_proses" readonly placeholder="Otomatis dari Area"></div>
-                <div class="field"><label>Qty *</label><input type="number" min="1" step="1" x-model.number="ngForm.qty"></div>
+                <div class="field"><label>Qty *</label><input type="text" inputmode="numeric" pattern="[0-9]*" x-model.number="ngForm.qty" @input='$event.target.value = $event.target.value.replace(/[^0-9]/g, ""); ngForm.qty = $event.target.value === "" ? "" : Number($event.target.value)' placeholder="0"></div>
                 <div class="field">
                   <label>NG Kategori *</label>
                   <select x-model="ngForm.ng_kategori">
@@ -945,7 +952,7 @@
               <table>
                 <thead>
                   <tr>
-                    <th>Tanggal</th><th>Type</th><th>PIC</th><th>Part No</th><th>Area</th>
+                    <th>Tanggal</th><th>Type</th><th>Model</th><th>PIC</th><th>Part No</th><th>Area</th>
                     <th>NG Proses</th><th>Qty</th><th>Kategori</th><th>Reason</th><th>Foto</th><th>Aksi</th>
                   </tr>
                 </thead>
@@ -954,6 +961,7 @@
                     <tr>
                       <td class="mono" x-text="row.tanggal"></td>
                       <td><span class="badge" x-text="row.type_ng"></span></td>
+                      <td x-text="row.model"></td>
                       <td x-text="row.pic"></td>
                       <td x-text="row.part_number"></td>
                       <td x-text="row.area"></td>
@@ -969,7 +977,7 @@
                       <td><button class="btn-danger btn-sm" @click="deleteNgInline(row.id)">Hapus</button></td>
                     </tr>
                   </template>
-                  <tr x-show="ngInlineRows.length === 0"><td colspan="11" class="empty-state">Belum ada data NG Inline.</td></tr>
+                  <tr x-show="ngInlineRows.length === 0"><td colspan="12" class="empty-state">Belum ada data NG Inline.</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1172,6 +1180,29 @@
                 </div>
               </template>
               <p class="empty-state" x-show="areaList.length === 0">Belum ada data.</p>
+            </div>
+          </div>
+
+          <div class="panel">
+            <p class="panel-title">NG Inline — Master Model <span class="count" x-text="ngModelList.length + ' item'"></span></p>
+            <div class="master-add-row">
+              <input type="text" x-model="newNgModelValue" @keyup.enter="addMasterNgModel()" placeholder="Tambah model baru...">
+              <button type="button" class="btn-primary btn-sm" @click="addMasterNgModel()">+ Tambah</button>
+            </div>
+            <div class="master-list">
+              <template x-for="item in ngModelList" :key="item.id">
+                <div class="master-list-row">
+                  <template x-if="!item.editing"><span class="master-value" x-text="item.model"></span></template>
+                  <template x-if="item.editing"><input type="text" x-model="item.draft" @keyup.enter="saveMasterNgModel(item)"></template>
+                  <div class="master-row-actions">
+                    <template x-if="!item.editing"><button type="button" class="btn-secondary btn-sm" @click="startEditNgModel(item)">Edit</button></template>
+                    <template x-if="item.editing"><button type="button" class="btn-primary btn-sm" @click="saveMasterNgModel(item)">Simpan</button></template>
+                    <template x-if="item.editing"><button type="button" class="btn-ghost btn-sm" @click="cancelEditNgModel(item)">Batal</button></template>
+                    <button type="button" class="btn-danger btn-sm" @click="deleteMasterNgModel(item.id)">Hapus</button>
+                  </div>
+                </div>
+              </template>
+              <p class="empty-state" x-show="ngModelList.length === 0">Belum ada data. Tambahkan Model di atas.</p>
             </div>
           </div>
 
