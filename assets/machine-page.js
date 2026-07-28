@@ -1606,6 +1606,53 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     wrap.insertAdjacentElement("afterend", ind);
     wrap._scrollIndicatorEl = ind;
     wrap.addEventListener("scroll", () => updateIndicator(wrap), { passive: true });
+
+    // ---- Bar indikator bisa DITEKAN & DIGESER langsung (kayak scrollbar asli) ----
+    let dragging = false, startX = 0, startScrollLeft = 0;
+    const onDown = (e) => {
+      dragging = true;
+      startX = e.clientX;
+      startScrollLeft = wrap.scrollLeft;
+      ind.setPointerCapture && ind.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    };
+    const onMove = (e) => {
+      if (!dragging) return;
+      const { scrollWidth, clientWidth } = wrap;
+      const maxScroll = scrollWidth - clientWidth;
+      const trackWidth = ind.clientWidth || 1;
+      const deltaScroll = ((e.clientX - startX) / trackWidth) * scrollWidth;
+      wrap.scrollLeft = Math.max(0, Math.min(maxScroll, startScrollLeft + deltaScroll));
+    };
+    const onUp = () => { dragging = false; };
+    ind.addEventListener("pointerdown", onDown);
+    ind.addEventListener("pointermove", onMove);
+    ind.addEventListener("pointerup", onUp);
+    ind.addEventListener("pointercancel", onUp);
+    thumb.style.touchAction = "none";
+    ind.style.touchAction = "none";
+    ind.style.cursor = "grab";
+
+    // ---- Tabel-nya sendiri juga bisa "tekan-tahan-geser" pakai mouse
+    // (touch/jari di HP sudah otomatis bisa geser bawaan browser, ini
+    // khusus buat mouse/trackpad di desktop / device emulator). ----
+    let dragWrap = false, wrapStartX = 0, wrapStartScroll = 0;
+    wrap.addEventListener("pointerdown", (e) => {
+      if (e.pointerType !== "mouse") return; // biarkan touch pakai swipe bawaan
+      dragWrap = true;
+      wrapStartX = e.clientX;
+      wrapStartScroll = wrap.scrollLeft;
+      wrap.style.cursor = "grabbing";
+    });
+    wrap.addEventListener("pointermove", (e) => {
+      if (!dragWrap) return;
+      wrap.scrollLeft = wrapStartScroll - (e.clientX - wrapStartX);
+    });
+    const stopWrapDrag = () => { dragWrap = false; wrap.style.cursor = ""; };
+    wrap.addEventListener("pointerup", stopWrapDrag);
+    wrap.addEventListener("pointerleave", stopWrapDrag);
+    wrap.style.cursor = "grab";
+
     return ind;
   }
   function updateIndicator(wrap) {

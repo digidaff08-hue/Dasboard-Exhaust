@@ -335,17 +335,18 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
    jadi orang nggak pernah lihat kalau tabel itu bisa digeser. Bar ini
    selalu keliatan, nggak gantung ke scrollbar OS. */
 .table-scroll-indicator {
-  height: 6px;
+  height: 10px;
   background: var(--panel-2);
-  border-radius: 3px;
-  margin-top: 6px;
+  border-radius: 5px;
+  margin-top: 8px;
   overflow: hidden;
   display: none;
 }
 .table-scroll-indicator-thumb {
   height: 100%;
   background: var(--primary);
-  border-radius: 3px;
+  border-radius: 5px;
+  min-width: 24px;
 }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 thead th {
