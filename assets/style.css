@@ -903,22 +903,22 @@ td.mono, .mono { font-family: var(--font-mono); }
   padding: 24px 16px;
 }
 .login-card {
-  width: 360px;
+  width: clamp(340px, 42vw, 560px);
   max-width: 100%;
-  min-height: 560px;
+  min-height: clamp(520px, 58vh, 720px);
   background: transparent;
   border: none;
   border-radius: 0;
   box-shadow: none;
-  padding: 40px 32px 28px;
+  padding: clamp(32px, 5vw, 56px) clamp(24px, 4vw, 40px) 28px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
 }
 .login-logo {
-  width: 84px;
-  height: 84px;
+  width: clamp(84px, 9vw, 120px);
+  height: clamp(84px, 9vw, 120px);
   border-radius: 22px;
   background: var(--panel-2);
   border: 1px solid var(--border);
@@ -932,44 +932,33 @@ td.mono, .mono { font-family: var(--font-mono); }
 .login-logo img { width: 100%; height: 100%; object-fit: contain; }
 .login-card h1 {
   font-family: var(--font-display);
-  font-size: 20px;
+  font-size: clamp(20px, 2.6vw, 30px);
   margin: 0 0 4px;
 }
-.login-card .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
-.login-card .field { margin-bottom: 14px; text-align: left; }
-.login-card button { width: 100%; padding: 10px; margin-top: 6px; }
+.login-card .sub { color: var(--muted); font-size: clamp(13px, 1.3vw, 15px); margin-bottom: 24px; }
+.login-card .field { margin-bottom: clamp(14px, 1.6vw, 18px); text-align: left; }
+.login-card .field input { padding: clamp(9px, 1.1vw, 13px) clamp(10px, 1.2vw, 14px); font-size: clamp(14px, 1.3vw, 16px); }
+.login-card button { width: 100%; padding: clamp(10px, 1.3vw, 14px); font-size: clamp(14px, 1.3vw, 16px); margin-top: 6px; }
 .login-form-area { width: 100%; }
 .login-form-area form { width: 100%; }
 
-/* Layar lebih besar (tablet/desktop, mis. iPad) -- skala naikin biar
-   nggak jadi kotak kecil di tengah layar kosong. */
-@media (min-width: 700px) {
-  .login-shell { padding: 48px 24px; }
-  .login-card { width: 460px; min-height: 640px; padding: 56px 20px 40px; }
-  .login-logo { width: 112px; height: 112px; border-radius: 28px; margin-bottom: 28px; }
-  .login-card h1 { font-size: 30px; margin-bottom: 8px; }
-  .login-card .sub { font-size: 15px; margin-bottom: 32px; }
-  .login-card .field { margin-bottom: 18px; }
-  .login-card .field label { font-size: 13px; }
-  .login-card .field input { padding: 13px 14px; font-size: 16px; }
-  .login-card .password-wrap input { padding-right: 44px; }
-  .login-card button { padding: 14px; font-size: 16px; }
-  .login-options-row { font-size: 14px; }
-  .login-signup-foot { font-size: 15px; padding-top: 32px; }
-}
-
 .password-wrap { position: relative; }
 .login-card .password-wrap input { width: 100%; padding-right: 40px; }
-.password-toggle {
+/* Dua class sekaligus (.login-card .password-toggle) biar menang lawan
+   ".login-card button { width:100% }" di atas -- sebelumnya tombol mata
+   ikut melebar penuh senampang input dan nutupin seluruh kolom. */
+.login-card .password-toggle {
   position: absolute;
-  right: 6px;
+  right: 4px;
   top: 50%;
   transform: translateY(-50%);
+  width: auto;
+  margin: 0;
   background: none;
   border: none;
   cursor: pointer;
   font-size: 15px;
-  padding: 4px 6px;
+  padding: 4px 8px;
   line-height: 1;
 }
 
@@ -978,7 +967,7 @@ td.mono, .mono { font-family: var(--font-mono); }
   align-items: center;
   justify-content: flex-end;
   margin: -4px 0 14px;
-  font-size: 12.5px;
+  font-size: clamp(12.5px, 1.1vw, 14px);
 }
 .link-sm { color: var(--amber); text-decoration: none; font-weight: 500; }
 .link-sm:hover { text-decoration: underline; }
@@ -986,7 +975,7 @@ td.mono, .mono { font-family: var(--font-mono); }
 .login-signup-foot {
   margin-top: auto;
   padding-top: 24px;
-  font-size: 13px;
+  font-size: clamp(13px, 1.1vw, 15px);
   color: var(--muted);
   text-align: center;
 }
