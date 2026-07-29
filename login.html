@@ -20,7 +20,7 @@
 <div class="login-shell" x-data="loginPage()" x-init="checkExisting()">
   <div class="login-card">
     <h1>Sistem Produksi <span style="color:var(--amber)">&amp;</span> Downtime</h1>
-    <p class="sub">Login untuk mencatat data produksi &amp; downtime mesin.</p>
+    <p class="sub">Login pakai NIK untuk mencatat data produksi &amp; downtime mesin.</p>
 
     <template x-if="errorMsg">
       <div class="error-msg" x-text="errorMsg"></div>
@@ -32,8 +32,8 @@
     <template x-if="mode === 'login'">
       <form @submit.prevent="login">
         <div class="field">
-          <label>Email</label>
-          <input type="email" x-model="email" required autocomplete="username">
+          <label>NIK</label>
+          <input type="text" inputmode="numeric" x-model="nik" required autocomplete="username" placeholder="Contoh: 130714">
         </div>
         <div class="field">
           <label>Password</label>
@@ -57,13 +57,13 @@
           <input type="text" x-model="fullName" required>
         </div>
         <div class="field">
-          <label>Email</label>
-          <input type="email" x-model="email" required autocomplete="username">
+          <label>NIK</label>
+          <input type="text" inputmode="numeric" x-model="nik" required autocomplete="username" placeholder="Contoh: 130714">
         </div>
         <div class="field">
           <label>Password</label>
           <input type="password" x-model="password" required minlength="6" autocomplete="new-password">
-          <p class="hint">Minimal 6 karakter.</p>
+          <p class="hint">Minimal 6 karakter. Password default: 123456 (boleh diganti).</p>
         </div>
         <button type="submit" class="btn-primary" :disabled="busy">
           <span x-show="!busy">Daftar</span>
@@ -79,10 +79,18 @@
 </div>
 
 <script>
+// NIK bukan format email, tapi Supabase Auth butuh email secara teknis --
+// jadi tiap NIK "dibungkus" jadi email palsu di domain internal ini.
+// User tidak pernah lihat/ketik ini, cukup NIK.
+const NIK_EMAIL_DOMAIN = "karyawan.local";
+function nikToEmail(nik) {
+  return String(nik).trim().replace(/\s+/g, "") + "@" + NIK_EMAIL_DOMAIN;
+}
+
 function loginPage() {
   return {
     mode: "login",
-    email: "", password: "", fullName: "",
+    nik: "", password: "", fullName: "",
     errorMsg: "", infoMsg: "", busy: false,
 
     async checkExisting() {
@@ -93,23 +101,23 @@ function loginPage() {
     async login() {
       this.busy = true; this.errorMsg = "";
       const { error } = await supabaseClient.auth.signInWithPassword({
-        email: this.email, password: this.password
+        email: nikToEmail(this.nik), password: this.password
       });
       this.busy = false;
-      if (error) { this.errorMsg = "Login gagal: " + error.message; return; }
+      if (error) { this.errorMsg = "Login gagal: NIK atau password salah."; return; }
       window.location.href = "index.html";
     },
 
     async signup() {
       this.busy = true; this.errorMsg = "";
       const { error } = await supabaseClient.auth.signUp({
-        email: this.email,
+        email: nikToEmail(this.nik),
         password: this.password,
         options: { data: { full_name: this.fullName } }
       });
       this.busy = false;
       if (error) { this.errorMsg = "Pendaftaran gagal: " + error.message; return; }
-      this.infoMsg = "Pendaftaran berhasil. Cek email untuk verifikasi (jika diaktifkan), lalu login.";
+      this.infoMsg = "Pendaftaran berhasil. Silakan login pakai NIK & password tadi.";
       this.mode = "login";
     }
   };
