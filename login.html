@@ -82,7 +82,7 @@
 // NIK bukan format email, tapi Supabase Auth butuh email secara teknis --
 // jadi tiap NIK "dibungkus" jadi email palsu di domain internal ini.
 // User tidak pernah lihat/ketik ini, cukup NIK.
-const NIK_EMAIL_DOMAIN = "karyawan.local";
+const NIK_EMAIL_DOMAIN = "karyawan.id";
 function nikToEmail(nik) {
   return String(nik).trim().replace(/\s+/g, "") + "@" + NIK_EMAIL_DOMAIN;
 }
