@@ -34,6 +34,7 @@ direstrukturisasi total untuk Welding (line flat, tanpa sub-stasiun).
 ├── migration_repair_v2.sql                        # 8) Rename label titik + seed Kategori Repair
 ├── migration_repair_v3_3d.sql                     # 9) Repair jadi 3D (.stl) -- jalankan setelah v1 & v2
 ├── migration_repair_v4_point_normals.sql          # 10) Arah normal Point (biar ketutup model saat diputar)
+├── migration_repair_v5_part_number.sql            # 11) Tambah Part No (dropdown) di popup Repair, sebelum Qty
 └── reset_welding.sql                              # Utilitas: reset total kalau setup gagal di tengah
 ```
 
@@ -98,7 +99,8 @@ Watari — dikelola per line di tabel `nonproduksi_types`.
 ### Repair (klik titik di model 3D part, bisa diputar)
 Tab baru setelah NG Inline. Konsepnya: model 3D part (file `.stl`, bisa
 diputar/zoom bebas pakai Three.js) ditandai titik-titik lokasi — klik
-titik → popup isi **Qty** + **Kategori Repair** → simpan.
+titik → popup isi **Part No** (dropdown, dari Part Number line
+tersebut) + **Qty** + **Kategori Repair** → simpan.
 
 - **1 model 3D = 1 part** — karena bisa diputar 360°, tidak perlu lagi
   pisah "Tampak Depan"/"Tampak Belakang" seperti versi foto 2D

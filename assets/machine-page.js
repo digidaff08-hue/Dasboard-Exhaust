@@ -206,7 +206,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     repairViews: [], repairActiveViewId: null, repairPoints: [],
     repairKategoriOptions: [], newRepairKategoriValue: "",
     repairLogRows: [],
-    repairForm: { tanggal: localDateStr(new Date()), qty: "", kategori_repair: "" },
+    repairForm: { tanggal: localDateStr(new Date()), part_number: "", qty: "", kategori_repair: "" },
     repairModalOpen: false, repairModalPoint: null, repairSaving: false,
     editingRepairId: null,
     // Mode admin buat naruh titik baru di Master Data
@@ -1639,14 +1639,14 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (this.repairEditMode) return; // di mode edit, klik ditangani handleRepair3DClick (lihat viewer 3D)
       this.editingRepairId = null;
       this.repairModalPoint = point;
-      this.repairForm = { tanggal: localDateStr(new Date()), qty: "", kategori_repair: "" };
+      this.repairForm = { tanggal: localDateStr(new Date()), part_number: "", qty: "", kategori_repair: "" };
       this.repairModalOpen = true;
     },
     editRepairLog(row) {
       const point = this.repairPoints.find((p) => p.id === row.point_id) || { id: row.point_id, label: row.point_label };
       this.editingRepairId = row.id;
       this.repairModalPoint = point;
-      this.repairForm = { tanggal: row.tanggal, qty: row.qty, kategori_repair: row.kategori_repair };
+      this.repairForm = { tanggal: row.tanggal, part_number: row.part_number || "", qty: row.qty, kategori_repair: row.kategori_repair };
       this.repairModalOpen = true;
     },
     closeRepairModal() {
@@ -1654,15 +1654,15 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
     async submitRepairPoint() {
       const f = this.repairForm;
-      if (!f.tanggal || !f.qty || Number(f.qty) <= 0 || !f.kategori_repair) {
-        this.flash("Tanggal, Qty, dan Kategori Repair wajib diisi.", true); return;
+      if (!f.tanggal || !f.part_number || !f.qty || Number(f.qty) <= 0 || !f.kategori_repair) {
+        this.flash("Tanggal, Part No, Qty, dan Kategori Repair wajib diisi.", true); return;
       }
       this.repairSaving = true;
       const payload = {
         mesin: machineKey, tanggal: f.tanggal,
         view_id: this.repairActiveViewId, point_id: this.repairModalPoint?.id || null,
         point_label: this.repairModalPoint?.label || null,
-        qty: Number(f.qty), kategori_repair: f.kategori_repair,
+        part_number: f.part_number, qty: Number(f.qty), kategori_repair: f.kategori_repair,
       };
       try {
         if (this.editingRepairId) {
