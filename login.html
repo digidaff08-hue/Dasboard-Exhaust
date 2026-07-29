@@ -19,9 +19,15 @@
 
 <div class="login-shell" x-data="loginPage()" x-init="checkExisting()">
   <div class="login-card">
+
+    <div class="login-logo">
+      <img src="assets/icons/logo-futaba.png" alt="PT Futaba Industrial Indonesia">
+    </div>
+
     <h1>Sistem Produksi <span style="color:var(--amber)">&amp;</span> Downtime</h1>
     <p class="sub" x-show="mode === 'login'">Login pakai NIK untuk mencatat data produksi &amp; downtime mesin.</p>
     <p class="sub" x-show="mode === 'signup'">Daftar pakai email asli + NIK. Login berikutnya cukup pakai NIK.</p>
+    <p class="sub" x-show="mode === 'reset'">Masukkan NIK, kami kirim link ganti password ke email terdaftar.</p>
 
     <template x-if="errorMsg">
       <div class="error-msg" x-text="errorMsg"></div>
@@ -30,57 +36,90 @@
       <div class="success-msg" x-text="infoMsg"></div>
     </template>
 
-    <template x-if="mode === 'login'">
-      <form @submit.prevent="login">
-        <div class="field">
-          <label>NIK</label>
-          <input type="text" inputmode="numeric" x-model="nik" required autocomplete="username" placeholder="Contoh: 130714">
-        </div>
-        <div class="field">
-          <label>Password</label>
-          <input type="password" x-model="password" required autocomplete="current-password">
-        </div>
-        <button type="submit" class="btn-primary" :disabled="busy">
-          <span x-show="!busy">Masuk</span>
-          <span x-show="busy">Memproses…</span>
-        </button>
-        <p class="hint" style="text-align:center;margin-top:14px;">
-          Belum punya akun?
-          <a href="#" @click.prevent="mode = 'signup'">Daftar di sini</a>
-        </p>
-      </form>
-    </template>
+    <div class="login-form-area">
+      <template x-if="mode === 'login'">
+        <form @submit.prevent="login">
+          <div class="field">
+            <label>NIK</label>
+            <input type="text" inputmode="numeric" x-model="nik" required autocomplete="username" placeholder="Contoh: 130714">
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <div class="password-wrap">
+              <input :type="showPassword ? 'text' : 'password'" x-model="password" required autocomplete="current-password">
+              <button type="button" class="password-toggle" @click="showPassword = !showPassword" :aria-label="showPassword ? 'Sembunyikan password' : 'Tampilkan password'" tabindex="-1">
+                <span x-text="showPassword ? '🙈' : '👁️'"></span>
+              </button>
+            </div>
+          </div>
+          <div class="login-options-row">
+            <a href="#" class="link-sm" @click.prevent="goReset()">Ganti Password</a>
+          </div>
+          <button type="submit" class="btn-primary" :disabled="busy">
+            <span x-show="!busy">Masuk</span>
+            <span x-show="busy">Memproses…</span>
+          </button>
+        </form>
+      </template>
 
-    <template x-if="mode === 'signup'">
-      <form @submit.prevent="signup">
-        <div class="field">
-          <label>Nama Lengkap</label>
-          <input type="text" x-model="fullName" required>
-        </div>
-        <div class="field">
-          <label>NIK</label>
-          <input type="text" inputmode="numeric" x-model="nik" required placeholder="Contoh: 130714">
-        </div>
-        <div class="field">
-          <label>Email</label>
-          <input type="email" x-model="email" required autocomplete="username">
-          <p class="hint">Cuma dipakai buat daftar. Login berikutnya cukup pakai NIK di atas.</p>
-        </div>
-        <div class="field">
-          <label>Password</label>
-          <input type="password" x-model="password" required minlength="6" autocomplete="new-password">
-          <p class="hint">Minimal 6 karakter. Password default: 123456 (boleh diganti).</p>
-        </div>
-        <button type="submit" class="btn-primary" :disabled="busy">
-          <span x-show="!busy">Daftar</span>
-          <span x-show="busy">Memproses…</span>
-        </button>
-        <p class="hint" style="text-align:center;margin-top:14px;">
-          Sudah punya akun?
-          <a href="#" @click.prevent="mode = 'login'">Masuk di sini</a>
-        </p>
-      </form>
-    </template>
+      <template x-if="mode === 'signup'">
+        <form @submit.prevent="signup">
+          <div class="field">
+            <label>Nama Lengkap</label>
+            <input type="text" x-model="fullName" required>
+          </div>
+          <div class="field">
+            <label>NIK</label>
+            <input type="text" inputmode="numeric" x-model="nik" required placeholder="Contoh: 130714">
+          </div>
+          <div class="field">
+            <label>Email</label>
+            <input type="email" x-model="email" required autocomplete="username">
+            <p class="hint">Cuma dipakai buat daftar. Login berikutnya cukup pakai NIK di atas.</p>
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <div class="password-wrap">
+              <input :type="showPassword ? 'text' : 'password'" x-model="password" required minlength="6" autocomplete="new-password">
+              <button type="button" class="password-toggle" @click="showPassword = !showPassword" :aria-label="showPassword ? 'Sembunyikan password' : 'Tampilkan password'" tabindex="-1">
+                <span x-text="showPassword ? '🙈' : '👁️'"></span>
+              </button>
+            </div>
+            <p class="hint">Minimal 6 karakter. Password default: 123456 (boleh diganti).</p>
+          </div>
+          <button type="submit" class="btn-primary" :disabled="busy">
+            <span x-show="!busy">Daftar</span>
+            <span x-show="busy">Memproses…</span>
+          </button>
+        </form>
+      </template>
+
+      <template x-if="mode === 'reset'">
+        <form @submit.prevent="resetPassword">
+          <div class="field">
+            <label>NIK</label>
+            <input type="text" inputmode="numeric" x-model="nik" required autocomplete="username" placeholder="Contoh: 130714">
+          </div>
+          <button type="submit" class="btn-primary" :disabled="busy">
+            <span x-show="!busy">Kirim Link Ganti Password</span>
+            <span x-show="busy">Memproses…</span>
+          </button>
+          <p class="hint" style="text-align:center;margin-top:14px;">
+            <a href="#" @click.prevent="mode = 'login'; errorMsg=''; infoMsg=''">← Kembali ke Masuk</a>
+          </p>
+        </form>
+      </template>
+    </div>
+
+    <p class="login-signup-foot" x-show="mode === 'login'">
+      Belum punya akun?
+      <a href="#" @click.prevent="mode = 'signup'; errorMsg=''; infoMsg=''">Daftar di sini</a>
+    </p>
+    <p class="login-signup-foot" x-show="mode === 'signup'">
+      Sudah punya akun?
+      <a href="#" @click.prevent="mode = 'login'; errorMsg=''; infoMsg=''">Masuk di sini</a>
+    </p>
+
   </div>
 </div>
 
@@ -89,11 +128,16 @@ function loginPage() {
   return {
     mode: "login",
     nik: "", email: "", password: "", fullName: "",
+    showPassword: false,
     errorMsg: "", infoMsg: "", busy: false,
 
     async checkExisting() {
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (session) window.location.href = "index.html";
+    },
+
+    goReset() {
+      this.errorMsg = ""; this.infoMsg = ""; this.mode = "reset";
     },
 
     async login() {
@@ -125,6 +169,23 @@ function loginPage() {
       if (error) { this.errorMsg = "Pendaftaran gagal: " + error.message; return; }
       this.infoMsg = "Pendaftaran berhasil. Login berikutnya cukup pakai NIK & password tadi.";
       this.mode = "login";
+    },
+
+    async resetPassword() {
+      this.busy = true; this.errorMsg = ""; this.infoMsg = "";
+      // Sama seperti login: NIK dulu dicariin email aslinya, baru
+      // dikirimin link ganti password ke email itu lewat Supabase.
+      const { data: foundEmail, error: lookupErr } = await supabaseClient.rpc("email_for_nik", { p_nik: this.nik.trim() });
+      this.busy = false;
+      if (lookupErr || !foundEmail) {
+        this.errorMsg = "NIK tidak ditemukan.";
+        return;
+      }
+      const { error } = await supabaseClient.auth.resetPasswordForEmail(foundEmail, {
+        redirectTo: window.location.origin + window.location.pathname.replace("login.html", "") + "reset-password.html"
+      });
+      if (error) { this.errorMsg = "Gagal mengirim link: " + error.message; return; }
+      this.infoMsg = "Link ganti password sudah dikirim ke email terdaftar. Cek inbox / folder spam.";
     }
   };
 }
