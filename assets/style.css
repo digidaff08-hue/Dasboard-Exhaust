@@ -303,19 +303,17 @@ a { color: var(--amber); }
 .page-header .page-title .eyebrow { color: #ffd166; }
 
 /* ---------- Cards / panels ---------- */
-/* Frosted glass -- panel jadi sedikit tembus pandang + blur biar nyatu
-   sama background biru di belakangnya (bukan kotak putih solid yang
-   nempel kaku). Opacity masih tinggi (92%) jadi teks di dalamnya tetap
-   full kontras & gampang dibaca. */
+/* Off-white lembut -- solid (tanpa blur, ringan buat HP operator),
+   warnanya digeser dikit dari putih polos ke abu-abu kebiruan yang
+   sangat muda, plus shadow yang lebih dalam/soft biar nggak keliatan
+   "kotak putih nempel" di atas background biru. */
 .panel {
-  background: rgba(var(--panel-rgb), 0.92);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(var(--panel-rgb), 0.6);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 20px;
   margin-bottom: 24px;
-  box-shadow: 0 10px 30px rgba(10,25,70,0.16);
+  box-shadow: 0 10px 26px rgba(10,25,70,0.14);
 }
 .panel-title {
   font-family: var(--font-display);
@@ -765,17 +763,15 @@ td.mono, .mono { font-family: var(--font-mono); }
   display: block;
   padding: 16px;
   border-radius: 14px;
-  border: 1px solid rgba(var(--panel-2-rgb), 0.55);
+  border: 1px solid var(--border);
   border-left: 4px solid var(--muted);
-  background: rgba(var(--panel-2-rgb), 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 6px 20px rgba(10,25,70,0.12);
+  background: var(--panel-2);
+  box-shadow: 0 6px 18px rgba(10,25,70,0.10);
   text-decoration: none;
   color: var(--text);
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
-.machine-card:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(10,25,70,0.18); }
+.machine-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(10,25,70,0.16); }
 .machine-card-good { border-left-color: var(--green); }
 .machine-card-warn { border-left-color: var(--amber); }
 .machine-card-bad { border-left-color: var(--red); }
