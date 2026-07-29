@@ -12,7 +12,9 @@
 :root, [data-theme="light"] {
   --bg: #ffffff;
   --panel: #ffffff;
+  --panel-rgb: 255,255,255;
   --panel-2: #f8fafc;
+  --panel-2-rgb: 248,250,252;
   --border: #e2e8f0;
   --text: #0f172a;
   --muted: #64748b;
@@ -44,7 +46,9 @@
 [data-theme="dark"] {
   --bg: #0f172a;
   --panel: #1e293b;
+  --panel-rgb: 30,41,59;
   --panel-2: #1e293b;
+  --panel-2-rgb: 30,41,59;
   --border: #334155;
   --text: #f8fafc;
   --muted: #94a3b8;
@@ -299,13 +303,19 @@ a { color: var(--amber); }
 .page-header .page-title .eyebrow { color: #ffd166; }
 
 /* ---------- Cards / panels ---------- */
+/* Frosted glass -- panel jadi sedikit tembus pandang + blur biar nyatu
+   sama background biru di belakangnya (bukan kotak putih solid yang
+   nempel kaku). Opacity masih tinggi (92%) jadi teks di dalamnya tetap
+   full kontras & gampang dibaca. */
 .panel {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  background: rgba(var(--panel-rgb), 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(var(--panel-rgb), 0.6);
+  border-radius: 14px;
   padding: 20px;
   margin-bottom: 24px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 10px 30px rgba(10,25,70,0.16);
 }
 .panel-title {
   font-family: var(--font-display);
@@ -754,15 +764,18 @@ td.mono, .mono { font-family: var(--font-mono); }
 .machine-card {
   display: block;
   padding: 16px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
+  border-radius: 14px;
+  border: 1px solid rgba(var(--panel-2-rgb), 0.55);
   border-left: 4px solid var(--muted);
-  background: var(--panel-2);
+  background: rgba(var(--panel-2-rgb), 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 6px 20px rgba(10,25,70,0.12);
   text-decoration: none;
   color: var(--text);
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
-.machine-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.machine-card:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(10,25,70,0.18); }
 .machine-card-good { border-left-color: var(--green); }
 .machine-card-warn { border-left-color: var(--amber); }
 .machine-card-bad { border-left-color: var(--red); }
