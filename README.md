@@ -35,6 +35,7 @@ direstrukturisasi total untuk Welding (line flat, tanpa sub-stasiun).
 ├── migration_repair_v3_3d.sql                     # 9) Repair jadi 3D (.stl) -- jalankan setelah v1 & v2
 ├── migration_repair_v4_point_normals.sql          # 10) Arah normal Point (biar ketutup model saat diputar)
 ├── migration_repair_v5_part_number.sql            # 11) Tambah Part No (dropdown) di popup Repair, sebelum Qty
+├── migration_repair_v6_per_line.sql               # 12) Part 3D Repair jadi per-line (dulu shared semua line)
 └── reset_welding.sql                              # Utilitas: reset total kalau setup gagal di tengah
 ```
 
@@ -102,7 +103,10 @@ diputar/zoom bebas pakai Three.js) ditandai titik-titik lokasi — klik
 titik → popup isi **Part No** (dropdown, dari Part Number line
 tersebut) + **Qty** + **Kategori Repair** → simpan.
 
-- **1 model 3D = 1 part** — karena bisa diputar 360°, tidak perlu lagi
+- **1 model 3D = 1 part, dan setiap line kelola part 3D-nya sendiri**
+  — kalau ada part yang sama dipakai di beberapa line, tinggal
+  upload/tandai lagi part itu di line-line yang butuh (boleh pakai
+  file `.stl` yang sama). Karena bisa diputar 360°, tidak perlu lagi
   pisah "Tampak Depan"/"Tampak Belakang" seperti versi foto 2D
   sebelumnya. Kalau ada part lain yang perlu di-tandai juga, tinggal
   tambah lewat tab **Master Data > Repair — Model 3D Part** (upload

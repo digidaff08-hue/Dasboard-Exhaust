@@ -1604,7 +1604,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
 
     // ================= REPAIR (klik titik di gambar -> popup) =================
     async fetchRepairViews() {
-      const { data, error } = await supabaseClient.from("repair_views").select("*").order("sort_order");
+      const { data, error } = await supabaseClient.from("repair_views").select("*").eq("mesin", machineKey).order("sort_order");
       if (error) { this.flash("Gagal memuat gambar Repair: " + error.message, true); return; }
       this.repairViews = data || [];
       if (this.repairViews.length > 0 && !this.repairActiveViewId) {
@@ -1748,7 +1748,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const { data: pub } = supabaseClient.storage.from("repair-models").getPublicUrl(path);
         const nextOrder = this.repairViews.length > 0 ? Math.max(...this.repairViews.map((v) => v.sort_order || 0)) + 1 : 1;
         const { data, error } = await supabaseClient.from("repair_views")
-          .insert({ label, model_url: pub.publicUrl, kind: "3d", sort_order: nextOrder }).select().single();
+          .insert({ label, model_url: pub.publicUrl, kind: "3d", sort_order: nextOrder, mesin: machineKey }).select().single();
         if (error) throw error;
         this.repairViews.push(data);
         this.repairActiveViewId = data.id;
