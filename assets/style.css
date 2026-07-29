@@ -903,22 +903,22 @@ td.mono, .mono { font-family: var(--font-mono); }
   padding: 24px 16px;
 }
 .login-card {
-  width: clamp(340px, 42vw, 560px);
+  width: 360px;
   max-width: 100%;
-  min-height: clamp(520px, 58vh, 720px);
+  min-height: 520px;
   background: transparent;
   border: none;
   border-radius: 0;
   box-shadow: none;
-  padding: clamp(32px, 5vw, 56px) clamp(24px, 4vw, 40px) 28px;
+  padding: 32px 24px 28px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
 }
 .login-logo {
-  width: clamp(84px, 9vw, 120px);
-  height: clamp(84px, 9vw, 120px);
+  width: 84px;
+  height: 84px;
   border-radius: 22px;
   background: var(--panel-2);
   border: 1px solid var(--border);
@@ -932,15 +932,40 @@ td.mono, .mono { font-family: var(--font-mono); }
 .login-logo img { width: 100%; height: 100%; object-fit: contain; }
 .login-card h1 {
   font-family: var(--font-display);
-  font-size: clamp(20px, 2.6vw, 30px);
+  font-size: 20px;
   margin: 0 0 4px;
 }
-.login-card .sub { color: var(--muted); font-size: clamp(13px, 1.3vw, 15px); margin-bottom: 24px; }
-.login-card .field { margin-bottom: clamp(14px, 1.6vw, 18px); text-align: left; }
-.login-card .field input { padding: clamp(9px, 1.1vw, 13px) clamp(10px, 1.2vw, 14px); font-size: clamp(14px, 1.3vw, 16px); }
-.login-card button { width: 100%; padding: clamp(10px, 1.3vw, 14px); font-size: clamp(14px, 1.3vw, 16px); margin-top: 6px; }
+.login-card .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+.login-card .field { margin-bottom: 14px; text-align: left; }
+.login-card .field input { padding: 9px 10px; font-size: 14px; }
+.login-card button { width: 100%; padding: 10px; font-size: 14px; margin-top: 6px; }
 .login-form-area { width: 100%; }
 .login-form-area form { width: 100%; }
+
+/* Tablet ke atas (iPad portrait ~768-820px dst.) -- angkanya sengaja
+   dibikin jelas beda, bukan hitungan vw yang gampang meleset. */
+@media (min-width: 600px) {
+  .login-card { width: 520px; min-height: 660px; padding: 48px 36px 36px; }
+  .login-logo { width: 108px; height: 108px; border-radius: 26px; margin-bottom: 26px; }
+  .login-card h1 { font-size: 27px; }
+  .login-card .sub { font-size: 14.5px; margin-bottom: 28px; }
+  .login-card .field { margin-bottom: 18px; }
+  .login-card .field label { font-size: 13px; }
+  .login-card .field input { padding: 13px 14px; font-size: 16px; }
+  .login-card button { padding: 13px; font-size: 16px; }
+  .login-options-row { font-size: 14px; }
+  .login-signup-foot { font-size: 15px; padding-top: 30px; }
+}
+
+/* Tablet landscape / desktop besar */
+@media (min-width: 1024px) {
+  .login-card { width: 600px; min-height: 740px; padding: 60px 44px 40px; }
+  .login-logo { width: 128px; height: 128px; border-radius: 30px; margin-bottom: 30px; }
+  .login-card h1 { font-size: 32px; }
+  .login-card .sub { font-size: 16px; margin-bottom: 32px; }
+  .login-card .field input { padding: 15px 16px; font-size: 17px; }
+  .login-card button { padding: 15px; font-size: 17px; }
+}
 
 .password-wrap { position: relative; }
 .login-card .password-wrap input { width: 100%; padding-right: 40px; }
@@ -967,7 +992,7 @@ td.mono, .mono { font-family: var(--font-mono); }
   align-items: center;
   justify-content: flex-end;
   margin: -4px 0 14px;
-  font-size: clamp(12.5px, 1.1vw, 14px);
+  font-size: 12.5px;
 }
 .link-sm { color: var(--amber); text-decoration: none; font-weight: 500; }
 .link-sm:hover { text-decoration: underline; }
@@ -975,7 +1000,7 @@ td.mono, .mono { font-family: var(--font-mono); }
 .login-signup-foot {
   margin-top: auto;
   padding-top: 24px;
-  font-size: clamp(13px, 1.1vw, 15px);
+  font-size: 13px;
   color: var(--muted);
   text-align: center;
 }
