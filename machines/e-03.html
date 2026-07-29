@@ -999,22 +999,16 @@
         <!-- ===================== TAB REPAIR ===================== -->
         <div x-show="tab === 'repair'">
           <div class="panel">
-            <p class="panel-title">Catat Repair</p>
-            <div class="chip-row" style="margin-bottom:12px;">
-              <template x-for="v in repairViews" :key="v.id">
-                <button type="button" class="chip" :class="repairActiveViewId===v.id ? 'chip-active' : ''" @click="selectRepairView(v.id)" x-text="v.label"></button>
-              </template>
-            </div>
-            <template x-if="isLeaderOrAdmin()">
-              <button type="button" class="btn-secondary btn-sm" :class="repairEditMode ? 'btn-primary' : ''" @click="toggleRepairEditMode()" style="margin-bottom:12px;" x-text="repairEditMode ? '✓ Mode Edit Point aktif' : '✏️ Mode Edit Point'"></button>
-            </template>
-            <p class="repair-edit-hint" x-show="repairEditMode">Klik permukaan model buat nambah Point baru. Klik Point yang sudah ada buat menghapusnya.</p>
             <p class="empty-state" x-show="repairViews.length === 0">Belum ada model 3D Repair. Admin bisa upload lewat tab Master Data.</p>
             <div class="repair-3d-wrap" x-show="activeRepairView()" x-effect="tab === 'repair' && initRepair3DViewerIfNeeded()">
+              <template x-if="isLeaderOrAdmin()">
+                <button type="button" class="btn-secondary btn-sm repair-edit-toggle" :class="repairEditMode ? 'btn-primary' : ''" @click="toggleRepairEditMode()" x-text="repairEditMode ? '✓ Mode Edit Point aktif' : '✏️ Mode Edit Point'"></button>
+              </template>
               <div class="repair-3d-canvas" x-ref="repair3dCanvas"></div>
               <div class="repair-3d-loading" x-show="repairModelLoading">Memuat model 3D...</div>
               <p class="repair-3d-hint">Seret buat putar &middot; scroll/cubit buat zoom</p>
             </div>
+            <p class="repair-edit-hint" x-show="repairEditMode">Klik permukaan model buat nambah Point baru. Klik Point yang sudah ada buat menghapusnya.</p>
           </div>
 
           <div class="panel">
