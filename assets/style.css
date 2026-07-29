@@ -900,12 +900,12 @@ td.mono, .mono { font-family: var(--font-mono); }
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 60px 16px;
+  padding: 48px 16px 32px;
 }
 .login-card {
   width: 360px;
   max-width: 100%;
-  min-height: 0;
+  min-height: calc(100vh - 80px);
   background: transparent;
   border: none;
   border-radius: 0;
@@ -998,8 +998,8 @@ td.mono, .mono { font-family: var(--font-mono); }
 .link-sm:hover { text-decoration: underline; }
 
 .login-signup-foot {
-  margin-top: 24px;
-  padding-top: 0;
+  margin-top: auto;
+  padding-top: 24px;
   font-size: 13px;
   color: var(--muted);
   text-align: center;
