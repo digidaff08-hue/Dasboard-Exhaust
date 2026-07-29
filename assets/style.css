@@ -939,13 +939,14 @@ td.mono, .mono { font-family: var(--font-mono); }
 .login-card .field { margin-bottom: 14px; text-align: left; }
 .login-card .field input { padding: 9px 10px; font-size: 14px; }
 .login-card button { width: 100%; padding: 10px; font-size: 14px; margin-top: 6px; }
-.login-form-area { width: 100%; }
+.login-form-area { width: 100%; margin-top: 28px; }
 .login-form-area form { width: 100%; }
 
 /* Tablet ke atas (iPad portrait ~768-820px dst.) -- angkanya sengaja
    dibikin jelas beda, bukan hitungan vw yang gampang meleset. */
 @media (min-width: 600px) {
   .login-card { width: 520px; padding: 48px 36px 36px; }
+  .login-form-area { margin-top: 36px; }
   .login-logo { width: 108px; height: 108px; border-radius: 26px; margin-bottom: 26px; }
   .login-card h1 { font-size: 27px; }
   .login-card .sub { font-size: 14.5px; margin-bottom: 28px; }
