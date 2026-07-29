@@ -20,7 +20,8 @@
 <div class="login-shell" x-data="loginPage()" x-init="checkExisting()">
   <div class="login-card">
     <h1>Sistem Produksi <span style="color:var(--amber)">&amp;</span> Downtime</h1>
-    <p class="sub">Login pakai NIK untuk mencatat data produksi &amp; downtime mesin.</p>
+    <p class="sub" x-show="mode === 'login'">Login pakai NIK untuk mencatat data produksi &amp; downtime mesin.</p>
+    <p class="sub" x-show="mode === 'signup'">Daftar pakai email asli + NIK. Login berikutnya cukup pakai NIK.</p>
 
     <template x-if="errorMsg">
       <div class="error-msg" x-text="errorMsg"></div>
@@ -58,7 +59,12 @@
         </div>
         <div class="field">
           <label>NIK</label>
-          <input type="text" inputmode="numeric" x-model="nik" required autocomplete="username" placeholder="Contoh: 130714">
+          <input type="text" inputmode="numeric" x-model="nik" required placeholder="Contoh: 130714">
+        </div>
+        <div class="field">
+          <label>Email</label>
+          <input type="email" x-model="email" required autocomplete="username">
+          <p class="hint">Cuma dipakai buat daftar. Login berikutnya cukup pakai NIK di atas.</p>
         </div>
         <div class="field">
           <label>Password</label>
@@ -79,18 +85,10 @@
 </div>
 
 <script>
-// NIK bukan format email, tapi Supabase Auth butuh email secara teknis --
-// jadi tiap NIK "dibungkus" jadi email palsu di domain internal ini.
-// User tidak pernah lihat/ketik ini, cukup NIK.
-const NIK_EMAIL_DOMAIN = "karyawan.id";
-function nikToEmail(nik) {
-  return String(nik).trim().replace(/\s+/g, "") + "@" + NIK_EMAIL_DOMAIN;
-}
-
 function loginPage() {
   return {
     mode: "login",
-    nik: "", password: "", fullName: "",
+    nik: "", email: "", password: "", fullName: "",
     errorMsg: "", infoMsg: "", busy: false,
 
     async checkExisting() {
@@ -100,8 +98,16 @@ function loginPage() {
 
     async login() {
       this.busy = true; this.errorMsg = "";
+      // NIK dulu di-cari email aslinya lewat fungsi email_for_nik,
+      // baru login beneran ke Supabase pakai email itu.
+      const { data: foundEmail, error: lookupErr } = await supabaseClient.rpc("email_for_nik", { p_nik: this.nik.trim() });
+      if (lookupErr || !foundEmail) {
+        this.busy = false;
+        this.errorMsg = "Login gagal: NIK atau password salah.";
+        return;
+      }
       const { error } = await supabaseClient.auth.signInWithPassword({
-        email: nikToEmail(this.nik), password: this.password
+        email: foundEmail, password: this.password
       });
       this.busy = false;
       if (error) { this.errorMsg = "Login gagal: NIK atau password salah."; return; }
@@ -111,13 +117,13 @@ function loginPage() {
     async signup() {
       this.busy = true; this.errorMsg = "";
       const { error } = await supabaseClient.auth.signUp({
-        email: nikToEmail(this.nik),
+        email: this.email,
         password: this.password,
-        options: { data: { full_name: this.fullName } }
+        options: { data: { full_name: this.fullName, nik: this.nik.trim() } }
       });
       this.busy = false;
       if (error) { this.errorMsg = "Pendaftaran gagal: " + error.message; return; }
-      this.infoMsg = "Pendaftaran berhasil. Silakan login pakai NIK & password tadi.";
+      this.infoMsg = "Pendaftaran berhasil. Login berikutnya cukup pakai NIK & password tadi.";
       this.mode = "login";
     }
   };
