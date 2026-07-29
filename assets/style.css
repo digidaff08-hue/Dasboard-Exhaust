@@ -898,14 +898,14 @@ td.mono, .mono { font-family: var(--font-mono); }
 .login-shell {
   min-height: 100vh;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 24px 16px;
+  padding: 60px 16px;
 }
 .login-card {
   width: 360px;
   max-width: 100%;
-  min-height: 520px;
+  min-height: 0;
   background: transparent;
   border: none;
   border-radius: 0;
@@ -945,7 +945,7 @@ td.mono, .mono { font-family: var(--font-mono); }
 /* Tablet ke atas (iPad portrait ~768-820px dst.) -- angkanya sengaja
    dibikin jelas beda, bukan hitungan vw yang gampang meleset. */
 @media (min-width: 600px) {
-  .login-card { width: 520px; min-height: 660px; padding: 48px 36px 36px; }
+  .login-card { width: 520px; padding: 48px 36px 36px; }
   .login-logo { width: 108px; height: 108px; border-radius: 26px; margin-bottom: 26px; }
   .login-card h1 { font-size: 27px; }
   .login-card .sub { font-size: 14.5px; margin-bottom: 28px; }
@@ -959,7 +959,7 @@ td.mono, .mono { font-family: var(--font-mono); }
 
 /* Tablet landscape / desktop besar */
 @media (min-width: 1024px) {
-  .login-card { width: 600px; min-height: 740px; padding: 60px 44px 40px; }
+  .login-card { width: 600px; padding: 60px 44px 40px; }
   .login-logo { width: 128px; height: 128px; border-radius: 30px; margin-bottom: 30px; }
   .login-card h1 { font-size: 32px; }
   .login-card .sub { font-size: 16px; margin-bottom: 32px; }
@@ -998,8 +998,8 @@ td.mono, .mono { font-family: var(--font-mono); }
 .link-sm:hover { text-decoration: underline; }
 
 .login-signup-foot {
-  margin-top: auto;
-  padding-top: 24px;
+  margin-top: 24px;
+  padding-top: 0;
   font-size: 13px;
   color: var(--muted);
   text-align: center;
