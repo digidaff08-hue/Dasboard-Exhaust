@@ -205,6 +205,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // ---- Repair (klik titik di gambar part -> popup Qty + Kategori) ----
     repairViews: [], repairActiveViewId: null, repairPoints: [],
     repairKategoriOptions: [], newRepairKategoriValue: "",
+    repairPartNoList: [],
     repairLogRows: [],
     repairForm: { tanggal: localDateStr(new Date()), part_number: "", qty: "", kategori_repair: "" },
     repairModalOpen: false, repairModalPoint: null, repairSaving: false,
@@ -242,7 +243,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           this.fetchProduction(), this.fetchDowntime(), this.fetchNonProduksi(),
           this.fetchPlanning(), this.fetchPartNumbers(), this.fetchProblems(), this.fetchCauses(), this.fetchAreas(), this.fetchNonProduksiTypes(),
           this.fetchNgModelsForLine(), this.fetchNgInline(),
-          this.fetchRepairViews(), this.fetchRepairKategori(), this.fetchRepairLog(),
+          this.fetchRepairViews(), this.fetchRepairKategori(), this.fetchRepairLog(), this.fetchRepairPartNoOptions(),
         ]);
         this.restoreLocalState();
         this.watchAndAutosave();
@@ -1628,6 +1629,18 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const { data, error } = await supabaseClient.from("repair_kategori").select("*").order("value");
       if (error) { this.flash("Gagal memuat Kategori Repair: " + error.message, true); return; }
       this.repairKategoriOptions = data || [];
+    },
+    async fetchRepairPartNoOptions() {
+      // Part No di popup Repair diambil dari master NG Inline (Line -> Model -> Part No),
+      // digabung SEMUA part_no dari SEMUA model yang terdaftar di line ini (bukan per-model).
+      const { data: models, error: modelErr } = await supabaseClient.from("ng_line_models").select("model").eq("mesin", machineKey);
+      if (modelErr) { this.flash("Gagal memuat Model NG Inline: " + modelErr.message, true); return; }
+      const modelNames = (models || []).map((m) => m.model);
+      if (modelNames.length === 0) { this.repairPartNoList = []; return; }
+      const { data: parts, error: partErr } = await supabaseClient.from("ng_model_parts").select("part_no").in("model", modelNames);
+      if (partErr) { this.flash("Gagal memuat Part No NG Inline: " + partErr.message, true); return; }
+      const uniquePartNo = [...new Set((parts || []).map((p) => p.part_no))].sort((a, b) => a.localeCompare(b));
+      this.repairPartNoList = uniquePartNo;
     },
     async fetchRepairLog() {
       const { data, error } = await supabaseClient.from("repair_log").select("*").eq("mesin", machineKey).order("tanggal", { ascending: false }).order("created_at", { ascending: false }).limit(200);

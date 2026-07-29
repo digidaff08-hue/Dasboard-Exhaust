@@ -1047,7 +1047,7 @@
                 <label>Part No *</label>
                 <select x-model="repairForm.part_number">
                   <option value="">-- pilih --</option>
-                  <template x-for="p in partNumberList" :key="p.id"><option :value="p.value" x-text="p.value"></option></template>
+                  <template x-for="p in repairPartNoList" :key="p"><option :value="p" x-text="p"></option></template>
                 </select>
               </div>
               <div class="field" style="grid-column: span 2;"><label>Qty *</label><input type="number" min="1" x-model="repairForm.qty"></div>
