@@ -106,19 +106,19 @@
 
     <div class="login-form-area">
       <template x-if="mode === 'login'">
-        <form @submit.prevent="login">
+        <form @submit.prevent="login" autocomplete="off">
           <div class="field">
             <label>NIK</label>
             <div class="input-icon-wrap">
               <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6"/><circle cx="12" cy="8" r="4"/></svg>
-              <input type="text" inputmode="numeric" class="has-icon" x-model="nik" required autocomplete="username" placeholder="Masukkan NIK Anda">
+              <input type="text" inputmode="numeric" class="has-icon" x-model="nik" required autocomplete="off" placeholder="Masukkan NIK Anda">
             </div>
           </div>
           <div class="field">
             <label>Password</label>
             <div class="password-wrap input-icon-wrap">
               <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="3.2"/><path d="M10.5 12.5 19 4M16 6l2 2M13.5 9l2 2"/></svg>
-              <input :type="showPassword ? 'text' : 'password'" class="has-icon" x-model="password" required autocomplete="current-password" placeholder="Masukkan Password">
+              <input :type="showPassword ? 'text' : 'password'" class="has-icon" x-model="password" required autocomplete="off" placeholder="Masukkan Password">
               <button type="button" class="password-toggle" @click="showPassword = !showPassword" :aria-label="showPassword ? 'Sembunyikan password' : 'Tampilkan password'" tabindex="-1">
                 <span x-text="showPassword ? '🙈' : '👁️'"></span>
               </button>
@@ -135,7 +135,7 @@
       </template>
 
       <template x-if="mode === 'signup'">
-        <form @submit.prevent="signup">
+        <form @submit.prevent="signup" autocomplete="off">
           <div class="field">
             <label>Nama Lengkap</label>
             <input type="text" x-model="fullName" required>
@@ -144,19 +144,19 @@
             <label>NIK</label>
             <div class="input-icon-wrap">
               <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6"/><circle cx="12" cy="8" r="4"/></svg>
-              <input type="text" inputmode="numeric" class="has-icon" x-model="nik" required placeholder="Contoh: 130714">
+              <input type="text" inputmode="numeric" class="has-icon" x-model="nik" required autocomplete="off" placeholder="Contoh: 130714">
             </div>
           </div>
           <div class="field">
             <label>Email</label>
-            <input type="email" x-model="email" required autocomplete="username">
+            <input type="email" x-model="email" required autocomplete="off">
             <p class="hint">Cuma dipakai buat daftar. Login berikutnya cukup pakai NIK di atas.</p>
           </div>
           <div class="field">
             <label>Password</label>
             <div class="password-wrap input-icon-wrap">
               <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="3.2"/><path d="M10.5 12.5 19 4M16 6l2 2M13.5 9l2 2"/></svg>
-              <input :type="showPassword ? 'text' : 'password'" class="has-icon" x-model="password" required minlength="6" autocomplete="new-password">
+              <input :type="showPassword ? 'text' : 'password'" class="has-icon" x-model="password" required minlength="6" autocomplete="off">
               <button type="button" class="password-toggle" @click="showPassword = !showPassword" :aria-label="showPassword ? 'Sembunyikan password' : 'Tampilkan password'" tabindex="-1">
                 <span x-text="showPassword ? '🙈' : '👁️'"></span>
               </button>
@@ -171,12 +171,12 @@
       </template>
 
       <template x-if="mode === 'reset'">
-        <form @submit.prevent="resetPassword">
+        <form @submit.prevent="resetPassword" autocomplete="off">
           <div class="field">
             <label>NIK</label>
             <div class="input-icon-wrap">
               <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6"/><circle cx="12" cy="8" r="4"/></svg>
-              <input type="text" inputmode="numeric" class="has-icon" x-model="nik" required autocomplete="username" placeholder="Contoh: 130714">
+              <input type="text" inputmode="numeric" class="has-icon" x-model="nik" required autocomplete="off" placeholder="Contoh: 130714">
             </div>
           </div>
           <button type="submit" class="btn-primary" :disabled="busy">
