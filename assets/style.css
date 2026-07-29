@@ -969,9 +969,36 @@ td.mono, .mono { font-family: var(--font-mono); }
   height: auto;
   opacity: 0.14;
 }
+.login-decor .decor-spark {
+  position: absolute;
+  right: 6%;
+  top: 3%;
+  width: 56px;
+  height: auto;
+  opacity: 0.16;
+}
+.login-decor .decor-gauge {
+  position: absolute;
+  left: 58%;
+  top: 47%;
+  width: 130px;
+  height: auto;
+  opacity: 0.10;
+}
+.login-decor .decor-bolt {
+  position: absolute;
+  left: 8%;
+  bottom: 16%;
+  width: 46px;
+  height: auto;
+  opacity: 0.16;
+}
 @media (min-width: 600px) {
   .login-decor .decor-factory { width: 340px; right: -20px; bottom: 6%; }
   .login-decor .decor-gear { width: 120px; top: 10%; }
+  .login-decor .decor-spark { width: 76px; right: 10%; top: 6%; }
+  .login-decor .decor-gauge { width: 170px; left: 62%; }
+  .login-decor .decor-bolt { width: 60px; left: 12%; }
 }
 .login-card {
   width: 360px;
