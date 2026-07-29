@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Login — Sistem Produksi & Downtime</title>
 <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#1a1e24">
+<meta name="theme-color" content="#2f6fe0">
 <link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -40,12 +40,16 @@
         <form @submit.prevent="login">
           <div class="field">
             <label>NIK</label>
-            <input type="text" inputmode="numeric" x-model="nik" required autocomplete="username" placeholder="Contoh: 130714">
+            <div class="input-icon-wrap">
+              <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6"/><circle cx="12" cy="8" r="4"/></svg>
+              <input type="text" inputmode="numeric" class="has-icon" x-model="nik" required autocomplete="username" placeholder="Masukkan NIK Anda">
+            </div>
           </div>
           <div class="field">
             <label>Password</label>
-            <div class="password-wrap">
-              <input :type="showPassword ? 'text' : 'password'" x-model="password" required autocomplete="current-password">
+            <div class="password-wrap input-icon-wrap">
+              <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="3.2"/><path d="M10.5 12.5 19 4M16 6l2 2M13.5 9l2 2"/></svg>
+              <input :type="showPassword ? 'text' : 'password'" class="has-icon" x-model="password" required autocomplete="current-password" placeholder="Masukkan Password">
               <button type="button" class="password-toggle" @click="showPassword = !showPassword" :aria-label="showPassword ? 'Sembunyikan password' : 'Tampilkan password'" tabindex="-1">
                 <span x-text="showPassword ? '🙈' : '👁️'"></span>
               </button>
@@ -69,7 +73,10 @@
           </div>
           <div class="field">
             <label>NIK</label>
-            <input type="text" inputmode="numeric" x-model="nik" required placeholder="Contoh: 130714">
+            <div class="input-icon-wrap">
+              <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6"/><circle cx="12" cy="8" r="4"/></svg>
+              <input type="text" inputmode="numeric" class="has-icon" x-model="nik" required placeholder="Contoh: 130714">
+            </div>
           </div>
           <div class="field">
             <label>Email</label>
@@ -78,8 +85,9 @@
           </div>
           <div class="field">
             <label>Password</label>
-            <div class="password-wrap">
-              <input :type="showPassword ? 'text' : 'password'" x-model="password" required minlength="6" autocomplete="new-password">
+            <div class="password-wrap input-icon-wrap">
+              <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="3.2"/><path d="M10.5 12.5 19 4M16 6l2 2M13.5 9l2 2"/></svg>
+              <input :type="showPassword ? 'text' : 'password'" class="has-icon" x-model="password" required minlength="6" autocomplete="new-password">
               <button type="button" class="password-toggle" @click="showPassword = !showPassword" :aria-label="showPassword ? 'Sembunyikan password' : 'Tampilkan password'" tabindex="-1">
                 <span x-text="showPassword ? '🙈' : '👁️'"></span>
               </button>
@@ -97,7 +105,10 @@
         <form @submit.prevent="resetPassword">
           <div class="field">
             <label>NIK</label>
-            <input type="text" inputmode="numeric" x-model="nik" required autocomplete="username" placeholder="Contoh: 130714">
+            <div class="input-icon-wrap">
+              <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6"/><circle cx="12" cy="8" r="4"/></svg>
+              <input type="text" inputmode="numeric" class="has-icon" x-model="nik" required autocomplete="username" placeholder="Contoh: 130714">
+            </div>
           </div>
           <button type="submit" class="btn-primary" :disabled="busy">
             <span x-show="!busy">Kirim Link Ganti Password</span>
