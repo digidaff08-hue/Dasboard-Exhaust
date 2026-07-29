@@ -15,13 +15,16 @@ alter table public.profiles add column if not exists jabatan text;
 --    tapi spasi & ejaan harus pas). Kalau orangnya belum daftar,
 --    baris terkait tidak akan ke-update apa-apa -- jalankan lagi
 --    migration ini setelah mereka daftar.
-update public.profiles set role = 'leader', jabatan = 'BIG BOSS'
+--    Catatan: role sistemnya 'operator' semua (hak akses standar,
+--    TIDAK bisa buka Input Attendance/Scrap/Safety) -- jabatan
+--    (BIG BOSS/FOREMAN/LEADER) cuma buat tampilan badge, bukan hak akses.
+update public.profiles set role = 'operator', jabatan = 'BIG BOSS'
 where lower(trim(full_name)) in ('sri hartono', 'jumadi');
 
-update public.profiles set role = 'leader', jabatan = 'FOREMAN'
+update public.profiles set role = 'operator', jabatan = 'FOREMAN'
 where lower(trim(full_name)) in ('teguh santoso');
 
-update public.profiles set role = 'leader', jabatan = 'LEADER'
+update public.profiles set role = 'operator', jabatan = 'LEADER'
 where lower(trim(full_name)) in (
   'iin fajrin munir',
   'agus wibowo',
