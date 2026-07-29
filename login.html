@@ -18,6 +18,41 @@
 <body>
 
 <div class="login-shell" x-data="loginPage()" x-init="checkExisting()">
+  <div class="login-decor" aria-hidden="true">
+    <!-- Motif pabrik + percikan las, samar di pojok kanan-bawah -->
+    <svg class="decor-factory" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M20 260 L20 160 L70 190 L70 140 L120 170 L120 120 L170 150 L170 100 L230 100 L230 260 Z" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+      <rect x="90" y="70" width="16" height="50" stroke="white" stroke-width="2"/>
+      <rect x="150" y="50" width="16" height="70" stroke="white" stroke-width="2"/>
+      <path d="M98 70 C 94 55, 104 55, 100 40" stroke="white" stroke-width="2" stroke-linecap="round"/>
+      <path d="M158 50 C 154 35, 164 35, 160 20" stroke="white" stroke-width="2" stroke-linecap="round"/>
+      <g stroke="white" stroke-width="2.2" stroke-linecap="round">
+        <path d="M300 150 L300 110"/>
+        <path d="M300 150 L332 130"/>
+        <path d="M300 150 L336 158"/>
+        <path d="M300 150 L326 186"/>
+        <path d="M300 150 L268 186"/>
+        <path d="M300 150 L264 158"/>
+        <path d="M300 150 L268 130"/>
+      </g>
+      <circle cx="300" cy="150" r="6" stroke="white" stroke-width="2"/>
+    </svg>
+    <!-- Aksen roda gigi, samar di pojok kiri-atas -->
+    <svg class="decor-gear" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="50" cy="50" r="26" stroke="white" stroke-width="2.5"/>
+      <circle cx="50" cy="50" r="9" stroke="white" stroke-width="2.5"/>
+      <g stroke="white" stroke-width="2.5" stroke-linecap="round">
+        <path d="M50 16 L50 4"/>
+        <path d="M50 84 L50 96"/>
+        <path d="M16 50 L4 50"/>
+        <path d="M84 50 L96 50"/>
+        <path d="M27 27 L19 19"/>
+        <path d="M73 73 L81 81"/>
+        <path d="M73 27 L81 19"/>
+        <path d="M27 73 L19 81"/>
+      </g>
+    </svg>
+  </div>
   <div class="login-card">
 
     <div class="login-logo">

@@ -945,6 +945,34 @@ td.mono, .mono { font-family: var(--font-mono); }
   background: rgba(15,79,220,0.35);
 }
 .login-card { position: relative; z-index: 1; }
+
+.login-decor {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.login-decor .decor-factory {
+  position: absolute;
+  right: -30px;
+  bottom: 4%;
+  width: 260px;
+  height: auto;
+  opacity: 0.14;
+}
+.login-decor .decor-gear {
+  position: absolute;
+  left: -18px;
+  top: 8%;
+  width: 90px;
+  height: auto;
+  opacity: 0.14;
+}
+@media (min-width: 600px) {
+  .login-decor .decor-factory { width: 340px; right: -20px; bottom: 6%; }
+  .login-decor .decor-gear { width: 120px; top: 10%; }
+}
 .login-card {
   width: 360px;
   max-width: 100%;
