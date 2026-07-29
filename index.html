@@ -50,7 +50,7 @@
     </nav>
     <div class="sidebar-foot" x-show="!sidebarCollapsed">
       <div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
-      <span class="badge" :class="profile?.role === 'admin' ? 'role-admin' : ''" x-text="profile?.role || '...'"></span>
+      <span class="badge" :class="profile?.role === 'admin' ? 'role-admin' : ''" x-text="profile?.jabatan || profile?.role || '...'"></span>
       <button class="btn-ghost btn-sm" @click="logout()">Keluar</button>
     </div>
     <button class="sidebar-logout-collapsed" x-show="sidebarCollapsed" @click="logout()" title="Keluar">⏻</button>

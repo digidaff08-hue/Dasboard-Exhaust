@@ -52,7 +52,7 @@
     </nav>
     <div class="sidebar-foot" x-show="!sidebarCollapsed">
       <div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
-      <span class="badge" :class="profile?.role === 'admin' ? 'role-admin' : ''" x-text="profile?.role || '...'"></span>
+      <span class="badge" :class="profile?.role === 'admin' ? 'role-admin' : ''" x-text="profile?.jabatan || profile?.role || '...'"></span>
       <div class="net-status" :class="isOnline ? 'net-online' : 'net-offline'">
         <span x-text="isOnline ? '🟢 Online' : '🔴 Offline'"></span>
         <span x-show="pendingCount > 0" x-text="'· ' + pendingCount + ' menunggu sinkron'"></span>
