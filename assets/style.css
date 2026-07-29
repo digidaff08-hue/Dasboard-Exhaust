@@ -906,10 +906,10 @@ td.mono, .mono { font-family: var(--font-mono); }
   width: 360px;
   max-width: 100%;
   min-height: 560px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  box-shadow: var(--shadow-md);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
   padding: 40px 32px 28px;
   display: flex;
   flex-direction: column;
@@ -941,8 +941,25 @@ td.mono, .mono { font-family: var(--font-mono); }
 .login-form-area { width: 100%; }
 .login-form-area form { width: 100%; }
 
+/* Layar lebih besar (tablet/desktop, mis. iPad) -- skala naikin biar
+   nggak jadi kotak kecil di tengah layar kosong. */
+@media (min-width: 700px) {
+  .login-shell { padding: 48px 24px; }
+  .login-card { width: 460px; min-height: 640px; padding: 56px 20px 40px; }
+  .login-logo { width: 112px; height: 112px; border-radius: 28px; margin-bottom: 28px; }
+  .login-card h1 { font-size: 30px; margin-bottom: 8px; }
+  .login-card .sub { font-size: 15px; margin-bottom: 32px; }
+  .login-card .field { margin-bottom: 18px; }
+  .login-card .field label { font-size: 13px; }
+  .login-card .field input { padding: 13px 14px; font-size: 16px; }
+  .login-card .password-wrap input { padding-right: 44px; }
+  .login-card button { padding: 14px; font-size: 16px; }
+  .login-options-row { font-size: 14px; }
+  .login-signup-foot { font-size: 15px; padding-top: 32px; }
+}
+
 .password-wrap { position: relative; }
-.password-wrap input { width: 100%; padding-right: 40px; }
+.login-card .password-wrap input { width: 100%; padding-right: 40px; }
 .password-toggle {
   position: absolute;
   right: 6px;
