@@ -910,9 +910,9 @@ td.mono, .mono { font-family: var(--font-mono); }
 .login-shell {
   min-height: 100vh;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  padding: 48px 16px 32px;
+  padding: 32px 16px;
   position: relative;
   overflow: hidden;
   background:
@@ -1003,7 +1003,6 @@ td.mono, .mono { font-family: var(--font-mono); }
 .login-card {
   width: 360px;
   max-width: 100%;
-  min-height: calc(100vh - 80px);
   background: transparent;
   border: none;
   border-radius: 0;
