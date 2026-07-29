@@ -955,11 +955,12 @@ td.mono, .mono { font-family: var(--font-mono); }
 }
 .login-decor .decor-factory {
   position: absolute;
-  right: -30px;
-  bottom: 4%;
-  width: 260px;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: -6px;
+  width: 300px;
   height: auto;
-  opacity: 0.14;
+  opacity: 0.13;
 }
 .login-decor .decor-gear {
   position: absolute;
@@ -994,7 +995,7 @@ td.mono, .mono { font-family: var(--font-mono); }
   opacity: 0.16;
 }
 @media (min-width: 600px) {
-  .login-decor .decor-factory { width: 340px; right: -20px; bottom: 6%; }
+  .login-decor .decor-factory { width: 380px; bottom: -4px; }
   .login-decor .decor-gear { width: 120px; top: 10%; }
   .login-decor .decor-spark { width: 76px; right: 10%; top: 6%; }
   .login-decor .decor-gauge { width: 170px; left: 62%; }
