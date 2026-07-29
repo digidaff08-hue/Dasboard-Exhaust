@@ -111,14 +111,14 @@
             <label>NIK</label>
             <div class="input-icon-wrap">
               <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6"/><circle cx="12" cy="8" r="4"/></svg>
-              <input type="text" inputmode="numeric" class="has-icon" x-model="nik" required autocomplete="off" placeholder="Masukkan NIK Anda">
+              <input type="text" inputmode="numeric" class="has-icon" x-model="nik" required autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" placeholder="Masukkan NIK Anda">
             </div>
           </div>
           <div class="field">
             <label>Password</label>
             <div class="password-wrap input-icon-wrap">
               <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="3.2"/><path d="M10.5 12.5 19 4M16 6l2 2M13.5 9l2 2"/></svg>
-              <input :type="showPassword ? 'text' : 'password'" class="has-icon" x-model="password" required autocomplete="off" placeholder="Masukkan Password">
+              <input :type="showPassword ? 'text' : 'password'" class="has-icon" x-model="password" required autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" placeholder="Masukkan Password">
               <button type="button" class="password-toggle" @click="showPassword = !showPassword" :aria-label="showPassword ? 'Sembunyikan password' : 'Tampilkan password'" tabindex="-1">
                 <span x-text="showPassword ? '🙈' : '👁️'"></span>
               </button>
@@ -144,19 +144,19 @@
             <label>NIK</label>
             <div class="input-icon-wrap">
               <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6"/><circle cx="12" cy="8" r="4"/></svg>
-              <input type="text" inputmode="numeric" class="has-icon" x-model="nik" required autocomplete="off" placeholder="Contoh: 130714">
+              <input type="text" inputmode="numeric" class="has-icon" x-model="nik" required autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" placeholder="Contoh: 130714">
             </div>
           </div>
           <div class="field">
             <label>Email</label>
-            <input type="email" x-model="email" required autocomplete="off">
+            <input type="email" x-model="email" required autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
             <p class="hint">Cuma dipakai buat daftar. Login berikutnya cukup pakai NIK di atas.</p>
           </div>
           <div class="field">
             <label>Password</label>
             <div class="password-wrap input-icon-wrap">
               <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="3.2"/><path d="M10.5 12.5 19 4M16 6l2 2M13.5 9l2 2"/></svg>
-              <input :type="showPassword ? 'text' : 'password'" class="has-icon" x-model="password" required minlength="6" autocomplete="off">
+              <input :type="showPassword ? 'text' : 'password'" class="has-icon" x-model="password" required minlength="6" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')">
               <button type="button" class="password-toggle" @click="showPassword = !showPassword" :aria-label="showPassword ? 'Sembunyikan password' : 'Tampilkan password'" tabindex="-1">
                 <span x-text="showPassword ? '🙈' : '👁️'"></span>
               </button>
@@ -176,7 +176,7 @@
             <label>NIK</label>
             <div class="input-icon-wrap">
               <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6"/><circle cx="12" cy="8" r="4"/></svg>
-              <input type="text" inputmode="numeric" class="has-icon" x-model="nik" required autocomplete="off" placeholder="Contoh: 130714">
+              <input type="text" inputmode="numeric" class="has-icon" x-model="nik" required autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" placeholder="Contoh: 130714">
             </div>
           </div>
           <button type="submit" class="btn-primary" :disabled="busy">
