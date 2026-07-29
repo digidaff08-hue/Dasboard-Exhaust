@@ -901,6 +901,7 @@ td.mono, .mono { font-family: var(--font-mono); }
   align-items: flex-start;
   justify-content: center;
   padding: 48px 16px 32px;
+  background: linear-gradient(150deg, #eafaf1 0%, #a3dcbd 45%, #5fb98a 100%);
 }
 .login-card {
   width: 360px;
