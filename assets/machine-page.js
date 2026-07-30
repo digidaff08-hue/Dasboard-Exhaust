@@ -155,6 +155,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
   // buffer, dsb) punya property non-configurable yang bentrok kalau
   // dibungkus Proxy reaktif Alpine -> error "read-only ... proxy".
   let repairThreeState = null;
+  const repairGeometryCache = new Map(); // view.id -> parsed BufferGeometry (biar ganti part gak fetch ulang .stl)
   return {
     session: null, profile: null, tab: "produksi", loading: true,
     errorMsg: "", successMsg: "",
@@ -1778,6 +1779,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (!confirm("Hapus model 3D ini beserta semua point-nya?")) return;
       const { error } = await supabaseClient.from("repair_views").delete().eq("id", id);
       if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
+      const cached = repairGeometryCache.get(id);
+      if (cached) { cached.dispose(); repairGeometryCache.delete(id); }
       this.repairViews = this.repairViews.filter((v) => v.id !== id);
       if (this.repairActiveViewId === id) {
         this.repairActiveViewId = this.repairViews[0]?.id || null;
@@ -1826,7 +1829,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       await this.loadRepairModel(container, view);
     },
     async loadRepairModel(container, view) {
-      this.repairModelLoading = true;
+      const cachedGeometry = repairGeometryCache.get(view.id);
+      this.repairModelLoading = !cachedGeometry; // sudah pernah dibuka -> gak usah tampil "Memuat..." lagi
       try {
         const { THREE, STLLoader, TrackballControls } = await this.ensureThreeLib();
         this.teardownRepair3D();
@@ -1845,10 +1849,17 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const dir1 = new THREE.DirectionalLight(0xffffff, 0.55); dir1.position.set(1, 1.4, 1); scene.add(dir1);
         const dir2 = new THREE.DirectionalLight(0xffffff, 0.3); dir2.position.set(-1, -0.6, -1); scene.add(dir2);
 
-        const loader = new STLLoader();
-        const geometry = await loader.loadAsync(view.model_url);
-        geometry.computeVertexNormals();
-        geometry.computeBoundingBox();
+        // Part yang sudah pernah dibuka sebelumnya (di line/sesi yang sama)
+        // dipakai lagi dari cache -- gak perlu download & parse ulang file
+        // .stl-nya, makanya ganti-ganti tombol part jadi instan.
+        let geometry = cachedGeometry;
+        if (!geometry) {
+          const loader = new STLLoader();
+          geometry = await loader.loadAsync(view.model_url);
+          geometry.computeVertexNormals();
+          geometry.computeBoundingBox();
+          repairGeometryCache.set(view.id, geometry);
+        }
         const bbox = geometry.boundingBox;
         const center = new THREE.Vector3(); bbox.getCenter(center);
         const size = new THREE.Vector3(); bbox.getSize(size);
@@ -2015,7 +2026,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (r.resizeObserver) r.resizeObserver.disconnect();
       if (r.controls) r.controls.dispose();
       (r.markers || []).forEach((m) => { m.material.map && m.material.map.dispose(); m.material.dispose(); });
-      if (r.mesh) { r.mesh.geometry.dispose(); r.mesh.material.dispose(); }
+      // Geometry SENGAJA tidak di-dispose di sini -- disimpan di
+      // repairGeometryCache biar bisa dipakai lagi instan pas user balik
+      // ke part ini (lihat loadRepairModel). Cuma material yang dibuang.
+      if (r.mesh) { r.mesh.material.dispose(); }
       if (r.renderer) { r.renderer.dispose(); r.renderer.domElement.remove(); }
       repairThreeState = null;
     },
