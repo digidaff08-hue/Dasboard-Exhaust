@@ -1470,7 +1470,6 @@ td.mono, .mono { font-family: var(--font-mono); }
   min-height: 0;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   gap: 10px;
   overflow: auto;
 }
