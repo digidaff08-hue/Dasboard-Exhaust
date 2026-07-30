@@ -213,6 +213,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     editingRepairId: null,
     // Mode admin buat naruh titik baru di Master Data
     repairEditMode: false, repairNewViewLabel: "", repairNewViewFile: null, repairViewUploading: false,
+    repairNewViewColor: "#9aa4ad",
     // State viewer 3D (Three.js) -- diisi runtime, bukan reactive data biasa
     repairModelLoading: false,
 
@@ -1749,18 +1750,28 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const { data: pub } = supabaseClient.storage.from("repair-models").getPublicUrl(path);
         const nextOrder = this.repairViews.length > 0 ? Math.max(...this.repairViews.map((v) => v.sort_order || 0)) + 1 : 1;
         const { data, error } = await supabaseClient.from("repair_views")
-          .insert({ label, model_url: pub.publicUrl, kind: "3d", sort_order: nextOrder, mesin: machineKey }).select().single();
+          .insert({ label, model_url: pub.publicUrl, kind: "3d", sort_order: nextOrder, mesin: machineKey, color: this.repairNewViewColor || "#9aa4ad" }).select().single();
         if (error) throw error;
         this.repairViews.push(data);
         this.repairActiveViewId = data.id;
         this.repairPoints = [];
-        this.repairNewViewLabel = ""; this.repairNewViewFile = null;
+        this.repairNewViewLabel = ""; this.repairNewViewFile = null; this.repairNewViewColor = "#9aa4ad";
         this.flash("Model 3D part baru ditambahkan.");
         await this.initRepair3DViewerIfNeeded();
       } catch (err) {
         this.flash("Gagal upload model 3D: " + (err.message || err), true);
       } finally {
         this.repairViewUploading = false;
+      }
+    },
+    async updateRepairViewColor(view, color) {
+      const { error } = await supabaseClient.from("repair_views").update({ color }).eq("id", view.id);
+      if (error) { this.flash("Gagal ganti warna: " + error.message, true); return; }
+      view.color = color;
+      if (repairThreeState && repairThreeState.currentViewId === view.id && repairThreeState.mesh) {
+        repairThreeState.mesh.material.vertexColors = false;
+        repairThreeState.mesh.material.color.set(color);
+        repairThreeState.mesh.material.needsUpdate = true;
       }
     },
     async deleteRepairView(id) {
@@ -1847,7 +1858,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const material = new THREE.MeshStandardMaterial(
           hasVertexColors
             ? { vertexColors: true, metalness: 0.2, roughness: 0.6 }
-            : { color: 0x9aa4ad, metalness: 0.2, roughness: 0.6 }
+            : { color: view.color || "#9aa4ad", metalness: 0.2, roughness: 0.6 }
         );
         const mesh = new THREE.Mesh(geometry, material);
         // Geser mesh biar center-nya di titik (0,0,0) -- titik Repair TETAP

@@ -37,6 +37,7 @@ direstrukturisasi total untuk Welding (line flat, tanpa sub-stasiun).
 ├── migration_repair_v5_part_number.sql            # 11) Tambah Part No (dropdown) di popup Repair, sebelum Qty
 ├── migration_repair_v6_per_line.sql               # 12) Part 3D Repair jadi per-line (dulu shared semua line)
 ├── migration_repair_v7_fix_delete.sql              # 13) Perbaiki hapus Part 3D yang sudah ada riwayat Repair-nya
+├── migration_repair_v8_part_color.sql              # 14) Warna custom per Part 3D (file .stl tidak simpan warna)
 └── reset_welding.sql                              # Utilitas: reset total kalau setup gagal di tengah
 ```
 
