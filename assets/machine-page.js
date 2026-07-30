@@ -2073,7 +2073,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const bbox = new THREE.Box3().setFromObject(r.mesh);
       const size = new THREE.Vector3(); bbox.getSize(size);
       const maxDim = Math.max(size.x, size.y, size.z) || 1;
-      const spriteScale = maxDim * 0.066; // dikecilin 40% dari sebelumnya (0.11)
+      const spriteScale = maxDim * 0.05; // dikecilin dikit lagi dari 0.066
       // dorong marker sedikit keluar dari permukaan (searah normal) biar
       // tidak "z-fighting" (kedip) pas persis nempel permukaan, tapi tetap
       // ketutup badan model kalau posisinya lagi di sisi yang membelakangi kamera.
