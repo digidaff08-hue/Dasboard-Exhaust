@@ -1396,7 +1396,7 @@ td.mono, .mono { font-family: var(--font-mono); }
 /* ---------- Dashboard Exhaust: tab Bulanan ---------- */
 .bulanan-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 14px;
 }
 .kpi-dot {
@@ -1412,7 +1412,7 @@ td.mono, .mono { font-family: var(--font-mono); }
 .bulanan-row2 .dt-exhaust-panel { grid-column: span 2; }
 .weekly-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 14px;
 }
 .downtime-terbesar-outer {
@@ -1424,7 +1424,7 @@ td.mono, .mono { font-family: var(--font-mono); }
 .downtime-terbesar-outer .dash-panel-title { margin: 0 0 10px; }
 .downtime-terbesar-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 14px;
 }
 .dt-terbesar-panel { box-shadow: var(--shadow-md); }
@@ -1453,21 +1453,13 @@ td.mono, .mono { font-family: var(--font-mono); }
 .dt-terbesar-value { font-size: 12px; font-weight: 700; text-align: right; white-space: nowrap; }
 
 @media (max-width: 1400px) {
-  .bulanan-kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .dash-main-grid.bulanan-row2 { grid-template-columns: repeat(2, 1fr); }
-  .weekly-grid { grid-template-columns: repeat(2, 1fr); }
-  .downtime-terbesar-grid { grid-template-columns: repeat(3, 1fr); }
-}
-@media (max-width: 760px) {
-  .bulanan-kpi-grid { grid-template-columns: 1fr; }
-  .weekly-grid { grid-template-columns: 1fr; }
-  .downtime-terbesar-grid { grid-template-columns: 1fr; }
 }
 
 /* ---------- Tab Bulanan: versi ringkas, ikut tinggi layar tanpa
    bikin chart salah hitung ukuran (ukuran chart tetap fixed, sisa
    ruang disebar jadi jarak antar baris, bukan dipaksa "flex" ke chart) ---------- */
-.bulanan-fill { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.bulanan-fill { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
 .dash-body.bulanan-body {
   flex: 1;
   min-height: 0;
@@ -1483,17 +1475,18 @@ td.mono, .mono { font-family: var(--font-mono); }
 .bulanan-body .dash-panel-title { margin: 0 0 6px; font-size: 10px; }
 .bulanan-body .dash-panel { padding: 10px 12px; }
 
-/* Baris 1 (KPI) = grafik paling tinggi di seluruh tab Bulanan.
+/* Baris 1 (KPI) = grafik paling tinggi di seluruh tab Bulanan, tapi
+   dibatasi supaya tidak berlebihan.
    Baris 2 (Downtime Exhaust/Supporting/Line) = tinggi menengah,
    digeser ke bawah lewat margin-top supaya jaraknya proporsional
-   dengan baris 1 yang sudah lebih tinggi.
+   dengan baris 1.
    Baris 3 (Week 1-5) = paling pendek dari semua grafik.
    Pakai clamp(...vh...) supaya ikut menyesuaikan tinggi layar,
    dengan urutan tinggi tetap terjaga di ukuran layar manapun. */
-.bulanan-body .kpi-chart { height: clamp(210px, 28vh, 320px) !important; margin-top: 8px; }
-.bulanan-body .bulanan-row2 { margin-top: 10px; }
-.bulanan-body .bulanan-row2 .dash-chart-sm { height: clamp(140px, 18vh, 210px) !important; min-height: 0; }
-.bulanan-body .weekly-grid .dash-chart-sm { height: clamp(80px, 10vh, 120px) !important; min-height: 0; }
+.bulanan-body .kpi-chart { height: clamp(130px, 17vh, 190px) !important; margin-top: 8px; }
+.bulanan-body .bulanan-row2 { margin-top: 8px; }
+.bulanan-body .bulanan-row2 .dash-chart-sm { height: clamp(95px, 12vh, 140px) !important; min-height: 0; }
+.bulanan-body .weekly-grid .dash-chart-sm { height: clamp(56px, 7vh, 80px) !important; min-height: 0; }
 .bulanan-body .kpi-value { font-size: 20px; }
 .bulanan-body .kpi-sub { font-size: 9px; }
 .bulanan-body .dt-terbesar-table th { padding: 2px 4px 4px; font-size: 8.5px; }
