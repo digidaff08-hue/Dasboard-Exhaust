@@ -1433,8 +1433,18 @@ td.mono, .mono { font-family: var(--font-mono); }
   font-family: var(--font-mono);
   font-weight: 700;
 }
-.dt-terbesar-table td { padding: 6px 4px; vertical-align: top; border-bottom: 1px solid var(--border); }
-.dt-terbesar-table tr:last-child td { border-bottom: none; }
+.dt-terbesar-table th {
+  padding: 4px 4px 6px;
+  text-align: left;
+  font-size: 9.5px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+.dt-terbesar-table th.dt-terbesar-value { text-align: right; }
+.dt-terbesar-table td { padding: 6px 4px; vertical-align: top; }
 .dt-terbesar-pic { font-size: 10px; font-weight: 700; color: var(--muted); white-space: nowrap; }
 .dt-terbesar-problem { font-size: 11.5px; line-height: 1.3; }
 .dt-terbesar-value { font-size: 12px; font-weight: 700; text-align: right; white-space: nowrap; }
