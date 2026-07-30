@@ -1393,6 +1393,58 @@ td.mono, .mono { font-family: var(--font-mono); }
 .kpi-delta-up { color: var(--green); }
 .kpi-delta-down { color: var(--red); }
 
+/* ---------- Dashboard Exhaust: tab Bulanan ---------- */
+.bulanan-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+.kpi-dot {
+  width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0;
+}
+.kpi-dot-blue { background: var(--blue); }
+.kpi-dot-teal { background: var(--teal); }
+.kpi-dot-red { background: var(--red); }
+.kpi-chart { height: 170px; position: relative; margin-top: 8px; }
+.kpi-head-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-top: 2px; }
+.kpi-head-right { text-align: right; }
+.bulanan-row2 { grid-template-columns: 1fr 1fr 1fr; }
+.weekly-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+.downtime-terbesar-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 14px;
+}
+.dt-terbesar-panel { gap: 10px; }
+.dt-terbesar-badge {
+  align-self: flex-start;
+  background: var(--category-other);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+.dt-terbesar-table td { padding: 6px 4px; vertical-align: top; border-bottom: 1px solid var(--border); }
+.dt-terbesar-table tr:last-child td { border-bottom: none; }
+.dt-terbesar-pic { font-size: 10px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+.dt-terbesar-problem { font-size: 11.5px; line-height: 1.3; }
+.dt-terbesar-value { font-size: 12px; font-weight: 700; text-align: right; white-space: nowrap; }
+
+@media (max-width: 1400px) {
+  .bulanan-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .bulanan-row2 { grid-template-columns: 1fr; }
+  .weekly-grid { grid-template-columns: repeat(2, 1fr); }
+  .downtime-terbesar-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 760px) {
+  .bulanan-kpi-grid { grid-template-columns: 1fr; }
+  .weekly-grid { grid-template-columns: 1fr; }
+  .downtime-terbesar-grid { grid-template-columns: 1fr; }
+}
+
 /* ---------- Wrapper konten dashboard (di bawah topbar) ---------- */
 .dash-body {
   display: flex;
