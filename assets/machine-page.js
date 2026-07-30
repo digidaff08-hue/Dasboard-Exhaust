@@ -2020,20 +2020,45 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       repairThreeState = null;
     },
     makeRepairMarkerSprite(THREE, label) {
+      // Bentuk "pin" (kayak penanda lokasi di Maps): bulat di atas buat
+      // baca label, meruncing di bawah jadi ujung lancip yang nunjuk PERSIS
+      // ke titik Repair-nya -- ujung lancip ini yang jadi "tanda panah"-nya.
+      const W = 96, H = 130;
       const canvas = document.createElement("canvas");
-      canvas.width = 128; canvas.height = 128;
+      canvas.width = W; canvas.height = H;
       const ctx = canvas.getContext("2d");
-      ctx.beginPath(); ctx.arc(64, 64, 50, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(220,38,38,0.88)"; ctx.fill();
-      ctx.lineWidth = 6; ctx.strokeStyle = "#ffffff"; ctx.stroke();
+      const cx = W / 2, cy = 42, r = 34, tipY = H - 4;
+
+      ctx.shadowColor = "rgba(0,0,0,0.35)"; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
+      ctx.beginPath();
+      ctx.moveTo(cx - r, cy);
+      ctx.bezierCurveTo(cx - r, cy - r * 1.35, cx + r, cy - r * 1.35, cx + r, cy);
+      ctx.bezierCurveTo(cx + r, cy + r * 0.62, cx + r * 0.18, cy + r * 0.95, cx, tipY);
+      ctx.bezierCurveTo(cx - r * 0.18, cy + r * 0.95, cx - r, cy + r * 0.62, cx - r, cy);
+      ctx.closePath();
+
+      const grad = ctx.createLinearGradient(0, cy - r, 0, cy + r);
+      grad.addColorStop(0, "#ef4444"); grad.addColorStop(1, "#b91c1c");
+      ctx.fillStyle = grad; ctx.fill();
+      ctx.shadowColor = "transparent";
+      ctx.lineWidth = 4; ctx.strokeStyle = "#ffffff"; ctx.stroke();
+
+      // Lubang putih kecil di tengah, gaya pin lokasi standar
+      ctx.beginPath(); ctx.arc(cx, cy, r * 0.4, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffffff"; ctx.fill();
       if (label) {
-        ctx.fillStyle = "#ffffff"; ctx.font = "bold 46px sans-serif";
+        ctx.fillStyle = "#b91c1c"; ctx.font = "bold 22px sans-serif";
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.fillText(label.slice(0, 2), 64, 68);
+        ctx.fillText(label.slice(0, 2), cx, cy + 1);
       }
+
       const texture = new THREE.CanvasTexture(canvas);
       const mat = new THREE.SpriteMaterial({ map: texture, depthTest: true, depthWrite: false });
       const sprite = new THREE.Sprite(mat);
+      // Anchor di UJUNG LANCIP (bawah sprite), bukan tengah -- biar ujungnya
+      // pas nempel ke titik Repair, bukan tengah bulatannya yang nempel.
+      sprite.center.set(0.5, 0);
+      sprite.userData.aspect = H / W;
       sprite.renderOrder = 999;
       return sprite;
     },
@@ -2045,11 +2070,11 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const bbox = new THREE.Box3().setFromObject(r.mesh);
       const size = new THREE.Vector3(); bbox.getSize(size);
       const maxDim = Math.max(size.x, size.y, size.z) || 1;
-      const spriteScale = maxDim * 0.09;
+      const spriteScale = maxDim * 0.045; // dikecilin dari sebelumnya (0.09)
       // dorong marker sedikit keluar dari permukaan (searah normal) biar
       // tidak "z-fighting" (kedip) pas persis nempel permukaan, tapi tetap
       // ketutup badan model kalau posisinya lagi di sisi yang membelakangi kamera.
-      const offsetDist = maxDim * 0.02;
+      const offsetDist = maxDim * 0.01;
       // titik tengah bbox dalam koordinat LOKAL (sama ruang dgn titik point) --
       // dipakai sebagai cadangan arah normal buat Point lama yang belum
       // punya nx/ny/nz tersimpan.
@@ -2058,7 +2083,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
 
       this.repairPoints.forEach((pt) => {
         const sprite = this.makeRepairMarkerSprite(THREE, pt.label);
-        sprite.scale.set(spriteScale, spriteScale, 1);
+        sprite.scale.set(spriteScale, spriteScale * sprite.userData.aspect, 1);
         let normal;
         if (pt.nx != null && pt.ny != null && pt.nz != null) {
           normal = new THREE.Vector3(pt.nx, pt.ny, pt.nz);
