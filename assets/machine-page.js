@@ -207,7 +207,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // ---- Repair (klik titik di gambar part -> popup Qty + Kategori) ----
     repairViews: [], repairActiveViewId: null, repairPoints: [],
     repairKategoriOptions: [], newRepairKategoriValue: "",
-    repairPartNoList: [],
+    repairPartNoByModel: {},
     repairPartNoModelMap: {},
     repairLogRows: [],
     repairForm: { tanggal: localDateStr(new Date()), part_number: "", qty: "", kategori_repair: "" },
@@ -1638,22 +1638,36 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.repairKategoriOptions = data || [];
     },
     async fetchRepairPartNoOptions() {
-      // Part No di popup Repair diambil dari master NG Inline (Line -> Model -> Part No),
-      // digabung SEMUA part_no dari SEMUA model yang terdaftar di line ini (bukan per-model).
+      // Part No di popup Repair diambil dari master NG Inline (Line -> Model -> Part No).
       const { data: models, error: modelErr } = await supabaseClient.from("ng_line_models").select("model").eq("mesin", machineKey);
       if (modelErr) { this.flash("Gagal memuat Model NG Inline: " + modelErr.message, true); return; }
       const modelNames = (models || []).map((m) => m.model);
-      if (modelNames.length === 0) { this.repairPartNoList = []; this.repairPartNoModelMap = {}; return; }
+      if (modelNames.length === 0) { this.repairPartNoByModel = {}; this.repairPartNoModelMap = {}; return; }
       const { data: parts, error: partErr } = await supabaseClient.from("ng_model_parts").select("part_no, model").in("model", modelNames);
       if (partErr) { this.flash("Gagal memuat Part No NG Inline: " + partErr.message, true); return; }
-      const uniquePartNo = [...new Set((parts || []).map((p) => p.part_no))].sort((a, b) => a.localeCompare(b));
-      this.repairPartNoList = uniquePartNo;
+      // Dikelompokkan PER MODEL -- dipakai buat filter dropdown Part No di
+      // popup Repair, biar cuma nampilin Part No punya model 3D yang lagi
+      // dibuka (mis. buka part "K15C" -> Part No yang muncul cuma punya K15C).
+      const byModel = {};
+      (parts || []).forEach((p) => {
+        if (!byModel[p.model]) byModel[p.model] = new Set();
+        byModel[p.model].add(p.part_no);
+      });
+      Object.keys(byModel).forEach((m) => { byModel[m] = [...byModel[m]].sort((a, b) => a.localeCompare(b)); });
+      this.repairPartNoByModel = byModel;
       // Lookup Part No -> Model, dipakai buat kolom "Model" di tabel Riwayat
       // Repair (otomatis, bukan isian manual). Kalau 1 part_no kepakai di
       // lebih dari 1 model, diambil yang pertama ketemu.
       const map = {};
       (parts || []).forEach((p) => { if (!map[p.part_no]) map[p.part_no] = p.model; });
       this.repairPartNoModelMap = map;
+    },
+    // Part No yang muncul di popup Repair -- ke-filter otomatis sesuai
+    // model 3D yang lagi aktif/dibuka (label part 3D-nya harus sama
+    // persis dengan nama Model di Master Data NG Inline).
+    repairPartNoOptionsForActiveView() {
+      const label = this.activeRepairView()?.label;
+      return (label && this.repairPartNoByModel[label]) || [];
     },
     async fetchRepairLog() {
       const { data, error } = await supabaseClient.from("repair_log").select("*").eq("mesin", machineKey).order("tanggal", { ascending: false }).order("created_at", { ascending: false }).limit(200);
