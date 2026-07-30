@@ -1408,7 +1408,8 @@ td.mono, .mono { font-family: var(--font-mono); }
 .kpi-chart { height: 170px; position: relative; margin-top: 8px; }
 .kpi-head-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-top: 2px; }
 .kpi-head-right { text-align: right; }
-.bulanan-row2 { grid-template-columns: 1fr 1fr 1fr; }
+.bulanan-row2 { grid-template-columns: repeat(4, 1fr); }
+.bulanan-row2 .dt-exhaust-panel { grid-column: span 2; }
 .weekly-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1435,7 +1436,7 @@ td.mono, .mono { font-family: var(--font-mono); }
 
 @media (max-width: 1400px) {
   .bulanan-kpi-grid { grid-template-columns: repeat(2, 1fr); }
-  .bulanan-row2 { grid-template-columns: 1fr; }
+  .bulanan-row2 { grid-template-columns: repeat(2, 1fr); }
   .weekly-grid { grid-template-columns: repeat(2, 1fr); }
   .downtime-terbesar-grid { grid-template-columns: repeat(3, 1fr); }
 }
