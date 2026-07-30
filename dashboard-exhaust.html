@@ -204,44 +204,45 @@
         </div>
 
         <!-- Baris 3: Weekly Breakdown -->
-        <div class="dash-panel-title" style="margin-top:4px;">Weekly Breakdown</div>
         <div class="weekly-grid">
           <template x-for="(w, idx) in bulanan.weekly" :key="'week-'+idx">
             <div class="dash-panel">
               <p class="dash-panel-title" x-text="'WEEK ' + (idx + 1)" style="text-align:center;"></p>
-              <div class="dash-chart-sm"><canvas :id="'weekChart' + (idx + 1)"></canvas></div>
+              <div class="dash-chart-sm week-chart-sm"><canvas :id="'weekChart' + (idx + 1)"></canvas></div>
             </div>
           </template>
         </div>
 
         <!-- Baris 4: Downtime Terbesar -->
-        <div class="dash-panel-title" style="margin-top:4px;">Downtime Terbesar</div>
-        <div class="downtime-terbesar-grid">
-          <template x-for="line in bulanan.downtimeTerbesar" :key="line.mesin">
-            <div class="dash-panel dt-terbesar-panel">
-              <span class="badge dt-terbesar-badge" x-text="line.mesin"></span>
-              <div class="table-wrap">
-                <table class="table-compact dt-terbesar-table">
-                  <thead>
-                    <tr>
-                      <th>PIC</th>
-                      <th>Problem</th>
-                      <th class="dt-terbesar-value">Menit</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <template x-for="(row, i) in line.rowsPadded" :key="line.mesin + '-' + i">
+        <div class="downtime-terbesar-outer">
+          <div class="dash-panel-title">Downtime Terbesar</div>
+          <div class="downtime-terbesar-grid">
+            <template x-for="line in bulanan.downtimeTerbesar" :key="line.mesin">
+              <div class="dash-panel dt-terbesar-panel">
+                <span class="badge dt-terbesar-badge" x-text="line.mesin"></span>
+                <div class="table-wrap">
+                  <table class="table-compact dt-terbesar-table">
+                    <thead>
                       <tr>
-                        <td class="dt-terbesar-pic" x-text="row.pic"></td>
-                        <td class="dt-terbesar-problem" x-text="row.problem"></td>
-                        <td class="mono dt-terbesar-value" x-text="row.value"></td>
+                        <th>PIC</th>
+                        <th>Problem</th>
+                        <th class="dt-terbesar-value">Menit</th>
                       </tr>
-                    </template>
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      <template x-for="(row, i) in line.rowsPadded" :key="line.mesin + '-' + i">
+                        <tr>
+                          <td class="dt-terbesar-pic" x-text="row.pic"></td>
+                          <td class="dt-terbesar-problem" x-text="row.problem"></td>
+                          <td class="mono dt-terbesar-value" x-text="row.value"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-          </template>
+            </template>
+          </div>
         </div>
         </div>
         </template>
