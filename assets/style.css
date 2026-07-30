@@ -1456,12 +1456,11 @@ td.mono, .mono { font-family: var(--font-mono); }
   .dash-main-grid.bulanan-row2 { grid-template-columns: repeat(2, 1fr); }
 }
 
-/* ---------- Tab Bulanan: seluruh konten ikut mengisi penuh tinggi
-   layar (tanpa sisa kosong di bawah) lewat flex-grow proporsional --
-   bukan tinggi tetap. Urutan tinggi: KPI (baris 1) > Downtime
-   Exhaust/Supporting/Line (baris 2) > Week 1-5 (baris 3). Downtime
-   Terbesar (baris 4) tidak punya grafik jadi tingginya ikut isinya
-   saja, sisanya otomatis dipakai 3 baris grafik di atas. ---------- */
+/* ---------- Tab Bulanan: grafik (KPI/baris2/Week) pakai tinggi tetap
+   yang stabil (supaya legend Chart.js tidak "nabrak" ke baris di
+   bawahnya). Downtime Terbesar (tidak ada chart, cuma tabel) yang
+   melar mengisi sisa ruang kosong di layar -- ini yang aman untuk
+   di-flex karena tidak butuh resize canvas Chart.js. ---------- */
 .bulanan-fill { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
 .dash-body.bulanan-body {
   flex: 1;
@@ -1474,28 +1473,29 @@ td.mono, .mono { font-family: var(--font-mono); }
 .bulanan-body .dash-panel-title { margin: 0 0 6px; font-size: 10px; }
 .bulanan-body .dash-panel { padding: 10px 12px; }
 
-.bulanan-body .bulanan-kpi-grid { flex: 3 1 0; min-height: 150px; grid-auto-rows: 1fr; }
-.bulanan-body .bulanan-row2 { flex: 2 1 0; min-height: 110px; grid-auto-rows: 1fr; }
-.bulanan-body .weekly-grid { flex: 1.3 1 0; min-height: 80px; grid-auto-rows: 1fr; }
-.bulanan-body .downtime-terbesar-outer { flex: 0 0 auto; }
+.bulanan-body .bulanan-kpi-grid,
+.bulanan-body .bulanan-row2,
+.bulanan-body .weekly-grid { flex-shrink: 0; }
+.bulanan-body .kpi-chart { height: clamp(140px, 18vh, 210px) !important; margin-top: 8px; }
+.bulanan-body .bulanan-row2 .dash-chart-sm { height: clamp(100px, 13vh, 150px) !important; min-height: 0; }
+.bulanan-body .weekly-grid .dash-chart-sm { height: clamp(60px, 8vh, 90px) !important; min-height: 0; }
 
-.bulanan-body .kpi-card,
-.bulanan-body .dash-panel { height: 100%; }
-.bulanan-body .kpi-chart,
-.bulanan-body .bulanan-row2 .dash-chart-sm,
-.bulanan-body .weekly-grid .dash-chart-sm {
-  height: auto !important;
-  flex: 1;
-  min-height: 0;
-  margin-top: 8px;
+/* Downtime Terbesar: melar mengisi sisa tinggi layar, minimal 240px */
+.bulanan-body .downtime-terbesar-outer {
+  flex: 1 1 auto;
+  min-height: 240px;
+  display: flex;
+  flex-direction: column;
 }
+.bulanan-body .downtime-terbesar-grid { flex: 1; min-height: 0; grid-auto-rows: 1fr; }
+.bulanan-body .dt-terbesar-panel { height: 100%; }
 
 .bulanan-body .kpi-value { font-size: 20px; }
 .bulanan-body .kpi-sub { font-size: 9px; }
 .bulanan-body .dt-terbesar-table th { padding: 4px 6px 6px; font-size: 10.5px; }
 .bulanan-body .dt-terbesar-table td { padding: 6px 6px; font-size: 12.5px; }
 .bulanan-body .dt-terbesar-badge { font-size: 12px; padding: 3px 8px; flex-shrink: 0; }
-.bulanan-body .dt-terbesar-panel { gap: 8px; min-height: 220px; }
+.bulanan-body .dt-terbesar-panel { gap: 8px; }
 .bulanan-body .dt-terbesar-pic { font-size: 11px; }
 .bulanan-body .dt-terbesar-problem { font-size: 12.5px; }
 .bulanan-body .dt-terbesar-value { font-size: 13px; }
