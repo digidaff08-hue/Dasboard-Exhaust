@@ -1419,14 +1419,12 @@ td.mono, .mono { font-family: var(--font-mono); }
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   gap: 14px;
-}
-.dt-terbesar-outer {
   background: var(--panel-2);
   border: 1px solid var(--border);
   border-radius: calc(var(--radius) + 6px);
-  padding: 8px;
+  padding: 14px;
 }
-.dt-terbesar-outer .dt-terbesar-panel { box-shadow: var(--shadow-md); margin: 0; }
+.dt-terbesar-panel { box-shadow: var(--shadow-md); }
 .dt-terbesar-panel { gap: 10px; }
 .dt-terbesar-badge {
   align-self: flex-start;

@@ -218,21 +218,19 @@
         <div class="dash-panel-title" style="margin-top:4px;">Downtime Terbesar</div>
         <div class="downtime-terbesar-grid">
           <template x-for="line in bulanan.downtimeTerbesar" :key="line.mesin">
-            <div class="dt-terbesar-outer">
-              <div class="dash-panel dt-terbesar-panel">
-                <span class="badge dt-terbesar-badge" x-text="line.mesin"></span>
-                <table class="table-compact dt-terbesar-table">
-                  <tbody>
-                    <template x-for="(row, i) in line.rows" :key="line.mesin + '-' + i">
-                      <tr>
-                        <td class="dt-terbesar-pic" x-text="row.pic"></td>
-                        <td class="dt-terbesar-problem" x-text="row.problem"></td>
-                        <td class="mono dt-terbesar-value" x-text="row.value"></td>
-                      </tr>
-                    </template>
-                  </tbody>
-                </table>
-              </div>
+            <div class="dash-panel dt-terbesar-panel">
+              <span class="badge dt-terbesar-badge" x-text="line.mesin"></span>
+              <table class="table-compact dt-terbesar-table">
+                <tbody>
+                  <template x-for="(row, i) in line.rowsPadded" :key="line.mesin + '-' + i">
+                    <tr>
+                      <td class="dt-terbesar-pic" x-text="row.pic"></td>
+                      <td class="dt-terbesar-problem" x-text="row.problem"></td>
+                      <td class="mono dt-terbesar-value" x-text="row.value"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
             </div>
           </template>
         </div>
@@ -473,11 +471,14 @@ function dashboardExhaust() {
           }),
         }));
 
-        // Downtime Terbesar per line
-        const downtimeTerbesar = MACHINES.map((m, idx) => ({
-          mesin: m.key,
-          rows: ((topRes[idx] && topRes[idx].data) || []).map((r) => ({ pic: r.pic, problem: r.problem, value: Math.round(Number(r.total_menit)) })),
-        }));
+        // Downtime Terbesar per line -- selalu tampilkan 5 baris ke bawah,
+        // baris kosong jadi placeholder kalau datanya belum sampai 5.
+        const downtimeTerbesar = MACHINES.map((m, idx) => {
+          const rows = ((topRes[idx] && topRes[idx].data) || []).map((r) => ({ pic: r.pic, problem: r.problem, value: Math.round(Number(r.total_menit)) }));
+          const rowsPadded = [...rows];
+          while (rowsPadded.length < 5) rowsPadded.push({ pic: "-", problem: "-", value: "-" });
+          return { mesin: m.key, rows, rowsPadded };
+        });
 
         this.bulanan = {
           monthLabels: dtExhaustLabels,
