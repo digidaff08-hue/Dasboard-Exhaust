@@ -1436,9 +1436,10 @@ td.mono, .mono { font-family: var(--font-mono); }
   font-family: var(--font-mono);
   font-weight: 700;
 }
+.dt-terbesar-table { table-layout: fixed; width: 100%; }
 .dt-terbesar-table th {
   padding: 4px 4px 6px;
-  text-align: left;
+  text-align: center;
   font-size: 9.5px;
   font-family: var(--font-mono);
   letter-spacing: 0.05em;
@@ -1446,7 +1447,9 @@ td.mono, .mono { font-family: var(--font-mono); }
   color: var(--muted);
   font-weight: 700;
 }
-.dt-terbesar-table th.dt-terbesar-value { text-align: right; }
+.dt-terbesar-table th:nth-child(1) { width: 18%; }
+.dt-terbesar-table th:nth-child(2) { width: 64%; }
+.dt-terbesar-table th.dt-terbesar-value { width: 18%; text-align: center; }
 .dt-terbesar-table td { padding: 6px 4px; vertical-align: top; }
 .dt-terbesar-pic { font-size: 10px; font-weight: 700; color: var(--muted); white-space: nowrap; }
 .dt-terbesar-problem { font-size: 11.5px; line-height: 1.3; }
