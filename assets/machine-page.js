@@ -1843,7 +1843,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const size = new THREE.Vector3(); bbox.getSize(size);
         const maxDim = Math.max(size.x, size.y, size.z) || 1;
 
-        const material = new THREE.MeshStandardMaterial({ color: 0x9aa4ad, metalness: 0.2, roughness: 0.6 });
+        const hasVertexColors = !!(geometry.attributes && geometry.attributes.color);
+        const material = new THREE.MeshStandardMaterial(
+          hasVertexColors
+            ? { vertexColors: true, metalness: 0.2, roughness: 0.6 }
+            : { color: 0x9aa4ad, metalness: 0.2, roughness: 0.6 }
+        );
         const mesh = new THREE.Mesh(geometry, material);
         // Geser mesh biar center-nya di titik (0,0,0) -- titik Repair TETAP
         // disimpan dalam koordinat asli STL (anak dari mesh ini), jadi ikut

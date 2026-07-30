@@ -36,6 +36,7 @@ direstrukturisasi total untuk Welding (line flat, tanpa sub-stasiun).
 ├── migration_repair_v4_point_normals.sql          # 10) Arah normal Point (biar ketutup model saat diputar)
 ├── migration_repair_v5_part_number.sql            # 11) Tambah Part No (dropdown) di popup Repair, sebelum Qty
 ├── migration_repair_v6_per_line.sql               # 12) Part 3D Repair jadi per-line (dulu shared semua line)
+├── migration_repair_v7_fix_delete.sql              # 13) Perbaiki hapus Part 3D yang sudah ada riwayat Repair-nya
 └── reset_welding.sql                              # Utilitas: reset total kalau setup gagal di tengah
 ```
 
