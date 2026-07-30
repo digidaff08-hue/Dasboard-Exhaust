@@ -2,7 +2,7 @@
   "name": "Sistem Produksi & Downtime",
   "short_name": "Produksi",
   "description": "Input data produksi & downtime line Welding — E-02, E-03, E-04, E-05, E-06, E-07.",
-  "start_url": "/index.html",
+  "start_url": "/dashboard-exhaust.html",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",

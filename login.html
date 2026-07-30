@@ -212,7 +212,7 @@ function loginPage() {
 
     async checkExisting() {
       const { data: { session } } = await supabaseClient.auth.getSession();
-      if (session) window.location.href = "index.html";
+      if (session) window.location.href = "dashboard-exhaust.html";
     },
 
     goReset() {
@@ -234,7 +234,7 @@ function loginPage() {
       });
       this.busy = false;
       if (error) { this.errorMsg = "Login gagal: NIK atau password salah."; return; }
-      window.location.href = "index.html";
+      window.location.href = "dashboard-exhaust.html";
     },
 
     async signup() {
