@@ -2065,3 +2065,84 @@ body, .sqcpm-col, .dash-panel, .kpi-card, .perf-card, .panel,
 }
 .repair-3d-hint { font-size: 12px; color: var(--muted); margin-top: 8px; text-align: center; }
 .repair-edit-hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+/* ---------- Plan Produksi Harian ---------- */
+.plan-grid-top {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 16px;
+  align-items: stretch;
+}
+@media (max-width: 1000px) {
+  .plan-grid-top { grid-template-columns: 1fr; }
+}
+.plan-date-badge {
+  background: var(--amber);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+table.plan-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.plan-table th, table.plan-table td {
+  padding: 7px 9px;
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+table.plan-table th:first-child, table.plan-table td:first-child { text-align: left; }
+table.plan-table thead th {
+  color: var(--muted);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 2px solid var(--border);
+}
+table.plan-table tr.plan-total-row td {
+  background: var(--amber);
+  color: #fff;
+  font-weight: 700;
+}
+table.plan-table tbody tr:hover td { background: var(--panel-2); }
+table.plan-table tr.plan-total-row:hover td { background: var(--amber); }
+.plan-shift-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 1000px) {
+  .plan-shift-grid { grid-template-columns: 1fr; }
+}
+table.plan-shift-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.plan-shift-table th, table.plan-shift-table td {
+  padding: 6px 7px;
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+table.plan-shift-table th:first-child, table.plan-shift-table td:first-child { text-align: left; }
+table.plan-shift-table thead th {
+  color: var(--muted);
+  font-size: 9.5px;
+  text-transform: uppercase;
+}
+table.plan-shift-table td.balance-ok { color: var(--green); font-weight: 700; }
+table.plan-shift-table td.balance-bad { color: var(--red); font-weight: 700; }
+.plan-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+.plan-entry-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel-2);
+  border-radius: 4px;
+  padding: 7px 10px;
+  font-size: 12.5px;
+}
+.plan-entry-row .hint { margin-left: auto; }

@@ -13,6 +13,8 @@ direstrukturisasi total untuk Welding (line flat, tanpa sub-stasiun).
 
 ```
 ├── login.html / index.html                      # Login & Dashboard
+├── dashboard-exhaust.html                        # Dashboard Exhaust (ringkasan per line, di atas Dashboard)
+├── plan-produksi.html                            # Plan Produksi Harian (di bawah Dashboard)
 ├── input-produksi.html                           # Pilih line → catat produksi/downtime
 ├── input-attendance.html                         # Absensi harian (admin/leader)
 ├── input-scrap.html                              # Scrap Top End bulanan (admin/leader)
@@ -38,6 +40,7 @@ direstrukturisasi total untuk Welding (line flat, tanpa sub-stasiun).
 ├── migration_repair_v6_per_line.sql               # 12) Part 3D Repair jadi per-line (dulu shared semua line)
 ├── migration_repair_v7_fix_delete.sql              # 13) Perbaiki hapus Part 3D yang sudah ada riwayat Repair-nya
 ├── migration_repair_v8_part_color.sql              # 14) Warna custom per Part 3D (file .stl tidak simpan warna)
+├── migration_plan_produksi.sql                     # 15) Tabel Plan Harian (per part/line/shift) + Backlog + RPC actual
 └── reset_welding.sql                              # Utilitas: reset total kalau setup gagal di tengah
 ```
 
@@ -128,6 +131,37 @@ tersebut) + **Qty** + **Kategori Repair** → simpan.
 - Model 3D dirender pakai [Three.js](https://threejs.org) yang dimuat
   lewat CDN saat tab Repair pertama kali dibuka (butuh koneksi internet
   pas pertama load; setelah itu browser biasanya sudah cache library-nya).
+
+---
+
+## Dashboard Exhaust (menu paling atas)
+Ringkasan **per line** (bukan KPI gabungan seperti Dashboard biasa) —
+6 kartu (E-02 s/d E-07), masing-masing menampilkan: status (OFF/POOR/
+FAIR/GOOD berdasar OEE), part terakhir, Output, NG, Downtime, GSPH vs
+Target, dan Performance. Filter tanggal + shift, klik kartu langsung ke
+halaman detail line-nya.
+
+## Plan Produksi (menu di bawah Dashboard)
+Rencana produksi harian, 1 baris = 1 Part Number (bisa dipakai lintas
+line). Alur kerja:
+
+1. **Panel Plan Harian** — matrix Part Number × Line (E-02..E-07),
+   kolom **Backlog** & **Plan Awal** (total plan hari itu), baris
+   **TOTAL PLAN HARIAN** di bawah.
+2. **Kapasitas Harian** — stacked bar chart, breakdown plan per Part
+   Number di tiap line.
+3. **Input / Edit Plan** (khusus admin/leader) — form tambah/ubah plan
+   per (Part Number, Line, Shift), plus form Backlog terpisah (backlog
+   melekat ke Part Number, tidak per line).
+4. **Shift 1 / Shift 2** — tabel Plan vs Actual per line untuk tiap
+   Part Number di shift tersebut, kolom **Balance** = Actual − Plan
+   (hijau kalau tercapai/lebih, merah kalau kurang). **Actual** dihitung
+   otomatis dari data Input Produksi yang sudah ada (RPC
+   `plan_produksi_actual`), tidak perlu isi manual.
+
+Setup: jalankan `migration_plan_produksi.sql` (butuh schema_welding.sql
+sudah jalan lebih dulu, karena pakai type `machine_type` & tabel
+`profiles`).
 
 ---
 

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Exhaust — Welding Exhaust</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#f4f5f7">
+<link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+  (function () {
+    var t = localStorage.getItem("theme_v1") || "light";
+    document.documentElement.setAttribute("data-theme", t);
+  })();
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/supabaseClient.js"></script>
+</head>
+<body>
+
+<div class="app-shell" x-data="dashboardExhaust()" x-init="init()">
+  <div class="mobile-topbar">
+    <button class="hamburger" @click="mobileNavOpen = true">☰</button>
+    <span class="mobile-title">Dashboard Exhaust</span>
+  </div>
+  <div class="sidebar-overlay" x-show="mobileNavOpen" @click="mobileNavOpen = false" x-cloak></div>
+  <aside class="sidebar" :class="[mobileNavOpen ? 'sidebar-open' : '', sidebarCollapsed ? 'sidebar-collapsed' : '']">
+    <button class="sidebar-collapse-btn" @click="sidebarCollapsed = !sidebarCollapsed">
+      <span x-show="!sidebarCollapsed">‹</span><span x-show="sidebarCollapsed">›</span>
+    </button>
+    <div class="sidebar-brand" x-show="!sidebarCollapsed">PRESS SHOP<span>·</span>SYSTEM</div>
+    <nav class="sidebar-nav" @click="mobileNavOpen = false">
+      <a href="dashboard-exhaust.html" class="sidebar-link active" title="Dashboard Exhaust"><span>📊</span><span x-show="!sidebarCollapsed">Dashboard Exhaust</span></a>
+      <a href="index.html" class="sidebar-link" title="Dashboard"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a>
+      <a href="plan-produksi.html" class="sidebar-link" title="Plan Produksi"><span>📅</span><span x-show="!sidebarCollapsed">Plan Produksi</span></a>
+      <a href="input-produksi.html" class="sidebar-link" title="Input Produksi"><span>⚙️</span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-attendance.html" class="sidebar-link" title="Input Attendance"><span>👥</span><span x-show="!sidebarCollapsed">Input Attendance</span></a>
+      </template>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-scrap.html" class="sidebar-link" title="Input Scrap"><span>♻️</span><span x-show="!sidebarCollapsed">Input Scrap</span></a>
+      </template>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-safety.html" class="sidebar-link" title="Input Safety"><span>⛑️</span><span x-show="!sidebarCollapsed">Input Safety</span></a>
+      </template>
+    </nav>
+    <div class="sidebar-foot" x-show="!sidebarCollapsed">
+      <div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
+      <span class="badge" :class="profile?.role === 'admin' ? 'role-admin' : ''" x-text="profile?.jabatan || profile?.role || '...'"></span>
+      <button class="btn-ghost btn-sm" @click="logout()">Keluar</button>
+    </div>
+    <button class="sidebar-logout-collapsed" x-show="sidebarCollapsed" @click="logout()" title="Keluar">⏻</button>
+  </aside>
+
+  <main class="main">
+    <div class="dash-topbar">
+      <div class="dash-title-block">
+        <h1>DASHBOARD EXHAUST</h1>
+        <p>Ringkasan per Line — Welding E-02 s/d E-07</p>
+      </div>
+      <div class="dash-controls">
+        <input type="date" x-model="tanggal" @change="fetchAll()">
+        <select x-model="shiftFilter" @change="fetchAll()">
+          <option value="all">Semua Shift</option>
+          <option value="1">Shift 1 (07:00–19:30)</option>
+          <option value="2">Shift 2 (19:30–07:00)</option>
+        </select>
+        <button class="theme-toggle" @click="toggleTheme()" :title="theme === 'dark' ? 'Ke mode terang' : 'Ke mode gelap'">
+          <span x-text="theme === 'dark' ? '☀️' : '🌙'"></span>
+        </button>
+      </div>
+    </div>
+
+    <template x-if="loading"><p class="empty-state">Memuat data...</p></template>
+
+    <template x-if="!loading">
+      <div class="dash-body">
+        <!-- Ringkasan total gabungan kecil di atas -->
+        <div class="fleet-summary-grid">
+          <div class="perf-card">
+            <span class="hint">Line Aktif</span>
+            <b class="mono" x-text="lineAktif + ' / 6'"></b>
+          </div>
+          <div class="perf-card">
+            <span class="hint">Total Output (Stroke)</span>
+            <b class="mono" x-text="fmtNum(totals.stroke)"></b>
+          </div>
+          <div class="perf-card">
+            <span class="hint">Total NG</span>
+            <b class="mono" x-text="fmtNum(totals.ng)"></b>
+          </div>
+          <div class="perf-card">
+            <span class="hint">Total Downtime (menit)</span>
+            <b class="mono" x-text="fmtNum(totals.downtimeMenit)"></b>
+          </div>
+          <div class="perf-card">
+            <span class="hint">Rata-rata OEE</span>
+            <b class="mono" x-text="fmtNum(totals.avgOee) + '%'"></b>
+          </div>
+        </div>
+
+        <!-- Kartu per Line -->
+        <div class="machine-cards-grid">
+          <template x-for="m in machines" :key="m.key">
+            <a :href="m.href" class="machine-card" :class="'machine-card-' + statusClass(m)">
+              <div class="machine-card-top">
+                <span class="machine-card-name" x-text="m.label"></span>
+                <span class="status-badge" :class="'status-' + statusBadge(m)" x-text="statusLabel(m)"></span>
+              </div>
+              <div class="machine-card-oee" x-text="fmtNum(m.data.oee) + '% OEE'"></div>
+              <p class="hint" style="margin:2px 0 10px;">
+                Part terakhir: <b x-text="m.data.lastPart || '-'"></b>
+              </p>
+              <div class="machine-card-stats" style="flex-wrap:wrap; row-gap:8px;">
+                <div><span class="hint">Output</span><br><b x-text="fmtNum(m.data.stroke)"></b></div>
+                <div><span class="hint">NG</span><br><b x-text="fmtNum(m.data.ng)"></b></div>
+                <div><span class="hint">Downtime</span><br><b x-text="fmtNum(m.data.downtimeMenit) + ' m'"></b></div>
+              </div>
+              <div class="machine-card-stats" style="flex-wrap:wrap; row-gap:8px; margin-top:8px;">
+                <div><span class="hint">GSPH</span><br><b x-text="fmtNum(m.data.gsph)"></b></div>
+                <div><span class="hint">Target</span><br><b x-text="fmtNum(m.data.targetGsph)"></b></div>
+                <div><span class="hint">Perf</span><br><b x-text="fmtNum(m.data.performanceFactor) + '%'"></b></div>
+              </div>
+              <div class="sqcpm-bar" style="margin-top:12px;">
+                <div class="sqcpm-bar-fill" :style="'width:' + Math.max(0, Math.min(100, m.data.oee)) + '%'"></div>
+              </div>
+            </a>
+          </template>
+        </div>
+      </div>
+    </template>
+  </main>
+</div>
+
+<script>
+const MACHINES = [
+  { key: "E-02", label: "E-02", href: "machines/e-02.html" },
+  { key: "E-03", label: "E-03", href: "machines/e-03.html" },
+  { key: "E-04", label: "E-04", href: "machines/e-04.html" },
+  { key: "E-05", label: "E-05", href: "machines/e-05.html" },
+  { key: "E-06", label: "E-06", href: "machines/e-06.html" },
+  { key: "E-07", label: "E-07", href: "machines/e-07.html" },
+];
+
+function fmtNum(n) {
+  if (n === null || n === undefined || Number.isNaN(Number(n))) return "-";
+  return Number(n).toLocaleString("en-US", { maximumFractionDigits: 1 });
+}
+function localDateStr(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function dashboardExhaust() {
+  return {
+    session: null, profile: null, mobileNavOpen: false, sidebarCollapsed: true,
+    loading: true,
+    theme: localStorage.getItem("theme_v1") || "light",
+    tanggal: localDateStr(new Date()),
+    shiftFilter: "all",
+    machines: [],
+    totals: { stroke: 0, ng: 0, downtimeMenit: 0, avgOee: 0 },
+    lineAktif: 0,
+    fmtNum,
+    isLeaderOrAdmin() { return this.profile && ["admin", "leader"].includes(this.profile.role); },
+    toggleTheme() {
+      this.theme = this.theme === "dark" ? "light" : "dark";
+      localStorage.setItem("theme_v1", this.theme);
+      document.documentElement.setAttribute("data-theme", this.theme);
+    },
+    bounds() {
+      const d = new Date(this.tanggal + "T00:00:00");
+      if (this.shiftFilter === "1") {
+        return { start: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 7, 0), end: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 19, 30) };
+      }
+      if (this.shiftFilter === "2") {
+        return { start: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 19, 30), end: new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 7, 0) };
+      }
+      return { start: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0), end: new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 0) };
+    },
+    statusClass(m) {
+      if (!m.data || m.data.stroke === 0) return "warn"; // idle -> abu2, dianggap warn utk border
+      const oee = m.data.oee || 0;
+      if (oee >= 75) return "good";
+      if (oee >= 50) return "warn";
+      return "bad";
+    },
+    statusBadge(m) {
+      if (!m.data || m.data.stroke === 0) return "idle";
+      const oee = m.data.oee || 0;
+      if (oee >= 75) return "running";
+      if (oee >= 50) return "warn";
+      return "stop";
+    },
+    statusLabel(m) {
+      if (!m.data || m.data.stroke === 0) return "OFF";
+      const oee = m.data.oee || 0;
+      if (oee >= 75) return "GOOD";
+      if (oee >= 50) return "FAIR";
+      return "POOR";
+    },
+    async init() {
+      this.session = await requireAuth();
+      if (!this.session) return;
+      const { data } = await supabaseClient.from("profiles").select("*").eq("id", this.session.user.id).maybeSingle();
+      this.profile = data;
+      await this.fetchAll();
+    },
+    async fetchAll() {
+      this.loading = true;
+      const { start, end } = this.bounds();
+
+      const results = await Promise.all(MACHINES.map(async (m) => {
+        const [aggRes, settingsRes, statusRes] = await Promise.all([
+          supabaseClient.rpc("performance_aggregate", { p_mesin: m.key, p_stasiun_list: null, p_start: start.toISOString(), p_end: end.toISOString() }),
+          supabaseClient.from("mesin_settings").select("*").eq("mesin", m.key).maybeSingle(),
+          supabaseClient.from("production_log").select("part_number, waktu_akhir").eq("mesin", m.key)
+            .gte("waktu_awal", start.toISOString()).lt("waktu_awal", end.toISOString())
+            .order("waktu_awal", { ascending: false }).limit(1),
+        ]);
+        const row = (aggRes.data && aggRes.data[0]) || {};
+        const settings = settingsRes.data || { gsph_target_mode: "fixed", gsph_target_fixed: 0 };
+        const whJam = (Number(row.wh_menit) || 0) / 60;
+        const stroke = Number(row.stroke) || 0;
+        const ng = Number(row.ng) || 0;
+        const downtimeMenit = Math.round(Number(row.downtime_menit) || 0);
+        const targetStdMenit = Number(row.target_std_menit) || 0;
+        let targetGsph = Number(settings.gsph_target_fixed) || 0;
+        if (settings.gsph_target_mode === "per_part" && targetStdMenit > 0) targetGsph = stroke / (targetStdMenit / 60);
+        const gsph = whJam > 0 ? stroke / whJam : 0;
+        const availability = whJam > 0 ? Math.max(0, (whJam * 60 - downtimeMenit) / (whJam * 60)) * 100 : 0;
+        const performanceFactor = targetGsph > 0 ? Math.min(gsph / targetGsph, 1) * 100 : 0;
+        const quality = stroke > 0 ? Math.max(0, (stroke - ng) / stroke) * 100 : 100;
+        const oee = (availability / 100) * (performanceFactor / 100) * (quality / 100) * 100;
+        const last = (statusRes.data && statusRes.data[0]) || null;
+        return { mesin: m.key, data: { stroke, ng, downtimeMenit, gsph, targetGsph, performanceFactor, oee, lastPart: last ? last.part_number : null } };
+      }));
+
+      this.machines = MACHINES.map((m) => ({ ...m, data: results.find((r) => r.mesin === m.key).data }));
+
+      const t = results.reduce((acc, r) => ({
+        stroke: acc.stroke + r.data.stroke,
+        ng: acc.ng + r.data.ng,
+        downtimeMenit: acc.downtimeMenit + r.data.downtimeMenit,
+        oeeSum: acc.oeeSum + r.data.oee,
+      }), { stroke: 0, ng: 0, downtimeMenit: 0, oeeSum: 0 });
+      this.totals = { stroke: t.stroke, ng: t.ng, downtimeMenit: t.downtimeMenit, avgOee: t.oeeSum / MACHINES.length };
+      this.lineAktif = results.filter((r) => r.data.stroke > 0).length;
+
+      this.loading = false;
+    },
+    logout,
+  };
+}
+</script>
+</body>
+</html>

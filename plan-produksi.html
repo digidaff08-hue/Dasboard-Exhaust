@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan Produksi — Welding Exhaust</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#f4f5f7">
+<link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+  (function () {
+    var t = localStorage.getItem("theme_v1") || "light";
+    document.documentElement.setAttribute("data-theme", t);
+  })();
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="assets/supabaseClient.js"></script>
+</head>
+<body>
+
+<div class="app-shell" x-data="planProduksi()" x-init="init()">
+  <div class="mobile-topbar">
+    <button class="hamburger" @click="mobileNavOpen = true">☰</button>
+    <span class="mobile-title">Plan Produksi</span>
+  </div>
+  <div class="sidebar-overlay" x-show="mobileNavOpen" @click="mobileNavOpen = false" x-cloak></div>
+  <aside class="sidebar" :class="[mobileNavOpen ? 'sidebar-open' : '', sidebarCollapsed ? 'sidebar-collapsed' : '']">
+    <button class="sidebar-collapse-btn" @click="sidebarCollapsed = !sidebarCollapsed">
+      <span x-show="!sidebarCollapsed">‹</span><span x-show="sidebarCollapsed">›</span>
+    </button>
+    <div class="sidebar-brand" x-show="!sidebarCollapsed">PRESS SHOP<span>·</span>SYSTEM</div>
+    <nav class="sidebar-nav" @click="mobileNavOpen = false">
+      <a href="dashboard-exhaust.html" class="sidebar-link" title="Dashboard Exhaust"><span>📊</span><span x-show="!sidebarCollapsed">Dashboard Exhaust</span></a>
+      <a href="index.html" class="sidebar-link" title="Dashboard"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a>
+      <a href="plan-produksi.html" class="sidebar-link active" title="Plan Produksi"><span>📅</span><span x-show="!sidebarCollapsed">Plan Produksi</span></a>
+      <a href="input-produksi.html" class="sidebar-link" title="Input Produksi"><span>⚙️</span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-attendance.html" class="sidebar-link" title="Input Attendance"><span>👥</span><span x-show="!sidebarCollapsed">Input Attendance</span></a>
+      </template>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-scrap.html" class="sidebar-link" title="Input Scrap"><span>♻️</span><span x-show="!sidebarCollapsed">Input Scrap</span></a>
+      </template>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-safety.html" class="sidebar-link" title="Input Safety"><span>⛑️</span><span x-show="!sidebarCollapsed">Input Safety</span></a>
+      </template>
+    </nav>
+    <div class="sidebar-foot" x-show="!sidebarCollapsed">
+      <div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
+      <span class="badge" :class="profile?.role === 'admin' ? 'role-admin' : ''" x-text="profile?.jabatan || profile?.role || '...'"></span>
+      <button class="btn-ghost btn-sm" @click="logout()">Keluar</button>
+    </div>
+    <button class="sidebar-logout-collapsed" x-show="sidebarCollapsed" @click="logout()" title="Keluar">⏻</button>
+  </aside>
+
+  <main class="main">
+    <div class="dash-topbar">
+      <div class="dash-title-block">
+        <h1>PLAN PRODUKSI</h1>
+        <p>Rencana Produksi Harian per Part Number</p>
+      </div>
+      <div class="dash-controls">
+        <input type="date" x-model="tanggal" @change="fetchAll()">
+        <button class="theme-toggle" @click="toggleTheme()" :title="theme === 'dark' ? 'Ke mode terang' : 'Ke mode gelap'">
+          <span x-text="theme === 'dark' ? '☀️' : '🌙'"></span>
+        </button>
+      </div>
+    </div>
+
+    <template x-if="msg"><div :class="msgError ? 'error-msg' : 'success-msg'" x-text="msg"></div></template>
+    <template x-if="loading"><p class="empty-state">Memuat data...</p></template>
+
+    <template x-if="!loading">
+      <div class="dash-body">
+
+        <!-- ===== Baris atas: tabel Plan Harian + chart Kapasitas Harian ===== -->
+        <div class="plan-grid-top">
+          <div class="dash-panel">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+              <p class="dash-panel-title" style="margin:0;">Plan Harian</p>
+              <span class="plan-date-badge" x-text="'Plan Date: ' + tanggalShort"></span>
+            </div>
+            <div class="table-wrap">
+              <table class="plan-table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <template x-for="mk in MACHINE_KEYS" :key="mk"><th x-text="mk"></th></template>
+                    <th>Backlog</th>
+                    <th>Plan Awal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="part in partList" :key="part">
+                    <tr>
+                      <td x-text="part"></td>
+                      <template x-for="mk in MACHINE_KEYS" :key="mk">
+                        <td x-text="planAwalCell(part, mk) || ''"></td>
+                      </template>
+                      <td x-text="backlogFor(part) || ''"></td>
+                      <td><b x-text="rowTotal(part)"></b></td>
+                    </tr>
+                  </template>
+                  <tr x-show="partList.length === 0"><td :colspan="MACHINE_KEYS.length + 3" class="empty-state">Belum ada plan untuk tanggal ini.</td></tr>
+                  <tr class="plan-total-row" x-show="partList.length > 0">
+                    <td>TOTAL PLAN HARIAN</td>
+                    <template x-for="mk in MACHINE_KEYS" :key="mk">
+                      <td x-text="columnTotal(mk)"></td>
+                    </template>
+                    <td x-text="backlogGrandTotal()"></td>
+                    <td x-text="grandTotal()"></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="dash-panel">
+            <p class="dash-panel-title">Kapasitas Harian (Plan per Part × Line)</p>
+            <div class="dash-chart-sm" style="min-height:280px;"><canvas id="kapasitasChart"></canvas></div>
+          </div>
+        </div>
+
+        <!-- ===== Form input plan (khusus admin/leader) ===== -->
+        <template x-if="isLeaderOrAdmin()">
+          <div class="panel">
+            <p class="panel-title">Input / Edit Plan</p>
+            <div class="plan-form-grid">
+              <div class="field">
+                <label>Part Number</label>
+                <div class="combo" x-data="comboBox(() => partNumberOptionsForMesin(form.mesin), () => form.part_number, (v) => form.part_number = v)" @click.outside="open = false">
+                  <input type="text" x-model="query" @focus="query = value(); open = true" @input="onInput()" placeholder="ketik / pilih part">
+                  <div class="combo-list" x-show="open" x-cloak>
+                    <template x-for="opt in filtered()" :key="opt"><div class="combo-item" @click="select(opt)" x-text="opt"></div></template>
+                  </div>
+                </div>
+              </div>
+              <div class="field"><label>Line</label>
+                <select x-model="form.mesin">
+                  <template x-for="mk in MACHINE_KEYS" :key="mk"><option :value="mk" x-text="mk"></option></template>
+                </select>
+              </div>
+              <div class="field"><label>Shift</label>
+                <select x-model="form.shift">
+                  <option value="1">Shift 1</option>
+                  <option value="2">Shift 2</option>
+                </select>
+              </div>
+              <div class="field"><label>Qty Rencana</label><input type="number" min="0" x-model="form.qty_rencana"></div>
+              <div class="field"><button type="button" class="btn-primary" @click="savePlan()">Simpan Plan</button></div>
+            </div>
+
+            <div class="plan-form-grid" style="margin-top:14px; padding-top:14px; border-top:1px dashed var(--border);">
+              <div class="field">
+                <label>Backlog — Part Number</label>
+                <div class="combo" x-data="comboBox(() => allPartNumberValues(), () => backlogForm.part_number, (v) => backlogForm.part_number = v)" @click.outside="open = false">
+                  <input type="text" x-model="query" @focus="query = value(); open = true" @input="onInput()" placeholder="ketik / pilih part">
+                  <div class="combo-list" x-show="open" x-cloak>
+                    <template x-for="opt in filtered()" :key="opt"><div class="combo-item" @click="select(opt)" x-text="opt"></div></template>
+                  </div>
+                </div>
+              </div>
+              <div class="field"><label>Backlog</label><input type="number" min="0" x-model="backlogForm.backlog"></div>
+              <div class="field"><button type="button" class="btn-secondary" @click="saveBacklog()">Simpan Backlog</button></div>
+            </div>
+
+            <p class="panel-subtitle" style="margin-top:18px;">Plan tanggal ini <span class="count" x-text="planRows.length + ' baris'"></span></p>
+            <div class="planning-list">
+              <template x-for="r in planRows" :key="r.id">
+                <div class="plan-entry-row">
+                  <span class="badge" x-text="r.mesin"></span>
+                  <span x-text="'Shift ' + r.shift"></span>
+                  <b x-text="r.part_number"></b>
+                  <span class="mono" x-text="fmtNum(r.qty_rencana) + ' pcs'"></span>
+                  <button class="btn-ghost btn-sm" @click="deletePlan(r.id)">Hapus</button>
+                </div>
+              </template>
+              <p class="empty-state" x-show="planRows.length === 0">Belum ada plan.</p>
+            </div>
+          </div>
+        </template>
+
+        <!-- ===== Shift 1 & Shift 2 ===== -->
+        <div class="plan-shift-grid">
+          <div class="dash-panel">
+            <p class="dash-panel-title">Shift 1</p>
+            <div class="table-wrap">
+              <table class="plan-shift-table">
+                <thead>
+                  <tr>
+                    <th rowspan="2">Item</th>
+                    <template x-for="mk in MACHINE_KEYS" :key="mk"><th colspan="2" x-text="mk"></th></template>
+                    <th rowspan="2">Balance</th>
+                  </tr>
+                  <tr>
+                    <template x-for="mk in MACHINE_KEYS" :key="mk"><th>Plan</th><th>Act</th></template>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="part in shiftPartList(1)" :key="part">
+                    <tr>
+                      <td x-text="part"></td>
+                      <template x-for="mk in MACHINE_KEYS" :key="mk">
+                        <td x-text="shiftCell(part, mk, 1, 'plan') || ''"></td>
+                        <td x-text="shiftCell(part, mk, 1, 'act') || ''"></td>
+                      </template>
+                      <td :class="balanceClass(part, 1)" x-text="shiftBalance(part, 1)"></td>
+                    </tr>
+                  </template>
+                  <tr x-show="shiftPartList(1).length === 0"><td :colspan="MACHINE_KEYS.length * 2 + 2" class="empty-state">Belum ada plan Shift 1.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="dash-panel">
+            <p class="dash-panel-title">Shift 2</p>
+            <div class="table-wrap">
+              <table class="plan-shift-table">
+                <thead>
+                  <tr>
+                    <th rowspan="2">Item</th>
+                    <template x-for="mk in MACHINE_KEYS" :key="mk"><th colspan="2" x-text="mk"></th></template>
+                    <th rowspan="2">Balance</th>
+                  </tr>
+                  <tr>
+                    <template x-for="mk in MACHINE_KEYS" :key="mk"><th>Plan</th><th>Act</th></template>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="part in shiftPartList(2)" :key="part">
+                    <tr>
+                      <td x-text="part"></td>
+                      <template x-for="mk in MACHINE_KEYS" :key="mk">
+                        <td x-text="shiftCell(part, mk, 2, 'plan') || ''"></td>
+                        <td x-text="shiftCell(part, mk, 2, 'act') || ''"></td>
+                      </template>
+                      <td :class="balanceClass(part, 2)" x-text="shiftBalance(part, 2)"></td>
+                    </tr>
+                  </template>
+                  <tr x-show="shiftPartList(2).length === 0"><td :colspan="MACHINE_KEYS.length * 2 + 2" class="empty-state">Belum ada plan Shift 2.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </template>
+  </main>
+</div>
+
+<script>
+const MACHINE_KEYS = ["E-02", "E-03", "E-04", "E-05", "E-06", "E-07"];
+const LINE_COLORS = ["#5b8def", "#f2a541", "#e05a5a", "#31b06a", "#8f6bd6", "#2fb8c6"];
+
+function fmtNum(n) {
+  if (n === null || n === undefined || Number.isNaN(Number(n))) return "-";
+  return Number(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
+}
+function localDateStr(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+// Combobox generik dipakai form Part Number (sama pola dgn assets/machine-page.js)
+function comboBox(getOptions, getValue, setValue) {
+  return {
+    query: "", open: false,
+    value() { return getValue() || ""; },
+    filtered() {
+      const opts = getOptions() || [];
+      const q = (this.query || "").toLowerCase();
+      if (!q) return opts.slice(0, 50);
+      return opts.filter((o) => o.toLowerCase().includes(q)).slice(0, 50);
+    },
+    select(opt) { this.query = opt; setValue(opt); this.open = false; },
+    onInput() { setValue(this.query); this.open = true; },
+  };
+}
+
+function planProduksi() {
+  return {
+    session: null, profile: null, mobileNavOpen: false, sidebarCollapsed: true,
+    loading: true,
+    theme: localStorage.getItem("theme_v1") || "light",
+    tanggal: localDateStr(new Date()),
+    msg: "", msgError: false,
+    MACHINE_KEYS,
+    fmtNum,
+    planRows: [],       // production_plan_harian tanggal ybs
+    backlogRows: [],    // production_plan_backlog tanggal ybs
+    actualRows: [],     // hasil RPC plan_produksi_actual
+    partNumbersMaster: [], // semua part_numbers (utk dropdown form)
+    chart: null,
+    form: { part_number: "", mesin: "E-02", shift: "1", qty_rencana: "" },
+    backlogForm: { part_number: "", backlog: "" },
+
+    isLeaderOrAdmin() { return this.profile && ["admin", "leader"].includes(this.profile.role); },
+    toggleTheme() {
+      this.theme = this.theme === "dark" ? "light" : "dark";
+      localStorage.setItem("theme_v1", this.theme);
+      document.documentElement.setAttribute("data-theme", this.theme);
+    },
+    flash(m, isErr) { this.msg = m; this.msgError = !!isErr; setTimeout(() => { this.msg = ""; }, 4000); },
+
+    get tanggalShort() {
+      const d = new Date(this.tanggal + "T00:00:00");
+      return String(d.getDate()).padStart(2, "0");
+    },
+
+    partNumberOptionsForMesin(mesin) {
+      return this.partNumbersMaster.filter((p) => p.mesin === mesin).map((p) => p.value);
+    },
+    allPartNumberValues() {
+      return [...new Set(this.partNumbersMaster.map((p) => p.value))];
+    },
+
+    async init() {
+      this.session = await requireAuth();
+      if (!this.session) return;
+      const { data } = await supabaseClient.from("profiles").select("*").eq("id", this.session.user.id).maybeSingle();
+      this.profile = data;
+      const { data: pn } = await supabaseClient.from("part_numbers").select("mesin, value");
+      this.partNumbersMaster = pn || [];
+      await this.fetchAll();
+    },
+
+    async fetchAll() {
+      this.loading = true;
+      const [planRes, backlogRes, actRes] = await Promise.all([
+        supabaseClient.from("production_plan_harian").select("*").eq("tanggal", this.tanggal),
+        supabaseClient.from("production_plan_backlog").select("*").eq("tanggal", this.tanggal),
+        supabaseClient.rpc("plan_produksi_actual", { p_tanggal: this.tanggal }),
+      ]);
+      this.planRows = planRes.data || [];
+      this.backlogRows = backlogRes.data || [];
+      this.actualRows = actRes.data || [];
+      this.loading = false;
+      this.$nextTick(() => this.renderChart());
+    },
+
+    // ---------- daftar part (baris tabel Plan Harian) ----------
+    get partList() {
+      return [...new Set(this.planRows.map((r) => r.part_number))].sort();
+    },
+    planAwalCell(part, mesin) {
+      const sum = this.planRows
+        .filter((r) => r.part_number === part && r.mesin === mesin)
+        .reduce((a, r) => a + (Number(r.qty_rencana) || 0), 0);
+      return sum > 0 ? fmtNum(sum) : "";
+    },
+    rowTotal(part) {
+      const sum = this.planRows.filter((r) => r.part_number === part).reduce((a, r) => a + (Number(r.qty_rencana) || 0), 0);
+      return fmtNum(sum);
+    },
+    columnTotal(mesin) {
+      const sum = this.planRows.filter((r) => r.mesin === mesin).reduce((a, r) => a + (Number(r.qty_rencana) || 0), 0);
+      return fmtNum(sum);
+    },
+    grandTotal() {
+      const sum = this.planRows.reduce((a, r) => a + (Number(r.qty_rencana) || 0), 0);
+      return fmtNum(sum);
+    },
+    backlogFor(part) {
+      const row = this.backlogRows.find((b) => b.part_number === part);
+      return row && row.backlog > 0 ? fmtNum(row.backlog) : "";
+    },
+    backlogGrandTotal() {
+      const sum = this.backlogRows.reduce((a, r) => a + (Number(r.backlog) || 0), 0);
+      return sum > 0 ? fmtNum(sum) : "0";
+    },
+
+    // ---------- tabel Shift 1 / Shift 2 ----------
+    shiftPartList(shift) {
+      const fromPlan = this.planRows.filter((r) => r.shift === shift).map((r) => r.part_number);
+      const fromAct = this.actualRows.filter((r) => r.shift === shift).map((r) => r.part_number);
+      return [...new Set([...fromPlan, ...fromAct])].sort();
+    },
+    shiftCell(part, mesin, shift, kind) {
+      if (kind === "plan") {
+        const row = this.planRows.find((r) => r.part_number === part && r.mesin === mesin && r.shift === shift);
+        return row && row.qty_rencana > 0 ? fmtNum(row.qty_rencana) : "";
+      }
+      const row = this.actualRows.find((r) => r.part_number === part && r.mesin === mesin && r.shift === shift);
+      return row && row.qty_aktual > 0 ? fmtNum(row.qty_aktual) : "";
+    },
+    shiftTotals(part, shift) {
+      const plan = this.planRows.filter((r) => r.part_number === part && r.shift === shift).reduce((a, r) => a + (Number(r.qty_rencana) || 0), 0);
+      const act = this.actualRows.filter((r) => r.part_number === part && r.shift === shift).reduce((a, r) => a + (Number(r.qty_aktual) || 0), 0);
+      return { plan, act };
+    },
+    shiftBalance(part, shift) {
+      const { plan, act } = this.shiftTotals(part, shift);
+      return fmtNum(act - plan);
+    },
+    balanceClass(part, shift) {
+      const { plan, act } = this.shiftTotals(part, shift);
+      if (plan === 0 && act === 0) return "";
+      return act >= plan ? "balance-ok" : "balance-bad";
+    },
+
+    // ---------- simpan / hapus ----------
+    async savePlan() {
+      const f = this.form;
+      if (!f.part_number || !f.mesin || !f.shift) { this.flash("Part Number, Line, dan Shift wajib diisi.", true); return; }
+      const payload = {
+        tanggal: this.tanggal, part_number: f.part_number.trim(), mesin: f.mesin,
+        shift: Number(f.shift), qty_rencana: Number(f.qty_rencana) || 0,
+      };
+      const { error } = await supabaseClient.from("production_plan_harian").upsert(payload, { onConflict: "tanggal,part_number,mesin,shift" });
+      if (error) { this.flash("Gagal simpan plan: " + error.message, true); return; }
+      this.flash("Plan tersimpan.");
+      this.form.qty_rencana = "";
+      await this.fetchAll();
+    },
+    async deletePlan(id) {
+      const { error } = await supabaseClient.from("production_plan_harian").delete().eq("id", id);
+      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
+      await this.fetchAll();
+    },
+    async saveBacklog() {
+      const f = this.backlogForm;
+      if (!f.part_number) { this.flash("Part Number wajib diisi.", true); return; }
+      const payload = { tanggal: this.tanggal, part_number: f.part_number.trim(), backlog: Number(f.backlog) || 0 };
+      const { error } = await supabaseClient.from("production_plan_backlog").upsert(payload, { onConflict: "tanggal,part_number" });
+      if (error) { this.flash("Gagal simpan backlog: " + error.message, true); return; }
+      this.flash("Backlog tersimpan.");
+      this.backlogForm.backlog = "";
+      await this.fetchAll();
+    },
+
+    // ---------- chart Kapasitas Harian ----------
+    renderChart() {
+      const canvas = document.getElementById("kapasitasChart");
+      if (!canvas || typeof Chart === "undefined") return;
+      if (this.chart) this.chart.destroy();
+      const parts = this.partList;
+      const datasets = parts.map((part, idx) => ({
+        label: part,
+        data: MACHINE_KEYS.map((mk) => this.planRows.filter((r) => r.part_number === part && r.mesin === mk).reduce((a, r) => a + (Number(r.qty_rencana) || 0), 0)),
+        backgroundColor: LINE_COLORS[idx % LINE_COLORS.length],
+        borderRadius: 3, stack: "plan",
+      }));
+      this.chart = new Chart(canvas, {
+        type: "bar",
+        data: { labels: MACHINE_KEYS, datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "bottom", labels: { color: cssVar("--muted"), boxWidth: 8, boxHeight: 8, font: { size: 9 }, usePointStyle: true, pointStyle: "circle" } },
+            tooltip: { backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"), borderColor: cssVar("--border"), borderWidth: 1, padding: 10 },
+          },
+          scales: {
+            x: { stacked: true, ticks: { color: cssVar("--chart-tick"), font: { size: 10 } }, grid: { display: false }, border: { display: false } },
+            y: { stacked: true, ticks: { color: cssVar("--chart-tick"), font: { size: 10 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: false }, beginAtZero: true },
+          },
+        },
+      });
+    },
+
+    logout,
+  };
+}
+</script>
+</body>
+</html>
