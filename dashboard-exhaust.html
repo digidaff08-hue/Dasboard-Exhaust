@@ -152,7 +152,7 @@
 
     <!-- ===== TAB: BULANAN ===== -->
     <template x-if="activeTab === 'bulanan'">
-      <div>
+      <div class="bulanan-fill">
         <template x-if="bulananLoading"><p class="empty-state">Memuat data bulanan...</p></template>
         <template x-if="!bulananLoading">
           <div class="dash-body bulanan-body">
@@ -220,24 +220,26 @@
           <template x-for="line in bulanan.downtimeTerbesar" :key="line.mesin">
             <div class="dash-panel dt-terbesar-panel">
               <span class="badge dt-terbesar-badge" x-text="line.mesin"></span>
-              <table class="table-compact dt-terbesar-table">
-                <thead>
-                  <tr>
-                    <th>PIC</th>
-                    <th>Problem</th>
-                    <th class="dt-terbesar-value">Menit</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <template x-for="(row, i) in line.rowsPadded" :key="line.mesin + '-' + i">
+              <div class="table-wrap">
+                <table class="table-compact dt-terbesar-table">
+                  <thead>
                     <tr>
-                      <td class="dt-terbesar-pic" x-text="row.pic"></td>
-                      <td class="dt-terbesar-problem" x-text="row.problem"></td>
-                      <td class="mono dt-terbesar-value" x-text="row.value"></td>
+                      <th>PIC</th>
+                      <th>Problem</th>
+                      <th class="dt-terbesar-value">Menit</th>
                     </tr>
-                  </template>
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    <template x-for="(row, i) in line.rowsPadded" :key="line.mesin + '-' + i">
+                      <tr>
+                        <td class="dt-terbesar-pic" x-text="row.pic"></td>
+                        <td class="dt-terbesar-problem" x-text="row.problem"></td>
+                        <td class="mono dt-terbesar-value" x-text="row.value"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </template>
         </div>

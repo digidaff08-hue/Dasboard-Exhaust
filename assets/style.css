@@ -1461,22 +1461,24 @@ td.mono, .mono { font-family: var(--font-mono); }
   .downtime-terbesar-grid { grid-template-columns: 1fr; }
 }
 
-/* ---------- Tab Bulanan: versi ringkas biar 1 layar tanpa scroll ---------- */
-.dash-body.bulanan-body { gap: 10px; }
-.bulanan-body .kpi-chart { height: 90px; margin-top: 4px; }
-.bulanan-body .dash-panel { padding: 10px 12px; }
-.bulanan-body .dash-panel-title { margin: 0 0 6px; font-size: 10px; }
-.bulanan-body .dash-chart-sm { height: 100px; min-height: 0; }
+/* ---------- Tab Bulanan: ikut tinggi layar (tanpa sisa kosong di bawah) ---------- */
+.bulanan-fill { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.dash-body.bulanan-body { gap: 10px; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.bulanan-body .bulanan-kpi-grid,
+.bulanan-body .bulanan-row2,
+.bulanan-body .weekly-grid,
+.bulanan-body .downtime-terbesar-grid { flex: 1 1 0; min-height: 0; grid-template-rows: 1fr; }
+.bulanan-body .dash-panel-title { flex: 0 0 auto; margin: 0 0 6px; font-size: 10px; }
+.bulanan-body .dash-panel { padding: 10px 12px; height: 100%; }
+.bulanan-body .kpi-card { height: 100%; }
+.bulanan-body .kpi-chart,
+.bulanan-body .dash-chart-sm { flex: 1; height: auto; min-height: 0; margin-top: 4px; }
 .bulanan-body .kpi-value { font-size: 20px; }
 .bulanan-body .kpi-sub { font-size: 9px; }
-.bulanan-body .bulanan-kpi-grid,
-.bulanan-body .weekly-grid,
-.bulanan-body .downtime-terbesar-grid { gap: 8px; }
 .bulanan-body .dt-terbesar-table th { padding: 2px 4px 4px; font-size: 8.5px; }
 .bulanan-body .dt-terbesar-table td { padding: 3px 4px; font-size: 10.5px; }
-.bulanan-body .dt-terbesar-badge { font-size: 10px; padding: 1px 6px; }
-.bulanan-body .bulanan-row2 { gap: 8px; }
-.bulanan-body .dt-terbesar-panel { gap: 4px; }
+.bulanan-body .dt-terbesar-badge { font-size: 10px; padding: 1px 6px; flex-shrink: 0; }
+.bulanan-body .dt-terbesar-panel { gap: 6px; }
 
 /* ---------- Wrapper konten dashboard (di bawah topbar) ---------- */
 .dash-body {
