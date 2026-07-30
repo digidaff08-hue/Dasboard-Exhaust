@@ -467,9 +467,23 @@ function dashboardExhaust() {
           act: MACHINES.map((m) => { const r = lineRows.find((x) => x.mesin === m.key); return r ? Math.round(Number(r.act_menit)) : 0; }),
         };
 
-        // Weekly Breakdown (ISO week, Senin-Minggu) -- bulan berjalan
+        // Weekly Breakdown (ISO week, Senin-Minggu) -- bulan berjalan.
+        // Selalu tampilkan semua minggu kalender di bulan ini (walau kosong),
+        // bukan cuma minggu yang kebetulan ada data downtime-nya.
         const weeklyRows = weeklyRes.data || [];
-        const weekStarts = Array.from(new Set(weeklyRows.map((r) => r.minggu_mulai))).sort();
+        const isoWeekStart = (d) => {
+          const day = d.getDay(); // 0=Minggu .. 6=Sabtu
+          const diffToMonday = (day + 6) % 7; // Senin = 0
+          const ws = new Date(d);
+          ws.setDate(d.getDate() - diffToMonday);
+          ws.setHours(0, 0, 0, 0);
+          return ws;
+        };
+        const weekStartSet = new Set();
+        for (let d = new Date(bulanIni); d < bulanDepan; d.setDate(d.getDate() + 1)) {
+          weekStartSet.add(localDateStr(isoWeekStart(d)));
+        }
+        const weekStarts = Array.from(weekStartSet).sort();
         const weekly = weekStarts.map((ws) => ({
           labels: MACHINES.map((m) => m.key),
           values: MACHINES.map((m) => {
@@ -477,6 +491,10 @@ function dashboardExhaust() {
             return r ? Math.round(Number(r.downtime_menit)) : 0;
           }),
         }));
+        // Selalu tampilkan sampai Week 5 (beberapa bulan memang punya 5 minggu
+        // kalender) supaya layoutnya konsisten -- diisi 0 kalau minggunya
+        // tidak ada di bulan ini.
+        while (weekly.length < 5) weekly.push({ labels: MACHINES.map((m) => m.key), values: MACHINES.map(() => 0) });
 
         // Downtime Terbesar per line -- selalu tampilkan 5 baris ke bawah,
         // baris kosong jadi placeholder kalau datanya belum sampai 5.
