@@ -283,7 +283,14 @@ function dashboardExhaust() {
     lineAktif: 0,
     fmtNum,
     isLeaderOrAdmin() { return this.profile && ["admin", "leader"].includes(this.profile.role); },
+    destroyBulananCharts() {
+      Object.keys(this.bulananCharts).forEach((id) => {
+        try { this.bulananCharts[id].destroy(); } catch (e) { /* noop */ }
+        delete this.bulananCharts[id];
+      });
+    },
     async setTab(tab) {
+      if (this.activeTab === "bulanan" && tab !== "bulanan") this.destroyBulananCharts();
       this.activeTab = tab;
       if (tab === "bulanan") {
         await this.fetchBulanan();
@@ -506,6 +513,10 @@ function dashboardExhaust() {
       const legend = (show) => ({ display: show, position: "bottom", labels: { color: cssVar("--muted"), boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 9 }, padding: 8 } });
       const tooltip = () => ({ backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"), borderColor: cssVar("--border"), borderWidth: 1, padding: 8 });
       const safe = (fn, label) => { try { fn(); } catch (e) { console.error("Gagal render chart Bulanan:", label, e); } };
+      // Animasi dimatikan: dashboard statis, dan mencegah error "Cannot read
+      // properties of null (reading 'save')" saat chart di-destroy/diganti
+      // sebelum animasinya selesai (leftover animation frame di Chart.js).
+      const noAnim = { duration: 0 };
 
       // --- 4 kartu KPI (bar Actual + line Target) ---
       const kpiCombo = (canvasId, labels, actual, target, barColor) => {
@@ -521,7 +532,7 @@ function dashboardExhaust() {
             ],
           },
           options: {
-            responsive: true, maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false, animation: noAnim,
             plugins: { legend: legend(true), tooltip: tooltip() },
             scales: baseScales(),
           },
@@ -545,7 +556,7 @@ function dashboardExhaust() {
               ],
             },
             options: {
-              responsive: true, maintainAspectRatio: false,
+              responsive: true, maintainAspectRatio: false, animation: noAnim,
               plugins: { legend: legend(true), tooltip: tooltip() },
               scales: {
                 x: baseScales().x,
@@ -570,7 +581,7 @@ function dashboardExhaust() {
                 { type: "line", label: "Trend", data: b.downtimeExhaust.values, borderColor: cssVar("--red"), pointRadius: 3, tension: 0.3 },
               ],
             },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
+            options: { responsive: true, maintainAspectRatio: false, animation: noAnim, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
           });
         }
       }, "downtimeExhaust");
@@ -589,7 +600,7 @@ function dashboardExhaust() {
               { label: "Act", data: act, backgroundColor: cssVar("--series-5"), borderRadius: 3, barPercentage: 0.7, categoryPercentage: 0.7 },
             ],
           },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
+          options: { responsive: true, maintainAspectRatio: false, animation: noAnim, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
         });
       };
       safe(() => groupedBar("dtSupportingChart", b.downtimeSupporting.labels, b.downtimeSupporting.plan, b.downtimeSupporting.act), "downtimeSupporting");
@@ -610,7 +621,7 @@ function dashboardExhaust() {
             type: "bar",
             data: { labels, datasets: [{ data: values, backgroundColor: colors, borderRadius: 3, barPercentage: 0.6, categoryPercentage: 0.7 }] },
             options: {
-              responsive: true, maintainAspectRatio: false,
+              responsive: true, maintainAspectRatio: false, animation: noAnim,
               plugins: { legend: legend(false), tooltip: tooltip() },
               scales: baseScales(),
             },
