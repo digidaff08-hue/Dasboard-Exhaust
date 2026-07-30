@@ -208,6 +208,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     repairViews: [], repairActiveViewId: null, repairPoints: [],
     repairKategoriOptions: [], newRepairKategoriValue: "",
     repairPartNoList: [],
+    repairPartNoModelMap: {},
     repairLogRows: [],
     repairForm: { tanggal: localDateStr(new Date()), part_number: "", qty: "", kategori_repair: "" },
     repairModalOpen: false, repairModalPoint: null, repairSaving: false,
@@ -1642,11 +1643,17 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const { data: models, error: modelErr } = await supabaseClient.from("ng_line_models").select("model").eq("mesin", machineKey);
       if (modelErr) { this.flash("Gagal memuat Model NG Inline: " + modelErr.message, true); return; }
       const modelNames = (models || []).map((m) => m.model);
-      if (modelNames.length === 0) { this.repairPartNoList = []; return; }
-      const { data: parts, error: partErr } = await supabaseClient.from("ng_model_parts").select("part_no").in("model", modelNames);
+      if (modelNames.length === 0) { this.repairPartNoList = []; this.repairPartNoModelMap = {}; return; }
+      const { data: parts, error: partErr } = await supabaseClient.from("ng_model_parts").select("part_no, model").in("model", modelNames);
       if (partErr) { this.flash("Gagal memuat Part No NG Inline: " + partErr.message, true); return; }
       const uniquePartNo = [...new Set((parts || []).map((p) => p.part_no))].sort((a, b) => a.localeCompare(b));
       this.repairPartNoList = uniquePartNo;
+      // Lookup Part No -> Model, dipakai buat kolom "Model" di tabel Riwayat
+      // Repair (otomatis, bukan isian manual). Kalau 1 part_no kepakai di
+      // lebih dari 1 model, diambil yang pertama ketemu.
+      const map = {};
+      (parts || []).forEach((p) => { if (!map[p.part_no]) map[p.part_no] = p.model; });
+      this.repairPartNoModelMap = map;
     },
     async fetchRepairLog() {
       const { data, error } = await supabaseClient.from("repair_log").select("*").eq("mesin", machineKey).order("tanggal", { ascending: false }).order("created_at", { ascending: false }).limit(200);
