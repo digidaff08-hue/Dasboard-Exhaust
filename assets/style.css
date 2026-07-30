@@ -1420,18 +1420,20 @@ td.mono, .mono { font-family: var(--font-mono); }
   grid-template-columns: repeat(6, 1fr);
   gap: 14px;
 }
-.dt-terbesar-panel { overflow: hidden; }
+.dt-terbesar-outer {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 6px);
+  padding: 8px;
+}
+.dt-terbesar-outer .dt-terbesar-panel { box-shadow: var(--shadow-md); margin: 0; }
+.dt-terbesar-panel { gap: 10px; }
 .dt-terbesar-badge {
-  display: block;
-  margin: -16px -16px 10px -16px;
-  padding: 8px 16px;
+  align-self: flex-start;
   background: var(--category-other);
   color: #fff;
   font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  border-radius: 0;
 }
 .dt-terbesar-table td { padding: 6px 4px; vertical-align: top; border-bottom: 1px solid var(--border); }
 .dt-terbesar-table tr:last-child td { border-bottom: none; }
