@@ -62,74 +62,104 @@
         <h1>DASHBOARD EXHAUST</h1>
       </div>
       <div class="dash-controls">
-        <input type="date" x-model="tanggal" @change="fetchAll()">
-        <select x-model="shiftFilter" @change="fetchAll()">
-          <option value="all">Semua Shift</option>
-          <option value="1">Shift 1 (07:00–19:30)</option>
-          <option value="2">Shift 2 (19:30–07:00)</option>
-        </select>
+        <template x-if="activeTab === 'harian'">
+          <input type="date" x-model="tanggal" @change="fetchAll()">
+        </template>
+        <template x-if="activeTab === 'harian'">
+          <select x-model="shiftFilter" @change="fetchAll()">
+            <option value="all">Semua Shift</option>
+            <option value="1">Shift 1 (07:00–19:30)</option>
+            <option value="2">Shift 2 (19:30–07:00)</option>
+          </select>
+        </template>
         <button class="theme-toggle" @click="toggleTheme()" :title="theme === 'dark' ? 'Ke mode terang' : 'Ke mode gelap'">
           <span x-text="theme === 'dark' ? '☀️' : '🌙'"></span>
         </button>
       </div>
     </div>
 
-    <template x-if="loading"><p class="empty-state">Memuat data...</p></template>
+    <!-- Switch Harian / Bulanan / Kontrol Kualitas -->
+    <div class="dash-subtab-nav" style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
+      <button class="btn-secondary btn-sm" :class="activeTab==='harian' ? 'btn-primary' : ''" @click="activeTab='harian'">Harian</button>
+      <button class="btn-secondary btn-sm" :class="activeTab==='bulanan' ? 'btn-primary' : ''" @click="activeTab='bulanan'">Bulanan</button>
+      <button class="btn-secondary btn-sm" :class="activeTab==='kualitas' ? 'btn-primary' : ''" @click="activeTab='kualitas'">Kontrol Kualitas</button>
+    </div>
 
-    <template x-if="!loading">
+    <!-- ===== TAB: HARIAN ===== -->
+    <template x-if="activeTab === 'harian'">
+      <div>
+        <template x-if="loading"><p class="empty-state">Memuat data...</p></template>
+
+        <template x-if="!loading">
+          <div class="dash-body">
+            <!-- Ringkasan total gabungan kecil di atas -->
+            <div class="fleet-summary-grid">
+              <div class="perf-card">
+                <span class="hint">Line Aktif</span>
+                <b class="mono" x-text="lineAktif + ' / 6'"></b>
+              </div>
+              <div class="perf-card">
+                <span class="hint">Total Output (Stroke)</span>
+                <b class="mono" x-text="fmtNum(totals.stroke)"></b>
+              </div>
+              <div class="perf-card">
+                <span class="hint">Total NG</span>
+                <b class="mono" x-text="fmtNum(totals.ng)"></b>
+              </div>
+              <div class="perf-card">
+                <span class="hint">Total Downtime (menit)</span>
+                <b class="mono" x-text="fmtNum(totals.downtimeMenit)"></b>
+              </div>
+              <div class="perf-card">
+                <span class="hint">Rata-rata OEE</span>
+                <b class="mono" x-text="fmtNum(totals.avgOee) + '%'"></b>
+              </div>
+            </div>
+
+            <!-- Kartu per Line -->
+            <div class="machine-cards-grid">
+              <template x-for="m in machines" :key="m.key">
+                <a :href="m.href" class="machine-card" :class="'machine-card-' + statusClass(m)">
+                  <div class="machine-card-top">
+                    <span class="machine-card-name" x-text="m.label"></span>
+                    <span class="status-badge" :class="'status-' + statusBadge(m)" x-text="statusLabel(m)"></span>
+                  </div>
+                  <div class="machine-card-oee" x-text="fmtNum(m.data.oee) + '% OEE'"></div>
+                  <p class="hint" style="margin:2px 0 10px;">
+                    Part terakhir: <b x-text="m.data.lastPart || '-'"></b>
+                  </p>
+                  <div class="machine-card-stats" style="flex-wrap:wrap; row-gap:8px;">
+                    <div><span class="hint">Output</span><br><b x-text="fmtNum(m.data.stroke)"></b></div>
+                    <div><span class="hint">NG</span><br><b x-text="fmtNum(m.data.ng)"></b></div>
+                    <div><span class="hint">Downtime</span><br><b x-text="fmtNum(m.data.downtimeMenit) + ' m'"></b></div>
+                  </div>
+                  <div class="machine-card-stats" style="flex-wrap:wrap; row-gap:8px; margin-top:8px;">
+                    <div><span class="hint">GSPH</span><br><b x-text="fmtNum(m.data.gsph)"></b></div>
+                    <div><span class="hint">Target</span><br><b x-text="fmtNum(m.data.targetGsph)"></b></div>
+                    <div><span class="hint">Perf</span><br><b x-text="fmtNum(m.data.performanceFactor) + '%'"></b></div>
+                  </div>
+                  <div class="sqcpm-bar" style="margin-top:12px;">
+                    <div class="sqcpm-bar-fill" :style="'width:' + Math.max(0, Math.min(100, m.data.oee)) + '%'"></div>
+                  </div>
+                </a>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+    </template>
+
+    <!-- ===== TAB: BULANAN (menunggu spesifikasi) ===== -->
+    <template x-if="activeTab === 'bulanan'">
       <div class="dash-body">
-        <!-- Ringkasan total gabungan kecil di atas -->
-        <div class="fleet-summary-grid">
-          <div class="perf-card">
-            <span class="hint">Line Aktif</span>
-            <b class="mono" x-text="lineAktif + ' / 6'"></b>
-          </div>
-          <div class="perf-card">
-            <span class="hint">Total Output (Stroke)</span>
-            <b class="mono" x-text="fmtNum(totals.stroke)"></b>
-          </div>
-          <div class="perf-card">
-            <span class="hint">Total NG</span>
-            <b class="mono" x-text="fmtNum(totals.ng)"></b>
-          </div>
-          <div class="perf-card">
-            <span class="hint">Total Downtime (menit)</span>
-            <b class="mono" x-text="fmtNum(totals.downtimeMenit)"></b>
-          </div>
-          <div class="perf-card">
-            <span class="hint">Rata-rata OEE</span>
-            <b class="mono" x-text="fmtNum(totals.avgOee) + '%'"></b>
-          </div>
-        </div>
+        <p class="empty-state">Tab Bulanan belum diisi — menunggu spesifikasi/data dari kamu.</p>
+      </div>
+    </template>
 
-        <!-- Kartu per Line -->
-        <div class="machine-cards-grid">
-          <template x-for="m in machines" :key="m.key">
-            <a :href="m.href" class="machine-card" :class="'machine-card-' + statusClass(m)">
-              <div class="machine-card-top">
-                <span class="machine-card-name" x-text="m.label"></span>
-                <span class="status-badge" :class="'status-' + statusBadge(m)" x-text="statusLabel(m)"></span>
-              </div>
-              <div class="machine-card-oee" x-text="fmtNum(m.data.oee) + '% OEE'"></div>
-              <p class="hint" style="margin:2px 0 10px;">
-                Part terakhir: <b x-text="m.data.lastPart || '-'"></b>
-              </p>
-              <div class="machine-card-stats" style="flex-wrap:wrap; row-gap:8px;">
-                <div><span class="hint">Output</span><br><b x-text="fmtNum(m.data.stroke)"></b></div>
-                <div><span class="hint">NG</span><br><b x-text="fmtNum(m.data.ng)"></b></div>
-                <div><span class="hint">Downtime</span><br><b x-text="fmtNum(m.data.downtimeMenit) + ' m'"></b></div>
-              </div>
-              <div class="machine-card-stats" style="flex-wrap:wrap; row-gap:8px; margin-top:8px;">
-                <div><span class="hint">GSPH</span><br><b x-text="fmtNum(m.data.gsph)"></b></div>
-                <div><span class="hint">Target</span><br><b x-text="fmtNum(m.data.targetGsph)"></b></div>
-                <div><span class="hint">Perf</span><br><b x-text="fmtNum(m.data.performanceFactor) + '%'"></b></div>
-              </div>
-              <div class="sqcpm-bar" style="margin-top:12px;">
-                <div class="sqcpm-bar-fill" :style="'width:' + Math.max(0, Math.min(100, m.data.oee)) + '%'"></div>
-              </div>
-            </a>
-          </template>
-        </div>
+    <!-- ===== TAB: KONTROL KUALITAS (menunggu spesifikasi) ===== -->
+    <template x-if="activeTab === 'kualitas'">
+      <div class="dash-body">
+        <p class="empty-state">Tab Kontrol Kualitas belum diisi — menunggu spesifikasi/data dari kamu.</p>
       </div>
     </template>
   </main>
@@ -160,6 +190,7 @@ function dashboardExhaust() {
   return {
     session: null, profile: null, mobileNavOpen: false, sidebarCollapsed: true,
     loading: true,
+    activeTab: "harian", // harian | bulanan | kualitas
     theme: localStorage.getItem("theme_v1") || "light",
     tanggal: localDateStr(new Date()),
     shiftFilter: "all",
