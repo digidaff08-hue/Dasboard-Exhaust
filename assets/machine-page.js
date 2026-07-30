@@ -2020,44 +2020,66 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       repairThreeState = null;
     },
     makeRepairMarkerSprite(THREE, label) {
-      // Bentuk "pin" (kayak penanda lokasi di Maps): bulat di atas buat
-      // baca label, meruncing di bawah jadi ujung lancip yang nunjuk PERSIS
-      // ke titik Repair-nya -- ujung lancip ini yang jadi "tanda panah"-nya.
-      const W = 96, H = 130;
+      // Gaya penandaan defect ala QC: titik merah kecil PERSIS di titik
+      // Repair-nya, disambung garis tipis ke lingkaran label (dikasih
+      // gradasi + bayangan biar kelihatan 3D/bulat, bukan flat), biar
+      // nomor/huruf point-nya kebaca jelas tanpa nutupin permukaan model.
+      const W = 150, H = 150;
       const canvas = document.createElement("canvas");
       canvas.width = W; canvas.height = H;
       const ctx = canvas.getContext("2d");
-      const cx = W / 2, cy = 42, r = 34, tipY = H - 4;
 
-      ctx.shadowColor = "rgba(0,0,0,0.35)"; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
-      ctx.beginPath();
-      ctx.moveTo(cx - r, cy);
-      ctx.bezierCurveTo(cx - r, cy - r * 1.35, cx + r, cy - r * 1.35, cx + r, cy);
-      ctx.bezierCurveTo(cx + r, cy + r * 0.62, cx + r * 0.18, cy + r * 0.95, cx, tipY);
-      ctx.bezierCurveTo(cx - r * 0.18, cy + r * 0.95, cx - r, cy + r * 0.62, cx - r, cy);
-      ctx.closePath();
+      const dotX = W * 0.17, dotY = H * 0.75, dotR = 6;
+      const circleX = W * 0.7, circleY = H * 0.24, circleR = 22;
 
-      const grad = ctx.createLinearGradient(0, cy - r, 0, cy + r);
-      grad.addColorStop(0, "#ef4444"); grad.addColorStop(1, "#b91c1c");
+      // garis penghubung
+      ctx.strokeStyle = "#dc2626"; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(dotX, dotY); ctx.lineTo(circleX, circleY); ctx.stroke();
+
+      // titik kecil persis di lokasi
+      ctx.beginPath(); ctx.arc(dotX, dotY, dotR, 0, Math.PI * 2);
+      ctx.fillStyle = "#dc2626"; ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = "#ffffff"; ctx.stroke();
+
+      // lingkaran label -- bayangan dulu biar kesan "ngambang" 3D
+      ctx.save();
+      ctx.shadowColor = "rgba(0,0,0,0.4)"; ctx.shadowBlur = 8; ctx.shadowOffsetY = 3;
+      ctx.beginPath(); ctx.arc(circleX, circleY, circleR, 0, Math.PI * 2);
+      ctx.fillStyle = "#7f1d1d"; ctx.fill();
+      ctx.restore();
+
+      // gradasi radial (highlight di kiri-atas, gelap di tepi) biar
+      // kelihatan kayak bola, bukan lingkaran flat
+      const grad = ctx.createRadialGradient(
+        circleX - circleR * 0.35, circleY - circleR * 0.4, circleR * 0.1,
+        circleX, circleY, circleR * 1.1
+      );
+      grad.addColorStop(0, "#f87171");
+      grad.addColorStop(0.55, "#dc2626");
+      grad.addColorStop(1, "#8f1f1f");
+      ctx.beginPath(); ctx.arc(circleX, circleY, circleR, 0, Math.PI * 2);
       ctx.fillStyle = grad; ctx.fill();
-      ctx.shadowColor = "transparent";
-      ctx.lineWidth = 4; ctx.strokeStyle = "#ffffff"; ctx.stroke();
+      ctx.lineWidth = 2; ctx.strokeStyle = "#ffffff"; ctx.stroke();
 
-      // Lubang putih kecil di tengah, gaya pin lokasi standar
-      ctx.beginPath(); ctx.arc(cx, cy, r * 0.4, 0, Math.PI * 2);
-      ctx.fillStyle = "#ffffff"; ctx.fill();
+      // kilau kecil putih transparan, nambah kesan glossy/3D
+      ctx.beginPath();
+      ctx.ellipse(circleX - circleR * 0.35, circleY - circleR * 0.45, circleR * 0.45, circleR * 0.28, -0.5, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,255,255,0.35)"; ctx.fill();
+
       if (label) {
-        ctx.fillStyle = "#b91c1c"; ctx.font = "bold 22px sans-serif";
+        ctx.fillStyle = "#ffffff"; ctx.font = "bold 20px sans-serif";
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.fillText(label.slice(0, 2), cx, cy + 1);
+        ctx.shadowColor = "rgba(0,0,0,0.35)"; ctx.shadowBlur = 3;
+        ctx.fillText(label.slice(0, 2), circleX, circleY + 1);
+        ctx.shadowColor = "transparent";
       }
 
       const texture = new THREE.CanvasTexture(canvas);
       const mat = new THREE.SpriteMaterial({ map: texture, depthTest: true, depthWrite: false });
       const sprite = new THREE.Sprite(mat);
-      // Anchor di UJUNG LANCIP (bawah sprite), bukan tengah -- biar ujungnya
-      // pas nempel ke titik Repair, bukan tengah bulatannya yang nempel.
-      sprite.center.set(0.5, 0);
+      // Anchor PERSIS di titik merah kecil (bukan di tengah sprite), biar
+      // titik itu yang nempel ke posisi Point sebenarnya di model.
+      sprite.center.set(dotX / W, 1 - dotY / H);
       sprite.userData.aspect = H / W;
       sprite.renderOrder = 999;
       return sprite;
