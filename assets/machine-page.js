@@ -1966,11 +1966,28 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           // ketiga lain ikut memodifikasi controls).
           r.controls.target.set(0, 0, 0);
           r.controls.update();
+          this.updateRepairMarkersUpright();
           r.renderer.render(r.scene, r.camera);
         }
         r.animId = requestAnimationFrame(tick);
       };
       tick();
+    },
+    // TrackballControls ngebiarin kamera BEBAS puter termasuk "roll" (miring
+    // kayak pesawat oleng) -- beda dari OrbitControls yang ngunci sumbu atas.
+    // Sprite marker ikut miring sesuai roll kamera ini, jadi keliatan
+    // "tiduran". Fungsi ini itung sudut roll kamera tiap frame & putar balik
+    // texture marker-nya, biar garis+lingkaran-nya SELALU tegak di layar.
+    updateRepairMarkersUpright() {
+      const r = repairThreeState; if (!r || !r.markers || r.markers.length === 0) return;
+      const THREE = r.THREE;
+      const forward = new THREE.Vector3(), up = new THREE.Vector3(), right = new THREE.Vector3();
+      r.camera.matrixWorld.extractBasis(right, up, forward);
+      const worldUp = new THREE.Vector3(0, 1, 0);
+      const projUp = worldUp.clone().sub(forward.clone().multiplyScalar(worldUp.dot(forward)));
+      if (projUp.lengthSq() < 1e-6) projUp.copy(up); else projUp.normalize();
+      const roll = Math.atan2(right.dot(projUp), up.dot(projUp));
+      r.markers.forEach((m) => { m.material.rotation = roll; });
     },
     pauseRepair3D() {
       if (repairThreeState) repairThreeState.paused = true;
@@ -2092,7 +2109,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const bbox = new THREE.Box3().setFromObject(r.mesh);
       const size = new THREE.Vector3(); bbox.getSize(size);
       const maxDim = Math.max(size.x, size.y, size.z) || 1;
-      const spriteScale = maxDim * 0.045; // dikecilin dari sebelumnya (0.09)
+      const spriteScale = maxDim * 0.11; // dibesarin lagi, sebelumnya kekecilan
       // dorong marker sedikit keluar dari permukaan (searah normal) biar
       // tidak "z-fighting" (kedip) pas persis nempel permukaan, tapi tetap
       // ketutup badan model kalau posisinya lagi di sisi yang membelakangi kamera.
