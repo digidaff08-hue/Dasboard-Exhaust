@@ -1966,28 +1966,11 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           // ketiga lain ikut memodifikasi controls).
           r.controls.target.set(0, 0, 0);
           r.controls.update();
-          this.updateRepairMarkersUpright();
           r.renderer.render(r.scene, r.camera);
         }
         r.animId = requestAnimationFrame(tick);
       };
       tick();
-    },
-    // TrackballControls ngebiarin kamera BEBAS puter termasuk "roll" (miring
-    // kayak pesawat oleng) -- beda dari OrbitControls yang ngunci sumbu atas.
-    // Sprite marker ikut miring sesuai roll kamera ini, jadi keliatan
-    // "tiduran". Fungsi ini itung sudut roll kamera tiap frame & putar balik
-    // texture marker-nya, biar garis+lingkaran-nya SELALU tegak di layar.
-    updateRepairMarkersUpright() {
-      const r = repairThreeState; if (!r || !r.markers || r.markers.length === 0) return;
-      const THREE = r.THREE;
-      const forward = new THREE.Vector3(), up = new THREE.Vector3(), right = new THREE.Vector3();
-      r.camera.matrixWorld.extractBasis(right, up, forward);
-      const worldUp = new THREE.Vector3(0, 1, 0);
-      const projUp = worldUp.clone().sub(forward.clone().multiplyScalar(worldUp.dot(forward)));
-      if (projUp.lengthSq() < 1e-6) projUp.copy(up); else projUp.normalize();
-      const roll = Math.atan2(right.dot(projUp), up.dot(projUp));
-      r.markers.forEach((m) => { m.material.rotation = roll; });
     },
     pauseRepair3D() {
       if (repairThreeState) repairThreeState.paused = true;
@@ -2037,67 +2020,48 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       repairThreeState = null;
     },
     makeRepairMarkerSprite(THREE, label) {
-      // Gaya penandaan defect ala QC: titik merah kecil PERSIS di titik
-      // Repair-nya, disambung garis tipis ke lingkaran label (dikasih
-      // gradasi + bayangan biar kelihatan 3D/bulat, bukan flat), biar
-      // nomor/huruf point-nya kebaca jelas tanpa nutupin permukaan model.
-      const W = 150, H = 150;
+      // Bola kecil bergradasi (bukan garis+lingkaran) -- sengaja dibikin
+      // simetris ke segala arah, jadi mau part-nya diputar ke sudut manapun
+      // bentuknya selalu keliatan sama persis, gak akan pernah "tiduran"/miring.
+      const W = 100, H = 100;
       const canvas = document.createElement("canvas");
       canvas.width = W; canvas.height = H;
       const ctx = canvas.getContext("2d");
+      const cx = W / 2, cy = H / 2, r = 38;
 
-      const dotX = W * 0.17, dotY = H * 0.75, dotR = 6;
-      const circleX = W * 0.7, circleY = H * 0.24, circleR = 22;
-
-      // garis penghubung
-      ctx.strokeStyle = "#dc2626"; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.moveTo(dotX, dotY); ctx.lineTo(circleX, circleY); ctx.stroke();
-
-      // titik kecil persis di lokasi
-      ctx.beginPath(); ctx.arc(dotX, dotY, dotR, 0, Math.PI * 2);
-      ctx.fillStyle = "#dc2626"; ctx.fill();
-      ctx.lineWidth = 2; ctx.strokeStyle = "#ffffff"; ctx.stroke();
-
-      // lingkaran label -- bayangan dulu biar kesan "ngambang" 3D
       ctx.save();
       ctx.shadowColor = "rgba(0,0,0,0.4)"; ctx.shadowBlur = 8; ctx.shadowOffsetY = 3;
-      ctx.beginPath(); ctx.arc(circleX, circleY, circleR, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.fillStyle = "#7f1d1d"; ctx.fill();
       ctx.restore();
 
-      // gradasi radial (highlight di kiri-atas, gelap di tepi) biar
-      // kelihatan kayak bola, bukan lingkaran flat
-      const grad = ctx.createRadialGradient(
-        circleX - circleR * 0.35, circleY - circleR * 0.4, circleR * 0.1,
-        circleX, circleY, circleR * 1.1
-      );
+      const grad = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.4, r * 0.1, cx, cy, r * 1.1);
       grad.addColorStop(0, "#f87171");
       grad.addColorStop(0.55, "#dc2626");
       grad.addColorStop(1, "#8f1f1f");
-      ctx.beginPath(); ctx.arc(circleX, circleY, circleR, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.fillStyle = grad; ctx.fill();
-      ctx.lineWidth = 2; ctx.strokeStyle = "#ffffff"; ctx.stroke();
+      ctx.lineWidth = 2.5; ctx.strokeStyle = "#ffffff"; ctx.stroke();
 
-      // kilau kecil putih transparan, nambah kesan glossy/3D
       ctx.beginPath();
-      ctx.ellipse(circleX - circleR * 0.35, circleY - circleR * 0.45, circleR * 0.45, circleR * 0.28, -0.5, 0, Math.PI * 2);
+      ctx.ellipse(cx - r * 0.35, cy - r * 0.45, r * 0.45, r * 0.28, -0.5, 0, Math.PI * 2);
       ctx.fillStyle = "rgba(255,255,255,0.35)"; ctx.fill();
 
       if (label) {
-        ctx.fillStyle = "#ffffff"; ctx.font = "bold 20px sans-serif";
+        ctx.fillStyle = "#ffffff"; ctx.font = "bold 30px sans-serif";
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.shadowColor = "rgba(0,0,0,0.35)"; ctx.shadowBlur = 3;
-        ctx.fillText(label.slice(0, 2), circleX, circleY + 1);
+        ctx.fillText(label.slice(0, 2), cx, cy + 1);
         ctx.shadowColor = "transparent";
       }
 
       const texture = new THREE.CanvasTexture(canvas);
       const mat = new THREE.SpriteMaterial({ map: texture, depthTest: true, depthWrite: false });
       const sprite = new THREE.Sprite(mat);
-      // Anchor PERSIS di titik merah kecil (bukan di tengah sprite), biar
-      // titik itu yang nempel ke posisi Point sebenarnya di model.
-      sprite.center.set(dotX / W, 1 - dotY / H);
-      sprite.userData.aspect = H / W;
+      // Simetris, jadi anchor di tengah (default) sudah pas -- gak perlu
+      // digeser ke titik tertentu kayak desain garis/pin sebelumnya.
+      sprite.center.set(0.5, 0.5);
+      sprite.userData.aspect = 1;
       sprite.renderOrder = 999;
       return sprite;
     },
@@ -2113,7 +2077,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // dorong marker sedikit keluar dari permukaan (searah normal) biar
       // tidak "z-fighting" (kedip) pas persis nempel permukaan, tapi tetap
       // ketutup badan model kalau posisinya lagi di sisi yang membelakangi kamera.
-      const offsetDist = maxDim * 0.01;
+      const offsetDist = maxDim * 0.018;
       // titik tengah bbox dalam koordinat LOKAL (sama ruang dgn titik point) --
       // dipakai sebagai cadangan arah normal buat Point lama yang belum
       // punya nx/ny/nz tersimpan.
