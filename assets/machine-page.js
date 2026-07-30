@@ -199,6 +199,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     editingNgId: null, ngExistingFotoUrl: "",
 
     editingDowntimeId: null, dtForm: {},
+    editingNonProduksiId: null, nonProduksiEditForm: {},
     riwayatFilter: { dari: "", sampai: "", part_number: "" },
     downtimeFilterProductionId: null, downtimeFilterLabel: "",
 
@@ -1116,7 +1117,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
 
     // ================= DOWNTIME (Start/Stop + validasi tabrakan part) =================
-    dtState: "idle", dtStart: null,
+    dtState: "idle", dtStart: null, dtEnd: null,
     startDowntime() { this.dtState = "running"; this.dtStart = new Date().toISOString(); },
     cancelDowntime() { this.dtState = "idle"; this.dtStart = null; this.editingDowntimeId = null; this.dtForm = {}; },
     stopDowntime() {
