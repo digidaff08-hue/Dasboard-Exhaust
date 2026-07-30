@@ -1297,7 +1297,7 @@
             <p class="hint" style="margin-bottom:12px;">Upload file model 3D (.stl) per part -- bisa diputar 360&deg; di tab <b>Repair</b>, tidak perlu lagi tampilan Depan/Belakang terpisah. Point-nya diatur langsung di tab <b>Repair</b> lewat tombol "Mode Edit Point" (klik di permukaan model).</p>
             <div class="form-grid">
               <div class="field"><label>Nama Part</label><input type="text" x-model="repairNewViewLabel" placeholder="mis. 25051-BZ040 / C15-01137"></div>
-              <div class="field"><label>File Model (.stl)</label><input type="file" accept=".stl" @change="onRepairNewViewFileChange($event)"></div>
+              <div class="field"><label>File Model (.stl / .3mf)</label><input type="file" accept=".stl,.3mf" @change="onRepairNewViewFileChange($event)"></div>
               <div class="field"><label>Warna</label><input type="color" x-model="repairNewViewColor" style="height:40px;padding:2px;"></div>
             </div>
             <div class="form-actions">
@@ -1308,7 +1308,8 @@
                 <div class="master-list-row">
                   <span class="master-value" x-text="v.label"></span>
                   <div class="master-row-actions">
-                    <input type="color" :value="v.color || '#9aa4ad'" @change="updateRepairViewColor(v, $event.target.value)" title="Ganti warna part" style="height:32px;width:44px;padding:2px;">
+                    <input type="color" x-show="!isThreeMFView(v)" :value="v.color || '#9aa4ad'" @change="updateRepairViewColor(v, $event.target.value)" title="Ganti warna part" style="height:32px;width:44px;padding:2px;">
+                    <span x-show="isThreeMFView(v)" class="hint" style="align-self:center;">warna dari .3mf</span>
                     <button type="button" class="btn-danger btn-sm" @click="deleteRepairView(v.id)">Hapus</button>
                   </div>
                 </div>

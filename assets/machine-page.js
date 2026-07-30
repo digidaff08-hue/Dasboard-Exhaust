@@ -155,7 +155,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
   // buffer, dsb) punya property non-configurable yang bentrok kalau
   // dibungkus Proxy reaktif Alpine -> error "read-only ... proxy".
   let repairThreeState = null;
-  const repairGeometryCache = new Map(); // view.id -> parsed BufferGeometry (biar ganti part gak fetch ulang .stl)
+  const repairGeometryCache = new Map(); // view.id -> { object: THREE.Mesh|THREE.Group, box: THREE.Box3 } (biar ganti part gak fetch ulang file 3D-nya)
   return {
     session: null, profile: null, tab: "produksi", loading: true,
     errorMsg: "", successMsg: "",
@@ -1628,6 +1628,9 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     activeRepairView() {
       return this.repairViews.find((v) => v.id === this.repairActiveViewId) || null;
     },
+    isThreeMFView(view) {
+      return !!(view && view.model_url && /\.3mf(\?|$)/i.test(view.model_url));
+    },
     async fetchRepairKategori() {
       const { data, error } = await supabaseClient.from("repair_kategori").select("*").order("value");
       if (error) { this.flash("Gagal memuat Kategori Repair: " + error.message, true); return; }
@@ -1739,13 +1742,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
     async addRepairView() {
       const label = (this.repairNewViewLabel || "").trim();
-      if (!label || !this.repairNewViewFile) { this.flash("Nama Part dan file .stl wajib diisi.", true); return; }
+      if (!label || !this.repairNewViewFile) { this.flash("Nama Part dan file model wajib diisi.", true); return; }
       const ext = (this.repairNewViewFile.name.split(".").pop() || "").toLowerCase();
-      if (ext !== "stl") { this.flash("File model harus format .stl", true); return; }
+      if (ext !== "stl" && ext !== "3mf") { this.flash("File model harus format .stl atau .3mf", true); return; }
       this.repairViewUploading = true;
       try {
         const file = this.repairNewViewFile;
-        const path = `models/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.stl`;
+        const path = `models/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
         const { error: upErr } = await supabaseClient.storage.from("repair-models").upload(path, file);
         if (upErr) throw upErr;
         const { data: pub } = supabaseClient.storage.from("repair-models").getPublicUrl(path);
@@ -1769,7 +1772,11 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const { error } = await supabaseClient.from("repair_views").update({ color }).eq("id", view.id);
       if (error) { this.flash("Gagal ganti warna: " + error.message, true); return; }
       view.color = color;
-      if (repairThreeState && repairThreeState.currentViewId === view.id && repairThreeState.mesh) {
+      // .3mf sudah bawa warna asli dari file-nya sendiri (per-bagian bisa
+      // beda-beda) -- picker warna manual cuma berlaku buat .stl (yang
+      // memang gak punya info warna sama sekali), jadi di-skip kalau
+      // mesh-nya ternyata Group hasil load .3mf.
+      if (repairThreeState && repairThreeState.currentViewId === view.id && repairThreeState.mesh && repairThreeState.mesh.material) {
         repairThreeState.mesh.material.vertexColors = false;
         repairThreeState.mesh.material.color.set(color);
         repairThreeState.mesh.material.needsUpdate = true;
@@ -1780,7 +1787,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const { error } = await supabaseClient.from("repair_views").delete().eq("id", id);
       if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
       const cached = repairGeometryCache.get(id);
-      if (cached) { cached.dispose(); repairGeometryCache.delete(id); }
+      if (cached) {
+        cached.object.traverse((obj) => {
+          if (obj.geometry) obj.geometry.dispose();
+          if (obj.material) (Array.isArray(obj.material) ? obj.material : [obj.material]).forEach((m) => m.dispose());
+        });
+        repairGeometryCache.delete(id);
+      }
       this.repairViews = this.repairViews.filter((v) => v.id !== id);
       if (this.repairActiveViewId === id) {
         this.repairActiveViewId = this.repairViews[0]?.id || null;
@@ -1799,9 +1812,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // kalau user tidak pernah buka tab Repair.
     async ensureThreeLib() {
       if (!window.__threeLib) {
-        const [THREE, loaderMod, controlsMod] = await Promise.all([
+        const [THREE, loaderMod, mfMod, controlsMod] = await Promise.all([
           import("https://esm.sh/three@0.160.0"),
           import("https://esm.sh/three@0.160.0/examples/jsm/loaders/STLLoader.js"),
+          import("https://esm.sh/three@0.160.0/examples/jsm/loaders/3MFLoader.js"),
           // TrackballControls dipakai (bukan OrbitControls) SUPAYA rotasi
           // bener-bener bebas tanpa sumbu atas-bawah tetap -- OrbitControls
           // punya "kutub" (atas/bawah) yang bikin putaran vertikal mentok
@@ -1810,7 +1824,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           // ke A tanpa pernah kejeduk.
           import("https://esm.sh/three@0.160.0/examples/jsm/controls/TrackballControls.js"),
         ]);
-        window.__threeLib = { THREE, STLLoader: loaderMod.STLLoader, TrackballControls: controlsMod.TrackballControls };
+        window.__threeLib = { THREE, STLLoader: loaderMod.STLLoader, ThreeMFLoader: mfMod.ThreeMFLoader, TrackballControls: controlsMod.TrackballControls };
       }
       return window.__threeLib;
     },
@@ -1829,10 +1843,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       await this.loadRepairModel(container, view);
     },
     async loadRepairModel(container, view) {
-      const cachedGeometry = repairGeometryCache.get(view.id);
-      this.repairModelLoading = !cachedGeometry; // sudah pernah dibuka -> gak usah tampil "Memuat..." lagi
+      const cached = repairGeometryCache.get(view.id);
+      this.repairModelLoading = !cached; // sudah pernah dibuka -> gak usah tampil "Memuat..." lagi
       try {
-        const { THREE, STLLoader, TrackballControls } = await this.ensureThreeLib();
+        const { THREE, STLLoader, ThreeMFLoader, TrackballControls } = await this.ensureThreeLib();
         this.teardownRepair3D();
         container.innerHTML = "";
 
@@ -1850,28 +1864,39 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const dir2 = new THREE.DirectionalLight(0xffffff, 0.3); dir2.position.set(-1, -0.6, -1); scene.add(dir2);
 
         // Part yang sudah pernah dibuka sebelumnya (di line/sesi yang sama)
-        // dipakai lagi dari cache -- gak perlu download & parse ulang file
-        // .stl-nya, makanya ganti-ganti tombol part jadi instan.
-        let geometry = cachedGeometry;
-        if (!geometry) {
-          const loader = new STLLoader();
-          geometry = await loader.loadAsync(view.model_url);
-          geometry.computeVertexNormals();
-          geometry.computeBoundingBox();
-          repairGeometryCache.set(view.id, geometry);
+        // dipakai lagi dari cache -- gak perlu download & parse ulang
+        // file-nya, makanya ganti-ganti tombol part jadi instan.
+        let mesh, bbox;
+        if (cached) {
+          mesh = cached.object; bbox = cached.box;
+        } else {
+          const isThreeMF = /\.3mf(\?|$)/i.test(view.model_url);
+          if (isThreeMF) {
+            // .3mf SUDAH bawa warna asli dari file CAD-nya (beda sama .stl
+            // yang polos tanpa warna) -- jadi material-nya TIDAK disentuh
+            // sama sekali di sini, dipakai apa adanya dari file.
+            const loader = new ThreeMFLoader();
+            mesh = await loader.loadAsync(view.model_url);
+            bbox = new THREE.Box3().setFromObject(mesh);
+          } else {
+            const loader = new STLLoader();
+            const geometry = await loader.loadAsync(view.model_url);
+            geometry.computeVertexNormals();
+            geometry.computeBoundingBox();
+            const hasVertexColors = !!(geometry.attributes && geometry.attributes.color);
+            const material = new THREE.MeshStandardMaterial(
+              hasVertexColors
+                ? { vertexColors: true, metalness: 0.2, roughness: 0.6 }
+                : { color: view.color || "#9aa4ad", metalness: 0.2, roughness: 0.6 }
+            );
+            mesh = new THREE.Mesh(geometry, material);
+            bbox = geometry.boundingBox.clone();
+          }
+          repairGeometryCache.set(view.id, { object: mesh, box: bbox });
         }
-        const bbox = geometry.boundingBox;
         const center = new THREE.Vector3(); bbox.getCenter(center);
         const size = new THREE.Vector3(); bbox.getSize(size);
         const maxDim = Math.max(size.x, size.y, size.z) || 1;
-
-        const hasVertexColors = !!(geometry.attributes && geometry.attributes.color);
-        const material = new THREE.MeshStandardMaterial(
-          hasVertexColors
-            ? { vertexColors: true, metalness: 0.2, roughness: 0.6 }
-            : { color: view.color || "#9aa4ad", metalness: 0.2, roughness: 0.6 }
-        );
-        const mesh = new THREE.Mesh(geometry, material);
         // Geser mesh biar center-nya di titik (0,0,0) -- titik Repair TETAP
         // disimpan dalam koordinat asli STL (anak dari mesh ini), jadi ikut
         // pindah otomatis kalau transform mesh berubah.
@@ -2026,10 +2051,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (r.resizeObserver) r.resizeObserver.disconnect();
       if (r.controls) r.controls.dispose();
       (r.markers || []).forEach((m) => { m.material.map && m.material.map.dispose(); m.material.dispose(); });
-      // Geometry SENGAJA tidak di-dispose di sini -- disimpan di
-      // repairGeometryCache biar bisa dipakai lagi instan pas user balik
-      // ke part ini (lihat loadRepairModel). Cuma material yang dibuang.
-      if (r.mesh) { r.mesh.material.dispose(); }
+      // Mesh/Group (termasuk material-nya) SENGAJA tidak di-dispose di sini
+      // -- disimpan utuh di repairGeometryCache biar bisa dipakai lagi
+      // instan pas user balik ke part ini (lihat loadRepairModel). Cuma
+      // dibuang beneran kalau part-nya dihapus (lihat deleteRepairView).
       if (r.renderer) { r.renderer.dispose(); r.renderer.domElement.remove(); }
       repairThreeState = null;
     },
@@ -2143,7 +2168,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // Raycast gabungan (model + semua marker) lalu ambil yang PALING DEKAT
       // ke kamera -- ini otomatis bikin Point yang ketutup badan model (lagi
       // di sisi belakang) tidak ke-klik, sama seperti secara visual tertutup.
-      const hits = r.raycaster.intersectObjects([r.mesh, ...r.markers], false);
+      // r.mesh di-test SECARA REKURSIF (bukan cuma dirinya sendiri) supaya
+      // .3mf (isinya banyak potongan mesh di dalam 1 Group) ikut kena test
+      // juga, bukan cuma .stl (yang memang cuma 1 potongan doang).
+      const meshHits = r.raycaster.intersectObject(r.mesh, true).filter((h) => !h.object.isSprite);
+      const markerHits = r.raycaster.intersectObjects(r.markers, false);
+      const hits = [...meshHits, ...markerHits].sort((a, b) => a.distance - b.distance);
       if (hits.length === 0) return;
       const closest = hits[0];
 
