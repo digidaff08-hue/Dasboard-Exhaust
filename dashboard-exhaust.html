@@ -266,6 +266,9 @@ function localDateStr(d) {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
 
 function dashboardExhaust() {
   return {
@@ -502,6 +505,7 @@ function dashboardExhaust() {
       });
       const legend = (show) => ({ display: show, position: "bottom", labels: { color: cssVar("--muted"), boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 9 }, padding: 8 } });
       const tooltip = () => ({ backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"), borderColor: cssVar("--border"), borderWidth: 1, padding: 8 });
+      const safe = (fn, label) => { try { fn(); } catch (e) { console.error("Gagal render chart Bulanan:", label, e); } };
 
       // --- 4 kartu KPI (bar Actual + line Target) ---
       const kpiCombo = (canvasId, labels, actual, target, barColor) => {
@@ -523,49 +527,53 @@ function dashboardExhaust() {
           },
         });
       };
-      kpiCombo("kpiProductivityChart", b.monthLabels, b.productivity.actual, b.productivity.target, cssVar("--series-4"));
-      kpiCombo("kpiAvailabilityChart", b.monthLabels, b.availability.actual, b.availability.target, cssVar("--series-4"));
-      kpiCombo("kpiStraightpassChart", b.monthLabels, b.straightpass.actual, b.straightpass.target, cssVar("--series-4"));
+      safe(() => kpiCombo("kpiProductivityChart", b.monthLabels, b.productivity.actual, b.productivity.target, cssVar("--series-4")), "productivity");
+      safe(() => kpiCombo("kpiAvailabilityChart", b.monthLabels, b.availability.actual, b.availability.target, cssVar("--series-4")), "availability");
+      safe(() => kpiCombo("kpiStraightpassChart", b.monthLabels, b.straightpass.actual, b.straightpass.target, cssVar("--series-4")), "straightpass");
 
       // --- NG Inline: bar Value (kiri) + line Qty (kanan) ---
-      destroy("kpiNgInlineChart");
-      const ngCanvas = document.getElementById("kpiNgInlineChart");
-      if (ngCanvas) {
-        this.bulananCharts.kpiNgInlineChart = new Chart(ngCanvas, {
-          data: {
-            labels: b.monthLabels,
-            datasets: [
-              { type: "bar", label: "Value", data: b.ngInline.valueByMonth, backgroundColor: cssVar("--category-other"), yAxisID: "y", borderRadius: 3, barPercentage: 0.55, categoryPercentage: 0.7 },
-              { type: "line", label: "Qty", data: b.ngInline.qtyByMonth, borderColor: cssVar("--series-4"), yAxisID: "y1", pointRadius: 3, tension: 0.3 },
-            ],
-          },
-          options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: legend(true), tooltip: tooltip() },
-            scales: {
-              x: baseScales().x,
-              y: { position: "left", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: false }, beginAtZero: true },
-              y1: { position: "right", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { display: false }, border: { display: false }, beginAtZero: true },
+      safe(() => {
+        destroy("kpiNgInlineChart");
+        const ngCanvas = document.getElementById("kpiNgInlineChart");
+        if (ngCanvas) {
+          this.bulananCharts.kpiNgInlineChart = new Chart(ngCanvas, {
+            data: {
+              labels: b.monthLabels,
+              datasets: [
+                { type: "bar", label: "Value", data: b.ngInline.valueByMonth, backgroundColor: cssVar("--category-other"), yAxisID: "y", borderRadius: 3, barPercentage: 0.55, categoryPercentage: 0.7 },
+                { type: "line", label: "Qty", data: b.ngInline.qtyByMonth, borderColor: cssVar("--series-4"), yAxisID: "y1", pointRadius: 3, tension: 0.3 },
+              ],
             },
-          },
-        });
-      }
+            options: {
+              responsive: true, maintainAspectRatio: false,
+              plugins: { legend: legend(true), tooltip: tooltip() },
+              scales: {
+                x: baseScales().x,
+                y: { position: "left", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: false }, beginAtZero: true },
+                y1: { position: "right", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { display: false }, border: { display: false }, beginAtZero: true },
+              },
+            },
+          });
+        }
+      }, "ngInline");
 
       // --- Downtime Exhaust: bar + line trend ---
-      destroy("dtExhaustChart");
-      const dtEx = document.getElementById("dtExhaustChart");
-      if (dtEx) {
-        this.bulananCharts.dtExhaustChart = new Chart(dtEx, {
-          data: {
-            labels: b.downtimeExhaust.labels,
-            datasets: [
-              { type: "bar", label: "Downtime", data: b.downtimeExhaust.values, backgroundColor: cssVar("--category-other"), borderRadius: 3, barPercentage: 0.6, categoryPercentage: 0.7 },
-              { type: "line", label: "Trend", data: b.downtimeExhaust.values, borderColor: cssVar("--red"), pointRadius: 3, tension: 0.3 },
-            ],
-          },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
-        });
-      }
+      safe(() => {
+        destroy("dtExhaustChart");
+        const dtEx = document.getElementById("dtExhaustChart");
+        if (dtEx) {
+          this.bulananCharts.dtExhaustChart = new Chart(dtEx, {
+            data: {
+              labels: b.downtimeExhaust.labels,
+              datasets: [
+                { type: "bar", label: "Downtime", data: b.downtimeExhaust.values, backgroundColor: cssVar("--category-other"), borderRadius: 3, barPercentage: 0.6, categoryPercentage: 0.7 },
+                { type: "line", label: "Trend", data: b.downtimeExhaust.values, borderColor: cssVar("--red"), pointRadius: 3, tension: 0.3 },
+              ],
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
+          });
+        }
+      }, "downtimeExhaust");
 
       // --- Downtime Supporting & Downtime Line: grouped bar Plan/Act ---
       const groupedBar = (canvasId, labels, plan, act) => {
@@ -584,29 +592,30 @@ function dashboardExhaust() {
           options: { responsive: true, maintainAspectRatio: false, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
         });
       };
-      groupedBar("dtSupportingChart", b.downtimeSupporting.labels, b.downtimeSupporting.plan, b.downtimeSupporting.act);
-      groupedBar("dtLineChart", b.downtimeLine.labels, b.downtimeLine.plan, b.downtimeLine.act);
+      safe(() => groupedBar("dtSupportingChart", b.downtimeSupporting.labels, b.downtimeSupporting.plan, b.downtimeSupporting.act), "downtimeSupporting");
+      safe(() => groupedBar("dtLineChart", b.downtimeLine.labels, b.downtimeLine.plan, b.downtimeLine.act), "downtimeLine");
 
       // --- Weekly Breakdown: bar per line + Total ---
       b.weekly.forEach((w, idx) => {
-        const canvasId = "weekChart" + (idx + 1);
-        destroy(canvasId);
-        const canvas = document.getElementById(canvasId);
-        if (!canvas) return;
-        const total = w.values.reduce((a, v) => a + v, 0);
-        const labels = [...w.labels, "Total"];
-        const values = [...w.values, total];
-        const colors = [...w.labels.map(() => cssVar("--series-1")), cssVar("--navy")];
-        this.bulananCharts[canvasId] = new Chart(canvas, {
-          type: "bar",
-          data: { labels, datasets: [{ data: values, backgroundColor: colors, borderRadius: 3, barPercentage: 0.6, categoryPercentage: 0.7 }] },
-          options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: legend(false), tooltip: tooltip(),
-              datalabels: undefined },
-            scales: baseScales(),
-          },
-        });
+        safe(() => {
+          const canvasId = "weekChart" + (idx + 1);
+          destroy(canvasId);
+          const canvas = document.getElementById(canvasId);
+          if (!canvas) return;
+          const total = w.values.reduce((a, v) => a + v, 0);
+          const labels = [...w.labels, "Total"];
+          const values = [...w.values, total];
+          const colors = [...w.labels.map(() => cssVar("--series-1")), cssVar("--navy")];
+          this.bulananCharts[canvasId] = new Chart(canvas, {
+            type: "bar",
+            data: { labels, datasets: [{ data: values, backgroundColor: colors, borderRadius: 3, barPercentage: 0.6, categoryPercentage: 0.7 }] },
+            options: {
+              responsive: true, maintainAspectRatio: false,
+              plugins: { legend: legend(false), tooltip: tooltip() },
+              scales: baseScales(),
+            },
+          });
+        }, "week" + (idx + 1));
       });
     },
     async fetchAll() {
