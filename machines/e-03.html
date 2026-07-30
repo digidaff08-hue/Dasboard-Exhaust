@@ -1002,6 +1002,11 @@
         <div x-show="tab === 'repair'">
           <div class="panel">
             <p class="empty-state" x-show="repairViews.length === 0">Belum ada model 3D Repair. Admin bisa upload lewat tab Master Data.</p>
+            <div class="repair-part-switcher" x-show="repairViews.length > 1" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+              <template x-for="v in repairViews" :key="v.id">
+                <button type="button" class="btn-secondary btn-sm" :class="v.id === repairActiveViewId ? 'btn-primary' : ''" @click="selectRepairView(v.id)" x-text="v.label"></button>
+              </template>
+            </div>
             <div class="repair-3d-wrap" x-show="activeRepairView()" x-effect="tab === 'repair' && initRepair3DViewerIfNeeded()">
               <template x-if="isLeaderOrAdmin()">
                 <button type="button" class="btn-secondary btn-sm repair-edit-toggle" :class="repairEditMode ? 'btn-primary' : ''" @click="toggleRepairEditMode()" x-text="repairEditMode ? '✓ Mode Edit Point aktif' : '✏️ Mode Edit Point'"></button>
