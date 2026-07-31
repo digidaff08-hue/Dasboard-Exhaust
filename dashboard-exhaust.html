@@ -119,6 +119,13 @@
   .machine-card:hover { box-shadow: 0 14px 36px rgba(79,124,255,0.16); }
   .perf-card-accent { background: rgba(238,245,255,0.7); }
 
+  /* Kartu yang berisi grafik: latarnya jangan putih polos -- kasih tint
+     gradasi biru-lavender lembut biar nyatu sama background halaman */
+  .kpi-card,
+  .dash-panel {
+    background: linear-gradient(160deg, rgba(238,245,255,0.9) 0%, rgba(243,240,255,0.85) 100%) !important;
+  }
+
   canvas { border-radius: 12px; }
 </style>
 <script>
