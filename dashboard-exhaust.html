@@ -5,155 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard Exhaust — Welding Exhaust</title>
 <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#EEF5FF">
+<meta name="theme-color" content="#f4f5f7">
 <link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
-<style>
-  /* =========================================================
-     Tema khusus Dashboard Exhaust — palet premium/minimalis
-     (hanya berlaku di halaman ini, tidak menyentuh style.css
-     global sehingga halaman lain tetap memakai tema lama)
-     ========================================================= */
-  :root, [data-theme="light"] {
-    --bg: #EEF5FF;
-    --panel: rgba(255,255,255,0.98);
-    --panel-rgb: 255,255,255;
-    --panel-2: rgba(255,255,255,0.98);
-    --panel-2-rgb: 255,255,255;
-    --border: #E7ECF5;
-    --text: #10182B;
-    --muted: #8A94A6;
-    --primary: #4F7CFF;
-    --navy: #6C63E8;
-    --teal: #4F7CFF;
-    --sky: #AFCBFF;
-    --amber: #4F7CFF;
-    --amber-dim: #EEF5FF;
-    --green: #34C759;
-    --red: #FF6B6B;
-    --blue: #4F7CFF;
-    --category-other: #FFC247;
-    --chart-grid: #EEF1F8;
-    --chart-tick: #8A94A6;
-    --oee-card-bg: rgba(255,255,255,0.98);
-    --oee-card-text: #10182B;
-    --oee-card-muted: #8A94A6;
-    --series-1: #7C83FD;
-    --series-2: #C3BFFF;
-    --series-3: #34C759;
-    --series-4: #7C83FD;
-    --series-5: #C3BFFF;
-    --shadow-sm: 0 2px 10px rgba(100,120,200,0.06);
-    --shadow-md: 0 6px 24px rgba(100,120,200,0.08);
-  }
-
-  /* Background utama: gradasi lembut putih -> biru pucat -> lavender-pink,
-     persis arah warna di referensi (biru muda di kiri atas, lavender-pink
-     samar di kanan bawah). */
-  .app-shell {
-    background: linear-gradient(135deg, #EEF3FF 0%, #F3F0FF 55%, #FBEEF4 100%) !important;
-    background-attachment: fixed;
-  }
-  .app-shell::before {
-    width: 380px; height: 380px; top: -140px; right: -100px;
-    background: rgba(175,203,255,0.30);
-  }
-  .app-shell::after {
-    width: 460px; height: 460px; bottom: -160px; left: -140px;
-    background: rgba(251,238,244,0.6);
-  }
-
-  /* Sidebar: putih bersih (bukan lagi kaca di atas biru tua) */
-  .sidebar {
-    background: rgba(255,255,255,0.9);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-right: 1px solid #E7ECF5;
-    color: #10182B;
-    --text: #10182B;
-    --muted: #8A94A6;
-    --border: #E7ECF5;
-    --panel: rgba(255,255,255,0.98);
-    --panel-2: rgba(255,255,255,0.95);
-    --bg: rgba(255,255,255,0.5);
-    --amber: #4F7CFF;
-    --amber-dim: #EEF5FF;
-    box-shadow: 4px 0 24px rgba(100,120,200,0.05);
-  }
-  /* Menu aktif: pill gradasi biru->ungu, teks putih, seperti referensi */
-  .sidebar-link.active {
-    background: linear-gradient(135deg, #6C8DFF 0%, #8F7BFF 100%) !important;
-    color: #ffffff !important;
-    border-left-color: transparent !important;
-    border-radius: 12px;
-    margin: 0 12px;
-    padding: 10px 12px;
-    box-shadow: 0 6px 16px rgba(111,141,255,0.35);
-  }
-  .mobile-topbar {
-    background: rgba(255,255,255,0.9);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-  }
-
-  /* Kartu / panel: putih BERSIH & tegas (bukan tint pucat lagi) supaya
-     kontras jelas dengan background halaman -- seperti referensi */
-  .panel,
-  .perf-card,
-  .perf-card-oee,
-  .machine-card,
-  .kpi-card,
-  .dash-panel,
-  .fleet-summary-grid .perf-card {
-    background: #ffffff !important;
-    border: 1px solid #E7ECF5;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border-radius: 20px;
-    box-shadow: 0 6px 22px rgba(80,100,180,0.09);
-  }
-  .machine-card:hover { box-shadow: 0 14px 36px rgba(79,124,255,0.16); }
-  .perf-card-accent { background: rgba(238,245,255,0.7) !important; }
-
-  /* Wrapper "Downtime Terbesar": tray lembut abu-biru (bukan putih) supaya
-     kartu putih per-line di dalamnya kelihatan menonjol/kontras */
-  .downtime-terbesar-outer {
-    background: rgba(233,238,248,0.6) !important;
-    border: 1px solid #E7ECF5;
-    border-radius: 20px;
-    box-shadow: none !important;
-  }
-
-  /* Header kolom tabel (PIC / Problem / Menit, dst): abu-abu lembut khas
-     dashboard SaaS, teks tetap gelap supaya terbaca jelas */
-  thead th {
-    background: #F7F9FD !important;
-    color: #10182B !important;
-  }
-
-  /* Judul tiap section (PRODUCTIVITY, DOWNTIME EXHAUST, dll): dipertegas
-     supaya jadi penanda visual yang jelas antar section */
-  .dash-panel-title,
-  .kpi-head {
-    color: #10182B !important;
-    font-weight: 700 !important;
-    opacity: 1 !important;
-  }
-
-  /* Layout lebih lega: jarak antar kartu & antar baris diperbesar supaya
-     tidak terasa padat/berjubel */
-  .dash-body.bulanan-body { gap: 20px !important; }
-  .bulanan-kpi-grid,
-  .weekly-grid,
-  .downtime-terbesar-grid { gap: 18px !important; }
-  .bulanan-body .dash-panel,
-  .bulanan-body .kpi-card { padding: 16px 18px !important; }
-  .downtime-terbesar-outer { padding: 18px !important; }
-
-  canvas { border-radius: 12px; }
-</style>
 <script>
   (function () {
     var t = localStorage.getItem("theme_v1") || "light";
@@ -422,40 +278,6 @@ function localDateStr(d) {
 }
 function cssVar(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-}
-
-// Gradasi transparan biru -> transparan, dipakai sebagai fill di bawah garis
-function areaGradient(hexColor) {
-  return (context) => {
-    const { chart } = context;
-    const { ctx, chartArea } = chart;
-    if (!chartArea) return "transparent";
-    const g = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-    g.addColorStop(0, hexColor + "55"); // ~33% opacity di atas
-    g.addColorStop(1, hexColor + "00"); // transparan di bawah
-    return g;
-  };
-}
-
-// Titik data: isi biru, outline putih
-function pointStyle(hexColor) {
-  return { pointBackgroundColor: hexColor, pointBorderColor: "#fff", pointBorderWidth: 2, pointRadius: 3, pointHoverRadius: 5 };
-}
-
-// Efek glow tipis di garis utama chart -- dipasang sekali secara global
-if (typeof Chart !== "undefined" && !Chart.__glowRegistered) {
-  Chart.register({
-    id: "lineGlow",
-    beforeDatasetsDraw(chart) {
-      chart.ctx.save();
-      chart.ctx.shadowColor = "rgba(124,131,253,0.4)";
-      chart.ctx.shadowBlur = 6;
-    },
-    afterDatasetsDraw(chart) {
-      chart.ctx.restore();
-    },
-  });
-  Chart.__glowRegistered = true;
 }
 
 function dashboardExhaust() {
@@ -761,7 +583,7 @@ function dashboardExhaust() {
               labels: b.monthLabels,
               datasets: [
                 { type: "bar", label: "Value", data: b.ngInline.valueByMonth, backgroundColor: cssVar("--category-other"), yAxisID: "y", borderRadius: 3, barPercentage: 0.55, categoryPercentage: 0.7 },
-                { type: "line", label: "Qty", data: b.ngInline.qtyByMonth, borderColor: cssVar("--series-4"), borderWidth: 2.5, backgroundColor: areaGradient(cssVar("--series-4")), fill: true, yAxisID: "y1", tension: 0.3, ...pointStyle(cssVar("--series-4")) },
+                { type: "line", label: "Qty", data: b.ngInline.qtyByMonth, borderColor: cssVar("--series-4"), yAxisID: "y1", pointRadius: 3, tension: 0.3 },
               ],
             },
             options: {
@@ -787,7 +609,7 @@ function dashboardExhaust() {
               labels: b.downtimeExhaust.labels,
               datasets: [
                 { type: "bar", label: "Downtime", data: b.downtimeExhaust.values, backgroundColor: cssVar("--category-other"), borderRadius: 3, barPercentage: 0.6, categoryPercentage: 0.7 },
-                { type: "line", label: "Trend", data: b.downtimeExhaust.values, borderColor: cssVar("--red"), borderWidth: 2.5, tension: 0.3, ...pointStyle(cssVar("--red")) },
+                { type: "line", label: "Trend", data: b.downtimeExhaust.values, borderColor: cssVar("--red"), pointRadius: 3, tension: 0.3 },
               ],
             },
             options: { responsive: true, maintainAspectRatio: false, animation: noAnim, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
