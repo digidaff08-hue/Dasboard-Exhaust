@@ -23,8 +23,8 @@
     --panel-2: rgba(255,255,255,0.92);
     --panel-2-rgb: 255,255,255;
     --border: #E7ECF5;
-    --text: #22314A;
-    --muted: #8E99A8;
+    --text: #000000;
+    --muted: #000000;
     --primary: #4F7CFF;
     --navy: #6C63E8;
     --teal: #4F7CFF;
@@ -36,10 +36,10 @@
     --blue: #4F7CFF;
     --category-other: #FFC247;
     --chart-grid: #E8EDF7;
-    --chart-tick: #8E99A8;
+    --chart-tick: #000000;
     --oee-card-bg: rgba(255,255,255,0.92);
-    --oee-card-text: #22314A;
-    --oee-card-muted: #8E99A8;
+    --oee-card-text: #000000;
+    --oee-card-muted: #000000;
     --series-1: #7C83FD;
     --series-2: #C3BFFF;
     --series-3: #34C759;
@@ -124,6 +124,18 @@
   .kpi-card,
   .dash-panel {
     background: linear-gradient(160deg, rgba(238,245,255,0.9) 0%, rgba(243,240,255,0.85) 100%) !important;
+  }
+
+  /* Kotak outer wrapper "Downtime Terbesar": jangan putih polos juga */
+  .downtime-terbesar-outer {
+    background: linear-gradient(160deg, rgba(223,232,255,0.85) 0%, rgba(235,229,255,0.8) 100%) !important;
+  }
+
+  /* Header kolom tabel (PIC / Problem / Menit, dan tabel lain di halaman
+     ini): jangan putih polos -- kasih tint biru-lavender lembut */
+  thead th {
+    background: linear-gradient(160deg, rgba(213,225,255,0.9) 0%, rgba(226,219,255,0.85) 100%) !important;
+    color: #000000 !important;
   }
 
   canvas { border-radius: 12px; }
