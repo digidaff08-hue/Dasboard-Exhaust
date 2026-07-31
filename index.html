@@ -252,11 +252,11 @@
         <!-- Grid TV: semua muat 1 layar -->
         <div class="tv-grid">
         <div class="dash-main-grid tv-row-1">
-          <div class="dash-panel">
+          <div class="dash-panel dash-panel-chart">
             <p class="dash-panel-title" x-text="'Trend GSPH per ' + (periodMode === 'harian' ? 'Jam' : periodMode === 'bulanan' ? 'Hari' : 'Bulan')"></p>
             <div class="dash-chart-sm"><canvas id="gsphHourlyChart"></canvas></div>
           </div>
-          <div class="dash-panel">
+          <div class="dash-panel dash-panel-chart">
             <p class="dash-panel-title">OEE Breakdown</p>
             <div class="oee-donut-row oee-donut-row-3">
               <div class="oee-donut-item">
@@ -309,11 +309,11 @@
 
         <!-- Baris bawah: downtime per kategori (pie) + per kategori x line (bar) + 10 terburuk + pareto -->
         <div class="dash-main-grid tv-row-3">
-          <div class="dash-panel">
+          <div class="dash-panel dash-panel-chart">
             <p class="dash-panel-title">Downtime per Kategori</p>
             <div class="dash-chart-sm"><canvas id="categoryPieChart"></canvas></div>
           </div>
-          <div class="dash-panel">
+          <div class="dash-panel dash-panel-chart">
             <p class="dash-panel-title">Downtime per Kategori × Line</p>
             <div class="dash-chart-sm"><canvas id="fleetDowntimeChart"></canvas></div>
           </div>

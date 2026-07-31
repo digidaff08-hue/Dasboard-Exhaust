@@ -1489,6 +1489,16 @@ td.mono, .mono { font-family: var(--font-mono); }
   display: flex;
   flex-direction: column;
 }
+/* Card yang isinya MURNI grafik/chart (bukan tabel/list) -- background,
+   border, dan shadow-nya dihilangkan supaya grafiknya keliatan nempel
+   langsung di atas background halaman, bukan di dalam kotak. Ditambah
+   lewat class "dash-panel-chart" di HTML, cuma pada card yang isinya
+   chart doang. */
+.dash-panel.dash-panel-chart {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
 .dash-panel-title {
   font-family: var(--font-mono);
   font-size: 11px;

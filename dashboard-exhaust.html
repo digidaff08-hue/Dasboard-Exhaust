@@ -189,15 +189,15 @@
 
         <!-- Baris 2: Downtime Exhaust / Supporting / Line -->
         <div class="dash-main-grid bulanan-row2">
-          <div class="dash-panel dt-exhaust-panel">
+          <div class="dash-panel dash-panel-chart dt-exhaust-panel">
             <p class="dash-panel-title">Downtime Exhaust</p>
             <div class="dash-chart-sm"><canvas id="dtExhaustChart"></canvas></div>
           </div>
-          <div class="dash-panel">
+          <div class="dash-panel dash-panel-chart">
             <p class="dash-panel-title">Downtime Supporting</p>
             <div class="dash-chart-sm"><canvas id="dtSupportingChart"></canvas></div>
           </div>
-          <div class="dash-panel">
+          <div class="dash-panel dash-panel-chart">
             <p class="dash-panel-title">Downtime Line</p>
             <div class="dash-chart-sm"><canvas id="dtLineChart"></canvas></div>
           </div>
@@ -206,7 +206,7 @@
         <!-- Baris 3: Weekly Breakdown -->
         <div class="weekly-grid">
           <template x-for="(w, idx) in bulanan.weekly" :key="'week-'+idx">
-            <div class="dash-panel">
+            <div class="dash-panel dash-panel-chart">
               <p class="dash-panel-title" x-text="'WEEK ' + (idx + 1)" style="text-align:center;"></p>
               <div class="dash-chart-sm week-chart-sm"><canvas :id="'weekChart' + (idx + 1)"></canvas></div>
             </div>
