@@ -92,71 +92,30 @@ body {
 a { color: var(--amber); }
 
 /* ---------- Layout shell ---------- */
-/* Background bermerek (gradasi biru + motif industrial) dibawa dari
-   halaman login supaya konsisten di semua halaman dalam aplikasi.
-   Sidebar & area utama dibuat transparan/glass di atasnya (lihat
-   .sidebar, .mobile-topbar, .main di bawah) -- konten (panel, tabel,
-   form, kartu mesin) tetap solid putih/gelap sesuai tema supaya tetap
-   gampang dibaca, mengambang di atas background biru ini. */
+/* Background app (semua halaman kecuali login/reset-password, yang
+   pakai .login-shell terpisah) -- putih polos sesuai permintaan.
+   Sidebar & elemen lain yang tadinya didesain glass di atas biru
+   sudah disesuaikan supaya tetap kontras di atas putih. */
 .app-shell {
   display: flex;
   min-height: 100vh;
   position: relative;
-  background:
-    url("data:image/svg+xml,%3Csvg viewBox%3D%270 0 100 100%27 fill%3D%27none%27 xmlns%3D%27http://www.w3.org/2000/svg%27%3E%0A      %3Ccircle cx%3D%2750%27 cy%3D%2750%27 r%3D%2726%27 stroke%3D%27white%27 stroke-width%3D%272.5%27/%3E%0A      %3Ccircle cx%3D%2750%27 cy%3D%2750%27 r%3D%279%27 stroke%3D%27white%27 stroke-width%3D%272.5%27/%3E%0A      %3Cg stroke%3D%27white%27 stroke-width%3D%272.5%27 stroke-linecap%3D%27round%27%3E%0A        %3Cpath d%3D%27M50 16 L50 4%27/%3E%0A        %3Cpath d%3D%27M50 84 L50 96%27/%3E%0A        %3Cpath d%3D%27M16 50 L4 50%27/%3E%0A        %3Cpath d%3D%27M84 50 L96 50%27/%3E%0A        %3Cpath d%3D%27M27 27 L19 19%27/%3E%0A        %3Cpath d%3D%27M73 73 L81 81%27/%3E%0A        %3Cpath d%3D%27M73 27 L81 19%27/%3E%0A        %3Cpath d%3D%27M27 73 L19 81%27/%3E%0A      %3C/g%3E%0A    %3C/svg%3E") no-repeat 1% 8% / 110px auto,
-    url("data:image/svg+xml,%3Csvg viewBox%3D%270 0 80 80%27 fill%3D%27none%27 xmlns%3D%27http://www.w3.org/2000/svg%27%3E%0A      %3Cg stroke%3D%27white%27 stroke-width%3D%272.4%27 stroke-linecap%3D%27round%27%3E%0A        %3Cpath d%3D%27M40 40 L40 6%27/%3E%0A        %3Cpath d%3D%27M40 40 L64 14%27/%3E%0A        %3Cpath d%3D%27M40 40 L70 40%27/%3E%0A        %3Cpath d%3D%27M40 40 L64 66%27/%3E%0A        %3Cpath d%3D%27M40 40 L40 74%27/%3E%0A        %3Cpath d%3D%27M40 40 L16 66%27/%3E%0A        %3Cpath d%3D%27M40 40 L10 40%27/%3E%0A        %3Cpath d%3D%27M40 40 L16 14%27/%3E%0A      %3C/g%3E%0A      %3Ccircle cx%3D%2740%27 cy%3D%2740%27 r%3D%277%27 stroke%3D%27white%27 stroke-width%3D%272.4%27/%3E%0A    %3C/svg%3E") no-repeat 96% 4% / 66px auto,
-    url("data:image/svg+xml,%3Csvg viewBox%3D%270 0 120 120%27 fill%3D%27none%27 xmlns%3D%27http://www.w3.org/2000/svg%27%3E%0A      %3Ccircle cx%3D%2760%27 cy%3D%2760%27 r%3D%2746%27 stroke%3D%27white%27 stroke-width%3D%272.4%27/%3E%0A      %3Cpath d%3D%27M60 60 L82 38%27 stroke%3D%27white%27 stroke-width%3D%272.6%27 stroke-linecap%3D%27round%27/%3E%0A      %3Ccircle cx%3D%2760%27 cy%3D%2760%27 r%3D%275%27 stroke%3D%27white%27 stroke-width%3D%272.4%27/%3E%0A      %3Cg stroke%3D%27white%27 stroke-width%3D%272.2%27 stroke-linecap%3D%27round%27%3E%0A        %3Cpath d%3D%27M60 18 L60 26%27/%3E%0A        %3Cpath d%3D%27M60 94 L60 102%27/%3E%0A        %3Cpath d%3D%27M18 60 L26 60%27/%3E%0A        %3Cpath d%3D%27M94 60 L102 60%27/%3E%0A        %3Cpath d%3D%27M30 30 L36 36%27/%3E%0A        %3Cpath d%3D%27M90 90 L84 84%27/%3E%0A        %3Cpath d%3D%27M90 30 L84 36%27/%3E%0A      %3C/g%3E%0A    %3C/svg%3E") no-repeat 95% 88% / 150px auto,
-    url("data:image/svg+xml,%3Csvg viewBox%3D%270 0 80 80%27 fill%3D%27none%27 xmlns%3D%27http://www.w3.org/2000/svg%27%3E%0A      %3Cpath d%3D%27M40 4 L70 22 L70 58 L40 76 L10 58 L10 22 Z%27 stroke%3D%27white%27 stroke-width%3D%272.4%27 stroke-linejoin%3D%27round%27/%3E%0A      %3Ccircle cx%3D%2740%27 cy%3D%2740%27 r%3D%2715%27 stroke%3D%27white%27 stroke-width%3D%272.4%27/%3E%0A    %3C/svg%3E") no-repeat 3% 88% / 58px auto,
-    url("data:image/svg+xml,%3Csvg viewBox%3D%270 0 400 300%27 fill%3D%27none%27 xmlns%3D%27http://www.w3.org/2000/svg%27%3E%0A      %3Cpath d%3D%27M20 260 L20 160 L70 190 L70 140 L120 170 L120 120 L170 150 L170 100 L230 100 L230 260 Z%27 stroke%3D%27white%27 stroke-width%3D%272%27 stroke-linejoin%3D%27round%27/%3E%0A      %3Crect x%3D%2790%27 y%3D%2770%27 width%3D%2716%27 height%3D%2750%27 stroke%3D%27white%27 stroke-width%3D%272%27/%3E%0A      %3Crect x%3D%27150%27 y%3D%2750%27 width%3D%2716%27 height%3D%2770%27 stroke%3D%27white%27 stroke-width%3D%272%27/%3E%0A      %3Cpath d%3D%27M98 70 C 94 55, 104 55, 100 40%27 stroke%3D%27white%27 stroke-width%3D%272%27 stroke-linecap%3D%27round%27/%3E%0A      %3Cpath d%3D%27M158 50 C 154 35, 164 35, 160 20%27 stroke%3D%27white%27 stroke-width%3D%272%27 stroke-linecap%3D%27round%27/%3E%0A      %3Cg stroke%3D%27white%27 stroke-width%3D%272.2%27 stroke-linecap%3D%27round%27%3E%0A        %3Cpath d%3D%27M300 150 L300 110%27/%3E%0A        %3Cpath d%3D%27M300 150 L332 130%27/%3E%0A        %3Cpath d%3D%27M300 150 L336 158%27/%3E%0A        %3Cpath d%3D%27M300 150 L326 186%27/%3E%0A        %3Cpath d%3D%27M300 150 L268 186%27/%3E%0A        %3Cpath d%3D%27M300 150 L264 158%27/%3E%0A        %3Cpath d%3D%27M300 150 L268 130%27/%3E%0A      %3C/g%3E%0A      %3Ccircle cx%3D%27300%27 cy%3D%27150%27 r%3D%276%27 stroke%3D%27white%27 stroke-width%3D%272%27/%3E%0A    %3C/svg%3E") no-repeat 50% 100% / 380px auto,
-    radial-gradient(circle at 15% 8%, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0) 55%),
-    linear-gradient(165deg, #3f7fe8 0%, #2c5fdb 40%, #1a3fbf 75%, #0f2f9e 100%);
-  background-repeat: no-repeat;
-  background-attachment: fixed;
+  background: #ffffff;
 }
 .app-shell::before,
 .app-shell::after {
-  content: "";
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(70px);
-  pointer-events: none;
-  z-index: 0;
-}
-.app-shell::before {
-  width: 360px;
-  height: 360px;
-  top: -120px;
-  right: -100px;
-  background: rgba(255,255,255,0.14);
-}
-.app-shell::after {
-  width: 460px;
-  height: 460px;
-  bottom: -160px;
-  left: -140px;
-  background: rgba(15,79,220,0.28);
+  display: none;
 }
 
 .sidebar {
   width: 220px;
   flex-shrink: 0;
-  /* Glass di atas background biru .app-shell -- variabel warna
-     di-override lokal di sini, jadi semua rule anak yang sudah pakai
-     var(--text)/var(--muted)/var(--border)/var(--panel)/var(--amber)
-     ikut berubah otomatis tanpa perlu diulang satu-satu. */
-  background: rgba(255,255,255,0.09);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border-right: 1px solid rgba(255,255,255,0.16);
-  color: #ffffff;
-  --text: #ffffff;
-  --muted: rgba(255,255,255,0.72);
-  --border: rgba(255,255,255,0.18);
-  --panel: rgba(255,255,255,0.10);
-  --panel-2: rgba(255,255,255,0.16);
-  --bg: rgba(255,255,255,0.14);
-  --amber: #ffd166;
-  --amber-dim: rgba(15,63,191,0.35);
+  /* Dulu glass di atas background biru .app-shell (teks putih di atas
+     kaca transparan). Sekarang app-shell putih polos, jadi sidebar
+     dibikin panel solid biasa -- warna teks/border ikut var(--text)
+     dkk. bawaan tema (gelap di tema terang, terang di tema gelap). */
+  background: var(--panel-2);
+  border-right: 1px solid var(--border);
   padding: 24px 0;
   display: flex;
   flex-direction: column;
@@ -293,14 +252,10 @@ a { color: var(--amber); }
   text-transform: uppercase;
   margin-bottom: 4px;
 }
-/* .page-header duduk langsung di atas background biru .app-shell (bukan
-   di dalam panel putih), jadi warnanya di-override khusus di sini biar
-   tetap kontras -- tidak mempengaruhi .page-title/.eyebrow lain. */
-.page-header .page-title {
-  color: #ffffff;
-  text-shadow: 0 1px 4px rgba(10,25,70,0.35);
-}
-.page-header .page-title .eyebrow { color: #ffd166; }
+/* Dulu .page-header duduk langsung di atas background biru .app-shell,
+   jadi warna judul di-override putih biar kontras. Sekarang app-shell
+   putih polos, jadi .page-title cukup ikut var(--text) bawaan (dark
+   di tema terang, terang di tema gelap) -- tidak perlu override lagi. */
 
 /* ---------- Cards / panels ---------- */
 /* Off-white lembut -- solid (tanpa blur, ringan buat HP operator),
@@ -1237,13 +1192,8 @@ td.mono, .mono { font-family: var(--font-mono); }
     align-items: center;
     gap: 12px;
     padding: 12px 16px;
-    background: rgba(58,97,210,0.55);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border-bottom: 1px solid rgba(255,255,255,0.16);
-    color: #ffffff;
-    --text: #ffffff;
-    --border: rgba(255,255,255,0.2);
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
     position: sticky;
     top: 0;
     z-index: 20;

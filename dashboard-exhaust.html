@@ -16,18 +16,6 @@
     document.documentElement.setAttribute("data-theme", t);
   })();
 </script>
-<style>
-  /* Khusus halaman Dashboard Exhaust: background diganti putih polos
-     (bukan gradasi biru bawaan .app-shell). Halaman lain tidak
-     terpengaruh karena override ini cuma ada di file ini. */
-  .app-shell {
-    background: #ffffff !important;
-  }
-  .app-shell::before,
-  .app-shell::after {
-    display: none;
-  }
-</style>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
