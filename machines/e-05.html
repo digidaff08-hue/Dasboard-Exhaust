@@ -132,7 +132,7 @@
                   <span>Dandori sejak <b x-text="fmtClock(lines[st.id].entryStart)"></b></span>
                   <button type="button" class="btn-ghost btn-sm" @click="cancelLine(st.id)">Batal</button>
                 </div>
-                <p class="hint" style="margin-bottom:10px;">Pilih dari Planning kalau ada, atau ketik Part Number lain.</p>
+                <p class="hint" style="margin-bottom:10px;">Pilih dari Planning kalau ada, atau pilih Part Number dari dropdown.</p>
                 <div class="chip-row" style="margin-bottom:14px;" x-show="planningForStation(st.id).filter(p => p.status==='pending').length > 0">
                   <template x-for="p in planningForStation(st.id).filter(p => p.status==='pending')" :key="p.id">
                     <button type="button" class="chip" @click="choosePlannedPart(st.id, p)"
@@ -142,14 +142,12 @@
                 <div class="form-grid">
                   <div class="field">
                     <label>Part Number</label>
-                    <div class="combo" x-data="comboBox(() => partNumberList.map(p => p.value), () => lines[st.id].form.part_number, (v) => lines[st.id].form.part_number = v, (v) => { autofillManpower(st.id, v) })" @click.outside="open = false">
-                      <input type="text" x-model="query" @input="onInput()" @focus="open = true" placeholder="Ketik atau pilih...">
-                      <div class="combo-list" x-show="open && filtered().length > 0" x-cloak>
-                        <template x-for="opt in filtered()" :key="opt">
-                          <div class="combo-item" @mousedown.prevent="select(opt)" x-text="opt"></div>
-                        </template>
-                      </div>
-                    </div>
+                    <select x-model="lines[st.id].form.part_number" @change="autofillManpower(st.id, lines[st.id].form.part_number)">
+                      <option value="">-- pilih --</option>
+                      <template x-for="p in partNumberList" :key="p.value">
+                        <option :value="p.value" x-text="p.value"></option>
+                      </template>
+                    </select>
                   </div>
                   <div class="field"><label>Qty</label><input type="number" x-model="lines[st.id].form.qty"></div>
                   <div class="field"><label>Jumlah MP</label><input type="number" x-model="lines[st.id].form.manpower"></div>
