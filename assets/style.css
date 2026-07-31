@@ -1965,9 +1965,15 @@ table.line-status-table .status-badge { font-size: 10px; padding: 3px 8px; }
    MODE TV 55" — seluruh dashboard muat 1 layar tanpa scroll
    ========================================================= */
 @media (min-width: 1280px) and (min-aspect-ratio: 4/3) {
-  body { overflow: hidden; }
-  .app-shell { height: 100vh; overflow: hidden; }
-  .main {
+  /* PENTING: rule "tanpa scroll" di bawah ini cuma boleh berlaku di
+     halaman Dashboard utama (body.tv-mode-page, khusus index.html)
+     yang memang didesain muat 1 layar TV. Sebelumnya rule ini
+     global (semua halaman kena media query ini di PC/laptop biasa),
+     jadi Master Data dan halaman lain yang isinya lebih panjang dari
+     1 layar jadi tidak bisa di-scroll sama sekali di desktop. */
+  body.tv-mode-page { overflow: hidden; }
+  .tv-mode-page .app-shell { height: 100vh; overflow: hidden; }
+  .tv-mode-page .main {
     --row-gap: 10px;
     height: 100vh;
     overflow: hidden;
