@@ -393,8 +393,9 @@ function dashboardExhaust() {
         const [prodRes, ngRes, picRes, lineRes, weeklyRes] = await Promise.all([
           supabaseClient.rpc("dashboard_bulanan_produksi", { p_start: prevFyStart.toISOString(), p_end: fyEnd.toISOString() }),
           supabaseClient.rpc("dashboard_bulanan_ng_inline", { p_start: prevFyStart.toISOString(), p_end: fyEnd.toISOString() }),
-          supabaseClient.rpc("dashboard_bulanan_downtime_by_pic", { p_start: bulanIni.toISOString(), p_end: bulanDepan.toISOString() }),
-          supabaseClient.rpc("dashboard_bulanan_downtime_by_line", { p_start: bulanIni.toISOString(), p_end: bulanDepan.toISOString() }),
+          // Downtime Supporting & Line: total dari awal tahun fiskal (April) s/d bulan berjalan
+          supabaseClient.rpc("dashboard_bulanan_downtime_by_pic", { p_start: fyStart.toISOString(), p_end: bulanDepan.toISOString() }),
+          supabaseClient.rpc("dashboard_bulanan_downtime_by_line", { p_start: fyStart.toISOString(), p_end: bulanDepan.toISOString() }),
           supabaseClient.rpc("dashboard_bulanan_weekly", { p_start: bulanIni.toISOString(), p_end: bulanDepan.toISOString() }),
         ]);
         const topRes = await Promise.all(MACHINES.map((m) =>
@@ -455,7 +456,7 @@ function dashboardExhaust() {
           ...fyMonths.map((d) => { const r = findRow(prodRows, d); return r ? Math.round(Number(r.downtime_menit)) : 0; }),
         ];
 
-        // Downtime Supporting / Line (bulan berjalan)
+        // Downtime Supporting / Line (total FY berjalan: April s/d bulan ini)
         const picRows = picRes.data || [];
         const lineRows = lineRes.data || [];
         const PIC_ORDER = ["PE", "MESIN", "QC", "PC-SUPP", "PROD", "PRESS"];
