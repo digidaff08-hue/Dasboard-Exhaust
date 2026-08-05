@@ -2238,27 +2238,18 @@ table.plan-shift-table td.balance-bad { color: var(--red); font-weight: 700; }
    ========================================================= */
 .tahunan-v2 { display: flex; flex-direction: column; gap: 16px; width: 100%; }
 
-/* ---- Baris 1: control bar ---- */
+/* ---- Baris 1: control bar (cuma Tahun Fiskal) ---- */
 .tv2-controlbar {
   display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
   background: var(--panel); border: 1px solid var(--border);
   border-radius: 16px; padding: 14px 20px; box-shadow: var(--shadow-sm);
 }
 .tv2-control-group { display: flex; flex-direction: column; gap: 4px; }
-.tv2-control-group.tv2-grow { flex: 1 1 200px; min-width: 180px; }
 .tv2-control-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.tv2-select, .tv2-input {
+.tv2-select {
   background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
   color: var(--text); padding: 9px 12px; font-size: 13px; font-family: var(--font-body);
 }
-.tv2-input { width: 100%; }
-.tv2-btn {
-  border: 1px solid var(--border); background: var(--panel); color: var(--text);
-  border-radius: 10px; padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
-  transition: transform .12s ease, box-shadow .12s ease; white-space: nowrap;
-}
-.tv2-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
-.tv2-btn-export { background: var(--primary); color: #fff; border-color: var(--primary); }
 
 .tv2-body { display: flex; flex-direction: column; gap: 16px; width: 100%; }
 
@@ -2308,15 +2299,6 @@ table.plan-shift-table td.balance-bad { color: var(--red); font-weight: 700; }
 .tv2-kpi-target { font-size: 11px; color: var(--muted); margin-top: 2px; }
 .tv2-kpi-chart { height: clamp(90px, 12vh, 140px); position: relative; margin-top: 10px; width: 100%; }
 
-/* ---- Ranking Line list ---- */
-.tv2-rank-list { display: flex; flex-direction: column; gap: 12px; }
-.tv2-rank-item { display: grid; grid-template-columns: 20px 46px 1fr auto; align-items: center; gap: 10px; }
-.tv2-rank-no { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
-.tv2-rank-name { font-weight: 700; font-size: 13px; }
-.tv2-rank-bar { height: 8px; border-radius: 999px; background: var(--chart-grid); overflow: hidden; }
-.tv2-rank-bar-fill { height: 100%; border-radius: 999px; transition: width .2s ease; }
-.tv2-rank-value { font-size: 12px; white-space: nowrap; color: var(--muted); }
-
 .tv2-chart-lg { height: clamp(220px, 30vh, 340px); position: relative; width: 100%; }
 .tv2-chart-md { height: clamp(180px, 24vh, 280px); position: relative; width: 100%; }
 
@@ -2338,7 +2320,6 @@ table.plan-shift-table td.balance-bad { color: var(--red); font-weight: 700; }
   .tv2-span-3, .tv2-span-4, .tv2-span-6, .tv2-span-8 { grid-column: span 6; }
   .tv2-narrative { grid-template-columns: 1fr; text-align: left; }
   .tv2-controlbar { flex-direction: column; align-items: stretch; }
-  .tv2-control-group.tv2-grow { min-width: 0; }
 }
 @media (max-width: 640px) {
   .tv2-grid-12 { grid-template-columns: repeat(2, 1fr); }

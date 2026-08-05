@@ -252,32 +252,15 @@
     <template x-if="activeTab === 'tahunan'">
       <div class="tahunan-v2">
 
-        <!-- Baris 1: control bar (Tahun, Search, Line, Export) -->
+        <!-- Baris 1: control bar -- cuma Tahun Fiskal -->
         <div class="tv2-controlbar">
           <div class="tv2-control-group">
             <label class="tv2-control-label">Tahun Fiskal</label>
             <select class="tv2-select" x-model.number="tahunanYear" @change="onTahunanYearChange()">
               <template x-for="y in tahunanYearOptions" :key="y">
-                <option :value="y" x-text="'FY ' + y + ' / ' + (y + 1)"></option>
+                <option :value="y" x-text="y"></option>
               </template>
             </select>
-          </div>
-          <div class="tv2-control-group tv2-grow">
-            <label class="tv2-control-label">Cari Problem / PIC / Line</label>
-            <input type="text" class="tv2-input" placeholder="Ketik untuk mencari di Downtime Terbesar..." x-model="tahunanSearch">
-          </div>
-          <div class="tv2-control-group">
-            <label class="tv2-control-label">Filter Line</label>
-            <select class="tv2-select" x-model="tahunanLineFilter">
-              <option value="all">Semua Line</option>
-              <template x-for="mk in machinesKeys" :key="mk">
-                <option :value="mk" x-text="mk"></option>
-              </template>
-            </select>
-          </div>
-          <div class="tv2-control-group">
-            <label class="tv2-control-label">&nbsp;</label>
-            <button class="tv2-btn tv2-btn-export" @click="exportTahunanCSV()">⬇ Export CSV</button>
           </div>
         </div>
 
@@ -350,22 +333,9 @@
 
             <!-- Baris 3: Trend Downtime Exhaust (besar) + Ranking Line -->
             <div class="tv2-grid-12">
-              <div class="tv2-card tv2-span-8">
+              <div class="tv2-card tv2-span-12">
                 <p class="tv2-card-title">Downtime Exhaust — Trend Tahunan</p>
                 <div class="tv2-chart-lg"><canvas id="dtExhaustChartTahunan"></canvas></div>
-              </div>
-              <div class="tv2-card tv2-span-4">
-                <p class="tv2-card-title">Ranking Line — Downtime Actual</p>
-                <div class="tv2-rank-list">
-                  <template x-for="(r, i) in tahunanNarrative.lineRanking" :key="r.line">
-                    <div class="tv2-rank-item">
-                      <span class="tv2-rank-no" x-text="(i + 1) + '.'"></span>
-                      <span class="tv2-rank-name" x-text="r.line"></span>
-                      <div class="tv2-rank-bar"><div class="tv2-rank-bar-fill" :style="'width:' + r.pct + '%; background:' + r.color"></div></div>
-                      <span class="tv2-rank-value mono" x-text="fmtNum(r.value) + ' m'"></span>
-                    </div>
-                  </template>
-                </div>
               </div>
             </div>
 
@@ -385,7 +355,7 @@
             <div class="tv2-card tv2-terbesar-outer">
               <p class="tv2-card-title">Downtime Terbesar per Line</p>
               <div class="tv2-terbesar-grid">
-                <template x-for="line in filteredDowntimeTerbesar()" :key="line.mesin">
+                <template x-for="line in downtimeTerbesarView()" :key="line.mesin">
                   <div class="tv2-terbesar-card">
                     <div class="tv2-terbesar-head">
                       <span class="badge dt-terbesar-badge" x-text="line.mesin"></span>
@@ -412,9 +382,6 @@
                       </table>
                     </div>
                   </div>
-                </template>
-                <template x-if="filteredDowntimeTerbesar().length === 0">
-                  <p class="empty-state">Tidak ada data yang cocok dengan filter/pencarian.</p>
                 </template>
               </div>
             </div>
@@ -577,18 +544,14 @@ function dashboardExhaust() {
       downtimeTerbesar: [],
     },
     tahunanCharts: {},
-    machinesKeys: MACHINES.map((m) => m.key),
-    tahunanSearch: "",
-    tahunanLineFilter: "all",
     tahunanNarrative: {
       severity: "good", icon: "✅", headline: "Memuat narasi...", detail: "",
       worstKpi: "-", worstLine: "-", worstMonth: "-",
       kpiStatus: { productivity: "good", availability: "good", straightpass: "good" },
-      lineRanking: [],
     },
     // ---- Smart Narrative: murni derivasi dari this.tahunan yang sudah
     // di-fetch (tidak ada query/kalkulasi baru) -- dipakai buat headline
-    // otomatis + ranking line di UI Tahunan v2.
+    // otomatis + highlight bar terburuk di UI Tahunan.
     computeTahunanNarrative() {
       const t = this.tahunan;
       const kpis = [
@@ -608,19 +571,12 @@ function dashboardExhaust() {
       monthVals.forEach((v, i) => { if (v > worstMonthVal) { worstMonthVal = v; worstMonthIdx = i; } });
       const worstMonth = worstMonthIdx >= 0 && worstMonthVal > 0 ? monthLabels[worstMonthIdx] : "-";
 
-      // Ranking line berdasar Downtime Actual (sudah ada di t.downtimeLine).
+      // Line terburuk berdasar Downtime Actual (sudah ada di t.downtimeLine).
       const lineLabels = t.downtimeLine.labels || [];
       const lineAct = t.downtimeLine.act || [];
-      const maxLineVal = Math.max(1, ...lineAct, 0);
-      const ranking = lineLabels
-        .map((l, i) => ({ line: l, value: lineAct[i] || 0 }))
-        .sort((a, b) => b.value - a.value)
-        .map((r, idx) => ({
-          ...r,
-          pct: Math.round((r.value / maxLineVal) * 100),
-          color: idx === 0 ? cssVar("--red") : (idx === 1 ? cssVar("--category-other") : cssVar("--series-4")),
-        }));
-      const worstLine = ranking.length && ranking[0].value > 0 ? ranking[0].line : "-";
+      let worstLineIdx = -1, worstLineVal = -Infinity;
+      lineAct.forEach((v, i) => { if (v > worstLineVal) { worstLineVal = v; worstLineIdx = i; } });
+      const worstLine = worstLineIdx >= 0 && worstLineVal > 0 ? lineLabels[worstLineIdx] : "-";
 
       const severity = worst.gap > 10 ? "bad" : (worst.gap > 3 ? "warn" : "good");
       const icon = severity === "bad" ? "⚠️" : (severity === "warn" ? "🟡" : "✅");
@@ -631,48 +587,16 @@ function dashboardExhaust() {
         ? `Line ${worstLine} menyumbang downtime terbanyak tahun ini, dengan bulan ${worstMonth} sebagai titik terberat.`
         : `Belum ada downtime tercatat pada periode ini.`;
 
-      this.tahunanNarrative = { severity, icon, headline, detail, worstKpi: worst.label, worstLine, worstMonth, kpiStatus, lineRanking: ranking };
+      this.tahunanNarrative = { severity, icon, headline, detail, worstKpi: worst.label, worstLine, worstMonth, kpiStatus };
     },
-    // ---- Filter tampilan Downtime Terbesar (client-side, dari data yang
-    // sudah ter-fetch) -- tidak memicu query baru.
-    filteredDowntimeTerbesar() {
-      const q = (this.tahunanSearch || "").toLowerCase().trim();
-      const lines = this.tahunan.downtimeTerbesar || [];
-      return lines
-        .filter((l) => this.tahunanLineFilter === "all" || l.mesin === this.tahunanLineFilter)
-        .map((l) => {
-          const maxVal = l.rows.length ? Math.max(...l.rows.map((r) => r.value)) : 0;
-          return { ...l, maxVal };
-        })
-        .filter((l) => {
-          if (!q) return true;
-          return l.mesin.toLowerCase().includes(q) ||
-            l.rows.some((r) => (r.pic || "").toLowerCase().includes(q) || (r.problem || "").toLowerCase().includes(q));
-        });
-    },
-    // ---- Export CSV dari snapshot this.tahunan yang sedang tampil ----
-    exportTahunanCSV() {
-      const t = this.tahunan;
-      const rows = [["Dashboard Exhaust — Tahunan FY" + this.tahunanYear]];
-      rows.push([]);
-      rows.push(["Bulan", "Downtime Exhaust (menit)"]);
-      (t.downtimeExhaust.labels || []).forEach((l, i) => rows.push([l, t.downtimeExhaust.values[i]]));
-      rows.push([]);
-      rows.push(["Line", "Plan (menit)", "Actual (menit)"]);
-      (t.downtimeLine.labels || []).forEach((l, i) => rows.push([l, t.downtimeLine.plan[i], t.downtimeLine.act[i]]));
-      rows.push([]);
-      rows.push(["PIC", "Plan (menit)", "Actual (menit)"]);
-      (t.downtimeSupporting.labels || []).forEach((l, i) => rows.push([l, t.downtimeSupporting.plan[i], t.downtimeSupporting.act[i]]));
-      const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `dashboard-exhaust-tahunan-FY${this.tahunanYear}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+    // ---- Downtime Terbesar per line, ditambah maxVal per line untuk
+    // highlight baris terberat -- murni turunan dari data yang sudah
+    // ter-fetch, tidak ada query/filter baru.
+    downtimeTerbesarView() {
+      return (this.tahunan.downtimeTerbesar || []).map((l) => {
+        const maxVal = l.rows.length ? Math.max(...l.rows.map((r) => r.value)) : 0;
+        return { ...l, maxVal };
+      });
     },
     async init() {
       this.session = await requireAuth();
