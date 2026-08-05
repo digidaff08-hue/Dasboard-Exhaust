@@ -10,6 +10,225 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
+<style>
+/* =========================================================================
+   DASHBOARD EXHAUST - TAHUNAN (Smart Narrative Redesign)
+   Semua rule di bawah ini di-namespace di bawah ".dxy" supaya TIDAK PERNAH
+   menyentuh style tab Bulanan/Harian/Kualitas yang sudah ada. Tidak ada
+   query, RPC, atau logika data yang diubah di sini -- murni lapisan visual.
+   ========================================================================= */
+.dxy {
+  --dxy-bg: #F5F7FB;
+  --dxy-card: #FFFFFF;
+  --dxy-border: #E5E7EB;
+  --dxy-text: #1F2937;
+  --dxy-muted: #6B7280;
+  --dxy-blue: #2563EB;
+  --dxy-green: #10B981;
+  --dxy-orange: #F97316;
+  --dxy-teal: #14B8A6;
+  --dxy-purple: #8B5CF6;
+  --dxy-red: #EF4444;
+  --dxy-yellow: #F59E0B;
+  --dxy-shadow: 0 1px 2px rgba(15,23,42,.04), 0 8px 24px -12px rgba(15,23,42,.12);
+  --dxy-shadow-hover: 0 4px 10px rgba(15,23,42,.06), 0 16px 32px -14px rgba(15,23,42,.18);
+  background: var(--dxy-bg);
+  color: var(--dxy-text);
+  padding: 18px;
+  border-radius: 20px;
+  font-variant-numeric: tabular-nums;
+}
+[data-theme="dark"] .dxy {
+  --dxy-bg: #0f172a;
+  --dxy-card: #1e293b;
+  --dxy-border: #334155;
+  --dxy-text: #f8fafc;
+  --dxy-muted: #94a3b8;
+  --dxy-shadow: 0 1px 2px rgba(0,0,0,.2), 0 8px 24px -12px rgba(0,0,0,.4);
+  --dxy-shadow-hover: 0 4px 10px rgba(0,0,0,.3), 0 16px 32px -14px rgba(0,0,0,.5);
+}
+
+/* ---- Filter bar (Baris 1) ---- */
+.dxy-filterbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.dxy-filterbar .dxy-spacer { flex: 1; }
+.dxy-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dxy-field label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--dxy-muted);
+}
+.dxy-select, .dxy-input {
+  background: var(--dxy-card);
+  border: 1px solid var(--dxy-border);
+  color: var(--dxy-text);
+  border-radius: 10px;
+  padding: 7px 10px;
+  font-size: 12.5px;
+  font-family: inherit;
+  min-height: 32px;
+}
+.dxy-select:disabled, .dxy-input:disabled { opacity: .45; cursor: not-allowed; }
+.dxy-input { min-width: 160px; }
+.dxy-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--dxy-card);
+  border: 1px solid var(--dxy-border);
+  color: var(--dxy-text);
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.dxy-btn:hover { box-shadow: var(--dxy-shadow); transform: translateY(-1px); }
+.dxy-btn-primary { background: var(--dxy-blue); border-color: var(--dxy-blue); color: #fff; }
+
+/* ---- KPI row (Baris 2) ---- */
+.dxy-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.dxy-kpi-card {
+  grid-column: span 3;
+  background: var(--dxy-card);
+  border: 1px solid var(--dxy-border);
+  border-radius: 16px;
+  padding: 14px 16px;
+  min-height: 112px;
+  box-shadow: var(--dxy-shadow);
+  transition: transform 200ms ease, box-shadow 200ms ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  overflow: hidden;
+}
+.dxy-kpi-card:hover { transform: translateY(-2px); box-shadow: var(--dxy-shadow-hover); }
+.dxy-kpi-top { display: flex; align-items: center; justify-content: space-between; }
+.dxy-kpi-label { display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; color: var(--dxy-muted); text-transform: uppercase; }
+.dxy-kpi-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dxy-kpi-mid { display: flex; align-items: baseline; gap: 8px; }
+.dxy-kpi-value { font-size: 26px; font-weight: 800; letter-spacing: -0.01em; line-height: 1; }
+.dxy-kpi-delta { font-size: 11.5px; font-weight: 700; display: inline-flex; align-items: center; gap: 2px; }
+.dxy-kpi-delta.up { color: var(--dxy-green); }
+.dxy-kpi-delta.down { color: var(--dxy-red); }
+.dxy-kpi-delta.flat { color: var(--dxy-muted); }
+.dxy-kpi-bottom { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
+.dxy-kpi-target { font-size: 10.5px; color: var(--dxy-muted); }
+.dxy-kpi-spark { width: 84px; height: 28px; }
+
+/* ---- Smart Narrative (Baris 3) ---- */
+.dxy-narrative {
+  background: var(--dxy-card);
+  border: 1px solid var(--dxy-border);
+  border-radius: 16px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--dxy-shadow);
+}
+.dxy-narrative-head { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--dxy-muted); margin-bottom: 10px; }
+.dxy-narrative-list { display: flex; flex-direction: column; gap: 9px; }
+.dxy-narrative-item { display: flex; align-items: flex-start; gap: 9px; font-size: 13px; line-height: 1.5; }
+.dxy-narrative-icon { flex-shrink: 0; font-size: 13px; line-height: 1.5; }
+.dxy-narrative-item b { font-weight: 700; }
+
+/* ---- Chart grid (Baris 4) ---- */
+.dxy-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.dxy-panel {
+  background: var(--dxy-card);
+  border: 1px solid var(--dxy-border);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: var(--dxy-shadow);
+  transition: box-shadow 200ms ease;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.dxy-panel:hover { box-shadow: var(--dxy-shadow-hover); }
+.dxy-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.dxy-panel-title { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
+.dxy-panel-badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(16,185,129,.12); color: var(--dxy-green); }
+.dxy-panel-sub { font-size: 10.5px; color: var(--dxy-muted); }
+.dxy-span-6 { grid-column: span 6; }
+.dxy-span-12 { grid-column: span 12; }
+.dxy-chart-box { position: relative; flex: 1; min-height: 230px; }
+.dxy-chart-box.tall { min-height: 280px; }
+
+/* ---- Tabel Downtime Terbesar (redesign total) ---- */
+.dxy-table-panel { grid-column: span 12; }
+.dxy-table-scroll { max-height: 420px; overflow: auto; border-radius: 12px; border: 1px solid var(--dxy-border); }
+table.dxy-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12.5px; }
+table.dxy-table thead th {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--dxy-card);
+  border-bottom: 2px solid var(--dxy-border);
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 10px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--dxy-muted);
+}
+table.dxy-table tbody td { padding: 9px 12px; border-bottom: 1px solid var(--dxy-border); vertical-align: middle; }
+table.dxy-table tbody tr:nth-child(even) { background: rgba(107,114,128,.045); }
+table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
+.dxy-rank-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  font-size: 10.5px; font-weight: 800; color: #fff; flex-shrink: 0;
+}
+.dxy-pic-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: var(--dxy-muted); }
+.dxy-pic-chip .dot { width: 7px; height: 7px; border-radius: 50%; }
+.dxy-minute-badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; }
+.dxy-empty-cell { color: var(--dxy-muted); font-style: italic; }
+
+/* ---- Skeleton loading ---- */
+.dxy-skeleton-row { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; margin-bottom: 16px; }
+.dxy-skeleton {
+  grid-column: span 3;
+  height: 112px;
+  border-radius: 16px;
+  background: linear-gradient(90deg, var(--dxy-border) 25%, rgba(255,255,255,.5) 37%, var(--dxy-border) 63%);
+  background-size: 400% 100%;
+  animation: dxy-shimmer 1.4s ease infinite;
+}
+@keyframes dxy-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+
+/* ---- Responsive ---- */
+@media (max-width: 1366px) {
+  .dxy-kpi-card { grid-column: span 6; }
+  .dxy-skeleton { grid-column: span 6; }
+}
+@media (max-width: 1024px) {
+  .dxy-span-6 { grid-column: span 12; }
+  .dxy-filterbar { gap: 8px; }
+}
+@media (max-width: 640px) {
+  .dxy-kpi-card, .dxy-skeleton { grid-column: span 12; }
+}
+</style>
 <script>
   (function () {
     var t = localStorage.getItem("theme_v1") || "light";
@@ -250,96 +469,203 @@
       </div>
     </template>
     <template x-if="activeTab === 'tahunan'">
-      <div class="tahunan-fill">
-        <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
-          <select class="btn-secondary btn-sm" x-model.number="tahunanYear" @change="onTahunanYearChange()">
-            <template x-for="y in tahunanYearOptions" :key="y">
-              <option :value="y" x-text="y"></option>
-            </template>
-          </select>
-        </div>
-        <template x-if="tahunanLoading"><p class="empty-state">Memuat data tahunan...</p></template>
-        <template x-if="!tahunanLoading">
-          <div class="dash-body bulanan-body">
-
-        <!-- Baris 1: 4 KPI utama -->
-        <div class="bulanan-kpi-grid">
-          <div class="kpi-card">
-            <div class="kpi-head"><span class="kpi-dot kpi-dot-blue"></span>PRODUCTIVITY</div>
-            <div class="kpi-value" x-text="tahunan.productivity.value + '%'"></div>
-            <div class="kpi-sub">BULAN BERJALAN</div>
-            <div class="kpi-chart"><canvas id="kpiProductivityChartTahunan"></canvas></div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-head"><span class="kpi-dot kpi-dot-teal"></span>AVAILABILITY</div>
-            <div class="kpi-value" x-text="tahunan.availability.value + '%'"></div>
-            <div class="kpi-sub">BULAN BERJALAN</div>
-            <div class="kpi-chart"><canvas id="kpiAvailabilityChartTahunan"></canvas></div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-head"><span class="kpi-dot kpi-dot-red"></span>NG INLINE</div>
-            <div class="kpi-head-row">
-              <div><span class="kpi-value" x-text="tahunan.ngInline.qty"></span><span class="kpi-sub"> pcs</span><div class="kpi-sub">QTY BULAN BERJALAN</div></div>
-              <div class="kpi-head-right"><span class="kpi-value" x-text="fmtNum(tahunan.ngInline.value)"></span><div class="kpi-sub">VALUE BULAN BERJALAN</div></div>
+      <div class="dxy-fill">
+        <template x-if="tahunanLoading">
+          <div class="dxy">
+            <div class="dxy-skeleton-row">
+              <div class="dxy-skeleton"></div><div class="dxy-skeleton"></div>
+              <div class="dxy-skeleton"></div><div class="dxy-skeleton"></div>
             </div>
-            <div class="kpi-chart"><canvas id="kpiNgInlineChartTahunan"></canvas></div>
+            <p class="empty-state">Memuat data tahunan...</p>
           </div>
-          <div class="kpi-card">
-            <div class="kpi-head"><span class="kpi-dot kpi-dot-teal"></span>STRAIGHTPASS</div>
-            <div class="kpi-value" x-text="tahunan.straightpass.value + '%'"></div>
-            <div class="kpi-sub">BULAN BERJALAN</div>
-            <div class="kpi-chart"><canvas id="kpiStraightpassChartTahunan"></canvas></div>
-          </div>
-        </div>
+        </template>
+        <template x-if="!tahunanLoading">
+          <div class="dxy">
 
-        <!-- Baris 2: Downtime Exhaust / Supporting / Line -->
-        <div class="dash-main-grid bulanan-row2">
-          <div class="dash-panel dash-panel-chart dt-exhaust-panel">
-            <p class="dash-panel-title">Downtime Exhaust</p>
-            <div class="dash-chart-sm"><canvas id="dtExhaustChartTahunan"></canvas></div>
-          </div>
-          <div class="dash-panel dash-panel-chart">
-            <p class="dash-panel-title">Downtime Supporting</p>
-            <div class="dash-chart-sm"><canvas id="dtSupportingChartTahunan"></canvas></div>
-          </div>
-          <div class="dash-panel dash-panel-chart">
-            <p class="dash-panel-title">Downtime Line</p>
-            <div class="dash-chart-sm"><canvas id="dtLineChartTahunan"></canvas></div>
-          </div>
-        </div>
+            <!-- ===== Baris 1: Filter bar ===== -->
+            <div class="dxy-filterbar">
+              <div class="dxy-field">
+                <label>Tahun</label>
+                <select class="dxy-select" x-model.number="tahunanYear" @change="onTahunanYearChange()">
+                  <template x-for="y in tahunanYearOptions" :key="y"><option :value="y" x-text="'FY ' + y"></option></template>
+                </select>
+              </div>
+              <div class="dxy-field">
+                <label>Bulan</label>
+                <select class="dxy-select" x-model="dxyMonthFilter" @change="$nextTick(() => renderTahunanCharts())">
+                  <option value="ALL">Semua Bulan</option>
+                  <template x-for="(lbl, idx) in tahunan.monthLabels.slice(2)" :key="idx">
+                    <option :value="idx" x-text="lbl"></option>
+                  </template>
+                </select>
+              </div>
+              <div class="dxy-field">
+                <label>Area</label>
+                <select class="dxy-select" disabled title="Belum tersedia di agregat tahunan"><option>Semua Area</option></select>
+              </div>
+              <div class="dxy-field">
+                <label>Shift</label>
+                <select class="dxy-select" disabled title="Belum tersedia di agregat tahunan"><option>Semua Shift</option></select>
+              </div>
+              <div class="dxy-field">
+                <label>Line</label>
+                <select class="dxy-select" x-model="dxyLineFilter" @change="$nextTick(() => renderTahunanCharts())">
+                  <option value="ALL">Semua Line</option>
+                  <template x-for="m in MACHINES_REF" :key="m.key"><option :value="m.key" x-text="m.key"></option></template>
+                </select>
+              </div>
+              <div class="dxy-field">
+                <label>&nbsp;</label>
+                <input class="dxy-input" type="text" placeholder="Cari PIC / problem..." x-model="dxySearch">
+              </div>
+              <div class="dxy-spacer"></div>
+              <button class="dxy-btn" @click="dxyExportCsv()">⬇ Export CSV</button>
+              <button class="dxy-btn" @click="toggleTheme()" x-text="theme === 'dark' ? '☀ Terang' : '🌙 Gelap'"></button>
+            </div>
 
-        <!-- Baris 4: Downtime Terbesar -->
-        <div class="downtime-terbesar-outer">
-          <div class="dash-panel-title">Downtime Terbesar</div>
-          <div class="downtime-terbesar-grid">
-            <template x-for="line in tahunan.downtimeTerbesar" :key="line.mesin">
-              <div class="dash-panel dt-terbesar-panel">
-                <span class="badge dt-terbesar-badge" x-text="line.mesin"></span>
-                <div class="table-wrap">
-                  <table class="table-compact dt-terbesar-table">
-                    <thead>
-                      <tr>
-                        <th>PIC</th>
-                        <th>Problem</th>
-                        <th class="dt-terbesar-value">Menit</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <template x-for="(row, i) in line.rowsPadded" :key="line.mesin + '-' + i">
-                        <tr>
-                          <td class="dt-terbesar-pic" x-text="row.pic"></td>
-                          <td class="dt-terbesar-problem" x-text="row.problem"></td>
-                          <td class="mono dt-terbesar-value" x-text="row.value"></td>
-                        </tr>
-                      </template>
-                    </tbody>
-                  </table>
+            <!-- ===== Baris 2: 4 KPI utama ===== -->
+            <div class="dxy-kpi-row">
+              <div class="dxy-kpi-card">
+                <div class="dxy-kpi-top">
+                  <div class="dxy-kpi-label"><span class="dxy-kpi-dot" style="background:#2563EB"></span>Productivity</div>
+                </div>
+                <div class="dxy-kpi-mid">
+                  <div class="dxy-kpi-value" x-text="tahunan.productivity.value + '%'"></div>
+                  <div class="dxy-kpi-delta" :class="dxyDelta(tahunan.productivity.actual).dir" x-text="dxyDelta(tahunan.productivity.actual).text"></div>
+                </div>
+                <div class="dxy-kpi-bottom">
+                  <div class="dxy-kpi-target" x-text="'Target ' + tahunan.productivity.target + '%'"></div>
+                  <canvas class="dxy-kpi-spark" id="dxySparkProductivity"></canvas>
                 </div>
               </div>
-            </template>
+              <div class="dxy-kpi-card">
+                <div class="dxy-kpi-top">
+                  <div class="dxy-kpi-label"><span class="dxy-kpi-dot" style="background:#10B981"></span>Availability</div>
+                </div>
+                <div class="dxy-kpi-mid">
+                  <div class="dxy-kpi-value" x-text="tahunan.availability.value + '%'"></div>
+                  <div class="dxy-kpi-delta" :class="dxyDelta(tahunan.availability.actual).dir" x-text="dxyDelta(tahunan.availability.actual).text"></div>
+                </div>
+                <div class="dxy-kpi-bottom">
+                  <div class="dxy-kpi-target" x-text="'Target ' + tahunan.availability.target + '%'"></div>
+                  <canvas class="dxy-kpi-spark" id="dxySparkAvailability"></canvas>
+                </div>
+              </div>
+              <div class="dxy-kpi-card">
+                <div class="dxy-kpi-top">
+                  <div class="dxy-kpi-label"><span class="dxy-kpi-dot" style="background:#F97316"></span>NG Inline</div>
+                </div>
+                <div class="dxy-kpi-mid">
+                  <div class="dxy-kpi-value" x-text="tahunan.ngInline.qty + ' pcs'"></div>
+                  <div class="dxy-kpi-delta" :class="dxyDelta(tahunan.ngInline.qtyByMonth, true).dir" x-text="dxyDelta(tahunan.ngInline.qtyByMonth, true).text"></div>
+                </div>
+                <div class="dxy-kpi-bottom">
+                  <div class="dxy-kpi-target" x-text="'Value ' + fmtNum(tahunan.ngInline.value)"></div>
+                  <canvas class="dxy-kpi-spark" id="dxySparkNg"></canvas>
+                </div>
+              </div>
+              <div class="dxy-kpi-card">
+                <div class="dxy-kpi-top">
+                  <div class="dxy-kpi-label"><span class="dxy-kpi-dot" style="background:#14B8A6"></span>Straight Pass</div>
+                  <span class="dxy-panel-badge" x-show="tahunan.straightpass.value >= tahunan.straightpass.target">✓ Target</span>
+                </div>
+                <div class="dxy-kpi-mid">
+                  <div class="dxy-kpi-value" x-text="tahunan.straightpass.value + '%'"></div>
+                  <div class="dxy-kpi-delta" :class="dxyDelta(tahunan.straightpass.actual).dir" x-text="dxyDelta(tahunan.straightpass.actual).text"></div>
+                </div>
+                <div class="dxy-kpi-bottom">
+                  <div class="dxy-kpi-target" x-text="'Target ' + tahunan.straightpass.target + '%'"></div>
+                  <canvas class="dxy-kpi-spark" id="dxySparkStraightpass"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <!-- ===== Baris 3: Smart Narrative ===== -->
+            <div class="dxy-narrative">
+              <div class="dxy-narrative-head">Ringkasan Otomatis</div>
+              <div class="dxy-narrative-list">
+                <template x-for="item in tahunanInsights" :key="item.text">
+                  <div class="dxy-narrative-item"><span class="dxy-narrative-icon" x-text="item.icon"></span><span x-html="item.text"></span></div>
+                </template>
+                <template x-if="tahunanInsights.length === 0">
+                  <div class="dxy-narrative-item"><span class="dxy-narrative-icon">ℹ️</span><span>Belum cukup data untuk membuat ringkasan otomatis pada tahun ini.</span></div>
+                </template>
+              </div>
+            </div>
+
+            <!-- ===== Baris 4: Grafik utama ===== -->
+            <div class="dxy-chart-grid">
+              <div class="dxy-panel dxy-span-6">
+                <div class="dxy-panel-head"><span class="dxy-panel-title">📈 Productivity</span><span class="dxy-panel-sub" x-text="'FY ' + tahunanYear"></span></div>
+                <div class="dxy-chart-box"><canvas id="dxyBigProductivity"></canvas></div>
+              </div>
+              <div class="dxy-panel dxy-span-6">
+                <div class="dxy-panel-head"><span class="dxy-panel-title">✅ Availability</span><span class="dxy-panel-sub" x-text="'FY ' + tahunanYear"></span></div>
+                <div class="dxy-chart-box"><canvas id="dxyBigAvailability"></canvas></div>
+              </div>
+              <div class="dxy-panel dxy-span-6">
+                <div class="dxy-panel-head"><span class="dxy-panel-title">🔶 NG Inline</span><span class="dxy-panel-sub">Qty &amp; Value</span></div>
+                <div class="dxy-chart-box"><canvas id="dxyBigNg"></canvas></div>
+              </div>
+              <div class="dxy-panel dxy-span-6">
+                <div class="dxy-panel-head"><span class="dxy-panel-title">🎯 Straight Pass</span><span class="dxy-panel-sub" x-text="'FY ' + tahunanYear"></span></div>
+                <div class="dxy-chart-box"><canvas id="dxyBigStraightpass"></canvas></div>
+              </div>
+              <div class="dxy-panel dxy-span-12">
+                <div class="dxy-panel-head"><span class="dxy-panel-title">⏱ Downtime Exhaust</span><span class="dxy-panel-sub">Bar = downtime bulanan · Garis merah = tren · Marker = puncak &amp; rata-rata</span></div>
+                <div class="dxy-chart-box tall"><canvas id="dxyDowntimeExhaust"></canvas></div>
+              </div>
+              <div class="dxy-panel dxy-span-6">
+                <div class="dxy-panel-head"><span class="dxy-panel-title">🧑‍🔧 Downtime Supporting</span><span class="dxy-panel-sub">Per PIC</span></div>
+                <div class="dxy-chart-box"><canvas id="dxyDowntimeSupporting"></canvas></div>
+              </div>
+              <div class="dxy-panel dxy-span-6">
+                <div class="dxy-panel-head"><span class="dxy-panel-title">🏭 Downtime Line</span><span class="dxy-panel-sub">Diurutkan dari terbesar</span></div>
+                <div class="dxy-chart-box"><canvas id="dxyDowntimeLine"></canvas></div>
+              </div>
+            </div>
+
+            <!-- ===== Baris 5: Tabel Downtime Terbesar (redesign total) ===== -->
+            <div class="dxy-panel dxy-table-panel">
+              <div class="dxy-panel-head">
+                <span class="dxy-panel-title">🏆 Downtime Terbesar</span>
+                <span class="dxy-panel-sub">Snapshot bulan berjalan · per line, top 5</span>
+              </div>
+              <div class="dxy-table-scroll">
+                <table class="dxy-table">
+                  <thead>
+                    <tr><th style="width:52px">#</th><th style="width:70px">Line</th><th style="width:150px">PIC</th><th>Problem</th><th style="width:110px; text-align:right">Menit</th></tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="(row, i) in dxyFilteredTerbesar()" :key="row.mesin + '-' + i">
+                      <tr>
+                        <td><span class="dxy-rank-badge" :style="'background:' + dxyRankBadgeColor(i)" x-text="i+1"></span></td>
+                        <td><b x-text="row.mesin"></b></td>
+                        <td>
+                          <template x-if="row.pic">
+                            <span class="dxy-pic-chip"><span class="dot" :style="'background:' + dxyPicColor(row.pic)"></span><span x-text="row.pic"></span></span>
+                          </template>
+                          <template x-if="!row.pic"><span class="dxy-empty-cell">-</span></template>
+                        </td>
+                        <td>
+                          <span x-show="row.problem" x-text="row.problem"></span>
+                          <span class="dxy-empty-cell" x-show="!row.problem">No Problem</span>
+                        </td>
+                        <td style="text-align:right">
+                          <span x-show="row.value !== ''" class="dxy-minute-badge" :style="dxyMinuteBadgeStyle(row.value)" x-text="row.value"></span>
+                          <span x-show="row.value === ''" class="dxy-empty-cell">-</span>
+                        </td>
+                      </tr>
+                    </template>
+                    <template x-if="dxyFilteredTerbesar().length === 0">
+                      <tr><td colspan="5" class="dxy-empty-cell" style="text-align:center; padding:20px;">Tidak ada baris yang cocok dengan filter/pencarian.</td></tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
           </div>
-        </div>
-        </div>
         </template>
       </div>
     </template>
@@ -416,6 +742,7 @@ function dashboardExhaust() {
     async onTahunanYearChange() {
       this.destroyTahunanCharts();
       this.tahunanLoaded = false;
+      this.dxyMonthFilter = "ALL";
       await this.fetchTahunan();
       this.$nextTick(() => this.renderTahunanCharts());
     },
@@ -497,6 +824,11 @@ function dashboardExhaust() {
       downtimeTerbesar: [],
     },
     tahunanCharts: {},
+    tahunanInsights: [],
+    dxyLineFilter: "ALL",
+    dxyMonthFilter: "ALL",
+    dxySearch: "",
+    MACHINES_REF: MACHINES,
     async init() {
       this.session = await requireAuth();
       if (!this.session) return;
@@ -781,11 +1113,147 @@ function dashboardExhaust() {
           downtimeTerbesar,
         };
         this.tahunanLoaded = true;
+        this.computeTahunanInsights();
       } catch (e) {
         console.error("Gagal mengambil data Tahunan:", e);
       } finally {
         this.tahunanLoading = false;
       }
+    },
+    // ---- Helper baru khusus redesign Tahunan (Smart Narrative) ----
+    // Semua fungsi di bawah ini murni presentasi: membaca this.tahunan yang
+    // sudah di-fetch, tidak melakukan query/RPC baru sama sekali.
+    dxyDelta(arr, isCount) {
+      const valid = (arr || []).filter((v) => v !== null && v !== undefined && !Number.isNaN(Number(v))).map(Number);
+      if (valid.length < 2) return { dir: "flat", text: "–" };
+      const last = valid[valid.length - 1];
+      const prev = valid[valid.length - 2];
+      if (isCount) {
+        const pct = prev === 0 ? (last > 0 ? 100 : 0) : ((last - prev) / prev) * 100;
+        const dir = pct > 1 ? "up" : pct < -1 ? "down" : "flat";
+        return { dir, text: (pct >= 0 ? "▲ +" : "▼ ") + Math.abs(Math.round(pct)) + "%" };
+      }
+      const diff = last - prev;
+      const dir = diff > 0.05 ? "up" : diff < -0.05 ? "down" : "flat";
+      return { dir, text: (diff >= 0 ? "▲ +" : "▼ ") + Math.abs(diff).toFixed(1) + "%" };
+    },
+    dxyPicColor(pic) {
+      const map = { PE: "#2563EB", MESIN: "#F97316", QC: "#8B5CF6", PROD: "#10B981", PRESS: "#EF4444", "PC-SUPP": "#14B8A6" };
+      return map[pic] || "#6B7280";
+    },
+    dxyRankBadgeColor(i) {
+      return ["#EF4444", "#F97316", "#F59E0B"][i] || "#2563EB";
+    },
+    dxyMinuteBadgeStyle(value) {
+      const v = Number(value) || 0;
+      if (v >= 60) return "background:rgba(239,68,68,.14); color:#EF4444";
+      if (v >= 30) return "background:rgba(249,115,22,.14); color:#F97316";
+      return "background:rgba(16,185,129,.14); color:#10B981";
+    },
+    dxyFilteredTerbesar() {
+      let flat = [];
+      (this.tahunan.downtimeTerbesar || []).forEach((line) => {
+        const real = (line.rows || []).filter((r) => r.pic || r.problem || r.value !== "");
+        if (real.length === 0) {
+          flat.push({ mesin: line.mesin, pic: "", problem: "", value: "" });
+        } else {
+          real.forEach((r) => flat.push({ mesin: line.mesin, pic: r.pic, problem: r.problem, value: r.value }));
+        }
+      });
+      if (this.dxyLineFilter !== "ALL") flat = flat.filter((r) => r.mesin === this.dxyLineFilter);
+      const q = (this.dxySearch || "").trim().toLowerCase();
+      if (q) flat = flat.filter((r) => (r.pic || "").toLowerCase().includes(q) || (r.problem || "").toLowerCase().includes(q));
+      flat.sort((a, c) => (Number(c.value) || 0) - (Number(a.value) || 0));
+      return flat.slice(0, 20);
+    },
+    dxyExportCsv() {
+      const b = this.tahunan;
+      const months = b.monthLabels.slice(2);
+      const header = ["Bulan", "Productivity(%)", "Availability(%)", "NG Qty", "NG Value", "Straight Pass(%)", "Downtime(menit)"];
+      const rows = [header];
+      months.forEach((lbl, i) => {
+        const idx = i + 2;
+        rows.push([
+          lbl,
+          b.productivity.actual[idx] ?? "",
+          b.availability.actual[idx] ?? "",
+          b.ngInline.qtyByMonth[idx] ?? "",
+          b.ngInline.valueByMonth[idx] ?? "",
+          b.straightpass.actual[idx] ?? "",
+          b.downtimeExhaust.values[idx] ?? "",
+        ]);
+      });
+      const csv = rows.map((r) => r.join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `dashboard-exhaust-tahunan-FY${this.tahunanYear}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    },
+    computeTahunanInsights() {
+      const b = this.tahunan;
+      const insights = [];
+      const monthName = (i) => (b.monthLabels[i + 2] || "");
+
+      // 1) Availability trend
+      const availValid = b.availability.actual.map((v, i) => ({ v, i })).filter((x) => x.v !== null && x.v !== undefined);
+      if (availValid.length >= 2) {
+        const diff = availValid[availValid.length - 1].v - availValid[availValid.length - 2].v;
+        if (Math.abs(diff) < 0.5) insights.push({ icon: "🟢", text: `Availability tetap <b>stabil</b> di angka ${b.availability.value}% sepanjang FY ${this.tahunanYear}.` });
+        else if (diff > 0) insights.push({ icon: "🟢", text: `Availability <b>membaik</b> ${diff.toFixed(1)} poin di bulan ${monthName(availValid[availValid.length - 1].i)}.` });
+        else insights.push({ icon: "🔴", text: `Availability <b>menurun</b> ${Math.abs(diff).toFixed(1)} poin di bulan ${monthName(availValid[availValid.length - 1].i)}.` });
+      }
+
+      // 2) Downtime Exhaust peak month
+      const monthly = b.downtimeExhaust.values.slice(2);
+      const validMonthly = monthly.map((v, i) => ({ v, i })).filter((x) => x.v !== null && x.v !== undefined && !Number.isNaN(x.v));
+      if (validMonthly.length) {
+        const peak = validMonthly.reduce((a, c) => (c.v > a.v ? c : a));
+        insights.push({ icon: "🔴", text: `Downtime mencapai puncak pada bulan <b>${monthName(peak.i)}</b> (${fmtNum(peak.v)} menit).` });
+      }
+
+      // 3) Line dengan downtime terbesar
+      const lineAct = (b.downtimeLine.labels || []).map((l, i) => ({ l, v: b.downtimeLine.act[i] || 0 }));
+      if (lineAct.length) {
+        const topLine = lineAct.reduce((a, c) => (c.v > a.v ? c : a));
+        if (topLine.v > 0) insights.push({ icon: "🟡", text: `Line <b>${topLine.l}</b> menjadi penyumbang downtime terbesar (${fmtNum(topLine.v)} menit).` });
+      }
+
+      // 4) NG Inline perubahan bulan terakhir
+      const ngValid = b.ngInline.qtyByMonth.map((v, i) => ({ v, i })).filter((x) => x.v !== null && x.v !== undefined);
+      if (ngValid.length >= 2) {
+        const last = ngValid[ngValid.length - 1].v, prev = ngValid[ngValid.length - 2].v;
+        const pct = prev === 0 ? (last > 0 ? 100 : 0) : Math.round(((last - prev) / prev) * 100);
+        if (pct > 5) insights.push({ icon: "🔵", text: `NG Inline <b>meningkat ${pct}%</b> dibanding bulan sebelumnya (${monthName(ngValid[ngValid.length - 1].i)}).` });
+        else if (pct < -5) insights.push({ icon: "🔵", text: `NG Inline <b>menurun ${Math.abs(pct)}%</b> dibanding bulan sebelumnya (${monthName(ngValid[ngValid.length - 1].i)}).` });
+      }
+
+      // 5) Problem terbesar (catatan: snapshot bulan berjalan, bukan tahun terpilih)
+      const flat = this.dxyFilteredTerbesarAll();
+      if (flat.length) {
+        const top = flat[0];
+        insights.push({ icon: "🟠", text: `<b>${top.problem}</b> di line ${top.mesin} (PIC ${top.pic || "-"}) menjadi penyebab downtime terbesar bulan berjalan.` });
+      }
+
+      // 6) Prioritas improvement
+      if (lineAct.length && flat.length) {
+        const topLine = lineAct.reduce((a, c) => (c.v > a.v ? c : a));
+        insights.push({ icon: "⚡", text: `Prioritas improvement berikutnya: <b>${topLine.l}</b> &mdash; ${flat[0].problem}.` });
+      }
+
+      this.tahunanInsights = insights;
+    },
+    dxyFilteredTerbesarAll() {
+      let flat = [];
+      (this.tahunan.downtimeTerbesar || []).forEach((line) => {
+        (line.rows || []).filter((r) => r.pic || r.problem).forEach((r) => flat.push({ mesin: line.mesin, pic: r.pic, problem: r.problem, value: r.value }));
+      });
+      flat.sort((a, c) => (Number(c.value) || 0) - (Number(a.value) || 0));
+      return flat;
     },
     // ---- Chart Bulanan ----
     renderBulananCharts() {
@@ -919,20 +1387,68 @@ function dashboardExhaust() {
       if (typeof Chart === "undefined") return;
       const b = this.tahunan;
       const destroy = (id) => { if (this.tahunanCharts[id]) { this.tahunanCharts[id].destroy(); delete this.tahunanCharts[id]; } };
+      const noAnim = { duration: 0 };
+      const safe = (fn, label) => { try { fn(); } catch (e) { console.error("Gagal render chart Tahunan:", label, e); } };
+
       const baseScales = () => ({
         x: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
         y: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 }, maxTicksLimit: 5 }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
       });
       const legend = (show) => ({ display: show, position: "bottom", labels: { color: cssVar("--muted"), boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 9 }, padding: 8 } });
-      const tooltip = () => ({ backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"), borderColor: cssVar("--border"), borderWidth: 1, padding: 8 });
-      const safe = (fn, label) => { try { fn(); } catch (e) { console.error("Gagal render chart Tahunan:", label, e); } };
-      // Animasi dimatikan: dashboard statis, dan mencegah error "Cannot read
-      // properties of null (reading 'save')" saat chart di-destroy/diganti
-      // sebelum animasinya selesai (leftover animation frame di Chart.js).
-      const noAnim = { duration: 0 };
+      const tooltip = () => ({ backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"), borderColor: cssVar("--border"), borderWidth: 1, padding: 10, cornerRadius: 8, displayColors: true, usePointStyle: true });
 
-      // --- 4 kartu KPI (bar Actual + line Target) ---
-      const kpiCombo = (canvasId, labels, actual, target, barColor) => {
+      const grad = (canvas, hex, alphaTop = 0.85, alphaBottom = 0.05) => {
+        const ctx = canvas.getContext("2d");
+        const h = canvas.height || 240;
+        const g = ctx.createLinearGradient(0, 0, 0, h);
+        const toRgba = (a) => {
+          const n = parseInt(hex.replace("#", ""), 16);
+          const r = (n >> 16) & 255, gg = (n >> 8) & 255, bl = n & 255;
+          return `rgba(${r},${gg},${bl},${a})`;
+        };
+        g.addColorStop(0, toRgba(alphaTop));
+        g.addColorStop(1, toRgba(alphaBottom));
+        return g;
+      };
+
+      // Highlight bulan terpilih (dxyMonthFilter): tiap bar full-gradient kalau
+      // "Semua Bulan" / kalau itu bulan yg dipilih, selainnya jadi warna pudar.
+      // Indeks +2 karena 2 slot pertama label adalah "FY x" / "FY x+1".
+      const barBg = (canvas, hex, len, offset = 2) => {
+        const full = grad(canvas, hex);
+        const mutedAlpha = hex + "33";
+        const sel = this.dxyMonthFilter;
+        if (sel === "ALL" || sel === "") return Array.from({ length: len }, () => full);
+        return Array.from({ length: len }, (_, i) => ((i - offset) === Number(sel) ? full : mutedAlpha));
+      };
+
+      // --- Sparkline mini (di kartu KPI) ---
+      const sparkline = (canvasId, data, hex) => {
+        destroy(canvasId);
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const vals = data.filter((v) => v !== null && v !== undefined);
+        this.tahunanCharts[canvasId] = new Chart(canvas, {
+          type: "line",
+          data: {
+            labels: data.map((_, i) => i),
+            datasets: [{ data, borderColor: hex, borderWidth: 2, pointRadius: 0, tension: 0.35, fill: true, backgroundColor: grad(canvas, hex, 0.28, 0), spanGaps: true }],
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false, animation: noAnim,
+            plugins: { legend: { display: false }, tooltip: { enabled: false } },
+            scales: { x: { display: false }, y: { display: false, beginAtZero: vals.length ? Math.min(...vals) >= 0 : true } },
+            elements: { point: { radius: 0 } },
+          },
+        });
+      };
+      safe(() => sparkline("dxySparkProductivity", b.productivity.actual, "#2563EB"), "spark-productivity");
+      safe(() => sparkline("dxySparkAvailability", b.availability.actual, "#10B981"), "spark-availability");
+      safe(() => sparkline("dxySparkNg", b.ngInline.qtyByMonth, "#F97316"), "spark-ng");
+      safe(() => sparkline("dxySparkStraightpass", b.straightpass.actual, "#14B8A6"), "spark-straightpass");
+
+      // --- Grafik utama KPI (bar gradient + target garis putus-putus merah) ---
+      const kpiBig = (canvasId, labels, actual, target, hex) => {
         destroy(canvasId);
         const canvas = document.getElementById(canvasId);
         if (!canvas) return;
@@ -940,8 +1456,8 @@ function dashboardExhaust() {
           data: {
             labels,
             datasets: [
-              { type: "bar", label: "Actual", data: actual, backgroundColor: barColor, borderRadius: 3, barPercentage: 0.55, categoryPercentage: 0.7 },
-              { type: "line", label: "Target", data: labels.map(() => target), borderColor: cssVar("--red"), borderDash: [5, 4], borderWidth: 2, pointRadius: 0, tension: 0 },
+              { type: "bar", label: "Actual", data: actual, backgroundColor: barBg(canvas, hex, actual.length), borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7, borderSkipped: false },
+              { type: "line", label: "Target", data: labels.map(() => target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0 },
             ],
           },
           options: {
@@ -951,73 +1467,105 @@ function dashboardExhaust() {
           },
         });
       };
-      safe(() => kpiCombo("kpiProductivityChartTahunan", b.monthLabels, b.productivity.actual, b.productivity.target, cssVar("--series-4")), "productivity");
-      safe(() => kpiCombo("kpiAvailabilityChartTahunan", b.monthLabels, b.availability.actual, b.availability.target, cssVar("--series-4")), "availability");
-      safe(() => kpiCombo("kpiStraightpassChartTahunan", b.monthLabels, b.straightpass.actual, b.straightpass.target, cssVar("--series-4")), "straightpass");
+      safe(() => kpiBig("dxyBigProductivity", b.monthLabels, b.productivity.actual, b.productivity.target, "#2563EB"), "big-productivity");
+      safe(() => kpiBig("dxyBigAvailability", b.monthLabels, b.availability.actual, b.availability.target, "#10B981"), "big-availability");
+      safe(() => kpiBig("dxyBigStraightpass", b.monthLabels, b.straightpass.actual, b.straightpass.target, "#14B8A6"), "big-straightpass");
 
-      // --- NG Inline: bar Value (kiri) + line Qty (kanan) ---
+      // --- NG Inline dual axis: Qty (bar oranye) + Value (garis ungu) ---
       safe(() => {
-        destroy("kpiNgInlineChartTahunan");
-        const ngCanvas = document.getElementById("kpiNgInlineChartTahunan");
-        if (ngCanvas) {
-          this.tahunanCharts.kpiNgInlineChartTahunan = new Chart(ngCanvas, {
-            data: {
-              labels: b.monthLabels,
-              datasets: [
-                { type: "bar", label: "Value", data: b.ngInline.valueByMonth, backgroundColor: cssVar("--category-other"), yAxisID: "y", borderRadius: 3, barPercentage: 0.55, categoryPercentage: 0.7 },
-                { type: "line", label: "Qty", data: b.ngInline.qtyByMonth, borderColor: cssVar("--series-4"), yAxisID: "y1", pointRadius: 3, tension: 0.3 },
-              ],
+        destroy("dxyBigNg");
+        const canvas = document.getElementById("dxyBigNg");
+        if (!canvas) return;
+        this.tahunanCharts.dxyBigNg = new Chart(canvas, {
+          data: {
+            labels: b.monthLabels,
+            datasets: [
+              { type: "bar", label: "Qty", data: b.ngInline.qtyByMonth, backgroundColor: barBg(canvas, "#F97316", b.ngInline.qtyByMonth.length), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
+              { type: "line", label: "Value", data: b.ngInline.valueByMonth, borderColor: "#8B5CF6", backgroundColor: "#8B5CF6", yAxisID: "y1", pointRadius: 3, tension: 0.3 },
+            ],
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false, animation: noAnim,
+            plugins: { legend: legend(true), tooltip: tooltip() },
+            scales: {
+              x: baseScales().x,
+              y: { position: "left", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+              y1: { position: "right", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
             },
-            options: {
-              responsive: true, maintainAspectRatio: false, animation: noAnim,
-              plugins: { legend: legend(true), tooltip: tooltip() },
-              scales: {
-                x: baseScales().x,
-                y: { position: "left", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
-                y1: { position: "right", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
-              },
-            },
-          });
-        }
+          },
+        });
       }, "ngInline");
 
-      // --- Downtime Exhaust: bar + line trend ---
+      // --- Downtime Exhaust: bar gradient + tren + marker puncak + rata-rata ---
       safe(() => {
-        destroy("dtExhaustChartTahunan");
-        const dtEx = document.getElementById("dtExhaustChartTahunan");
-        if (dtEx) {
-          this.tahunanCharts.dtExhaustChartTahunan = new Chart(dtEx, {
-            data: {
-              labels: b.downtimeExhaust.labels,
-              datasets: [
-                { type: "bar", label: "Downtime", data: b.downtimeExhaust.values, backgroundColor: cssVar("--category-other"), borderRadius: 3, barPercentage: 0.6, categoryPercentage: 0.7 },
-                { type: "line", label: "Trend", data: b.downtimeExhaust.values, borderColor: cssVar("--red"), pointRadius: 3, tension: 0.3 },
-              ],
-            },
-            options: { responsive: true, maintainAspectRatio: false, animation: noAnim, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
-          });
-        }
-      }, "downtimeExhaust");
-
-      // --- Downtime Supporting & Downtime Line: grouped bar Plan/Act ---
-      const groupedBar = (canvasId, labels, plan, act) => {
-        destroy(canvasId);
-        const canvas = document.getElementById(canvasId);
+        destroy("dxyDowntimeExhaust");
+        const canvas = document.getElementById("dxyDowntimeExhaust");
         if (!canvas) return;
-        this.tahunanCharts[canvasId] = new Chart(canvas, {
-          type: "bar",
+        const vals = b.downtimeExhaust.values;
+        const monthly = vals.slice(2); // 12 bulan asli, tanpa 2 kolom ringkasan FY
+        const validMonthly = monthly.filter((v) => v !== null && v !== undefined && !Number.isNaN(v));
+        const avg = validMonthly.length ? validMonthly.reduce((a, c) => a + c, 0) / validMonthly.length : 0;
+        const peakIdxMonthly = validMonthly.length ? monthly.indexOf(Math.max(...validMonthly)) : -1;
+        const peakIdx = peakIdxMonthly >= 0 ? peakIdxMonthly + 2 : -1;
+        const peakPoints = vals.map((v, i) => (i === peakIdx ? v : null));
+        this.tahunanCharts.dxyDowntimeExhaust = new Chart(canvas, {
           data: {
-            labels,
+            labels: b.downtimeExhaust.labels,
             datasets: [
-              { label: "Plan", data: plan, backgroundColor: cssVar("--category-other"), borderRadius: 3, barPercentage: 0.7, categoryPercentage: 0.7 },
-              { label: "Act", data: act, backgroundColor: cssVar("--series-5"), borderRadius: 3, barPercentage: 0.7, categoryPercentage: 0.7 },
+              { type: "bar", label: "Downtime (menit)", data: vals, backgroundColor: barBg(canvas, "#F97316", vals.length), borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
+              { type: "line", label: "Tren", data: vals, borderColor: "#EF4444", pointRadius: 0, tension: 0.35, borderWidth: 2 },
+              { type: "line", label: "Rata-rata", data: vals.map(() => avg), borderColor: cssVar("--muted"), borderDash: [4, 4], borderWidth: 1.5, pointRadius: 0, tension: 0 },
+              { type: "line", label: "Puncak", data: peakPoints, borderColor: "#EF4444", backgroundColor: "#EF4444", pointRadius: 6, pointStyle: "rectRot", showLine: false, spanGaps: false },
             ],
           },
           options: { responsive: true, maintainAspectRatio: false, animation: noAnim, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
         });
-      };
-      safe(() => groupedBar("dtSupportingChartTahunan", b.downtimeSupporting.labels, b.downtimeSupporting.plan, b.downtimeSupporting.act), "downtimeSupporting");
-      safe(() => groupedBar("dtLineChartTahunan", b.downtimeLine.labels, b.downtimeLine.plan, b.downtimeLine.act), "downtimeLine");
+      }, "downtimeExhaust");
+
+      // --- Downtime Supporting: bar Act warna per-PIC + garis Plan (target) ---
+      safe(() => {
+        destroy("dxyDowntimeSupporting");
+        const canvas = document.getElementById("dxyDowntimeSupporting");
+        if (!canvas) return;
+        const colors = b.downtimeSupporting.labels.map((pic) => this.dxyPicColor(pic));
+        this.tahunanCharts.dxyDowntimeSupporting = new Chart(canvas, {
+          data: {
+            labels: b.downtimeSupporting.labels,
+            datasets: [
+              { type: "bar", label: "Act", data: b.downtimeSupporting.act, backgroundColor: colors, borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
+              { type: "line", label: "Plan", data: b.downtimeSupporting.plan, borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 2, tension: 0 },
+            ],
+          },
+          options: { responsive: true, maintainAspectRatio: false, animation: noAnim, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
+        });
+      }, "downtimeSupporting");
+
+      // --- Downtime Line: diurutkan besar->kecil, warna berdasarkan ranking ---
+      safe(() => {
+        destroy("dxyDowntimeLine");
+        const canvas = document.getElementById("dxyDowntimeLine");
+        if (!canvas) return;
+        const idx = b.downtimeLine.labels.map((_, i) => i);
+        idx.sort((a, c) => (b.downtimeLine.act[c] || 0) - (b.downtimeLine.act[a] || 0));
+        const labels = idx.map((i) => b.downtimeLine.labels[i]);
+        const act = idx.map((i) => b.downtimeLine.act[i]);
+        const plan = idx.map((i) => b.downtimeLine.plan[i]);
+        const rankColors = ["#EF4444", "#F97316", "#F59E0B"];
+        const colors = idx.map((_, rank) => {
+          if (this.dxyLineFilter !== "ALL" && labels[rank] !== this.dxyLineFilter) return (rankColors[rank] || "#2563EB") + "40";
+          return rankColors[rank] || "#2563EB";
+        });
+        this.tahunanCharts.dxyDowntimeLine = new Chart(canvas, {
+          data: {
+            labels,
+            datasets: [
+              { type: "bar", label: "Act", data: act, backgroundColor: colors, borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
+              { type: "line", label: "Plan", data: plan, borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 2, tension: 0 },
+            ],
+          },
+          options: { responsive: true, maintainAspectRatio: false, animation: noAnim, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
+        });
+      }, "downtimeLine");
     },
     async fetchAll() {
       this.loading = true;
