@@ -81,8 +81,8 @@
 
     <!-- Switch Harian / Bulanan / Kontrol Kualitas -->
     <div class="dash-subtab-nav" style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
-      <button class="btn-secondary btn-sm" :class="activeTab==='bulanan' ? 'btn-primary' : ''" @click="setTab('bulanan')">Bulanan</button>
       <button class="btn-secondary btn-sm" :class="activeTab==='tahunan' ? 'btn-primary' : ''" @click="setTab('tahunan')">Tahunan</button>
+      <button class="btn-secondary btn-sm" :class="activeTab==='bulanan' ? 'btn-primary' : ''" @click="setTab('bulanan')">Bulanan</button>
       <button class="btn-secondary btn-sm" :class="activeTab==='harian' ? 'btn-primary' : ''" @click="setTab('harian')">Harian</button>
       <button class="btn-secondary btn-sm" :class="activeTab==='kualitas' ? 'btn-primary' : ''" @click="setTab('kualitas')">Kontrol Kualitas</button>
     </div>
@@ -251,6 +251,13 @@
     </template>
     <template x-if="activeTab === 'tahunan'">
       <div class="tahunan-fill">
+        <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
+          <select class="btn-secondary btn-sm" x-model.number="tahunanYear" @change="onTahunanYearChange()">
+            <template x-for="y in tahunanYearOptions" :key="y">
+              <option :value="y" x-text="y"></option>
+            </template>
+          </select>
+        </div>
         <template x-if="tahunanLoading"><p class="empty-state">Memuat data tahunan...</p></template>
         <template x-if="!tahunanLoading">
           <div class="dash-body tahunan-body">
@@ -406,6 +413,12 @@ function dashboardExhaust() {
         this.$nextTick(() => this.renderTahunanCharts());
       }
     },
+    async onTahunanYearChange() {
+      this.destroyTahunanCharts();
+      this.tahunanLoaded = false;
+      await this.fetchTahunan();
+      this.$nextTick(() => this.renderTahunanCharts());
+    },
     toggleTheme() {
       this.theme = this.theme === "dark" ? "light" : "dark";
       localStorage.setItem("theme_v1", this.theme);
@@ -468,6 +481,8 @@ function dashboardExhaust() {
       downtimeTerbesar: [],
     },
     bulananCharts: {},
+    tahunanYear: new Date().getFullYear(),
+    tahunanYearOptions: [2025, 2026, 2027],
     tahunanLoading: true,
     tahunanLoaded: false,
     tahunan: {
@@ -652,8 +667,8 @@ function dashboardExhaust() {
       this.tahunanLoading = true;
       try {
         const now = new Date();
-        // Fiscal year: April -> Maret. Tahun mulai FY berjalan:
-        const fyStartYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1; // getMonth() 3 = April
+        // Fiscal year: April -> Maret. Tahun mulai FY dipilih dari dropdown Tahunan.
+        const fyStartYear = this.tahunanYear;
         const fyStart = new Date(fyStartYear, 3, 1);
         const fyEnd = new Date(fyStartYear + 1, 3, 1);
         const prevFyStart = new Date(fyStartYear - 1, 3, 1);
