@@ -260,10 +260,10 @@
         </div>
         <template x-if="tahunanLoading"><p class="empty-state">Memuat data tahunan...</p></template>
         <template x-if="!tahunanLoading">
-          <div class="dash-body tahunan-body">
+          <div class="dash-body bulanan-body">
 
         <!-- Baris 1: 4 KPI utama -->
-        <div class="tahunan-kpi-grid">
+        <div class="bulanan-kpi-grid">
           <div class="kpi-card">
             <div class="kpi-head"><span class="kpi-dot kpi-dot-blue"></span>PRODUCTIVITY</div>
             <div class="kpi-value" x-text="tahunan.productivity.value + '%'"></div>
@@ -293,7 +293,7 @@
         </div>
 
         <!-- Baris 2: Downtime Exhaust / Supporting / Line -->
-        <div class="dash-main-grid tahunan-row2">
+        <div class="dash-main-grid bulanan-row2">
           <div class="dash-panel dash-panel-chart dt-exhaust-panel">
             <p class="dash-panel-title">Downtime Exhaust</p>
             <div class="dash-chart-sm"><canvas id="dtExhaustChartTahunan"></canvas></div>
