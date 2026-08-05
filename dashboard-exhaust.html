@@ -250,143 +250,96 @@
       </div>
     </template>
     <template x-if="activeTab === 'tahunan'">
-      <div class="tahunan-v2">
+      <div class="tahunan-fill">
+        <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
+          <select class="btn-secondary btn-sm" x-model.number="tahunanYear" @change="onTahunanYearChange()">
+            <template x-for="y in tahunanYearOptions" :key="y">
+              <option :value="y" x-text="y"></option>
+            </template>
+          </select>
+        </div>
+        <template x-if="tahunanLoading"><p class="empty-state">Memuat data tahunan...</p></template>
+        <template x-if="!tahunanLoading">
+          <div class="dash-body bulanan-body">
 
-        <!-- Baris 1: control bar -- cuma Tahun Fiskal -->
-        <div class="tv2-controlbar">
-          <div class="tv2-control-group">
-            <label class="tv2-control-label">Tahun Fiskal</label>
-            <select class="tv2-select" x-model.number="tahunanYear" @change="onTahunanYearChange()">
-              <template x-for="y in tahunanYearOptions" :key="y">
-                <option :value="y" x-text="y"></option>
-              </template>
-            </select>
+        <!-- Baris 1: 4 KPI utama -->
+        <div class="bulanan-kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-head"><span class="kpi-dot kpi-dot-blue"></span>PRODUCTIVITY</div>
+            <div class="kpi-value" x-text="tahunan.productivity.value + '%'"></div>
+            <div class="kpi-sub">BULAN BERJALAN</div>
+            <div class="kpi-chart"><canvas id="kpiProductivityChartTahunan"></canvas></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-head"><span class="kpi-dot kpi-dot-teal"></span>AVAILABILITY</div>
+            <div class="kpi-value" x-text="tahunan.availability.value + '%'"></div>
+            <div class="kpi-sub">BULAN BERJALAN</div>
+            <div class="kpi-chart"><canvas id="kpiAvailabilityChartTahunan"></canvas></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-head"><span class="kpi-dot kpi-dot-red"></span>NG INLINE</div>
+            <div class="kpi-head-row">
+              <div><span class="kpi-value" x-text="tahunan.ngInline.qty"></span><span class="kpi-sub"> pcs</span><div class="kpi-sub">QTY BULAN BERJALAN</div></div>
+              <div class="kpi-head-right"><span class="kpi-value" x-text="fmtNum(tahunan.ngInline.value)"></span><div class="kpi-sub">VALUE BULAN BERJALAN</div></div>
+            </div>
+            <div class="kpi-chart"><canvas id="kpiNgInlineChartTahunan"></canvas></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-head"><span class="kpi-dot kpi-dot-teal"></span>STRAIGHTPASS</div>
+            <div class="kpi-value" x-text="tahunan.straightpass.value + '%'"></div>
+            <div class="kpi-sub">BULAN BERJALAN</div>
+            <div class="kpi-chart"><canvas id="kpiStraightpassChartTahunan"></canvas></div>
           </div>
         </div>
 
-        <template x-if="tahunanLoading"><p class="empty-state">Memuat data tahunan...</p></template>
-
-        <template x-if="!tahunanLoading">
-          <div class="tv2-body">
-
-            <!-- Smart Narrative: ringkasan otomatis kondisi tahun berjalan -->
-            <div class="tv2-narrative" :class="'tv2-narrative-' + tahunanNarrative.severity">
-              <div class="tv2-narrative-icon" x-text="tahunanNarrative.icon"></div>
-              <div class="tv2-narrative-text">
-                <div class="tv2-narrative-title" x-text="tahunanNarrative.headline"></div>
-                <div class="tv2-narrative-sub" x-text="tahunanNarrative.detail"></div>
-              </div>
-              <div class="tv2-narrative-chips">
-                <div class="tv2-chip">
-                  <span class="tv2-chip-label">Line Prioritas</span>
-                  <span class="tv2-chip-value" x-text="tahunanNarrative.worstLine"></span>
-                </div>
-                <div class="tv2-chip">
-                  <span class="tv2-chip-label">Bulan Terburuk</span>
-                  <span class="tv2-chip-value" x-text="tahunanNarrative.worstMonth"></span>
-                </div>
-                <div class="tv2-chip">
-                  <span class="tv2-chip-label">KPI Kritis</span>
-                  <span class="tv2-chip-value" x-text="tahunanNarrative.worstKpi"></span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Baris 2: 4 KPI utama, layout 12-kolom -->
-            <div class="tv2-grid-12 tv2-kpi-row">
-              <div class="tv2-card tv2-span-3 tv2-kpi" :class="tahunanNarrative.kpiStatus.productivity">
-                <div class="tv2-kpi-head">
-                  <span class="kpi-dot kpi-dot-blue"></span>PRODUCTIVITY
-                  <span class="tv2-kpi-badge" x-text="tahunanNarrative.kpiStatus.productivity === 'good' ? 'ON TARGET' : (tahunanNarrative.kpiStatus.productivity === 'warn' ? 'WASPADA' : 'KRITIS')"></span>
-                </div>
-                <div class="tv2-kpi-value" x-text="tahunan.productivity.value + '%'"></div>
-                <div class="tv2-kpi-target">Target <b x-text="tahunan.productivity.target + '%'"></b></div>
-                <div class="tv2-kpi-chart"><canvas id="kpiProductivityChartTahunan"></canvas></div>
-              </div>
-              <div class="tv2-card tv2-span-3 tv2-kpi" :class="tahunanNarrative.kpiStatus.availability">
-                <div class="tv2-kpi-head">
-                  <span class="kpi-dot kpi-dot-teal"></span>AVAILABILITY
-                  <span class="tv2-kpi-badge" x-text="tahunanNarrative.kpiStatus.availability === 'good' ? 'ON TARGET' : (tahunanNarrative.kpiStatus.availability === 'warn' ? 'WASPADA' : 'KRITIS')"></span>
-                </div>
-                <div class="tv2-kpi-value" x-text="tahunan.availability.value + '%'"></div>
-                <div class="tv2-kpi-target">Target <b x-text="tahunan.availability.target + '%'"></b></div>
-                <div class="tv2-kpi-chart"><canvas id="kpiAvailabilityChartTahunan"></canvas></div>
-              </div>
-              <div class="tv2-card tv2-span-3 tv2-kpi">
-                <div class="tv2-kpi-head"><span class="kpi-dot kpi-dot-red"></span>NG INLINE</div>
-                <div class="kpi-head-row">
-                  <div><span class="tv2-kpi-value" style="font-size:22px;" x-text="tahunan.ngInline.qty"></span><span class="kpi-sub"> pcs</span><div class="kpi-sub">QTY BULAN BERJALAN</div></div>
-                  <div class="kpi-head-right"><span class="tv2-kpi-value" style="font-size:22px;" x-text="fmtNum(tahunan.ngInline.value)"></span><div class="kpi-sub">VALUE BULAN BERJALAN</div></div>
-                </div>
-                <div class="tv2-kpi-chart"><canvas id="kpiNgInlineChartTahunan"></canvas></div>
-              </div>
-              <div class="tv2-card tv2-span-3 tv2-kpi" :class="tahunanNarrative.kpiStatus.straightpass">
-                <div class="tv2-kpi-head">
-                  <span class="kpi-dot kpi-dot-teal"></span>STRAIGHTPASS
-                  <span class="tv2-kpi-badge" x-text="tahunanNarrative.kpiStatus.straightpass === 'good' ? 'ON TARGET' : (tahunanNarrative.kpiStatus.straightpass === 'warn' ? 'WASPADA' : 'KRITIS')"></span>
-                </div>
-                <div class="tv2-kpi-value" x-text="tahunan.straightpass.value + '%'"></div>
-                <div class="tv2-kpi-target">Target <b x-text="tahunan.straightpass.target + '%'"></b></div>
-                <div class="tv2-kpi-chart"><canvas id="kpiStraightpassChartTahunan"></canvas></div>
-              </div>
-            </div>
-
-            <!-- Baris 3: Trend Downtime Exhaust (besar) + Ranking Line -->
-            <div class="tv2-grid-12">
-              <div class="tv2-card tv2-span-12">
-                <p class="tv2-card-title">Downtime Exhaust — Trend Tahunan</p>
-                <div class="tv2-chart-lg"><canvas id="dtExhaustChartTahunan"></canvas></div>
-              </div>
-            </div>
-
-            <!-- Baris 4: Downtime Supporting & Downtime Line -->
-            <div class="tv2-grid-12">
-              <div class="tv2-card tv2-span-6">
-                <p class="tv2-card-title">Downtime Supporting — Plan vs Actual</p>
-                <div class="tv2-chart-md"><canvas id="dtSupportingChartTahunan"></canvas></div>
-              </div>
-              <div class="tv2-card tv2-span-6">
-                <p class="tv2-card-title">Downtime per Line — Plan vs Actual</p>
-                <div class="tv2-chart-md"><canvas id="dtLineChartTahunan"></canvas></div>
-              </div>
-            </div>
-
-            <!-- Baris 5: Downtime Terbesar -->
-            <div class="tv2-card tv2-terbesar-outer">
-              <p class="tv2-card-title">Downtime Terbesar per Line</p>
-              <div class="tv2-terbesar-grid">
-                <template x-for="line in downtimeTerbesarView()" :key="line.mesin">
-                  <div class="tv2-terbesar-card">
-                    <div class="tv2-terbesar-head">
-                      <span class="badge dt-terbesar-badge" x-text="line.mesin"></span>
-                      <span class="tv2-terbesar-total mono" x-text="fmtNum(line.rows.reduce((a, r) => a + r.value, 0)) + ' m total'"></span>
-                    </div>
-                    <div class="table-wrap">
-                      <table class="table-compact dt-terbesar-table">
-                        <thead>
-                          <tr>
-                            <th>PIC</th>
-                            <th>Problem</th>
-                            <th class="dt-terbesar-value">Menit</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <template x-for="(row, i) in line.rowsPadded" :key="line.mesin + '-' + i">
-                            <tr :class="row.value !== '' && row.value === line.maxVal ? 'tv2-row-hot' : ''">
-                              <td class="dt-terbesar-pic" x-text="row.pic"></td>
-                              <td class="dt-terbesar-problem" x-text="row.problem"></td>
-                              <td class="mono dt-terbesar-value" x-text="row.value"></td>
-                            </tr>
-                          </template>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </template>
-              </div>
-            </div>
-
+        <!-- Baris 2: Downtime Exhaust / Supporting / Line -->
+        <div class="dash-main-grid bulanan-row2">
+          <div class="dash-panel dash-panel-chart dt-exhaust-panel">
+            <p class="dash-panel-title">Downtime Exhaust</p>
+            <div class="dash-chart-sm"><canvas id="dtExhaustChartTahunan"></canvas></div>
           </div>
+          <div class="dash-panel dash-panel-chart">
+            <p class="dash-panel-title">Downtime Supporting</p>
+            <div class="dash-chart-sm"><canvas id="dtSupportingChartTahunan"></canvas></div>
+          </div>
+          <div class="dash-panel dash-panel-chart">
+            <p class="dash-panel-title">Downtime Line</p>
+            <div class="dash-chart-sm"><canvas id="dtLineChartTahunan"></canvas></div>
+          </div>
+        </div>
+
+        <!-- Baris 4: Downtime Terbesar -->
+        <div class="downtime-terbesar-outer">
+          <div class="dash-panel-title">Downtime Terbesar</div>
+          <div class="downtime-terbesar-grid">
+            <template x-for="line in tahunan.downtimeTerbesar" :key="line.mesin">
+              <div class="dash-panel dt-terbesar-panel">
+                <span class="badge dt-terbesar-badge" x-text="line.mesin"></span>
+                <div class="table-wrap">
+                  <table class="table-compact dt-terbesar-table">
+                    <thead>
+                      <tr>
+                        <th>PIC</th>
+                        <th>Problem</th>
+                        <th class="dt-terbesar-value">Menit</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="(row, i) in line.rowsPadded" :key="line.mesin + '-' + i">
+                        <tr>
+                          <td class="dt-terbesar-pic" x-text="row.pic"></td>
+                          <td class="dt-terbesar-problem" x-text="row.problem"></td>
+                          <td class="mono dt-terbesar-value" x-text="row.value"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+        </div>
         </template>
       </div>
     </template>
@@ -544,60 +497,6 @@ function dashboardExhaust() {
       downtimeTerbesar: [],
     },
     tahunanCharts: {},
-    tahunanNarrative: {
-      severity: "good", icon: "✅", headline: "Memuat narasi...", detail: "",
-      worstKpi: "-", worstLine: "-", worstMonth: "-",
-      kpiStatus: { productivity: "good", availability: "good", straightpass: "good" },
-    },
-    // ---- Smart Narrative: murni derivasi dari this.tahunan yang sudah
-    // di-fetch (tidak ada query/kalkulasi baru) -- dipakai buat headline
-    // otomatis + highlight bar terburuk di UI Tahunan.
-    computeTahunanNarrative() {
-      const t = this.tahunan;
-      const kpis = [
-        { key: "productivity", label: "Productivity", value: t.productivity.value, target: t.productivity.target },
-        { key: "availability", label: "Availability", value: t.availability.value, target: t.availability.target },
-        { key: "straightpass", label: "Straightpass", value: t.straightpass.value, target: t.straightpass.target },
-      ];
-      kpis.forEach((k) => { k.gap = k.target - k.value; });
-      const worst = kpis.reduce((a, b) => (b.gap > a.gap ? b : a), kpis[0]);
-      const kpiStatus = {};
-      kpis.forEach((k) => { kpiStatus[k.key] = k.gap > 5 ? "bad" : (k.gap > 0 ? "warn" : "good"); });
-
-      // Bulan terburuk: lewati 2 kolom pertama (total FY-1/FY), cari nilai downtime tertinggi.
-      const monthVals = (t.downtimeExhaust.values || []).slice(2);
-      const monthLabels = (t.downtimeExhaust.labels || []).slice(2);
-      let worstMonthIdx = -1, worstMonthVal = -Infinity;
-      monthVals.forEach((v, i) => { if (v > worstMonthVal) { worstMonthVal = v; worstMonthIdx = i; } });
-      const worstMonth = worstMonthIdx >= 0 && worstMonthVal > 0 ? monthLabels[worstMonthIdx] : "-";
-
-      // Line terburuk berdasar Downtime Actual (sudah ada di t.downtimeLine).
-      const lineLabels = t.downtimeLine.labels || [];
-      const lineAct = t.downtimeLine.act || [];
-      let worstLineIdx = -1, worstLineVal = -Infinity;
-      lineAct.forEach((v, i) => { if (v > worstLineVal) { worstLineVal = v; worstLineIdx = i; } });
-      const worstLine = worstLineIdx >= 0 && worstLineVal > 0 ? lineLabels[worstLineIdx] : "-";
-
-      const severity = worst.gap > 10 ? "bad" : (worst.gap > 3 ? "warn" : "good");
-      const icon = severity === "bad" ? "⚠️" : (severity === "warn" ? "🟡" : "✅");
-      const headline = severity === "good"
-        ? `Performa FY ${this.tahunanYear} secara umum on-track terhadap target.`
-        : `KPI ${worst.label} tertinggal ${Math.abs(worst.gap).toFixed(1)} poin dari target — perlu perhatian.`;
-      const detail = worstLine !== "-"
-        ? `Line ${worstLine} menyumbang downtime terbanyak tahun ini, dengan bulan ${worstMonth} sebagai titik terberat.`
-        : `Belum ada downtime tercatat pada periode ini.`;
-
-      this.tahunanNarrative = { severity, icon, headline, detail, worstKpi: worst.label, worstLine, worstMonth, kpiStatus };
-    },
-    // ---- Downtime Terbesar per line, ditambah maxVal per line untuk
-    // highlight baris terberat -- murni turunan dari data yang sudah
-    // ter-fetch, tidak ada query/filter baru.
-    downtimeTerbesarView() {
-      return (this.tahunan.downtimeTerbesar || []).map((l) => {
-        const maxVal = l.rows.length ? Math.max(...l.rows.map((r) => r.value)) : 0;
-        return { ...l, maxVal };
-      });
-    },
     async init() {
       this.session = await requireAuth();
       if (!this.session) return;
@@ -881,7 +780,6 @@ function dashboardExhaust() {
           downtimeLine,
           downtimeTerbesar,
         };
-        this.computeTahunanNarrative();
         this.tahunanLoaded = true;
       } catch (e) {
         console.error("Gagal mengambil data Tahunan:", e);
@@ -1018,35 +916,20 @@ function dashboardExhaust() {
       });
     },
     renderTahunanCharts() {
-      // Catatan: fungsi ini HANYA mengubah tampilan chart (warna, gradient,
-      // highlight bar terburuk, styling garis). Semua data input (b.*)
-      // persis sama seperti sebelumnya, diambil dari this.tahunan yang
-      // sudah dihitung di fetchTahunan() -- tidak ada logika/kalkulasi baru.
       if (typeof Chart === "undefined") return;
       const b = this.tahunan;
-      const narrative = this.tahunanNarrative;
       const destroy = (id) => { if (this.tahunanCharts[id]) { this.tahunanCharts[id].destroy(); delete this.tahunanCharts[id]; } };
       const baseScales = () => ({
-        x: { ticks: { color: cssVar("--chart-tick"), font: { size: 10 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
-        y: { ticks: { color: cssVar("--chart-tick"), font: { size: 10 }, maxTicksLimit: 5 }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+        x: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
+        y: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 }, maxTicksLimit: 5 }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
       });
-      const legend = (show) => ({ display: show, position: "bottom", labels: { color: cssVar("--muted"), boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 10 }, padding: 10 } });
-      const tooltip = () => ({ backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"), borderColor: cssVar("--border"), borderWidth: 1, padding: 10, cornerRadius: 8 });
+      const legend = (show) => ({ display: show, position: "bottom", labels: { color: cssVar("--muted"), boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 9 }, padding: 8 } });
+      const tooltip = () => ({ backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"), borderColor: cssVar("--border"), borderWidth: 1, padding: 8 });
       const safe = (fn, label) => { try { fn(); } catch (e) { console.error("Gagal render chart Tahunan:", label, e); } };
       // Animasi dimatikan: dashboard statis, dan mencegah error "Cannot read
       // properties of null (reading 'save')" saat chart di-destroy/diganti
       // sebelum animasinya selesai (leftover animation frame di Chart.js).
       const noAnim = { duration: 0 };
-      // Gradient vertikal lembut untuk bar -- efek visual saja, tidak
-      // mengubah nilai/data yang ditampilkan.
-      const vGradient = (canvas, colorTop) => {
-        const ctx = canvas.getContext("2d");
-        const h = canvas.height || 220;
-        const g = ctx.createLinearGradient(0, 0, 0, h);
-        g.addColorStop(0, colorTop);
-        g.addColorStop(1, colorTop.startsWith("#") ? colorTop + "33" : colorTop);
-        return g;
-      };
 
       // --- 4 kartu KPI (bar Actual + line Target) ---
       const kpiCombo = (canvasId, labels, actual, target, barColor) => {
@@ -1057,7 +940,7 @@ function dashboardExhaust() {
           data: {
             labels,
             datasets: [
-              { type: "bar", label: "Actual", data: actual, backgroundColor: vGradient(canvas, barColor), borderRadius: 6, barPercentage: 0.55, categoryPercentage: 0.7 },
+              { type: "bar", label: "Actual", data: actual, backgroundColor: barColor, borderRadius: 3, barPercentage: 0.55, categoryPercentage: 0.7 },
               { type: "line", label: "Target", data: labels.map(() => target), borderColor: cssVar("--red"), borderDash: [5, 4], borderWidth: 2, pointRadius: 0, tension: 0 },
             ],
           },
@@ -1081,8 +964,8 @@ function dashboardExhaust() {
             data: {
               labels: b.monthLabels,
               datasets: [
-                { type: "bar", label: "Value", data: b.ngInline.valueByMonth, backgroundColor: vGradient(ngCanvas, cssVar("--category-other")), yAxisID: "y", borderRadius: 6, barPercentage: 0.55, categoryPercentage: 0.7 },
-                { type: "line", label: "Qty", data: b.ngInline.qtyByMonth, borderColor: cssVar("--series-4"), backgroundColor: cssVar("--series-4"), yAxisID: "y1", pointRadius: 3, borderWidth: 2, tension: 0.35 },
+                { type: "bar", label: "Value", data: b.ngInline.valueByMonth, backgroundColor: cssVar("--category-other"), yAxisID: "y", borderRadius: 3, barPercentage: 0.55, categoryPercentage: 0.7 },
+                { type: "line", label: "Qty", data: b.ngInline.qtyByMonth, borderColor: cssVar("--series-4"), yAxisID: "y1", pointRadius: 3, tension: 0.3 },
               ],
             },
             options: {
@@ -1090,30 +973,25 @@ function dashboardExhaust() {
               plugins: { legend: legend(true), tooltip: tooltip() },
               scales: {
                 x: baseScales().x,
-                y: { position: "left", ticks: { color: cssVar("--chart-tick"), font: { size: 10 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
-                y1: { position: "right", ticks: { color: cssVar("--chart-tick"), font: { size: 10 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+                y: { position: "left", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+                y1: { position: "right", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
               },
             },
           });
         }
       }, "ngInline");
 
-      // --- Downtime Exhaust: bar + line trend, highlight bulan terburuk ---
+      // --- Downtime Exhaust: bar + line trend ---
       safe(() => {
         destroy("dtExhaustChartTahunan");
         const dtEx = document.getElementById("dtExhaustChartTahunan");
         if (dtEx) {
-          const labels = b.downtimeExhaust.labels;
-          const values = b.downtimeExhaust.values;
-          const baseColor = cssVar("--category-other");
-          const hotColor = cssVar("--red");
-          const barColors = labels.map((l) => (narrative.worstMonth !== "-" && l === narrative.worstMonth ? hotColor : baseColor));
           this.tahunanCharts.dtExhaustChartTahunan = new Chart(dtEx, {
             data: {
-              labels,
+              labels: b.downtimeExhaust.labels,
               datasets: [
-                { type: "bar", label: "Downtime", data: values, backgroundColor: barColors, borderRadius: 6, barPercentage: 0.6, categoryPercentage: 0.7 },
-                { type: "line", label: "Trend", data: values, borderColor: cssVar("--navy"), backgroundColor: cssVar("--navy"), pointRadius: 3, borderWidth: 2, tension: 0.35 },
+                { type: "bar", label: "Downtime", data: b.downtimeExhaust.values, backgroundColor: cssVar("--category-other"), borderRadius: 3, barPercentage: 0.6, categoryPercentage: 0.7 },
+                { type: "line", label: "Trend", data: b.downtimeExhaust.values, borderColor: cssVar("--red"), pointRadius: 3, tension: 0.3 },
               ],
             },
             options: { responsive: true, maintainAspectRatio: false, animation: noAnim, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
@@ -1121,29 +999,25 @@ function dashboardExhaust() {
         }
       }, "downtimeExhaust");
 
-      // --- Downtime Supporting & Downtime Line: grouped bar Plan/Act,
-      //     highlight bar Actual milik line/PIC terburuk ---
-      const groupedBar = (canvasId, labels, plan, act, highlightLabel) => {
+      // --- Downtime Supporting & Downtime Line: grouped bar Plan/Act ---
+      const groupedBar = (canvasId, labels, plan, act) => {
         destroy(canvasId);
         const canvas = document.getElementById(canvasId);
         if (!canvas) return;
-        const actColor = cssVar("--series-5");
-        const hotColor = cssVar("--red");
-        const actColors = labels.map((l) => (highlightLabel && highlightLabel !== "-" && l === highlightLabel ? hotColor : actColor));
         this.tahunanCharts[canvasId] = new Chart(canvas, {
           type: "bar",
           data: {
             labels,
             datasets: [
-              { label: "Plan", data: plan, backgroundColor: cssVar("--category-other"), borderRadius: 6, barPercentage: 0.7, categoryPercentage: 0.7 },
-              { label: "Act", data: act, backgroundColor: actColors, borderRadius: 6, barPercentage: 0.7, categoryPercentage: 0.7 },
+              { label: "Plan", data: plan, backgroundColor: cssVar("--category-other"), borderRadius: 3, barPercentage: 0.7, categoryPercentage: 0.7 },
+              { label: "Act", data: act, backgroundColor: cssVar("--series-5"), borderRadius: 3, barPercentage: 0.7, categoryPercentage: 0.7 },
             ],
           },
           options: { responsive: true, maintainAspectRatio: false, animation: noAnim, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
         });
       };
-      safe(() => groupedBar("dtSupportingChartTahunan", b.downtimeSupporting.labels, b.downtimeSupporting.plan, b.downtimeSupporting.act, null), "downtimeSupporting");
-      safe(() => groupedBar("dtLineChartTahunan", b.downtimeLine.labels, b.downtimeLine.plan, b.downtimeLine.act, narrative.worstLine), "downtimeLine");
+      safe(() => groupedBar("dtSupportingChartTahunan", b.downtimeSupporting.labels, b.downtimeSupporting.plan, b.downtimeSupporting.act), "downtimeSupporting");
+      safe(() => groupedBar("dtLineChartTahunan", b.downtimeLine.labels, b.downtimeLine.plan, b.downtimeLine.act), "downtimeLine");
     },
     async fetchAll() {
       this.loading = true;
