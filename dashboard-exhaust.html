@@ -139,8 +139,8 @@
   border: 1px solid var(--dxy-border);
   border-radius: 16px;
   padding: 16px 20px;
-  margin-bottom: 16px;
   box-shadow: var(--dxy-shadow);
+  min-width: 0;
 }
 .dxy-narrative-head { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--dxy-muted); margin-bottom: 10px; }
 .dxy-narrative-list { display: flex; flex-direction: column; gap: 9px; }
@@ -171,6 +171,7 @@
 .dxy-panel-title { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
 .dxy-panel-badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(16,185,129,.12); color: var(--dxy-green); }
 .dxy-panel-sub { font-size: 10.5px; color: var(--dxy-muted); }
+.dxy-span-4 { grid-column: span 4; }
 .dxy-span-6 { grid-column: span 6; }
 .dxy-span-12 { grid-column: span 12; }
 .dxy-chart-box { position: relative; flex: 1; min-height: 230px; }
@@ -220,9 +221,10 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
 @media (max-width: 1366px) {
   .dxy-kpi-card { grid-column: span 6; }
   .dxy-skeleton { grid-column: span 6; }
+  .dxy-span-4 { grid-column: span 6; }
 }
 @media (max-width: 1024px) {
-  .dxy-span-6 { grid-column: span 12; }
+  .dxy-span-6, .dxy-span-4 { grid-column: span 12; }
   .dxy-filterbar { gap: 8px; }
 }
 @media (max-width: 640px) {
@@ -559,46 +561,49 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
               </div>
             </div>
 
-            <!-- ===== Baris 3: Smart Narrative ===== -->
-            <div class="dxy-narrative">
-              <div class="dxy-narrative-head">Ringkasan Otomatis</div>
-              <div class="dxy-narrative-list">
-                <template x-for="item in tahunanInsights" :key="item.text">
-                  <div class="dxy-narrative-item"><span class="dxy-narrative-icon" x-text="item.icon"></span><span x-html="item.text"></span></div>
-                </template>
-                <template x-if="tahunanInsights.length === 0">
-                  <div class="dxy-narrative-item"><span class="dxy-narrative-icon">ℹ️</span><span>Belum cukup data untuk membuat ringkasan otomatis pada tahun ini.</span></div>
-                </template>
-              </div>
-            </div>
-
-            <!-- ===== Baris 4: Grafik utama ===== -->
+            <!-- ===== Baris 3+4: Ringkasan + Grafik utama (1 grid) ===== -->
             <div class="dxy-chart-grid">
+              <!-- Ringkasan Otomatis (kiri) + Productivity (kanan) -->
+              <div class="dxy-narrative dxy-span-6">
+                <div class="dxy-narrative-head">Ringkasan Otomatis</div>
+                <div class="dxy-narrative-list">
+                  <template x-for="item in tahunanInsights" :key="item.text">
+                    <div class="dxy-narrative-item"><span class="dxy-narrative-icon" x-text="item.icon"></span><span x-html="item.text"></span></div>
+                  </template>
+                  <template x-if="tahunanInsights.length === 0">
+                    <div class="dxy-narrative-item"><span class="dxy-narrative-icon">ℹ️</span><span>Belum cukup data untuk membuat ringkasan otomatis pada tahun ini.</span></div>
+                  </template>
+                </div>
+              </div>
               <div class="dxy-panel dxy-span-6">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">📈 Productivity</span><span class="dxy-panel-sub" x-text="'FY ' + tahunanYear"></span></div>
                 <div class="dxy-chart-box"><canvas id="dxyBigProductivity"></canvas></div>
               </div>
-              <div class="dxy-panel dxy-span-6">
+
+              <!-- Availability, NG Inline, Straight Pass -- 3 kolom -->
+              <div class="dxy-panel dxy-span-4">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">✅ Availability</span><span class="dxy-panel-sub" x-text="'FY ' + tahunanYear"></span></div>
                 <div class="dxy-chart-box"><canvas id="dxyBigAvailability"></canvas></div>
               </div>
-              <div class="dxy-panel dxy-span-6">
+              <div class="dxy-panel dxy-span-4">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">🔶 NG Inline</span><span class="dxy-panel-sub">Qty &amp; Value</span></div>
                 <div class="dxy-chart-box"><canvas id="dxyBigNg"></canvas></div>
               </div>
-              <div class="dxy-panel dxy-span-6">
+              <div class="dxy-panel dxy-span-4">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">🎯 Straight Pass</span><span class="dxy-panel-sub" x-text="'FY ' + tahunanYear"></span></div>
                 <div class="dxy-chart-box"><canvas id="dxyBigStraightpass"></canvas></div>
               </div>
-              <div class="dxy-panel dxy-span-12">
-                <div class="dxy-panel-head"><span class="dxy-panel-title">⏱ Downtime Exhaust</span><span class="dxy-panel-sub">Bar = downtime bulanan · Garis merah = tren · Marker = puncak &amp; rata-rata</span></div>
-                <div class="dxy-chart-box tall"><canvas id="dxyDowntimeExhaust"></canvas></div>
+
+              <!-- Downtime Exhaust (diperkecil) + Supporting & Line (pie) -->
+              <div class="dxy-panel dxy-span-4">
+                <div class="dxy-panel-head"><span class="dxy-panel-title">⏱ Downtime Exhaust</span><span class="dxy-panel-sub">Puncak &amp; rata-rata</span></div>
+                <div class="dxy-chart-box"><canvas id="dxyDowntimeExhaust"></canvas></div>
               </div>
-              <div class="dxy-panel dxy-span-6">
+              <div class="dxy-panel dxy-span-4">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">🧑‍🔧 Downtime Supporting</span><span class="dxy-panel-sub">Per PIC</span></div>
                 <div class="dxy-chart-box"><canvas id="dxyDowntimeSupporting"></canvas></div>
               </div>
-              <div class="dxy-panel dxy-span-6">
+              <div class="dxy-panel dxy-span-4">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">🏭 Downtime Line</span><span class="dxy-panel-sub">Diurutkan dari terbesar</span></div>
                 <div class="dxy-chart-box"><canvas id="dxyDowntimeLine"></canvas></div>
               </div>
@@ -1493,25 +1498,23 @@ function dashboardExhaust() {
         });
       }, "downtimeExhaust");
 
-      // --- Downtime Supporting: bar Act warna per-PIC + garis Plan (target) ---
+      // --- Downtime Supporting: pie per-PIC (proporsi Act menit) ---
       safe(() => {
         destroy("dxyDowntimeSupporting");
         const canvas = document.getElementById("dxyDowntimeSupporting");
         if (!canvas) return;
         const colors = b.downtimeSupporting.labels.map((pic) => this.dxyPicColor(pic));
         this.tahunanCharts.dxyDowntimeSupporting = new Chart(canvas, {
+          type: "pie",
           data: {
             labels: b.downtimeSupporting.labels,
-            datasets: [
-              { type: "bar", label: "Act", data: b.downtimeSupporting.act, backgroundColor: colors, borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
-              { type: "line", label: "Plan", data: b.downtimeSupporting.plan, borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 2, tension: 0 },
-            ],
+            datasets: [{ data: b.downtimeSupporting.act, backgroundColor: colors, borderColor: cssVar("--panel"), borderWidth: 2 }],
           },
-          options: { responsive: true, maintainAspectRatio: false, animation: noAnim, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
+          options: { responsive: true, maintainAspectRatio: false, animation: noAnim, plugins: { legend: legend(true), tooltip: tooltip() } },
         });
       }, "downtimeSupporting");
 
-      // --- Downtime Line: diurutkan besar->kecil, warna berdasarkan ranking ---
+      // --- Downtime Line: pie diurutkan besar->kecil, warna berdasarkan ranking ---
       safe(() => {
         destroy("dxyDowntimeLine");
         const canvas = document.getElementById("dxyDowntimeLine");
@@ -1520,21 +1523,19 @@ function dashboardExhaust() {
         idx.sort((a, c) => (b.downtimeLine.act[c] || 0) - (b.downtimeLine.act[a] || 0));
         const labels = idx.map((i) => b.downtimeLine.labels[i]);
         const act = idx.map((i) => b.downtimeLine.act[i]);
-        const plan = idx.map((i) => b.downtimeLine.plan[i]);
         const rankColors = ["#EF4444", "#F97316", "#F59E0B"];
         const colors = idx.map((_, rank) => {
-          if (this.dxyLineFilter !== "ALL" && labels[rank] !== this.dxyLineFilter) return (rankColors[rank] || "#2563EB") + "40";
-          return rankColors[rank] || "#2563EB";
+          const base = rankColors[rank] || "#2563EB";
+          if (this.dxyLineFilter !== "ALL" && labels[rank] !== this.dxyLineFilter) return base + "40";
+          return base;
         });
         this.tahunanCharts.dxyDowntimeLine = new Chart(canvas, {
+          type: "pie",
           data: {
             labels,
-            datasets: [
-              { type: "bar", label: "Act", data: act, backgroundColor: colors, borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
-              { type: "line", label: "Plan", data: plan, borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 2, tension: 0 },
-            ],
+            datasets: [{ data: act, backgroundColor: colors, borderColor: cssVar("--panel"), borderWidth: 2 }],
           },
-          options: { responsive: true, maintainAspectRatio: false, animation: noAnim, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
+          options: { responsive: true, maintainAspectRatio: false, animation: noAnim, plugins: { legend: legend(true), tooltip: tooltip() } },
         });
       }, "downtimeLine");
     },
