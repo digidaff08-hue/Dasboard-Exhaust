@@ -32,6 +32,7 @@ direstrukturisasi total untuk Welding (line flat, tanpa sub-stasiun).
 ├── seed_welding_part_numbers.sql                  # 4) Isi awal Part Number + Std Cycle Time
 ├── seed_downtime_master.sql                       # 5) Isi awal Problem Kategori/Detail/Area
 ├── seed_nonproduksi_types.sql                     # 6) Isi awal jenis Non-Produksi (Dandori)
+├── migration_nonproduksi_kode.sql                  # 6b) Tambah kode jenis Non-Produksi (A, B, B1, dst)
 ├── migration_repair_v1.sql                        # 7) Tab Repair (titik di gambar, versi lama)
 ├── migration_repair_v2.sql                        # 8) Rename label titik + seed Kategori Repair
 ├── migration_repair_v3_3d.sql                     # 9) Repair jadi 3D (.stl) -- jalankan setelah v1 & v2
