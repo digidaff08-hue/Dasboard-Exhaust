@@ -491,32 +491,11 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
                 </select>
               </div>
               <div class="dxy-field">
-                <label>Bulan</label>
-                <select class="dxy-select" x-model="dxyMonthFilter" @change="$nextTick(() => renderTahunanCharts())">
-                  <option value="ALL">Semua Bulan</option>
-                  <template x-for="(lbl, idx) in tahunan.monthLabels.slice(2)" :key="idx">
-                    <option :value="idx" x-text="lbl"></option>
-                  </template>
-                </select>
-              </div>
-              <div class="dxy-field">
-                <label>Area</label>
-                <select class="dxy-select" disabled title="Belum tersedia di agregat tahunan"><option>Semua Area</option></select>
-              </div>
-              <div class="dxy-field">
-                <label>Shift</label>
-                <select class="dxy-select" disabled title="Belum tersedia di agregat tahunan"><option>Semua Shift</option></select>
-              </div>
-              <div class="dxy-field">
                 <label>Line</label>
                 <select class="dxy-select" x-model="dxyLineFilter" @change="$nextTick(() => renderTahunanCharts())">
                   <option value="ALL">Semua Line</option>
                   <template x-for="m in MACHINES_REF" :key="m.key"><option :value="m.key" x-text="m.key"></option></template>
                 </select>
-              </div>
-              <div class="dxy-field">
-                <label>&nbsp;</label>
-                <input class="dxy-input" type="text" placeholder="Cari PIC / problem..." x-model="dxySearch">
               </div>
               <div class="dxy-spacer"></div>
               <button class="dxy-btn" @click="dxyExportCsv()">⬇ Export CSV</button>
@@ -629,7 +608,7 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
             <div class="dxy-panel dxy-table-panel">
               <div class="dxy-panel-head">
                 <span class="dxy-panel-title">🏆 Downtime Terbesar</span>
-                <span class="dxy-panel-sub">Snapshot bulan berjalan · per line, top 5</span>
+                <span class="dxy-panel-sub">Tahun fiskal terpilih · per line, top 5</span>
               </div>
               <div class="dxy-table-scroll">
                 <table class="dxy-table">
@@ -742,7 +721,6 @@ function dashboardExhaust() {
     async onTahunanYearChange() {
       this.destroyTahunanCharts();
       this.tahunanLoaded = false;
-      this.dxyMonthFilter = "ALL";
       await this.fetchTahunan();
       this.$nextTick(() => this.renderTahunanCharts());
     },
@@ -826,8 +804,6 @@ function dashboardExhaust() {
     tahunanCharts: {},
     tahunanInsights: [],
     dxyLineFilter: "ALL",
-    dxyMonthFilter: "ALL",
-    dxySearch: "",
     MACHINES_REF: MACHINES,
     async init() {
       this.session = await requireAuth();
@@ -1010,12 +986,13 @@ function dashboardExhaust() {
         const [prodRes, ngRes, picRes, lineRes] = await Promise.all([
           supabaseClient.rpc("dashboard_bulanan_produksi", { p_start: prevFyStart.toISOString(), p_end: fyEnd.toISOString() }),
           supabaseClient.rpc("dashboard_bulanan_ng_inline", { p_start: prevFyStart.toISOString(), p_end: fyEnd.toISOString() }),
-          // Downtime Supporting & Line: total dari awal tahun fiskal (April) s/d bulan berjalan
-          supabaseClient.rpc("dashboard_bulanan_downtime_by_pic", { p_start: fyStart.toISOString(), p_end: bulanDepan.toISOString() }),
-          supabaseClient.rpc("dashboard_bulanan_downtime_by_line", { p_start: fyStart.toISOString(), p_end: bulanDepan.toISOString() }),
+          // Downtime Supporting & Line: total 1 tahun fiskal PENUH sesuai dropdown Tahun
+          supabaseClient.rpc("dashboard_bulanan_downtime_by_pic", { p_start: fyStart.toISOString(), p_end: fyEnd.toISOString() }),
+          supabaseClient.rpc("dashboard_bulanan_downtime_by_line", { p_start: fyStart.toISOString(), p_end: fyEnd.toISOString() }),
         ]);
+        // Downtime Terbesar: ikut 1 tahun fiskal yang dipilih (bukan bulan berjalan)
         const topRes = await Promise.all(MACHINES.map((m) =>
-          supabaseClient.rpc("dashboard_bulanan_top_problems", { p_mesin: m.key, p_start: bulanIni.toISOString(), p_end: bulanDepan.toISOString(), p_limit: 5 })
+          supabaseClient.rpc("dashboard_bulanan_top_problems", { p_mesin: m.key, p_start: fyStart.toISOString(), p_end: fyEnd.toISOString(), p_limit: 5 })
         ));
 
         const prodRows = prodRes.data || [];
@@ -1161,8 +1138,6 @@ function dashboardExhaust() {
         }
       });
       if (this.dxyLineFilter !== "ALL") flat = flat.filter((r) => r.mesin === this.dxyLineFilter);
-      const q = (this.dxySearch || "").trim().toLowerCase();
-      if (q) flat = flat.filter((r) => (r.pic || "").toLowerCase().includes(q) || (r.problem || "").toLowerCase().includes(q));
       flat.sort((a, c) => (Number(c.value) || 0) - (Number(a.value) || 0));
       return flat.slice(0, 20);
     },
@@ -1232,11 +1207,11 @@ function dashboardExhaust() {
         else if (pct < -5) insights.push({ icon: "🔵", text: `NG Inline <b>menurun ${Math.abs(pct)}%</b> dibanding bulan sebelumnya (${monthName(ngValid[ngValid.length - 1].i)}).` });
       }
 
-      // 5) Problem terbesar (catatan: snapshot bulan berjalan, bukan tahun terpilih)
+      // 5) Problem terbesar (sudah ikut tahun fiskal yang dipilih di dropdown)
       const flat = this.dxyFilteredTerbesarAll();
       if (flat.length) {
         const top = flat[0];
-        insights.push({ icon: "🟠", text: `<b>${top.problem}</b> di line ${top.mesin} (PIC ${top.pic || "-"}) menjadi penyebab downtime terbesar bulan berjalan.` });
+        insights.push({ icon: "🟠", text: `<b>${top.problem}</b> di line ${top.mesin} (PIC ${top.pic || "-"}) menjadi penyebab downtime terbesar di FY ${this.tahunanYear}.` });
       }
 
       // 6) Prioritas improvement
@@ -1411,15 +1386,11 @@ function dashboardExhaust() {
         return g;
       };
 
-      // Highlight bulan terpilih (dxyMonthFilter): tiap bar full-gradient kalau
-      // "Semua Bulan" / kalau itu bulan yg dipilih, selainnya jadi warna pudar.
-      // Indeks +2 karena 2 slot pertama label adalah "FY x" / "FY x+1".
-      const barBg = (canvas, hex, len, offset = 2) => {
+      // Gradient bar seragam (fitur highlight per-bulan sudah dihapus atas
+      // permintaan; kolom Bulan tidak lagi ada di filter bar).
+      const barBg = (canvas, hex, len) => {
         const full = grad(canvas, hex);
-        const mutedAlpha = hex + "33";
-        const sel = this.dxyMonthFilter;
-        if (sel === "ALL" || sel === "") return Array.from({ length: len }, () => full);
-        return Array.from({ length: len }, (_, i) => ((i - offset) === Number(sel) ? full : mutedAlpha));
+        return Array.from({ length: len }, () => full);
       };
 
       // --- Sparkline mini (di kartu KPI) ---
