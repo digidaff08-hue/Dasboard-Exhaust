@@ -98,21 +98,27 @@
           <div class="panel">
             <p class="panel-title" x-text="produksiNewEditingId ? 'Edit Input Produksi' : 'Input Produksi'"></p>
             <form @submit.prevent="saveProduksiNew">
+              <p class="hint" x-show="isNonProduksiSelected(produksiNewForm.part_number)" style="margin-bottom:10px;">Jenis Non-Produksi dipilih — Qty, Break, Dandori, Total Repair boleh dikosongkan.</p>
               <div class="form-grid">
-                <div class="field"><label>Waktu Awal *</label><input type="datetime-local" x-model="produksiNewForm.waktu_awal"></div>
-                <div class="field"><label>Waktu Akhir *</label><input type="datetime-local" x-model="produksiNewForm.waktu_akhir"></div>
+                <div class="field"><label>Waktu Awal *</label><input type="datetime-local" x-model="produksiNewForm.waktu_awal" @change="syncWaktuProblemNew()"></div>
+                <div class="field"><label>Waktu Akhir *</label><input type="datetime-local" x-model="produksiNewForm.waktu_akhir" @change="syncWaktuProblemNew()"></div>
                 <div class="field">
                   <label>Part Number *</label>
                   <select x-model="produksiNewForm.part_number">
                     <option value="">-- pilih --</option>
-                    <template x-for="p in partNumberList" :key="p.id"><option :value="p.value" x-text="p.value"></option></template>
+                    <optgroup label="Part Number">
+                      <template x-for="p in partNumberList" :key="p.id"><option :value="p.value" x-text="p.value"></option></template>
+                    </optgroup>
+                    <optgroup label="Jenis Non-Produksi">
+                      <template x-for="n in nonProduksiTypeList" :key="n.id"><option :value="n.nama" x-text="n.nama"></option></template>
+                    </optgroup>
                   </select>
                 </div>
-                <div class="field"><label>Qty *</label><input type="text" inputmode="numeric" pattern="[0-9]*" x-model.number="produksiNewForm.qty" @input='$event.target.value = $event.target.value.replace(/[^0-9]/g, ""); produksiNewForm.qty = $event.target.value === "" ? "" : Number($event.target.value)' placeholder="0"></div>
-                <div class="field"><label>Break (menit)</label><input type="number" step="1" min="0" x-model="produksiNewForm.break_menit" placeholder="0"></div>
-                <div class="field"><label>Dandori (menit)</label><input type="number" step="1" min="0" x-model="produksiNewForm.dandori_menit" placeholder="0"></div>
-                <div class="field"><label>Waktu Problem (menit)</label><input type="number" step="1" min="0" x-model="produksiNewForm.waktu_problem_menit" placeholder="0"></div>
-                <div class="field"><label>Total Repair (menit)</label><input type="number" step="1" min="0" x-model="produksiNewForm.total_repair_menit" placeholder="0"></div>
+                <div class="field"><label x-text="isNonProduksiSelected(produksiNewForm.part_number) ? 'Qty' : 'Qty *'"></label><input type="text" inputmode="numeric" pattern="[0-9]*" x-model.number="produksiNewForm.qty" @input='$event.target.value = $event.target.value.replace(/[^0-9]/g, ""); produksiNewForm.qty = $event.target.value === "" ? "" : Number($event.target.value)' placeholder="0"></div>
+                <div class="field"><label>Break (menit)</label><input type="text" inputmode="numeric" pattern="[0-9]*" x-model.number="produksiNewForm.break_menit" @input='$event.target.value = $event.target.value.replace(/[^0-9]/g, ""); produksiNewForm.break_menit = $event.target.value === "" ? "" : Number($event.target.value)' placeholder="0"></div>
+                <div class="field"><label>Dandori (menit)</label><input type="text" inputmode="numeric" pattern="[0-9]*" x-model.number="produksiNewForm.dandori_menit" @input='$event.target.value = $event.target.value.replace(/[^0-9]/g, ""); produksiNewForm.dandori_menit = $event.target.value === "" ? "" : Number($event.target.value)' placeholder="0"></div>
+                <div class="field"><label>Waktu Problem (menit)</label><input type="text" disabled :value="fmtNum(produksiNewForm.waktu_problem_menit || 0)"><p class="hint" style="margin-top:4px;">Otomatis dari data Downtime pada rentang jam ini.</p></div>
+                <div class="field"><label>Total Repair</label><input type="text" inputmode="numeric" pattern="[0-9]*" x-model.number="produksiNewForm.total_repair_menit" @input='$event.target.value = $event.target.value.replace(/[^0-9]/g, ""); produksiNewForm.total_repair_menit = $event.target.value === "" ? "" : Number($event.target.value)' placeholder="0"></div>
               </div>
 
               <div class="panel" style="margin-top:14px;">
@@ -158,7 +164,7 @@
                       <td class="mono" x-text="fmtNum(row.break_menit) + ' mnt'"></td>
                       <td class="mono" x-text="fmtNum(row.dandori_menit) + ' mnt'"></td>
                       <td class="mono" x-text="fmtNum(row.waktu_problem_menit) + ' mnt'"></td>
-                      <td class="mono" x-text="fmtNum(row.total_repair_menit) + ' mnt'"></td>
+                      <td class="mono" x-text="fmtNum(row.total_repair_menit)"></td>
                       <td class="mono" x-text="produksiNewEarned(row) !== null ? fmtNum(produksiNewEarned(row)) + ' mnt' : '-'"></td>
                       <td class="mono" x-text="produksiNewOperationMin(row) !== null ? fmtNum(produksiNewOperationMin(row)) + ' mnt' : '-'"></td>
                       <td class="mono" x-text="produksiNewWorkmin(row) !== null ? fmtNum(produksiNewWorkmin(row)) + ' mnt' : '-'"></td>

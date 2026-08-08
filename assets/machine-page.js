@@ -1502,6 +1502,26 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const p = this.partNumberList.find((x) => x.value === partNumber);
       return p && p.std_ct ? Number(p.std_ct) : 0;
     },
+    isNonProduksiSelected(partNumberValue) {
+      if (!partNumberValue) return false;
+      return this.nonProduksiTypeList.some((n) => n.nama === partNumberValue);
+    },
+    waktuProblemFromDowntime(waktuAwal, waktuAkhir) {
+      if (!waktuAwal || !waktuAkhir) return 0;
+      const wa = new Date(waktuAwal), wk = new Date(waktuAkhir);
+      if (Number.isNaN(wa.getTime()) || Number.isNaN(wk.getTime()) || wk <= wa) return 0;
+      let total = 0;
+      (this.downtimeRows || []).forEach((d) => {
+        const dwa = new Date(d.waktu_awal), dwk = new Date(d.waktu_akhir);
+        const os = Math.max(dwa.getTime(), wa.getTime());
+        const oe = Math.min(dwk.getTime(), wk.getTime());
+        if (oe > os) total += (oe - os) / 60000;
+      });
+      return Math.round(total);
+    },
+    syncWaktuProblemNew() {
+      this.produksiNewForm.waktu_problem_menit = this.waktuProblemFromDowntime(this.produksiNewForm.waktu_awal, this.produksiNewForm.waktu_akhir);
+    },
     targetPeffForPartNew(partNumber) {
       const p = this.partNumberList.find((x) => x.value === partNumber);
       return p && p.target_peff !== null && p.target_peff !== undefined && p.target_peff !== "" ? Number(p.target_peff) : null;
@@ -1559,6 +1579,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         break_menit: row.break_menit ?? "", dandori_menit: row.dandori_menit ?? "",
         waktu_problem_menit: row.waktu_problem_menit ?? "", total_repair_menit: row.total_repair_menit ?? "",
       };
+      this.syncWaktuProblemNew();
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
     cancelEditProduksiNew() {
@@ -1570,17 +1591,19 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (!f.waktu_awal || !f.waktu_akhir) { this.flash("Waktu Awal dan Waktu Akhir wajib diisi.", true); return; }
       if (new Date(f.waktu_akhir) <= new Date(f.waktu_awal)) { this.flash("Waktu Akhir harus setelah Waktu Awal.", true); return; }
       if (!f.part_number) { this.flash("Part Number wajib dipilih.", true); return; }
-      if (f.qty === "" || Number(f.qty) <= 0) { this.flash("Qty wajib diisi.", true); return; }
+      const isNonProduksi = this.isNonProduksiSelected(f.part_number);
+      if (!isNonProduksi && (f.qty === "" || Number(f.qty) <= 0)) { this.flash("Qty wajib diisi.", true); return; }
 
+      const waktuProblem = this.waktuProblemFromDowntime(f.waktu_awal, f.waktu_akhir);
       const payload = {
         mesin: machineKey,
         waktu_awal: new Date(f.waktu_awal).toISOString(),
         waktu_akhir: new Date(f.waktu_akhir).toISOString(),
         part_number: f.part_number,
-        qty: Number(f.qty),
+        qty: f.qty === "" ? null : Number(f.qty),
         break_menit: f.break_menit === "" ? 0 : Number(f.break_menit),
         dandori_menit: f.dandori_menit === "" ? 0 : Number(f.dandori_menit),
-        waktu_problem_menit: f.waktu_problem_menit === "" ? 0 : Number(f.waktu_problem_menit),
+        waktu_problem_menit: waktuProblem,
         total_repair_menit: f.total_repair_menit === "" ? 0 : Number(f.total_repair_menit),
       };
 
