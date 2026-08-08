@@ -1185,6 +1185,25 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         pic: "", waktu_tunggu: "", ket: "", area: "", status: "",
       };
     },
+    // Cari otomatis baris produksi (lama ATAU baru) yang jamnya "menampung"
+    // waktu downtime ini (waktu_awal produksi <= dt <= waktu_akhir produksi).
+    // Dicek dulu ke Input Produksi (baru), baru ke Input Produksi NEW (lama).
+    findMatchingProductionNew(waktuAwal, waktuAkhir) {
+      const wa = new Date(waktuAwal).getTime(), wk = new Date(waktuAkhir).getTime();
+      const match = (this.produksiNewRows || []).find((r) => {
+        const rwa = new Date(r.waktu_awal).getTime(), rwk = new Date(r.waktu_akhir).getTime();
+        return rwa <= wa && rwk >= wk;
+      });
+      return match ? match.id : null;
+    },
+    findMatchingProductionOld(waktuAwal, waktuAkhir) {
+      const wa = new Date(waktuAwal).getTime(), wk = new Date(waktuAkhir).getTime();
+      const match = (this.productionRows || []).find((r) => {
+        const rwa = new Date(r.waktu_awal).getTime(), rwk = new Date(r.waktu_akhir).getTime();
+        return rwa <= wa && rwk >= wk;
+      });
+      return match ? match.id : null;
+    },
     async submitDowntime() {
       const f = this.dtForm;
       const required = [
@@ -1197,12 +1216,19 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         this.flash("Wajib diisi: " + missing.map(([, label]) => label).join(", "), true);
         return;
       }
+      const matchedNewId = this.findMatchingProductionNew(this.dtStart, this.dtEnd);
+      const matchedOldId = matchedNewId ? null : this.findMatchingProductionOld(this.dtStart, this.dtEnd);
+      if (!matchedNewId && !matchedOldId) {
+        this.flash("Waktu downtime ini tidak pas di dalam satu baris produksi manapun (Input Produksi / Input Produksi NEW). Cek lagi jamnya, atau isi dulu baris produksinya.", true);
+        return;
+      }
       const payload = {
         mesin: machineKey, waktu_awal: this.dtStart, waktu_akhir: this.dtEnd,
         stasiun: f.stasiun || null, kategori: f.kategori || null, problem: f.problem || null,
         penyebab: f.penyebab || null, countermeasure: f.countermeasure || null,
         pic: f.pic || null, waktu_tunggu: f.waktu_tunggu === "" ? null : Number(f.waktu_tunggu),
         ket: f.ket || null, area: f.area || null, status: f.status || null,
+        production_log_new_id: matchedNewId, production_log_id: matchedOldId,
       };
       if (f.problem) {
         const selProblem = this.problemList.find((p) => p.value === f.problem);
@@ -1215,7 +1241,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (this.editingDowntimeId) {
         const { error } = await supabaseClient.from("downtime_log").update(payload).eq("id", this.editingDowntimeId);
         if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
-        this.flash("Data downtime diperbarui.");
+        this.flash("Data downtime diperbarui, ter-link ke produksi otomatis.");
       } else {
         payload.created_by = this.session.user.id;
         const { error } = await supabaseClient.from("downtime_log").insert(payload);
@@ -1223,10 +1249,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           this.flash("Gagal menyimpan downtime: " + error.message, true);
           return;
         }
-        this.flash("Data downtime tersimpan.");
+        this.flash("Data downtime tersimpan, ter-link ke produksi otomatis.");
       }
       this.cancelDowntime();
-      await Promise.all([this.fetchDowntime(), this.fetchProduction()]);
+      await Promise.all([this.fetchDowntime(), this.fetchProduction(), this.fetchProduksiNew()]);
     },
     editDowntime(row) {
       this.editingDowntimeId = row.id;
@@ -1582,22 +1608,6 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (!partNumberValue) return false;
       return this.nonProduksiTypeList.some((n) => n.nama === partNumberValue);
     },
-    waktuProblemFromDowntime(waktuAwal, waktuAkhir) {
-      if (!waktuAwal || !waktuAkhir) return 0;
-      const wa = new Date(waktuAwal), wk = new Date(waktuAkhir);
-      if (Number.isNaN(wa.getTime()) || Number.isNaN(wk.getTime()) || wk <= wa) return 0;
-      let total = 0;
-      (this.downtimeRows || []).forEach((d) => {
-        const dwa = new Date(d.waktu_awal), dwk = new Date(d.waktu_akhir);
-        const os = Math.max(dwa.getTime(), wa.getTime());
-        const oe = Math.min(dwk.getTime(), wk.getTime());
-        if (oe > os) total += (oe - os) / 60000;
-      });
-      return Math.round(total);
-    },
-    syncWaktuProblemNew() {
-      this.produksiNewForm.waktu_problem_menit = this.waktuProblemFromDowntime(this.produksiNewForm.waktu_awal, this.produksiNewForm.waktu_akhir);
-    },
 
     // ---- Kalkulasi otomatis (dipakai utk form yang lagi diisi & baris tersimpan) ----
     // 1. Earned = Qty x Std CT x Std MP / 60
@@ -1664,9 +1674,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         waktu_awal: toLocalInput(row.waktu_awal), waktu_akhir: toLocalInput(row.waktu_akhir),
         part_number: row.part_number || "", qty: row.qty ?? "",
         break_menit: row.break_menit ?? "", dandori_menit: row.dandori_menit ?? "",
-        waktu_problem_menit: row.waktu_problem_menit ?? "", total_repair_menit: row.total_repair_menit ?? "",
+        waktu_problem_menit: row.waktu_problem_menit ?? 0, total_repair_menit: row.total_repair_menit ?? "",
       };
-      this.syncWaktuProblemNew();
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
     cancelEditProduksiNew() {
@@ -1681,7 +1690,9 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const isNonProduksi = this.isNonProduksiSelected(f.part_number);
       if (!isNonProduksi && (f.qty === "" || Number(f.qty) <= 0)) { this.flash("Qty wajib diisi.", true); return; }
 
-      const waktuProblem = this.waktuProblemFromDowntime(f.waktu_awal, f.waktu_akhir);
+      // waktu_problem_menit SENGAJA tidak dikirim di sini -- itu dipegang penuh
+      // oleh trigger database, disinkron otomatis dari Downtime yang di-link
+      // (lihat migration_downtime_link_produksi_new.sql). Insert baru default 0.
       const payload = {
         mesin: machineKey,
         waktu_awal: new Date(f.waktu_awal).toISOString(),
@@ -1690,7 +1701,6 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         qty: f.qty === "" ? null : Number(f.qty),
         break_menit: f.break_menit === "" ? 0 : Number(f.break_menit),
         dandori_menit: f.dandori_menit === "" ? 0 : Number(f.dandori_menit),
-        waktu_problem_menit: waktuProblem,
         total_repair_menit: f.total_repair_menit === "" ? 0 : Number(f.total_repair_menit),
       };
 

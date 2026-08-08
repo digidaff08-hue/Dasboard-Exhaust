@@ -100,8 +100,8 @@
             <form @submit.prevent="saveProduksiNew">
               <p class="hint" x-show="isNonProduksiSelected(produksiNewForm.part_number)" style="margin-bottom:10px;">Jenis Non-Produksi dipilih — Qty, Break, Dandori, Total Repair boleh dikosongkan.</p>
               <div class="form-grid">
-                <div class="field"><label>Waktu Awal *</label><input type="datetime-local" x-model="produksiNewForm.waktu_awal" @change="syncWaktuProblemNew()"></div>
-                <div class="field"><label>Waktu Akhir *</label><input type="datetime-local" x-model="produksiNewForm.waktu_akhir" @change="syncWaktuProblemNew()"></div>
+                <div class="field"><label>Waktu Awal *</label><input type="datetime-local" x-model="produksiNewForm.waktu_awal"></div>
+                <div class="field"><label>Waktu Akhir *</label><input type="datetime-local" x-model="produksiNewForm.waktu_akhir"></div>
                 <div class="field">
                   <label>Part Number *</label>
                   <select x-model="produksiNewForm.part_number">
@@ -113,7 +113,7 @@
                 <div class="field"><label x-text="isNonProduksiSelected(produksiNewForm.part_number) ? 'Qty' : 'Qty *'"></label><input type="text" inputmode="numeric" pattern="[0-9]*" x-model.number="produksiNewForm.qty" @input='$event.target.value = $event.target.value.replace(/[^0-9]/g, ""); produksiNewForm.qty = $event.target.value === "" ? "" : Number($event.target.value)' placeholder="0"></div>
                 <div class="field"><label>Break (menit)</label><input type="text" inputmode="numeric" pattern="[0-9]*" x-model.number="produksiNewForm.break_menit" @input='$event.target.value = $event.target.value.replace(/[^0-9]/g, ""); produksiNewForm.break_menit = $event.target.value === "" ? "" : Number($event.target.value)' placeholder="0"></div>
                 <div class="field"><label>Dandori (menit)</label><input type="text" inputmode="numeric" pattern="[0-9]*" x-model.number="produksiNewForm.dandori_menit" @input='$event.target.value = $event.target.value.replace(/[^0-9]/g, ""); produksiNewForm.dandori_menit = $event.target.value === "" ? "" : Number($event.target.value)' placeholder="0"></div>
-                <div class="field"><label>Waktu Problem (menit)</label><input type="text" disabled :value="fmtNum(produksiNewForm.waktu_problem_menit || 0)"><p class="hint" style="margin-top:4px;">Otomatis dari data Downtime pada rentang jam ini.</p></div>
+                <div class="field"><label>Waktu Problem (menit)</label><input type="text" disabled :value="fmtNum(produksiNewForm.waktu_problem_menit || 0)"><p class="hint" style="margin-top:4px;">Terisi otomatis setelah data ini disimpan lalu di-link dari tab Downtime.</p></div>
                 <div class="field"><label>Total Repair</label><input type="text" inputmode="numeric" pattern="[0-9]*" x-model.number="produksiNewForm.total_repair_menit" @input='$event.target.value = $event.target.value.replace(/[^0-9]/g, ""); produksiNewForm.total_repair_menit = $event.target.value === "" ? "" : Number($event.target.value)' placeholder="0"></div>
               </div>
 
@@ -943,6 +943,7 @@
                   <div class="mono" style="padding:10px 0;font-weight:600;font-size:15px;" x-text="durasiMenit(dtStart, dtEnd)"></div>
                 </div>
               </div>
+              <p class="hint" style="margin-top:6px;">Downtime ini otomatis dicek ke Input Produksi (baru) dulu, lalu Input Produksi NEW (lama) — kalau jamnya gak cocok/masuk ke baris manapun, data ini akan ditolak.</p>
               <div class="form-actions">
                 <button type="button" class="btn-ghost" @click="cancelDowntime()">Batal</button>
                 <button type="submit" class="btn-primary" x-text="editingDowntimeId ? 'Simpan Perubahan' : 'Simpan Data'"></button>
