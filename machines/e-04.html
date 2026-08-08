@@ -106,12 +106,8 @@
                   <label>Part Number *</label>
                   <select x-model="produksiNewForm.part_number">
                     <option value="">-- pilih --</option>
-                    <optgroup label="Part Number">
-                      <template x-for="p in partNumberList" :key="p.id"><option :value="p.value" x-text="p.value"></option></template>
-                    </optgroup>
-                    <optgroup label="Jenis Non-Produksi">
-                      <template x-for="n in nonProduksiTypeList" :key="n.id"><option :value="n.nama" x-text="n.nama"></option></template>
-                    </optgroup>
+                    <template x-for="p in partNumberList" :key="p.id"><option :value="p.value" x-text="p.value"></option></template>
+                    <template x-for="n in nonProduksiTypeList" :key="n.id"><option :value="n.nama" x-text="n.nama"></option></template>
                   </select>
                 </div>
                 <div class="field"><label x-text="isNonProduksiSelected(produksiNewForm.part_number) ? 'Qty' : 'Qty *'"></label><input type="text" inputmode="numeric" pattern="[0-9]*" x-model.number="produksiNewForm.qty" @input='$event.target.value = $event.target.value.replace(/[^0-9]/g, ""); produksiNewForm.qty = $event.target.value === "" ? "" : Number($event.target.value)' placeholder="0"></div>
