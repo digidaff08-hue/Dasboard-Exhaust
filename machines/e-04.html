@@ -187,25 +187,6 @@
         <!-- ===================== TAB PRODUKSI ===================== -->
         <div x-show="tab === 'produksi'">
 
-          <div class="panel" x-show="editingNonProduksiId" x-cloak>
-            <p class="panel-title">Edit Data Non-Produksi</p>
-            <div class="form-grid">
-              <div class="field"><label>Waktu Awal</label><input type="datetime-local" x-model="nonProduksiEditForm.waktu_awal"></div>
-              <div class="field"><label>Waktu Akhir</label><input type="datetime-local" x-model="nonProduksiEditForm.waktu_akhir"></div>
-              <div class="field" style="grid-column: span 2;">
-                <label>Jenis Non-Produksi</label>
-                <input type="text" list="nonProduksiTypeListNewTab-E-04" x-model="nonProduksiEditForm.nama">
-                <datalist id="nonProduksiTypeListNewTab-E-04">
-                  <template x-for="t in nonProduksiTypeList" :key="t.id"><option :value="t.nama"></option></template>
-                </datalist>
-              </div>
-            </div>
-            <div class="form-actions">
-              <button type="button" class="btn-ghost" @click="cancelEditNonProduksi()">Batal</button>
-              <button type="button" class="btn-primary" @click="saveNonProduksiEdit()">Simpan</button>
-            </div>
-          </div>
-
           <template x-for="st in stationList()" :key="st.id">
             <div class="panel station-card">
               <p class="panel-title" x-show="st.label"><span x-text="st.label"></span></p>
@@ -328,6 +309,7 @@
                   <div class="field"><label>Waktu Akhir</label><input type="datetime-local" x-model="lines[st.id].editForm.waktu_akhir"></div>
                   <div class="field"><label>Part Number</label><input type="text" x-model="lines[st.id].editForm.part_number"></div>
                   <div class="field"><label>Qty</label><input type="number" x-model="lines[st.id].editForm.qty"></div>
+                  <div class="field"><label>NG (pcs)</label><input type="number" x-model="lines[st.id].editForm.ng"></div>
                   <div class="field"><label>Jumlah MP</label><input type="number" x-model="lines[st.id].editForm.manpower"></div>
                   <div class="field"><label>Dandori (menit)</label><input type="number" x-model="lines[st.id].editForm.dandori_menit"></div>
                   <div class="field"><label>Break (menit)</label><input type="number" x-model="lines[st.id].editForm.break_menit"></div>
