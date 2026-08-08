@@ -1593,20 +1593,27 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (earned === null || op === null || op === 0) return null;
       return earned / op;
     },
-    // 5. P.Eff Seharusnya = Earned + Waktu Problem + Dandori (desimal)
-    produksiNewPeffSeharusnya(row) {
+    // Waktu Dibutuhkan = Earned + Waktu Problem + Dandori (dipakai P.Eff Seharusnya)
+    produksiNewWaktuDibutuhkan(row) {
       const earned = this.produksiNewEarned(row);
       if (earned === null) return null;
       const waktuProblem = Number(row.waktu_problem_menit) || 0;
       const dandori = Number(row.dandori_menit) || 0;
       return earned + waktuProblem + dandori;
     },
-    // 6. Straightpass = Total Repair / Qty (tampil sebagai %)
+    // 5. P.Eff Seharusnya = Earned / Waktu Dibutuhkan (desimal)
+    produksiNewPeffSeharusnya(row) {
+      const earned = this.produksiNewEarned(row);
+      const waktuDibutuhkan = this.produksiNewWaktuDibutuhkan(row);
+      if (earned === null || waktuDibutuhkan === null || waktuDibutuhkan === 0) return null;
+      return earned / waktuDibutuhkan;
+    },
+    // 6. Straightpass = 1 - (Total Repair / Qty) (tampil sebagai %)
     produksiNewStraightpass(row) {
       const qty = Number(row.qty) || 0;
       if (!qty) return null;
       const totalRepair = Number(row.total_repair_menit) || 0;
-      return (totalRepair / qty) * 100;
+      return (1 - (totalRepair / qty)) * 100;
     },
 
     // ---- CRUD ----
