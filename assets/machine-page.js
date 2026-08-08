@@ -157,7 +157,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
   let repairThreeState = null;
   const repairGeometryCache = new Map(); // view.id -> { object: THREE.Mesh|THREE.Group, box: THREE.Box3 } (biar ganti part gak fetch ulang file 3D-nya)
   return {
-    session: null, profile: null, tab: "produksi", loading: true,
+    session: null, profile: null, tab: "produksi_new", loading: true,
     errorMsg: "", successMsg: "",
     extraFields, routingMax: routingMax || 0,
     kategoriOptions: kategoriOptions || ["MESIN", "DIES", "OTHER"],
@@ -179,6 +179,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
 
     lines: {}, // per stasiun: state machine produksi
     productionRows: [], downtimeRows: [], nonProduksiRows: [], planningRows: [],
+
+    // ---- Input Produksi BARU (form ringkas, terpisah dari yang lama) ----
+    produksiNewRows: [], produksiNewEditingId: null, produksiNewSaving: false,
+    produksiNewForm: {
+      waktu_awal: "", waktu_akhir: "", part_number: "", qty: "",
+      break_menit: "", dandori_menit: "", waktu_problem_menit: "", total_repair_menit: "",
+    },
     partNumberList: [], problemList: [], causeList: [], areaList: [], nonProduksiTypeList: [],
     newPartNumberValue: "", newProblemValue: "", newCauseValue: "", newAreaValue: "", newNonProduksiTypeValue: "",
     picOptions: ["DIES", "MESIN", "PE", "PROD", "PC-SUPP", "QC", "PRESS"],
@@ -246,7 +253,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         await Promise.all([
           this.fetchProduction(), this.fetchDowntime(), this.fetchNonProduksi(),
           this.fetchPlanning(), this.fetchPartNumbers(), this.fetchProblems(), this.fetchCauses(), this.fetchAreas(), this.fetchNonProduksiTypes(),
-          this.fetchNgModelsForLine(), this.fetchNgInline(),
+          this.fetchNgModelsForLine(), this.fetchNgInline(), this.fetchProduksiNew(),
           this.fetchRepairViews(), this.fetchRepairKategori(), this.fetchRepairLog(), this.fetchRepairPartNoOptions(),
         ]);
         this.restoreLocalState();
@@ -1223,11 +1230,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
 
     // ================= MASTER DATA =================
     async fetchPartNumbers() {
-      const { data, error } = await supabaseClient.from("part_numbers").select("id, value, next_processes, std_mp, std_ct, harga_pcs, alias_values").eq("mesin", machineKey).order("value");
+      const { data, error } = await supabaseClient.from("part_numbers").select("id, value, next_processes, std_mp, std_ct, harga_pcs, alias_values, target_peff").eq("mesin", machineKey).order("value");
       if (error) { this.flash("Gagal memuat Part Number: " + error.message, true); return; }
       this.partNumberList = data.map((r) => ({
         ...r, editing: false, draft: r.value,
         draftStdMp: r.std_mp ?? "", draftStdCt: r.std_ct ?? "", draftHargaPcs: r.harga_pcs ?? "",
+        draftTargetPeff: r.target_peff ?? "",
         draftAliasText: (r.alias_values || []).join(", "),
         draftNextProcesses: (r.next_processes || []).map((p) => ({ ...p, _key: Math.random().toString(36).slice(2) })),
       }));
@@ -1298,6 +1306,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       item.draftStdMp = item.std_mp ?? "";
       item.draftStdCt = item.std_ct ?? "";
       item.draftHargaPcs = item.harga_pcs ?? "";
+      item.draftTargetPeff = item.target_peff ?? "";
       item.draftAliasText = (item.alias_values || []).join(", ");
       item.draftNextProcesses = (item.next_processes || []).map((p) => ({ ...p, _key: Math.random().toString(36).slice(2) }));
       item.draftNextProcesses.forEach((p) => { if (p.line) this.ensurePartNumbersForLine(p.line); });
@@ -1320,6 +1329,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         std_mp: item.draftStdMp === "" ? null : Number(item.draftStdMp),
         std_ct: item.draftStdCt === "" ? null : Number(item.draftStdCt),
         harga_pcs: item.draftHargaPcs === "" ? null : Number(item.draftHargaPcs),
+        target_peff: item.draftTargetPeff === "" ? null : Number(item.draftTargetPeff),
         alias_values: aliasClean,
       };
       const { data, error } = await supabaseClient.from("part_numbers").update(payload).eq("id", item.id).select();
@@ -1327,6 +1337,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (!data || data.length === 0) { this.flash("Gagal simpan — cek izin akses.", true); return; }
       item.value = v; item.next_processes = clean;
       item.std_mp = payload.std_mp; item.std_ct = payload.std_ct; item.harga_pcs = payload.harga_pcs;
+      item.target_peff = payload.target_peff;
       item.alias_values = aliasClean;
       item.editing = false;
       this.flash("Part number diperbarui.");
@@ -1470,6 +1481,138 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (error) { this.flash("Gagal memuat NG Inline: " + error.message, true); return; }
       this.ngInlineRows = data;
     },
+    // =========================================================
+    // INPUT PRODUKSI BARU — form ringkas (waktu awal/akhir + qty +
+    // break/dandori/problem/repair), sisanya dihitung otomatis.
+    // Tabel terpisah (production_log_new) dari tab "Input Produksi OLD".
+    // =========================================================
+    freshProduksiNewForm() {
+      return {
+        waktu_awal: "", waktu_akhir: "", part_number: "", qty: "",
+        break_menit: "", dandori_menit: "", waktu_problem_menit: "", total_repair_menit: "",
+      };
+    },
+    async fetchProduksiNew() {
+      const { data, error } = await supabaseClient.from("production_log_new").select("*")
+        .eq("mesin", machineKey).order("waktu_awal", { ascending: false }).limit(500);
+      if (error) { this.flash("Gagal memuat Input Produksi: " + error.message, true); return; }
+      this.produksiNewRows = data;
+    },
+    stdCtForPartNew(partNumber) {
+      const p = this.partNumberList.find((x) => x.value === partNumber);
+      return p && p.std_ct ? Number(p.std_ct) : 0;
+    },
+    targetPeffForPartNew(partNumber) {
+      const p = this.partNumberList.find((x) => x.value === partNumber);
+      return p && p.target_peff !== null && p.target_peff !== undefined && p.target_peff !== "" ? Number(p.target_peff) : null;
+    },
+    ngInlineQtyForPartOnDate(partNumber, tanggalStr) {
+      if (!partNumber || !tanggalStr) return 0;
+      return this.ngInlineRows
+        .filter((r) => r.part_number === partNumber && r.tanggal === tanggalStr)
+        .reduce((a, r) => a + (Number(r.qty) || 0), 0);
+    },
+
+    // ---- Kalkulasi otomatis (dipakai utk form yang lagi diisi & baris tersimpan) ----
+    produksiNewEarned(row) {
+      const qty = Number(row.qty) || 0;
+      const ct = this.stdCtForPartNew(row.part_number);
+      if (!qty || !ct) return null;
+      return qty * ct;
+    },
+    produksiNewOperationMin(row) {
+      if (!row.waktu_awal || !row.waktu_akhir) return null;
+      const ms = new Date(row.waktu_akhir) - new Date(row.waktu_awal);
+      if (Number.isNaN(ms) || ms <= 0) return null;
+      return ms / 60000;
+    },
+    produksiNewWorkmin(row) {
+      const op = this.produksiNewOperationMin(row);
+      if (op === null) return null;
+      const potongan = (Number(row.break_menit) || 0) + (Number(row.dandori_menit) || 0)
+        + (Number(row.waktu_problem_menit) || 0) + (Number(row.total_repair_menit) || 0);
+      return op - potongan;
+    },
+    produksiNewPeff(row) {
+      const earned = this.produksiNewEarned(row);
+      const workmin = this.produksiNewWorkmin(row);
+      if (!earned || !workmin || workmin <= 0) return null;
+      return (earned / workmin) * 100;
+    },
+    produksiNewPeffSeharusnya(row) {
+      return this.targetPeffForPartNew(row.part_number);
+    },
+    produksiNewStraightpass(row) {
+      const qty = Number(row.qty) || 0;
+      if (!qty || !row.waktu_awal) return null;
+      const tanggalStr = localDateStr(new Date(row.waktu_awal));
+      const ngQty = this.ngInlineQtyForPartOnDate(row.part_number, tanggalStr);
+      return ((qty - ngQty) / qty) * 100;
+    },
+
+    // ---- CRUD ----
+    editProduksiNew(row) {
+      this.produksiNewEditingId = row.id;
+      this.produksiNewForm = {
+        waktu_awal: toLocalInput(row.waktu_awal), waktu_akhir: toLocalInput(row.waktu_akhir),
+        part_number: row.part_number || "", qty: row.qty ?? "",
+        break_menit: row.break_menit ?? "", dandori_menit: row.dandori_menit ?? "",
+        waktu_problem_menit: row.waktu_problem_menit ?? "", total_repair_menit: row.total_repair_menit ?? "",
+      };
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    cancelEditProduksiNew() {
+      this.produksiNewEditingId = null;
+      this.produksiNewForm = this.freshProduksiNewForm();
+    },
+    async saveProduksiNew() {
+      const f = this.produksiNewForm;
+      if (!f.waktu_awal || !f.waktu_akhir) { this.flash("Waktu Awal dan Waktu Akhir wajib diisi.", true); return; }
+      if (new Date(f.waktu_akhir) <= new Date(f.waktu_awal)) { this.flash("Waktu Akhir harus setelah Waktu Awal.", true); return; }
+      if (!f.part_number) { this.flash("Part Number wajib dipilih.", true); return; }
+      if (f.qty === "" || Number(f.qty) <= 0) { this.flash("Qty wajib diisi.", true); return; }
+
+      const payload = {
+        mesin: machineKey,
+        waktu_awal: new Date(f.waktu_awal).toISOString(),
+        waktu_akhir: new Date(f.waktu_akhir).toISOString(),
+        part_number: f.part_number,
+        qty: Number(f.qty),
+        break_menit: f.break_menit === "" ? 0 : Number(f.break_menit),
+        dandori_menit: f.dandori_menit === "" ? 0 : Number(f.dandori_menit),
+        waktu_problem_menit: f.waktu_problem_menit === "" ? 0 : Number(f.waktu_problem_menit),
+        total_repair_menit: f.total_repair_menit === "" ? 0 : Number(f.total_repair_menit),
+      };
+
+      this.produksiNewSaving = true;
+      try {
+        if (this.produksiNewEditingId) {
+          payload.updated_by = this.session.user.id;
+          const { error } = await supabaseClient.from("production_log_new").update(payload).eq("id", this.produksiNewEditingId);
+          if (error) throw error;
+          this.flash("Data Input Produksi diperbarui.");
+        } else {
+          payload.created_by = this.session.user.id;
+          const { error } = await supabaseClient.from("production_log_new").insert(payload);
+          if (error) throw error;
+          this.flash("Data Input Produksi tersimpan.");
+        }
+        this.cancelEditProduksiNew();
+        await this.fetchProduksiNew();
+      } catch (err) {
+        this.flash("Gagal menyimpan: " + (err.message || err), true);
+      } finally {
+        this.produksiNewSaving = false;
+      }
+    },
+    async deleteProduksiNew(id) {
+      if (!confirm("Hapus data ini?")) return;
+      const { error } = await supabaseClient.from("production_log_new").delete().eq("id", id);
+      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
+      if (this.produksiNewEditingId === id) this.cancelEditProduksiNew();
+      await this.fetchProduksiNew();
+    },
+
     async onModelChangeNg() {
       // reset field turunan tiap kali Model diganti
       this.ngForm.part_number = ""; this.ngForm.area_id = ""; this.ngForm.area = ""; this.ngForm.ng_proses = "";
