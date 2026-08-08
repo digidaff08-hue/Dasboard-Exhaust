@@ -257,6 +257,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           this.fetchRepairViews(), this.fetchRepairKategori(), this.fetchRepairLog(), this.fetchRepairPartNoOptions(),
         ]);
         this.restoreLocalState();
+        await this.fetchProduksiPartNumberOptions();
         this.watchAndAutosave();
         this.refreshPendingCount();
         await this.fetchMesinSettings();
@@ -1497,6 +1498,30 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         .eq("mesin", machineKey).order("waktu_awal", { ascending: false }).limit(500);
       if (error) { this.flash("Gagal memuat Input Produksi: " + error.message, true); return; }
       this.produksiNewRows = data;
+    },
+    // Part Number di form Input Produksi baru diambil dari sumber yang SAMA
+    // dengan NG Inline (ng_line_models -> ng_model_parts), karena itu yang
+    // datanya sudah terisi per line -- bukan dari tabel part_numbers (Master
+    // Data lama) yang ternyata masih kosong di semua line.
+    produksiNewPartOptions: [],
+    async fetchProduksiPartNumberOptions() {
+      const modelNames = (this.ngModelList || []).map((m) => m.model).filter(Boolean);
+      if (!modelNames.length) { this.produksiNewPartOptions = []; return; }
+      const { data, error } = await supabaseClient.from("ng_model_parts").select("part_no").in("model", modelNames);
+      if (error) { this.flash("Gagal memuat Part Number (NG Inline): " + error.message, true); return; }
+      const uniq = [...new Set((data || []).map((r) => r.part_no).filter(Boolean))].sort();
+      this.produksiNewPartOptions = uniq;
+
+      // Auto-sync ke tabel part_numbers (Master Data) supaya Std CT & Target
+      // P.Eff bisa diisi admin di sana, dan dipakai buat kalkulasi Earned/P.Eff.
+      const existingValues = new Set(this.partNumberList.map((p) => p.value));
+      const missing = uniq.filter((v) => !existingValues.has(v));
+      if (missing.length) {
+        const rows = missing.map((v) => ({ mesin: machineKey, value: v }));
+        const { error: syncErr } = await supabaseClient.from("part_numbers")
+          .upsert(rows, { onConflict: "mesin,value", ignoreDuplicates: true });
+        if (!syncErr) await this.fetchPartNumbers();
+      }
     },
     stdCtForPartNew(partNumber) {
       const p = this.partNumberList.find((x) => x.value === partNumber);

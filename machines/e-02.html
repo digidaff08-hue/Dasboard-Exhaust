@@ -106,7 +106,7 @@
                   <label>Part Number *</label>
                   <select x-model="produksiNewForm.part_number">
                     <option value="">-- pilih --</option>
-                    <template x-for="p in partNumberList" :key="p.id"><option :value="p.value" x-text="p.value"></option></template>
+                    <template x-for="pn in produksiNewPartOptions" :key="pn"><option :value="pn" x-text="pn"></option></template>
                     <template x-for="n in nonProduksiTypeList" :key="n.id"><option :value="n.nama" x-text="n.nama"></option></template>
                   </select>
                 </div>
@@ -127,7 +127,7 @@
                   <div class="field"><label>P.Eff Seharusnya</label><input type="text" disabled :value="produksiNewPeffSeharusnya(produksiNewForm) !== null ? fmtNum(produksiNewPeffSeharusnya(produksiNewForm)) + '%' : 'Belum diatur'"></div>
                   <div class="field"><label>Straightpass</label><input type="text" disabled :value="produksiNewStraightpass(produksiNewForm) !== null ? fmtNum(produksiNewStraightpass(produksiNewForm)) + '%' : '-'"></div>
                 </div>
-                <p class="hint" style="margin-top:6px;">P.Eff Seharusnya diambil dari Master Data Part Number. Straightpass memakai data NG Inline hari yang sama.</p>
+                <p class="hint" style="margin-top:6px;">Earned butuh Std CT, dan P.Eff Seharusnya butuh Target P.Eff — dua-duanya diisi lewat Master Data Part Number. Straightpass memakai data NG Inline hari yang sama.</p>
               </div>
 
               <div class="form-actions">
