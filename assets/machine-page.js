@@ -1049,10 +1049,17 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const p = this.partNumberList.find((x) => x.value === partNumber);
       return p && p.std_ct ? Number(p.std_ct) : null;
     },
+    stdMpFor(partNumber) {
+      const p = this.partNumberList.find((x) => x.value === partNumber);
+      return p && p.std_mp ? Number(p.std_mp) : null;
+    },
+    // Disamakan dengan rumus Earned di tab Input Produksi (baru): Qty x Std CT x Std MP / 60
     earnedMenit(row) {
       if (row._tipe !== "produksi" || !row.qty) return null;
       const ct = this.stdCtFor(row.part_number);
-      return ct ? row.qty * ct : null;
+      const mp = this.stdMpFor(row.part_number);
+      if (!ct || !mp) return null;
+      return (row.qty * ct * mp) / 60;
     },
     operationMenit(row) {
       const d = (new Date(row.waktu_akhir) - new Date(row.waktu_awal)) / 60000;
