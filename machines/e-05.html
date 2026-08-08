@@ -124,7 +124,7 @@
                   <div class="field"><label>Operation Min</label><input type="text" disabled :value="produksiNewOperationMin(produksiNewForm) !== null ? fmtNum(produksiNewOperationMin(produksiNewForm)) + ' mnt' : '-'"></div>
                   <div class="field"><label>Workmin</label><input type="text" disabled :value="produksiNewWorkmin(produksiNewForm) !== null ? fmtNum(produksiNewWorkmin(produksiNewForm)) + ' mnt' : '-'"></div>
                   <div class="field"><label>P.Eff</label><input type="text" disabled :value="produksiNewPeff(produksiNewForm) !== null ? fmtDecimal(produksiNewPeff(produksiNewForm), 3) : '-'"></div>
-                  <div class="field"><label>P.Eff Seharusnya</label><input type="text" disabled :value="produksiNewPeffSeharusnya(produksiNewForm) !== null ? fmtDecimal(produksiNewPeffSeharusnya(produksiNewForm)) : '-'"></div>
+                  <div class="field"><label>P.Eff Seharusnya</label><input type="text" disabled :value="produksiNewPeffSeharusnya(produksiNewForm) !== null ? fmtDecimal(produksiNewPeffSeharusnya(produksiNewForm), 3) : '-'"></div>
                   <div class="field"><label>Straightpass</label><input type="text" disabled :value="produksiNewStraightpass(produksiNewForm) !== null ? fmtNum(produksiNewStraightpass(produksiNewForm)) + '%' : '-'"></div>
                 </div>
                 <p class="hint" style="margin-top:6px;">Earned & Operation Min butuh Std CT dan Std MP yang diisi lewat Master Data Part Number.</p>
@@ -165,7 +165,7 @@
                       <td class="mono" x-text="produksiNewOperationMin(row) !== null ? fmtNum(produksiNewOperationMin(row)) + ' mnt' : '-'"></td>
                       <td class="mono" x-text="produksiNewWorkmin(row) !== null ? fmtNum(produksiNewWorkmin(row)) + ' mnt' : '-'"></td>
                       <td class="mono" x-text="produksiNewPeff(row) !== null ? fmtDecimal(produksiNewPeff(row), 3) : '-'"></td>
-                      <td class="mono" x-text="produksiNewPeffSeharusnya(row) !== null ? fmtDecimal(produksiNewPeffSeharusnya(row)) : '-'"></td>
+                      <td class="mono" x-text="produksiNewPeffSeharusnya(row) !== null ? fmtDecimal(produksiNewPeffSeharusnya(row), 3) : '-'"></td>
                       <td class="mono" x-text="produksiNewStraightpass(row) !== null ? fmtNum(produksiNewStraightpass(row)) + '%' : '-'"></td>
                       <td>
                         <div class="row-actions">
