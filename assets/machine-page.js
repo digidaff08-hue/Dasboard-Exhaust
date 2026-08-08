@@ -1061,9 +1061,18 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (!ct || !mp) return null;
       return (row.qty * ct * mp) / 60;
     },
+    // Disamakan dengan rumus Operation Min di tab Input Produksi (baru) untuk
+    // baris produksi: ((Waktu Akhir - Waktu Awal) - Break) x Std MP.
+    // Baris non-produksi tetap durasi mentah (konsep Break/MP tidak berlaku di situ).
     operationMenit(row) {
-      const d = (new Date(row.waktu_akhir) - new Date(row.waktu_awal)) / 60000;
-      return d >= 0 ? d : null;
+      const ms = new Date(row.waktu_akhir) - new Date(row.waktu_awal);
+      if (Number.isNaN(ms) || ms < 0) return null;
+      const diffMenit = ms / 60000;
+      if (row._tipe !== "produksi") return diffMenit;
+      const mp = this.stdMpFor(row.part_number);
+      if (!mp) return null;
+      const breakMenit = Number(row.break_menit) || 0;
+      return (diffMenit - breakMenit) * mp;
     },
     rowAvailability(row) {
       const earned = this.earnedMenit(row);
