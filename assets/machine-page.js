@@ -128,6 +128,12 @@ function fmtNum(n) {
   if (Number.isNaN(num)) return "-";
   return num.toLocaleString("en-US", { maximumFractionDigits: 1 });
 }
+function fmtDecimal(n, digits = 2) {
+  if (n === null || n === undefined || n === "") return "-";
+  const num = Number(n);
+  if (Number.isNaN(num)) return "-";
+  return num.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
 function fmtClock(iso) {
   if (!iso) return "";
   return new Date(iso).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
@@ -1527,6 +1533,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const p = this.partNumberList.find((x) => x.value === partNumber);
       return p && p.std_ct ? Number(p.std_ct) : 0;
     },
+    stdMpForPartNew(partNumber) {
+      const p = this.partNumberList.find((x) => x.value === partNumber);
+      return p && p.std_mp ? Number(p.std_mp) : 0;
+    },
     isNonProduksiSelected(partNumberValue) {
       if (!partNumberValue) return false;
       return this.nonProduksiTypeList.some((n) => n.nama === partNumberValue);
@@ -1547,52 +1557,56 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     syncWaktuProblemNew() {
       this.produksiNewForm.waktu_problem_menit = this.waktuProblemFromDowntime(this.produksiNewForm.waktu_awal, this.produksiNewForm.waktu_akhir);
     },
-    targetPeffForPartNew(partNumber) {
-      const p = this.partNumberList.find((x) => x.value === partNumber);
-      return p && p.target_peff !== null && p.target_peff !== undefined && p.target_peff !== "" ? Number(p.target_peff) : null;
-    },
-    ngInlineQtyForPartOnDate(partNumber, tanggalStr) {
-      if (!partNumber || !tanggalStr) return 0;
-      return this.ngInlineRows
-        .filter((r) => r.part_number === partNumber && r.tanggal === tanggalStr)
-        .reduce((a, r) => a + (Number(r.qty) || 0), 0);
-    },
 
     // ---- Kalkulasi otomatis (dipakai utk form yang lagi diisi & baris tersimpan) ----
+    // 1. Earned = Qty x Std CT x Std MP / 60
     produksiNewEarned(row) {
       const qty = Number(row.qty) || 0;
       const ct = this.stdCtForPartNew(row.part_number);
-      if (!qty || !ct) return null;
-      return qty * ct;
+      const mp = this.stdMpForPartNew(row.part_number);
+      if (!qty || !ct || !mp) return null;
+      return (qty * ct * mp) / 60;
     },
+    // 2. Operation Min = ((Waktu Akhir - Waktu Awal) - Break) x Std MP
     produksiNewOperationMin(row) {
       if (!row.waktu_awal || !row.waktu_akhir) return null;
       const ms = new Date(row.waktu_akhir) - new Date(row.waktu_awal);
       if (Number.isNaN(ms) || ms <= 0) return null;
-      return ms / 60000;
+      const mp = this.stdMpForPartNew(row.part_number);
+      if (!mp) return null;
+      const diffMenit = ms / 60000;
+      const breakMenit = Number(row.break_menit) || 0;
+      return (diffMenit - breakMenit) * mp;
     },
+    // 3. Workmin = Operation Min - Waktu Problem - Dandori
     produksiNewWorkmin(row) {
       const op = this.produksiNewOperationMin(row);
       if (op === null) return null;
-      const potongan = (Number(row.break_menit) || 0) + (Number(row.dandori_menit) || 0)
-        + (Number(row.waktu_problem_menit) || 0) + (Number(row.total_repair_menit) || 0);
-      return op - potongan;
+      const waktuProblem = Number(row.waktu_problem_menit) || 0;
+      const dandori = Number(row.dandori_menit) || 0;
+      return op - waktuProblem - dandori;
     },
+    // 4. P.Eff = Earned / Operation Min (desimal, tanpa dikali 100)
     produksiNewPeff(row) {
       const earned = this.produksiNewEarned(row);
-      const workmin = this.produksiNewWorkmin(row);
-      if (!earned || !workmin || workmin <= 0) return null;
-      return (earned / workmin) * 100;
+      const op = this.produksiNewOperationMin(row);
+      if (earned === null || op === null || op === 0) return null;
+      return earned / op;
     },
+    // 5. P.Eff Seharusnya = Earned + Waktu Problem + Dandori (desimal)
     produksiNewPeffSeharusnya(row) {
-      return this.targetPeffForPartNew(row.part_number);
+      const earned = this.produksiNewEarned(row);
+      if (earned === null) return null;
+      const waktuProblem = Number(row.waktu_problem_menit) || 0;
+      const dandori = Number(row.dandori_menit) || 0;
+      return earned + waktuProblem + dandori;
     },
+    // 6. Straightpass = Total Repair / Qty (tampil sebagai %)
     produksiNewStraightpass(row) {
       const qty = Number(row.qty) || 0;
-      if (!qty || !row.waktu_awal) return null;
-      const tanggalStr = localDateStr(new Date(row.waktu_awal));
-      const ngQty = this.ngInlineQtyForPartOnDate(row.part_number, tanggalStr);
-      return ((qty - ngQty) / qty) * 100;
+      if (!qty) return null;
+      const totalRepair = Number(row.total_repair_menit) || 0;
+      return (totalRepair / qty) * 100;
     },
 
     // ---- CRUD ----
