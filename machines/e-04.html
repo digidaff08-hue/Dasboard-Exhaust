@@ -215,16 +215,10 @@
                 <button type="button" class="btn-primary" @click="clickMulai(st.id)">▶ Mulai Produksi</button>
               </div>
 
-              <!-- AWAITING_GAP: klasifikasi jeda sebelum mulai (boleh lebih dari satu jenis berurutan) -->
+              <!-- AWAITING_GAP: klasifikasi jeda sebelum mulai -->
               <div class="classification-box" x-show="lines[st.id].state === 'awaiting_gap'" x-cloak>
                 <p class="classification-title">⏱ Ada jeda sebelum ini — jenis non-produksi apa?</p>
-                <p class="hint" x-text="'Sejak: ' + fmtClock(lines[st.id].gapInfo?.gapStart)"></p>
-                <div class="chip-row" x-show="lines[st.id].gapAddedList && lines[st.id].gapAddedList.length > 0" style="margin:8px 0;">
-                  <span class="hint">Sudah ditambahkan:</span>
-                  <template x-for="(nm, idx) in lines[st.id].gapAddedList" :key="idx">
-                    <span class="chip chip-active" x-text="nm"></span>
-                  </template>
-                </div>
+                <p class="hint" x-text="'Jeda: ' + fmtClock(lines[st.id].gapInfo?.gapStart) + ' → ' + fmtClock(lines[st.id].gapInfo?.gapEnd)"></p>
                 <div class="form-grid">
                   <div class="field">
                     <label>Jenis Non-Produksi</label>
@@ -238,8 +232,7 @@
                 </div>
                 <div class="form-actions">
                   <button type="button" class="btn-secondary" @click="cancelGapNonProduksi(st.id)">Batal</button>
-                  <button type="button" class="btn-secondary" @click="addAnotherGapNonProduksi(st.id)">+ Tambah Non-Produksi Lagi</button>
-                  <button type="button" class="btn-primary" @click="confirmGapNonProduksi(st.id)">Lanjut ke Produksi</button>
+                  <button type="button" class="btn-primary" @click="confirmGapNonProduksi(st.id)">Konfirmasi</button>
                 </div>
               </div>
 

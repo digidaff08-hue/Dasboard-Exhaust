@@ -318,7 +318,6 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         form: { part_number: "", qty: "", manpower: "" },
         gapInfo: null, // {gapStart, gapEnd}
         gapForm: { nonproduksi_nama: "" },
-        gapAddedList: [], // daftar nama non-produksi yang sudah ditambahkan berurutan (K -> B1 -> A)
         afterFinishChoice: false, // munculkan pilihan Setup / Non-Produksi
         nonProdForm: { nama: "" },
         nonProdActiveStart: null,
@@ -374,42 +373,20 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const line = this.lines[stationId];
       line.gapInfo = null;
       line.gapForm = { nonproduksi_nama: "" };
-      line.gapAddedList = [];
       line.state = "idle";
     },
     async confirmGapNonProduksi(stationId) {
       const line = this.lines[stationId];
       const nama = line.gapForm.nonproduksi_nama;
       if (!nama) { this.flash("Pilih jenis non-produksi dulu.", true); return; }
-      const waktuAkhir = new Date().toISOString();
       const payload = {
         mesin: machineKey, stasiun: this.dbStasiun(stationId),
-        waktu_awal: line.gapInfo.gapStart, waktu_akhir: waktuAkhir,
+        waktu_awal: line.gapInfo.gapStart, waktu_akhir: line.gapInfo.gapEnd,
         kategori: "OTHER", part_dari: null, part_ke: nama, keterangan: nama,
       };
       await this.saveNonProduksiRow(payload);
-      line.gapInfo = null; line.gapForm.nonproduksi_nama = ""; line.gapAddedList = [];
-      this.openPartSelection(stationId, waktuAkhir);
-    },
-    // Tambah beberapa jenis Non-Produksi berurutan sebelum mulai produksi
-    // (mis. K -> B1 -> A -> baru Produksi), tanpa harus langsung lanjut ke
-    // pilih Part Number setiap kali.
-    async addAnotherGapNonProduksi(stationId) {
-      const line = this.lines[stationId];
-      const nama = line.gapForm.nonproduksi_nama;
-      if (!nama) { this.flash("Pilih jenis non-produksi dulu.", true); return; }
-      const waktuAkhir = new Date().toISOString();
-      const payload = {
-        mesin: machineKey, stasiun: this.dbStasiun(stationId),
-        waktu_awal: line.gapInfo.gapStart, waktu_akhir: waktuAkhir,
-        kategori: "OTHER", part_dari: null, part_ke: nama, keterangan: nama,
-      };
-      await this.saveNonProduksiRow(payload);
-      if (!line.gapAddedList) line.gapAddedList = [];
-      line.gapAddedList.push(nama);
-      // Buka segmen baru, mulai dari sekarang, tetap di layar yang sama.
-      line.gapInfo = { gapStart: waktuAkhir, gapEnd: waktuAkhir };
-      line.gapForm.nonproduksi_nama = "";
+      line.gapInfo = null; line.gapForm.nonproduksi_nama = "";
+      this.openPartSelection(stationId, payload.waktu_akhir);
     },
 
     openPartSelection(stationId, startIso) {
