@@ -1185,25 +1185,6 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         pic: "", waktu_tunggu: "", ket: "", area: "", status: "",
       };
     },
-    // Cari otomatis baris produksi (lama ATAU baru) yang jamnya "menampung"
-    // waktu downtime ini (waktu_awal produksi <= dt <= waktu_akhir produksi).
-    // Dicek dulu ke Input Produksi (baru), baru ke Input Produksi NEW (lama).
-    findMatchingProductionNew(waktuAwal, waktuAkhir) {
-      const wa = new Date(waktuAwal).getTime(), wk = new Date(waktuAkhir).getTime();
-      const match = (this.produksiNewRows || []).find((r) => {
-        const rwa = new Date(r.waktu_awal).getTime(), rwk = new Date(r.waktu_akhir).getTime();
-        return rwa <= wa && rwk >= wk;
-      });
-      return match ? match.id : null;
-    },
-    findMatchingProductionOld(waktuAwal, waktuAkhir) {
-      const wa = new Date(waktuAwal).getTime(), wk = new Date(waktuAkhir).getTime();
-      const match = (this.productionRows || []).find((r) => {
-        const rwa = new Date(r.waktu_awal).getTime(), rwk = new Date(r.waktu_akhir).getTime();
-        return rwa <= wa && rwk >= wk;
-      });
-      return match ? match.id : null;
-    },
     async submitDowntime() {
       const f = this.dtForm;
       const required = [
@@ -1216,19 +1197,15 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         this.flash("Wajib diisi: " + missing.map(([, label]) => label).join(", "), true);
         return;
       }
-      const matchedNewId = this.findMatchingProductionNew(this.dtStart, this.dtEnd);
-      const matchedOldId = matchedNewId ? null : this.findMatchingProductionOld(this.dtStart, this.dtEnd);
-      if (!matchedNewId && !matchedOldId) {
-        this.flash("Waktu downtime ini tidak pas di dalam satu baris produksi manapun (Input Produksi / Input Produksi NEW). Cek lagi jamnya, atau isi dulu baris produksinya.", true);
-        return;
-      }
+      // Pencocokan & link ke Input Produksi (baru atau lama) sepenuhnya
+      // ditangani trigger database (link_and_validate_downtime) -- biar
+      // satu sumber kebenaran, JS tidak perlu ngecek dobel.
       const payload = {
         mesin: machineKey, waktu_awal: this.dtStart, waktu_akhir: this.dtEnd,
         stasiun: f.stasiun || null, kategori: f.kategori || null, problem: f.problem || null,
         penyebab: f.penyebab || null, countermeasure: f.countermeasure || null,
         pic: f.pic || null, waktu_tunggu: f.waktu_tunggu === "" ? null : Number(f.waktu_tunggu),
         ket: f.ket || null, area: f.area || null, status: f.status || null,
-        production_log_new_id: matchedNewId, production_log_id: matchedOldId,
       };
       if (f.problem) {
         const selProblem = this.problemList.find((p) => p.value === f.problem);
