@@ -254,7 +254,7 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
     <button class="sidebar-collapse-btn" @click="sidebarCollapsed = !sidebarCollapsed">
       <span x-show="!sidebarCollapsed">‹</span><span x-show="sidebarCollapsed">›</span>
     </button>
-    <div class="sidebar-brand" x-show="!sidebarCollapsed">WELDING EXHAUST<span>·</span>SYSTEM</div>
+    <div class="sidebar-brand" x-show="!sidebarCollapsed">PRESS SHOP<span>·</span>SYSTEM</div>
     <nav class="sidebar-nav" @click="mobileNavOpen = false">
       <a href="dashboard-exhaust.html" class="sidebar-link active" title="Dashboard Exhaust"><span>📊</span><span x-show="!sidebarCollapsed">Dashboard Exhaust</span></a>
       <a href="index.html" class="sidebar-link" title="Dashboard"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a>
@@ -504,78 +504,9 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
               <button class="dxy-btn" @click="toggleTheme()" x-text="theme === 'dark' ? '☀ Terang' : '🌙 Gelap'"></button>
             </div>
 
-            <!-- ===== Baris 2: 4 KPI utama ===== -->
-            <div class="dxy-kpi-row">
-              <div class="dxy-kpi-card">
-                <div class="dxy-kpi-top">
-                  <div class="dxy-kpi-label"><span class="dxy-kpi-dot" style="background:#2563EB"></span>Productivity</div>
-                </div>
-                <div class="dxy-kpi-mid">
-                  <div class="dxy-kpi-value" x-text="tahunan.productivity.value + '%'"></div>
-                  <div class="dxy-kpi-delta" :class="dxyDelta(tahunan.productivity.actual).dir" x-text="dxyDelta(tahunan.productivity.actual).text"></div>
-                </div>
-                <div class="dxy-kpi-bottom">
-                  <div class="dxy-kpi-target" x-text="'Target ' + tahunan.productivity.target + '%'"></div>
-                  <canvas class="dxy-kpi-spark" id="dxySparkProductivity"></canvas>
-                </div>
-              </div>
-              <div class="dxy-kpi-card">
-                <div class="dxy-kpi-top">
-                  <div class="dxy-kpi-label"><span class="dxy-kpi-dot" style="background:#10B981"></span>Availability</div>
-                </div>
-                <div class="dxy-kpi-mid">
-                  <div class="dxy-kpi-value" x-text="tahunan.availability.value + '%'"></div>
-                  <div class="dxy-kpi-delta" :class="dxyDelta(tahunan.availability.actual).dir" x-text="dxyDelta(tahunan.availability.actual).text"></div>
-                </div>
-                <div class="dxy-kpi-bottom">
-                  <div class="dxy-kpi-target" x-text="'Target ' + tahunan.availability.target + '%'"></div>
-                  <canvas class="dxy-kpi-spark" id="dxySparkAvailability"></canvas>
-                </div>
-              </div>
-              <div class="dxy-kpi-card">
-                <div class="dxy-kpi-top">
-                  <div class="dxy-kpi-label"><span class="dxy-kpi-dot" style="background:#F97316"></span>NG Inline</div>
-                </div>
-                <div class="dxy-kpi-mid">
-                  <div class="dxy-kpi-value" x-text="tahunan.ngInline.qty + ' pcs'"></div>
-                  <div class="dxy-kpi-delta" :class="dxyDelta(tahunan.ngInline.qtyByMonth, true).dir" x-text="dxyDelta(tahunan.ngInline.qtyByMonth, true).text"></div>
-                </div>
-                <div class="dxy-kpi-bottom">
-                  <div class="dxy-kpi-target" x-text="'Value ' + fmtNum(tahunan.ngInline.value)"></div>
-                  <canvas class="dxy-kpi-spark" id="dxySparkNg"></canvas>
-                </div>
-              </div>
-              <div class="dxy-kpi-card">
-                <div class="dxy-kpi-top">
-                  <div class="dxy-kpi-label"><span class="dxy-kpi-dot" style="background:#14B8A6"></span>Straight Pass</div>
-                  <span class="dxy-panel-badge" x-show="tahunan.straightpass.value >= tahunan.straightpass.target">✓ Target</span>
-                </div>
-                <div class="dxy-kpi-mid">
-                  <div class="dxy-kpi-value" x-text="tahunan.straightpass.value + '%'"></div>
-                  <div class="dxy-kpi-delta" :class="dxyDelta(tahunan.straightpass.actual).dir" x-text="dxyDelta(tahunan.straightpass.actual).text"></div>
-                </div>
-                <div class="dxy-kpi-bottom">
-                  <div class="dxy-kpi-target" x-text="'Target ' + tahunan.straightpass.target + '%'"></div>
-                  <canvas class="dxy-kpi-spark" id="dxySparkStraightpass"></canvas>
-                </div>
-              </div>
-            </div>
-
-            <!-- ===== Baris 3+4: Ringkasan + Grafik utama (1 grid) ===== -->
+            <!-- ===== Grafik utama ===== -->
             <div class="dxy-chart-grid">
-              <!-- Ringkasan Otomatis (kiri) + Productivity (kanan) -->
-              <div class="dxy-narrative dxy-span-6">
-                <div class="dxy-narrative-head">Ringkasan Otomatis</div>
-                <div class="dxy-narrative-list">
-                  <template x-for="item in tahunanInsights" :key="item.text">
-                    <div class="dxy-narrative-item"><span class="dxy-narrative-icon" x-text="item.icon"></span><span x-html="item.text"></span></div>
-                  </template>
-                  <template x-if="tahunanInsights.length === 0">
-                    <div class="dxy-narrative-item"><span class="dxy-narrative-icon">ℹ️</span><span>Belum cukup data untuk membuat ringkasan otomatis pada tahun ini.</span></div>
-                  </template>
-                </div>
-              </div>
-              <div class="dxy-panel dxy-span-6">
+              <div class="dxy-panel dxy-span-12">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">📈 Productivity</span><span class="dxy-panel-sub" x-text="'FY ' + tahunanYear"></span></div>
                 <div class="dxy-chart-box"><canvas id="dxyBigProductivity"></canvas></div>
               </div>
@@ -1505,7 +1436,7 @@ function dashboardExhaust() {
         if (!canvas) return;
         const colors = b.downtimeSupporting.labels.map((pic) => this.dxyPicColor(pic));
         this.tahunanCharts.dxyDowntimeSupporting = new Chart(canvas, {
-          type: "pie",
+          type: "doughnut",
           data: {
             labels: b.downtimeSupporting.labels,
             datasets: [{ data: b.downtimeSupporting.act, backgroundColor: colors, borderColor: cssVar("--panel"), borderWidth: 2 }],
@@ -1530,7 +1461,7 @@ function dashboardExhaust() {
           return base;
         });
         this.tahunanCharts.dxyDowntimeLine = new Chart(canvas, {
-          type: "pie",
+          type: "doughnut",
           data: {
             labels,
             datasets: [{ data: act, backgroundColor: colors, borderColor: cssVar("--panel"), borderWidth: 2 }],
