@@ -34,7 +34,7 @@
   --dxy-shadow-hover: 0 4px 10px rgba(15,23,42,.06), 0 16px 32px -14px rgba(15,23,42,.18);
   background: var(--dxy-bg);
   color: var(--dxy-text);
-  padding: 18px;
+  padding: 12px;
   border-radius: 20px;
   font-variant-numeric: tabular-nums;
 }
@@ -54,7 +54,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 .dxy-filterbar .dxy-spacer { flex: 1; }
 .dxy-field {
@@ -152,14 +152,14 @@
 .dxy-chart-grid {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 .dxy-panel {
   background: var(--dxy-card);
   border: 1px solid var(--dxy-border);
   border-radius: 16px;
-  padding: 20px;
+  padding: 14px 16px !important;
   box-shadow: var(--dxy-shadow);
   transition: box-shadow 200ms ease;
   display: flex;
@@ -167,7 +167,7 @@
   min-width: 0;
 }
 .dxy-panel:hover { box-shadow: var(--dxy-shadow-hover); }
-.dxy-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.dxy-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px !important; }
 .dxy-panel-bignum { font-size: 24px; font-weight: 800; letter-spacing: -0.01em; margin: -6px 0 10px; color: var(--dxy-text); }
 .dxy-panel-title { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
 .dxy-panel-badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(16,185,129,.12); color: var(--dxy-green); }
@@ -176,25 +176,30 @@
 .dxy-span-4 { grid-column: span 4; }
 .dxy-span-6 { grid-column: span 6; }
 .dxy-span-12 { grid-column: span 12; }
-.dxy-chart-box { position: relative; flex: 1; min-height: 230px; }
-.dxy-chart-box.tall { min-height: 280px; }
+.dxy-chart-box { position: relative; flex: 1; min-height: 210px !important; max-height: 210px; }
+.dxy-chart-box.tall { min-height: 190px !important; max-height: 190px; }
 
 /* ---- Tabel Downtime Terbesar (redesign total) ---- */
 .dxy-table-panel { grid-column: span 12; }
-.dxy-table-scroll { max-height: 420px; overflow: auto; border-radius: 12px; border: 1px solid var(--dxy-border); }
+/* Varian tabel sejajar 3-kolom (Downtime / NG Inline / Repair Terbesar) */
+.dxy-table-panel-sm .dxy-table-scroll { max-height: 300px !important; overflow-x: hidden; }
+.dxy-table-panel-sm table.dxy-table { font-size: 11.5px; width: 100%; table-layout: fixed; }
+.dxy-table-panel-sm table.dxy-table thead th { padding: 7px 6px; font-size: 9px; }
+.dxy-table-panel-sm table.dxy-table tbody td { padding: 6px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dxy-table-scroll { max-height: 270px !important; overflow: auto; border-radius: 12px; border: 1px solid var(--dxy-border); }
 table.dxy-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12.5px; }
 table.dxy-table thead th {
   position: sticky; top: 0; z-index: 1;
   background: var(--dxy-card);
   border-bottom: 2px solid var(--dxy-border);
   text-align: left;
-  padding: 10px 12px;
+  padding: 8px 12px;
   font-size: 10px;
   letter-spacing: .05em;
   text-transform: uppercase;
   color: var(--dxy-muted);
 }
-table.dxy-table tbody td { padding: 9px 12px; border-bottom: 1px solid var(--dxy-border); vertical-align: middle; }
+table.dxy-table tbody td { padding: 7px 12px; border-bottom: 1px solid var(--dxy-border); vertical-align: middle; }
 table.dxy-table tbody tr:nth-child(even) { background: rgba(107,114,128,.045); }
 table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
 .dxy-rank-badge {
@@ -233,6 +238,14 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
 @media (max-width: 640px) {
   .dxy-kpi-card, .dxy-skeleton { grid-column: span 12; }
 }
+
+/* ---- Rapatkan jarak di atas konten Tahunan (topbar & tab-nav) ----
+   Ini di luar namespace .dxy karena topbar/tab-nav dipakai bersama oleh
+   semua tab, tapi hanya memangkas whitespace kosong -- tidak mengubah
+   logika atau tampilan konten tab lain. ---- */
+.dash-topbar { margin-bottom: 4px !important; padding-bottom: 0 !important; }
+.dash-title-block h1 { margin: 0 !important; }
+.main { padding-top: 10px !important; }
 </style>
 <script>
   (function () {
@@ -304,7 +317,7 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
     </div>
 
     <!-- Switch Harian / Bulanan / Kontrol Kualitas -->
-    <div class="dash-subtab-nav" style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
+    <div class="dash-subtab-nav" style="display:flex; gap:8px; margin-bottom:6px; flex-wrap:wrap;">
       <button class="btn-secondary btn-sm" :class="activeTab==='tahunan' ? 'btn-primary' : ''" @click="setTab('tahunan')">Tahunan</button>
       <button class="btn-secondary btn-sm" :class="activeTab==='bulanan' ? 'btn-primary' : ''" @click="setTab('bulanan')">Bulanan</button>
       <button class="btn-secondary btn-sm" :class="activeTab==='harian' ? 'btn-primary' : ''" @click="setTab('harian')">Harian</button>
@@ -527,7 +540,6 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
               <!-- Downtime Exhaust, Supporting, Line -- tetap 1 baris, Exhaust lebih lebar -->
               <div class="dxy-panel dxy-span-6">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">⏱ Downtime Exhaust</span><span class="dxy-panel-sub">Puncak &amp; rata-rata</span></div>
-                <div class="dxy-panel-bignum" x-text="fmtNum(tahunan.downtimeExhaust.values[1] || 0) + ' menit'"></div>
                 <div class="dxy-chart-box tall"><canvas id="dxyDowntimeExhaust"></canvas></div>
               </div>
               <div class="dxy-panel dxy-span-3">
@@ -540,8 +552,9 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
               </div>
             </div>
 
-            <!-- ===== Baris 5: Tabel Downtime Terbesar (redesign total) ===== -->
-            <div class="dxy-panel dxy-table-panel">
+            <!-- ===== Baris 5: Tabel Terbesar (Downtime / NG Inline / Repair) — sejajar 3 kolom ===== -->
+            <div class="dxy-chart-grid">
+            <div class="dxy-panel dxy-span-4 dxy-table-panel-sm">
               <div class="dxy-panel-head">
                 <span class="dxy-panel-title">🏆 Downtime Terbesar</span>
                 <span class="dxy-panel-sub">Tahun fiskal terpilih · per line, top 5</span>
@@ -549,7 +562,7 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
               <div class="dxy-table-scroll">
                 <table class="dxy-table">
                   <thead>
-                    <tr><th style="width:52px">#</th><th style="width:70px">Line</th><th style="width:150px">PIC</th><th>Problem</th><th style="width:110px; text-align:right">Menit</th></tr>
+                    <tr><th style="width:30px">#</th><th style="width:46px">Line</th><th style="width:70px">PIC</th><th>Problem</th><th style="width:56px; text-align:right">Menit</th></tr>
                   </thead>
                   <tbody>
                     <template x-for="(row, i) in dxyFilteredTerbesar()" :key="row.mesin + '-' + i">
@@ -578,6 +591,83 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
                   </tbody>
                 </table>
               </div>
+            </div>
+
+            <!-- ===== Tabel NG Inline Terbesar (struktur sama seperti Downtime Terbesar) ===== -->
+            <div class="dxy-panel dxy-span-4 dxy-table-panel-sm">
+              <div class="dxy-panel-head">
+                <span class="dxy-panel-title">⚠️ NG Inline Terbesar</span>
+                <span class="dxy-panel-sub">Tahun fiskal terpilih · per line, top 5</span>
+              </div>
+              <div class="dxy-table-scroll">
+                <table class="dxy-table">
+                  <thead>
+                    <tr><th style="width:30px">#</th><th style="width:46px">Line</th><th>NG Kategori</th><th style="width:52px">Qty</th><th style="width:76px; text-align:right">Value</th></tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="(row, i) in dxyFilteredNgTerbesar()" :key="row.mesin + '-' + i">
+                      <tr>
+                        <td><span class="dxy-rank-badge" :style="'background:' + dxyRankBadgeColor(i)" x-text="i+1"></span></td>
+                        <td><b x-text="row.mesin"></b></td>
+                        <td>
+                          <template x-if="row.kategori">
+                            <span class="dxy-pic-chip"><span class="dot" :style="'background:' + dxyPicColor(row.kategori)"></span><span x-text="row.kategori"></span></span>
+                          </template>
+                          <template x-if="!row.kategori"><span class="dxy-empty-cell">-</span></template>
+                        </td>
+                        <td>
+                          <span x-show="row.qty !== ''" x-text="row.qty"></span>
+                          <span class="dxy-empty-cell" x-show="row.qty === ''">No Problem</span>
+                        </td>
+                        <td style="text-align:right">
+                          <span x-show="row.value !== ''" class="dxy-minute-badge" :style="dxyMinuteBadgeStyle(row.value)" x-text="row.value"></span>
+                          <span x-show="row.value === ''" class="dxy-empty-cell">-</span>
+                        </td>
+                      </tr>
+                    </template>
+                    <template x-if="dxyFilteredNgTerbesar().length === 0">
+                      <tr><td colspan="5" class="dxy-empty-cell" style="text-align:center; padding:20px;">Tidak ada baris yang cocok dengan filter/pencarian.</td></tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- ===== Tabel Repair Terbesar (struktur sama, tanpa kolom Menit) ===== -->
+            <div class="dxy-panel dxy-span-4 dxy-table-panel-sm">
+              <div class="dxy-panel-head">
+                <span class="dxy-panel-title">🔧 Repair Terbesar</span>
+                <span class="dxy-panel-sub">Tahun fiskal terpilih · per line, top 5</span>
+              </div>
+              <div class="dxy-table-scroll">
+                <table class="dxy-table">
+                  <thead>
+                    <tr><th style="width:30px">#</th><th style="width:46px">Line</th><th style="width:130px">Repair Kategori</th><th style="text-align:right">Qty</th></tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="(row, i) in dxyFilteredRepairTerbesar()" :key="row.mesin + '-' + i">
+                      <tr>
+                        <td><span class="dxy-rank-badge" :style="'background:' + dxyRankBadgeColor(i)" x-text="i+1"></span></td>
+                        <td><b x-text="row.mesin"></b></td>
+                        <td>
+                          <template x-if="row.kategori">
+                            <span class="dxy-pic-chip"><span class="dot" :style="'background:' + dxyPicColor(row.kategori)"></span><span x-text="row.kategori"></span></span>
+                          </template>
+                          <template x-if="!row.kategori"><span class="dxy-empty-cell">-</span></template>
+                        </td>
+                        <td style="text-align:right">
+                          <span x-show="row.qty !== ''" x-text="row.qty"></span>
+                          <span class="dxy-empty-cell" x-show="row.qty === ''">-</span>
+                        </td>
+                      </tr>
+                    </template>
+                    <template x-if="dxyFilteredRepairTerbesar().length === 0">
+                      <tr><td colspan="4" class="dxy-empty-cell" style="text-align:center; padding:20px;">Tidak ada baris yang cocok dengan filter/pencarian.</td></tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
             </div>
 
           </div>
@@ -736,6 +826,8 @@ function dashboardExhaust() {
       downtimeSupporting: { labels: [], plan: [], act: [] },
       downtimeLine: { labels: [], plan: [], act: [] },
       downtimeTerbesar: [],
+      ngInlineTerbesar: [],
+      repairTerbesar: [],
     },
     tahunanCharts: {},
     tahunanInsights: [],
@@ -1024,6 +1116,12 @@ function dashboardExhaust() {
           downtimeSupporting,
           downtimeLine,
           downtimeTerbesar,
+          // TODO: sambungkan ke RPC/tabel Supabase yang sesuai begitu sudah
+          // ditentukan (lihat catatan di fetchTahunan). Struktur per-baris:
+          // { mesin, rows: [{ kategori, qty, value }], rowsPadded }
+          ngInlineTerbesar: MACHINES.map((m) => ({ mesin: m.key, rows: [], rowsPadded: Array(5).fill({ kategori: "", qty: "", value: "" }) })),
+          // Struktur per-baris: { mesin, rows: [{ kategori, qty }], rowsPadded }
+          repairTerbesar: MACHINES.map((m) => ({ mesin: m.key, rows: [], rowsPadded: Array(5).fill({ kategori: "", qty: "" }) })),
         };
         this.tahunanLoaded = true;
         this.computeTahunanInsights();
@@ -1063,6 +1161,15 @@ function dashboardExhaust() {
       if (v >= 30) return "background:rgba(249,115,22,.14); color:#F97316";
       return "background:rgba(16,185,129,.14); color:#10B981";
     },
+    // Semua tabel "Terbesar" (Downtime/NG Inline/Repair) defaultnya
+    // menampilkan minimal 8 baris -- kalau data asli kurang dari 8, sisanya
+    // diisi baris kosong (placeholder "-"). Kalau data asli LEBIH dari 8,
+    // baris otomatis nambah (tidak dipotong) dan tabel yang scroll.
+    dxyPadMin(flat, emptyRow, minRows = 8) {
+      const out = flat.slice();
+      while (out.length < minRows) out.push({ ...emptyRow });
+      return out;
+    },
     dxyFilteredTerbesar() {
       let flat = [];
       (this.tahunan.downtimeTerbesar || []).forEach((line) => {
@@ -1075,7 +1182,39 @@ function dashboardExhaust() {
       });
       if (this.dxyLineFilter !== "ALL") flat = flat.filter((r) => r.mesin === this.dxyLineFilter);
       flat.sort((a, c) => (Number(c.value) || 0) - (Number(a.value) || 0));
-      return flat.slice(0, 20);
+      return this.dxyPadMin(flat, { mesin: "", pic: "", problem: "", value: "" });
+    },
+    // ---- NG Inline Terbesar: struktur sama seperti dxyFilteredTerbesar,
+    // tapi field-nya kategori/qty/value (bukan pic/problem/value) ----
+    dxyFilteredNgTerbesar() {
+      let flat = [];
+      (this.tahunan.ngInlineTerbesar || []).forEach((line) => {
+        const real = (line.rows || []).filter((r) => r.kategori || r.qty !== "");
+        if (real.length === 0) {
+          flat.push({ mesin: line.mesin, kategori: "", qty: "", value: "" });
+        } else {
+          real.forEach((r) => flat.push({ mesin: line.mesin, kategori: r.kategori, qty: r.qty, value: r.value }));
+        }
+      });
+      if (this.dxyLineFilter !== "ALL") flat = flat.filter((r) => r.mesin === this.dxyLineFilter);
+      flat.sort((a, c) => (Number(c.value) || 0) - (Number(a.value) || 0));
+      return this.dxyPadMin(flat, { mesin: "", kategori: "", qty: "", value: "" });
+    },
+    // ---- Repair Terbesar: sama seperti di atas, tapi tanpa kolom value
+    // (menit dihapus) -- urutan berdasarkan qty terbesar ----
+    dxyFilteredRepairTerbesar() {
+      let flat = [];
+      (this.tahunan.repairTerbesar || []).forEach((line) => {
+        const real = (line.rows || []).filter((r) => r.kategori || r.qty !== "");
+        if (real.length === 0) {
+          flat.push({ mesin: line.mesin, kategori: "", qty: "" });
+        } else {
+          real.forEach((r) => flat.push({ mesin: line.mesin, kategori: r.kategori, qty: r.qty }));
+        }
+      });
+      if (this.dxyLineFilter !== "ALL") flat = flat.filter((r) => r.mesin === this.dxyLineFilter);
+      flat.sort((a, c) => (Number(c.qty) || 0) - (Number(a.qty) || 0));
+      return this.dxyPadMin(flat, { mesin: "", kategori: "", qty: "" });
     },
     dxyExportCsv() {
       const b = this.tahunan;
@@ -1305,7 +1444,7 @@ function dashboardExhaust() {
         x: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
         y: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 }, maxTicksLimit: 5 }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
       });
-      const legend = (show) => ({ display: show, position: "bottom", labels: { color: cssVar("--muted"), boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 9 }, padding: 8 } });
+      const legend = (show) => ({ display: show, position: "bottom", labels: { color: cssVar("--muted"), boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 9 }, padding: 6 } });
       const tooltip = () => ({ backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"), borderColor: cssVar("--border"), borderWidth: 1, padding: 10, cornerRadius: 8, displayColors: true, usePointStyle: true });
 
       const grad = (canvas, hex, alphaTop = 0.85, alphaBottom = 0.05) => {
@@ -1329,63 +1468,87 @@ function dashboardExhaust() {
         return Array.from({ length: len }, () => full);
       };
 
-      // --- Plugin: label angka + leader line di luar donut (untuk Downtime Supporting & Line) ---
+      // --- Plugin: label angka DI DALAM tiap segmen donut (tanpa leader line) ---
+      // (untuk Downtime Supporting & Line)
       const donutLeaderLabels = (formatter) => ({
-        id: "dxyDonutLeaderLabels",
+        id: "dxyDonutInsideLabels",
         afterDraw(chart) {
-          const { ctx, chartArea } = chart;
+          const { ctx } = chart;
           const meta = chart.getDatasetMeta(0);
           const dataset = chart.data.datasets[0];
           if (!meta || !meta.data.length) return;
-          const arc0 = meta.data[0];
-          const { x: cx, y: cy, outerRadius } = arc0.getProps(["x", "y", "outerRadius"], true);
-          const textColor = cssVar("--dxy-text") || "#1F2937";
 
-          const items = meta.data.map((arc, i) => {
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          meta.data.forEach((arc, i) => {
             const val = Number(dataset.data[i]) || 0;
-            if (!val) return null;
-            const angle = (arc.startAngle + arc.endAngle) / 2;
-            return { i, cos: Math.cos(angle), sin: Math.sin(angle), val, color: dataset.backgroundColor[i] };
-          }).filter(Boolean);
+            if (!val) return;
+            const { x: cx, y: cy, innerRadius, outerRadius, startAngle, endAngle } = arc.getProps(
+              ["x", "y", "innerRadius", "outerRadius", "startAngle", "endAngle"],
+              true
+            );
+            const angle = (startAngle + endAngle) / 2;
+            const r = (innerRadius + outerRadius) / 2;
+            const x = cx + Math.cos(angle) * r;
+            const y = cy + Math.sin(angle) * r;
+            const sweep = endAngle - startAngle;
+            // Irisan sempit -> font lebih kecil supaya tetap muat, tapi angka tetap ditampilkan
+            const fontSize = sweep < 0.12 ? 8 : sweep < 0.22 ? 9.5 : 11;
 
-          const spacing = 15;
-          ["right", "left"].forEach((side) => {
-            const sign = side === "right" ? 1 : -1;
-            const group = items.filter((it) => (it.cos >= 0 ? "right" : "left") === side).sort((a, c) => a.sin - c.sin);
-            const totalH = (group.length - 1) * spacing;
-            let startY = cy - totalH / 2;
-            const minY = chartArea.top + 8, maxY = chartArea.bottom - 8;
-            if (startY < minY) startY = minY;
-            if (startY + totalH > maxY) startY = Math.max(minY, maxY - totalH);
-            group.forEach((it, idx) => {
-              it.labelY = startY + idx * spacing;
-              it.labelX = cx + sign * (outerRadius + 26);
-              it.edgeX = cx + it.cos * (outerRadius + 2);
-              it.edgeY = cy + it.sin * (outerRadius + 2);
-            });
+            ctx.save();
+            ctx.font = `700 ${fontSize}px Inter, sans-serif`;
+            // Kontras teks: putih + outline gelap tipis, supaya terbaca di warna apa pun
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = "rgba(0,0,0,.45)";
+            ctx.strokeText(formatter(val), x, y);
+            ctx.fillStyle = "#fff";
+            ctx.fillText(formatter(val), x, y);
+            ctx.restore();
           });
+        },
+      });
+
+      // --- Plugin: label angka DI ATAS setiap batang (untuk semua bar chart) ---
+      // Anti-tabrakan: kalau beberapa batang berdekatan dan labelnya lebar,
+      // label otomatis ditumpuk ke "baris" berikutnya (sebanyak yang diperlukan)
+      // supaya SEMUA angka tetap terlihat tanpa saling menimpa.
+      const barValueLabels = (formatter, datasetIndex = 0) => ({
+        id: "dxyBarValueLabels",
+        afterDatasetsDraw(chart) {
+          const { ctx, chartArea } = chart;
+          const meta = chart.getDatasetMeta(datasetIndex);
+          const dataset = chart.data.datasets[datasetIndex];
+          if (!meta || !dataset || meta.type !== "bar" || !meta.data) return;
+          const textColor = cssVar("--dxy-text") || "#1F2937";
+          const n = meta.data.length;
+          const slotWidth = chartArea && n ? chartArea.width / n : 30;
+          const fontSize = slotWidth < 24 ? 7.5 : slotWidth < 34 ? 8.5 : slotWidth < 46 ? 9.5 : 10.5;
+          const rowStep = fontSize + 3;
 
           ctx.save();
-          ctx.font = "700 11px Inter, sans-serif";
-          ctx.textBaseline = "middle";
-          items.forEach((it) => {
-            const midX = it.labelX - (it.cos >= 0 ? 12 : -12);
-            ctx.strokeStyle = it.color;
-            ctx.lineWidth = 1.4;
-            ctx.beginPath();
-            ctx.moveTo(it.edgeX, it.edgeY);
-            ctx.lineTo(midX, it.labelY);
-            ctx.lineTo(it.labelX, it.labelY);
-            ctx.stroke();
+          ctx.font = `700 ${fontSize}px Inter, sans-serif`;
+          ctx.textAlign = "center";
+          ctx.fillStyle = textColor;
 
-            ctx.fillStyle = it.color;
-            ctx.beginPath();
-            ctx.arc(it.edgeX, it.edgeY, 2.5, 0, Math.PI * 2);
-            ctx.fill();
+          const rowsUp = [];   // batas kanan label terakhir per baris, untuk batang positif (menumpuk ke atas)
+          const rowsDown = []; // idem untuk batang negatif (menumpuk ke bawah)
+          meta.data.forEach((bar, i) => {
+            const val = Number(dataset.data[i]);
+            if (val === null || val === undefined || Number.isNaN(val)) return;
+            const { x, y, base } = bar.getProps(["x", "y", "base"], true);
+            const label = formatter(val);
+            const halfW = ctx.measureText(label).width / 2 + 4;
+            const isUp = y <= base; // batang positif -> tip di atas; batang negatif -> tip di bawah
+            const rows = isUp ? rowsUp : rowsDown;
 
-            ctx.textAlign = it.cos >= 0 ? "left" : "right";
-            ctx.fillStyle = textColor;
-            ctx.fillText(formatter(it.val), it.labelX + (it.cos >= 0 ? 4 : -4), it.labelY);
+            let row = 0;
+            while (row < rows.length && x - halfW < rows[row]) row++;
+            rows[row] = x + halfW;
+
+            const rowGap = row * rowStep;
+            const labelY = isUp ? Math.max(chartArea.top + fontSize, y - 6 - rowGap) : y + 14 + rowGap;
+            ctx.textBaseline = isUp ? "bottom" : "top";
+            ctx.fillText(label, x, labelY);
           });
           ctx.restore();
         },
@@ -1431,14 +1594,21 @@ function dashboardExhaust() {
           },
           options: {
             responsive: true, maintainAspectRatio: false, animation: noAnim,
+            layout: { padding: { top: 34 } },
             plugins: { legend: legend(true), tooltip: tooltip() },
             scales: baseScales(),
           },
+          plugins: [barValueLabels((v) => fmtNum(v))],
         });
       };
-      safe(() => kpiBig("dxyBigProductivity", b.monthLabels, b.productivity.actual, b.productivity.target, "#2563EB"), "big-productivity");
-      safe(() => kpiBig("dxyBigAvailability", b.monthLabels, b.availability.actual, b.availability.target, "#10B981"), "big-availability");
-      safe(() => kpiBig("dxyBigStraightpass", b.monthLabels, b.straightpass.actual, b.straightpass.target, "#14B8A6"), "big-straightpass");
+      // Catatan: dua kolom pertama di b.monthLabels adalah ringkasan
+      // "FY 2026" & "FY 2027" (dipakai Downtime Exhaust untuk total per
+      // tahun fiskal). Untuk grafik-grafik lain kita buang 2 kolom ini,
+      // cukup tampilkan 12 bulan (Apr..Mar). Ini murni di layer render,
+      // data asli di this.tahunan tidak diubah.
+      safe(() => kpiBig("dxyBigProductivity", b.monthLabels.slice(2), b.productivity.actual.slice(2), b.productivity.target, "#2563EB"), "big-productivity");
+      safe(() => kpiBig("dxyBigAvailability", b.monthLabels.slice(2), b.availability.actual.slice(2), b.availability.target, "#10B981"), "big-availability");
+      safe(() => kpiBig("dxyBigStraightpass", b.monthLabels.slice(2), b.straightpass.actual.slice(2), b.straightpass.target, "#14B8A6"), "big-straightpass");
 
       // --- NG Inline dual axis: Qty (bar oranye) + Value (garis ungu) ---
       safe(() => {
@@ -1447,14 +1617,15 @@ function dashboardExhaust() {
         if (!canvas) return;
         this.tahunanCharts.dxyBigNg = new Chart(canvas, {
           data: {
-            labels: b.monthLabels,
+            labels: b.monthLabels.slice(2),
             datasets: [
-              { type: "bar", label: "Qty", data: b.ngInline.qtyByMonth, backgroundColor: barBg(canvas, "#F97316", b.ngInline.qtyByMonth.length), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
-              { type: "line", label: "Value", data: b.ngInline.valueByMonth, borderColor: "#8B5CF6", backgroundColor: "#8B5CF6", yAxisID: "y1", pointRadius: 3, tension: 0.3 },
+              { type: "bar", label: "Qty", data: b.ngInline.qtyByMonth.slice(2), backgroundColor: barBg(canvas, "#F97316", b.ngInline.qtyByMonth.length - 2), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
+              { type: "line", label: "Value", data: b.ngInline.valueByMonth.slice(2), borderColor: "#8B5CF6", backgroundColor: "#8B5CF6", yAxisID: "y1", pointRadius: 3, tension: 0.3 },
             ],
           },
           options: {
             responsive: true, maintainAspectRatio: false, animation: noAnim,
+            layout: { padding: { top: 34 } },
             plugins: { legend: legend(true), tooltip: tooltip() },
             scales: {
               x: baseScales().x,
@@ -1462,6 +1633,7 @@ function dashboardExhaust() {
               y1: { position: "right", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
             },
           },
+          plugins: [barValueLabels((v) => fmtNum(v), 0)],
         });
       }, "ngInline");
 
@@ -1470,16 +1642,19 @@ function dashboardExhaust() {
         destroy("dxyDowntimeExhaust");
         const canvas = document.getElementById("dxyDowntimeExhaust");
         if (!canvas) return;
-        const vals = b.downtimeExhaust.values;
-        const monthly = vals.slice(2); // 12 bulan asli, tanpa 2 kolom ringkasan FY
-        const validMonthly = monthly.filter((v) => v !== null && v !== undefined && !Number.isNaN(v));
+        // Dua kolom pertama (FY 2026 & FY 2027) berisi angka ringkasan
+        // total per tahun fiskal -- sesuai instruksi, kolom ini dibuang
+        // dari SEMUA grafik, termasuk di sini. Chart sekarang murni
+        // menampilkan 12 bulan (Apr..Mar).
+        const vals = b.downtimeExhaust.values.slice(2);
+        const labels = b.downtimeExhaust.labels.slice(2);
+        const validMonthly = vals.filter((v) => v !== null && v !== undefined && !Number.isNaN(v));
         const avg = validMonthly.length ? validMonthly.reduce((a, c) => a + c, 0) / validMonthly.length : 0;
-        const peakIdxMonthly = validMonthly.length ? monthly.indexOf(Math.max(...validMonthly)) : -1;
-        const peakIdx = peakIdxMonthly >= 0 ? peakIdxMonthly + 2 : -1;
+        const peakIdx = validMonthly.length ? vals.indexOf(Math.max(...validMonthly)) : -1;
         const peakPoints = vals.map((v, i) => (i === peakIdx ? v : null));
         this.tahunanCharts.dxyDowntimeExhaust = new Chart(canvas, {
           data: {
-            labels: b.downtimeExhaust.labels,
+            labels: labels,
             datasets: [
               { type: "bar", label: "Downtime (menit)", data: vals, backgroundColor: barBg(canvas, "#F97316", vals.length), borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
               { type: "line", label: "Tren", data: vals, borderColor: "#EF4444", pointRadius: 0, tension: 0.35, borderWidth: 2 },
@@ -1487,7 +1662,8 @@ function dashboardExhaust() {
               { type: "line", label: "Puncak", data: peakPoints, borderColor: "#EF4444", backgroundColor: "#EF4444", pointRadius: 6, pointStyle: "rectRot", showLine: false, spanGaps: false },
             ],
           },
-          options: { responsive: true, maintainAspectRatio: false, animation: noAnim, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
+          options: { responsive: true, maintainAspectRatio: false, animation: noAnim, layout: { padding: { top: 34 } }, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
+          plugins: [barValueLabels((v) => fmtNum(v), 0)],
         });
       }, "downtimeExhaust");
 
@@ -1505,7 +1681,7 @@ function dashboardExhaust() {
           },
           options: {
             responsive: true, maintainAspectRatio: false, animation: noAnim,
-            layout: { padding: { left: 34, right: 34, top: 20, bottom: 20 } },
+            layout: { padding: { left: 8, right: 8, top: 8, bottom: 8 } },
             cutout: "62%",
             plugins: { legend: legend(true), tooltip: tooltip() },
           },
@@ -1536,7 +1712,7 @@ function dashboardExhaust() {
           },
           options: {
             responsive: true, maintainAspectRatio: false, animation: noAnim,
-            layout: { padding: { left: 34, right: 34, top: 20, bottom: 20 } },
+            layout: { padding: { left: 8, right: 8, top: 8, bottom: 8 } },
             cutout: "62%",
             plugins: { legend: legend(true), tooltip: tooltip() },
           },
