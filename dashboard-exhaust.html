@@ -168,6 +168,7 @@
 }
 .dxy-panel:hover { box-shadow: var(--dxy-shadow-hover); }
 .dxy-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.dxy-panel-bignum { font-size: 24px; font-weight: 800; letter-spacing: -0.01em; margin: -6px 0 10px; color: var(--dxy-text); }
 .dxy-panel-title { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
 .dxy-panel-badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(16,185,129,.12); color: var(--dxy-green); }
 .dxy-panel-sub { font-size: 10.5px; color: var(--dxy-muted); }
@@ -502,8 +503,6 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
                 </select>
               </div>
               <div class="dxy-spacer"></div>
-              <button class="dxy-btn" @click="dxyExportCsv()">⬇ Export CSV</button>
-              <button class="dxy-btn" @click="toggleTheme()" x-text="theme === 'dark' ? '☀ Terang' : '🌙 Gelap'"></button>
             </div>
 
             <!-- ===== Grafik utama: Productivity, Availability, NG Inline, Straight Pass -- 4 kolom sejajar ===== -->
@@ -528,6 +527,7 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
               <!-- Downtime Exhaust, Supporting, Line -- tetap 1 baris, Exhaust lebih lebar -->
               <div class="dxy-panel dxy-span-6">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">⏱ Downtime Exhaust</span><span class="dxy-panel-sub">Puncak &amp; rata-rata</span></div>
+                <div class="dxy-panel-bignum" x-text="fmtNum(tahunan.downtimeExhaust.values[1] || 0) + ' menit'"></div>
                 <div class="dxy-chart-box tall"><canvas id="dxyDowntimeExhaust"></canvas></div>
               </div>
               <div class="dxy-panel dxy-span-3">
@@ -1329,6 +1329,68 @@ function dashboardExhaust() {
         return Array.from({ length: len }, () => full);
       };
 
+      // --- Plugin: label angka + leader line di luar donut (untuk Downtime Supporting & Line) ---
+      const donutLeaderLabels = (formatter) => ({
+        id: "dxyDonutLeaderLabels",
+        afterDraw(chart) {
+          const { ctx, chartArea } = chart;
+          const meta = chart.getDatasetMeta(0);
+          const dataset = chart.data.datasets[0];
+          if (!meta || !meta.data.length) return;
+          const arc0 = meta.data[0];
+          const { x: cx, y: cy, outerRadius } = arc0.getProps(["x", "y", "outerRadius"], true);
+          const textColor = cssVar("--dxy-text") || "#1F2937";
+
+          const items = meta.data.map((arc, i) => {
+            const val = Number(dataset.data[i]) || 0;
+            if (!val) return null;
+            const angle = (arc.startAngle + arc.endAngle) / 2;
+            return { i, cos: Math.cos(angle), sin: Math.sin(angle), val, color: dataset.backgroundColor[i] };
+          }).filter(Boolean);
+
+          const spacing = 15;
+          ["right", "left"].forEach((side) => {
+            const sign = side === "right" ? 1 : -1;
+            const group = items.filter((it) => (it.cos >= 0 ? "right" : "left") === side).sort((a, c) => a.sin - c.sin);
+            const totalH = (group.length - 1) * spacing;
+            let startY = cy - totalH / 2;
+            const minY = chartArea.top + 8, maxY = chartArea.bottom - 8;
+            if (startY < minY) startY = minY;
+            if (startY + totalH > maxY) startY = Math.max(minY, maxY - totalH);
+            group.forEach((it, idx) => {
+              it.labelY = startY + idx * spacing;
+              it.labelX = cx + sign * (outerRadius + 26);
+              it.edgeX = cx + it.cos * (outerRadius + 2);
+              it.edgeY = cy + it.sin * (outerRadius + 2);
+            });
+          });
+
+          ctx.save();
+          ctx.font = "700 11px Inter, sans-serif";
+          ctx.textBaseline = "middle";
+          items.forEach((it) => {
+            const midX = it.labelX - (it.cos >= 0 ? 12 : -12);
+            ctx.strokeStyle = it.color;
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            ctx.moveTo(it.edgeX, it.edgeY);
+            ctx.lineTo(midX, it.labelY);
+            ctx.lineTo(it.labelX, it.labelY);
+            ctx.stroke();
+
+            ctx.fillStyle = it.color;
+            ctx.beginPath();
+            ctx.arc(it.edgeX, it.edgeY, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.textAlign = it.cos >= 0 ? "left" : "right";
+            ctx.fillStyle = textColor;
+            ctx.fillText(formatter(it.val), it.labelX + (it.cos >= 0 ? 4 : -4), it.labelY);
+          });
+          ctx.restore();
+        },
+      });
+
       // --- Sparkline mini (di kartu KPI) ---
       const sparkline = (canvasId, data, hex) => {
         destroy(canvasId);
@@ -1441,7 +1503,13 @@ function dashboardExhaust() {
             labels: b.downtimeSupporting.labels,
             datasets: [{ data: b.downtimeSupporting.act, backgroundColor: colors, borderColor: cssVar("--panel"), borderWidth: 2 }],
           },
-          options: { responsive: true, maintainAspectRatio: false, animation: noAnim, plugins: { legend: legend(true), tooltip: tooltip() } },
+          options: {
+            responsive: true, maintainAspectRatio: false, animation: noAnim,
+            layout: { padding: { left: 34, right: 34, top: 20, bottom: 20 } },
+            cutout: "62%",
+            plugins: { legend: legend(true), tooltip: tooltip() },
+          },
+          plugins: [donutLeaderLabels((v) => fmtNum(v))],
         });
       }, "downtimeSupporting");
 
@@ -1466,7 +1534,13 @@ function dashboardExhaust() {
             labels,
             datasets: [{ data: act, backgroundColor: colors, borderColor: cssVar("--panel"), borderWidth: 2 }],
           },
-          options: { responsive: true, maintainAspectRatio: false, animation: noAnim, plugins: { legend: legend(true), tooltip: tooltip() } },
+          options: {
+            responsive: true, maintainAspectRatio: false, animation: noAnim,
+            layout: { padding: { left: 34, right: 34, top: 20, bottom: 20 } },
+            cutout: "62%",
+            plugins: { legend: legend(true), tooltip: tooltip() },
+          },
+          plugins: [donutLeaderLabels((v) => fmtNum(v))],
         });
       }, "downtimeLine");
     },
