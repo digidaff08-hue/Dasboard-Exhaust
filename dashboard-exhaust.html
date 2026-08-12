@@ -171,6 +171,7 @@
 .dxy-panel-title { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
 .dxy-panel-badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(16,185,129,.12); color: var(--dxy-green); }
 .dxy-panel-sub { font-size: 10.5px; color: var(--dxy-muted); }
+.dxy-span-3 { grid-column: span 3; }
 .dxy-span-4 { grid-column: span 4; }
 .dxy-span-6 { grid-column: span 6; }
 .dxy-span-12 { grid-column: span 12; }
@@ -222,9 +223,10 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
   .dxy-kpi-card { grid-column: span 6; }
   .dxy-skeleton { grid-column: span 6; }
   .dxy-span-4 { grid-column: span 6; }
+  .dxy-span-3 { grid-column: span 6; }
 }
 @media (max-width: 1024px) {
-  .dxy-span-6, .dxy-span-4 { grid-column: span 12; }
+  .dxy-span-6, .dxy-span-4, .dxy-span-3 { grid-column: span 12; }
   .dxy-filterbar { gap: 8px; }
 }
 @media (max-width: 640px) {
@@ -504,39 +506,37 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
               <button class="dxy-btn" @click="toggleTheme()" x-text="theme === 'dark' ? '☀ Terang' : '🌙 Gelap'"></button>
             </div>
 
-            <!-- ===== Grafik utama ===== -->
+            <!-- ===== Grafik utama: Productivity, Availability, NG Inline, Straight Pass -- 4 kolom sejajar ===== -->
             <div class="dxy-chart-grid">
-              <div class="dxy-panel dxy-span-12">
+              <div class="dxy-panel dxy-span-3">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">📈 Productivity</span><span class="dxy-panel-sub" x-text="'FY ' + tahunanYear"></span></div>
                 <div class="dxy-chart-box"><canvas id="dxyBigProductivity"></canvas></div>
               </div>
-
-              <!-- Availability, NG Inline, Straight Pass -- 3 kolom -->
-              <div class="dxy-panel dxy-span-4">
+              <div class="dxy-panel dxy-span-3">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">✅ Availability</span><span class="dxy-panel-sub" x-text="'FY ' + tahunanYear"></span></div>
                 <div class="dxy-chart-box"><canvas id="dxyBigAvailability"></canvas></div>
               </div>
-              <div class="dxy-panel dxy-span-4">
+              <div class="dxy-panel dxy-span-3">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">🔶 NG Inline</span><span class="dxy-panel-sub">Qty &amp; Value</span></div>
                 <div class="dxy-chart-box"><canvas id="dxyBigNg"></canvas></div>
               </div>
-              <div class="dxy-panel dxy-span-4">
+              <div class="dxy-panel dxy-span-3">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">🎯 Straight Pass</span><span class="dxy-panel-sub" x-text="'FY ' + tahunanYear"></span></div>
                 <div class="dxy-chart-box"><canvas id="dxyBigStraightpass"></canvas></div>
               </div>
 
-              <!-- Downtime Exhaust (diperkecil) + Supporting & Line (pie) -->
-              <div class="dxy-panel dxy-span-4">
+              <!-- Downtime Exhaust dilebarkan (full width), Supporting & Line ikut melebar (50/50) -->
+              <div class="dxy-panel dxy-span-12">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">⏱ Downtime Exhaust</span><span class="dxy-panel-sub">Puncak &amp; rata-rata</span></div>
-                <div class="dxy-chart-box"><canvas id="dxyDowntimeExhaust"></canvas></div>
+                <div class="dxy-chart-box tall"><canvas id="dxyDowntimeExhaust"></canvas></div>
               </div>
-              <div class="dxy-panel dxy-span-4">
+              <div class="dxy-panel dxy-span-6">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">🧑‍🔧 Downtime Supporting</span><span class="dxy-panel-sub">Per PIC</span></div>
-                <div class="dxy-chart-box"><canvas id="dxyDowntimeSupporting"></canvas></div>
+                <div class="dxy-chart-box tall"><canvas id="dxyDowntimeSupporting"></canvas></div>
               </div>
-              <div class="dxy-panel dxy-span-4">
+              <div class="dxy-panel dxy-span-6">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">🏭 Downtime Line</span><span class="dxy-panel-sub">Diurutkan dari terbesar</span></div>
-                <div class="dxy-chart-box"><canvas id="dxyDowntimeLine"></canvas></div>
+                <div class="dxy-chart-box tall"><canvas id="dxyDowntimeLine"></canvas></div>
               </div>
             </div>
 
