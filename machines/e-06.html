@@ -903,7 +903,7 @@
                   <div style="flex:1;min-width:0;"><label>Ket</label><input type="text" x-model="dtForm.ket"></div>
                 </div>
                 <div class="field" style="grid-column: span 2;">
-                  <label>Problem Kategori * <span class="hint" x-show="!dtForm.pic">(pilih PIC dulu)</span></label>
+                  <label style="min-height:32px;display:block;">Problem Kategori * <span class="hint" x-show="!dtForm.pic">(pilih PIC dulu)</span></label>
                   <select x-model="dtForm.problem" @change="dtForm.penyebab=''" :disabled="!dtForm.pic">
                     <option value="">-- pilih --</option>
                     <template x-for="p in problemsForPic(dtForm.pic)" :key="p.id">
@@ -912,7 +912,7 @@
                   </select>
                 </div>
                 <div class="field" style="grid-column: span 2;">
-                  <label>Problem Detail * <span class="hint" x-show="!dtForm.problem">(pilih Problem Kategori dulu)</span></label>
+                  <label style="min-height:32px;display:block;">Problem Detail * <span class="hint" x-show="!dtForm.problem">(pilih Problem Kategori dulu)</span></label>
                   <select x-model="dtForm.penyebab" :disabled="!dtForm.problem">
                     <option value="">-- pilih --</option>
                     <template x-for="c in causesForProblemValue(dtForm.problem)" :key="c.id">
