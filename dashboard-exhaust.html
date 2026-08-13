@@ -212,6 +212,36 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
 .dxy-minute-badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; }
 .dxy-empty-cell { color: var(--dxy-muted); font-style: italic; }
 
+/* ---- Bulanan (harian 1-31): grid Weekly 5 kolom sejajar ---- */
+.dxy-weekly-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.dxy-weekly-grid .dxy-panel { min-width: 0; }
+.dxy-weekly-grid .dxy-chart-box { min-height: 150px !important; max-height: 150px; }
+@media (max-width: 1366px) { .dxy-weekly-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 720px) { .dxy-weekly-grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* ---- Bulanan (harian): tabel Downtime Terbesar per line, 7 kolom ---- */
+.dxy-dt-terbesar-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.dxy-dt-terbesar-grid .dxy-table-scroll { max-height: 260px !important; overflow: auto; }
+.dxy-dt-terbesar-grid table.dxy-table { font-size: 10.5px; min-width: 560px; }
+.dxy-dt-terbesar-grid table.dxy-table thead th { padding: 6px 6px; font-size: 8.5px; white-space: nowrap; }
+.dxy-dt-terbesar-grid table.dxy-table tbody td { padding: 5px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px; }
+.dxy-status-chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 9.5px; font-weight: 700; }
+.dxy-status-open { background: rgba(239,68,68,.14); color: #EF4444; }
+.dxy-status-progress { background: rgba(245,158,11,.14); color: #F59E0B; }
+.dxy-status-closed { background: rgba(16,185,129,.14); color: #10B981; }
+@media (max-width: 1366px) { .dxy-dt-terbesar-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 720px) { .dxy-dt-terbesar-grid { grid-template-columns: 1fr; } }
+
 /* ---- Skeleton loading ---- */
 .dxy-skeleton-row { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; margin-bottom: 16px; }
 .dxy-skeleton {
@@ -388,101 +418,136 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
       </div>
     </template>
 
-    <!-- ===== TAB: BULANAN ===== -->
+    <!-- ===== TAB: BULANAN (harian, tanggal 1-31) ===== -->
     <template x-if="activeTab === 'bulanan'">
-      <div class="bulanan-fill">
-        <template x-if="bulananLoading"><p class="empty-state">Memuat data bulanan...</p></template>
+      <div class="dxy-fill">
+        <template x-if="bulananLoading">
+          <div class="dxy">
+            <div class="dxy-skeleton-row">
+              <div class="dxy-skeleton"></div><div class="dxy-skeleton"></div>
+              <div class="dxy-skeleton"></div><div class="dxy-skeleton"></div>
+            </div>
+            <p class="empty-state">Memuat data bulanan...</p>
+          </div>
+        </template>
         <template x-if="!bulananLoading">
-          <div class="dash-body bulanan-body">
+          <div class="dxy">
 
-        <!-- Baris 1: 4 KPI utama -->
-        <div class="bulanan-kpi-grid">
-          <div class="kpi-card">
-            <div class="kpi-head"><span class="kpi-dot kpi-dot-blue"></span>PRODUCTIVITY</div>
-            <div class="kpi-value" x-text="bulanan.productivity.value + '%'"></div>
-            <div class="kpi-sub">BULAN BERJALAN</div>
-            <div class="kpi-chart"><canvas id="kpiProductivityChart"></canvas></div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-head"><span class="kpi-dot kpi-dot-teal"></span>AVAILABILITY</div>
-            <div class="kpi-value" x-text="bulanan.availability.value + '%'"></div>
-            <div class="kpi-sub">BULAN BERJALAN</div>
-            <div class="kpi-chart"><canvas id="kpiAvailabilityChart"></canvas></div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-head"><span class="kpi-dot kpi-dot-red"></span>NG INLINE</div>
-            <div class="kpi-head-row">
-              <div><span class="kpi-value" x-text="bulanan.ngInline.qty"></span><span class="kpi-sub"> pcs</span><div class="kpi-sub">QTY BULAN BERJALAN</div></div>
-              <div class="kpi-head-right"><span class="kpi-value" x-text="fmtNum(bulanan.ngInline.value)"></span><div class="kpi-sub">VALUE BULAN BERJALAN</div></div>
-            </div>
-            <div class="kpi-chart"><canvas id="kpiNgInlineChart"></canvas></div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-head"><span class="kpi-dot kpi-dot-teal"></span>STRAIGHTPASS</div>
-            <div class="kpi-value" x-text="bulanan.straightpass.value + '%'"></div>
-            <div class="kpi-sub">BULAN BERJALAN</div>
-            <div class="kpi-chart"><canvas id="kpiStraightpassChart"></canvas></div>
-          </div>
-        </div>
-
-        <!-- Baris 2: Downtime Exhaust / Supporting / Line -->
-        <div class="dash-main-grid bulanan-row2">
-          <div class="dash-panel dash-panel-chart dt-exhaust-panel">
-            <p class="dash-panel-title">Downtime Exhaust</p>
-            <div class="dash-chart-sm"><canvas id="dtExhaustChart"></canvas></div>
-          </div>
-          <div class="dash-panel dash-panel-chart">
-            <p class="dash-panel-title">Downtime Supporting</p>
-            <div class="dash-chart-sm"><canvas id="dtSupportingChart"></canvas></div>
-          </div>
-          <div class="dash-panel dash-panel-chart">
-            <p class="dash-panel-title">Downtime Line</p>
-            <div class="dash-chart-sm"><canvas id="dtLineChart"></canvas></div>
-          </div>
-        </div>
-
-        <!-- Baris 3: Weekly Breakdown -->
-        <div class="weekly-grid">
-          <template x-for="(w, idx) in bulanan.weekly" :key="'week-'+idx">
-            <div class="dash-panel dash-panel-chart">
-              <p class="dash-panel-title" x-text="'WEEK ' + (idx + 1)" style="text-align:center;"></p>
-              <div class="dash-chart-sm week-chart-sm"><canvas :id="'weekChart' + (idx + 1)"></canvas></div>
-            </div>
-          </template>
-        </div>
-
-        <!-- Baris 4: Downtime Terbesar -->
-        <div class="downtime-terbesar-outer">
-          <div class="dash-panel-title">Downtime Terbesar</div>
-          <div class="downtime-terbesar-grid">
-            <template x-for="line in bulanan.downtimeTerbesar" :key="line.mesin">
-              <div class="dash-panel dt-terbesar-panel">
-                <span class="badge dt-terbesar-badge" x-text="line.mesin"></span>
-                <div class="table-wrap">
-                  <table class="table-compact dt-terbesar-table">
-                    <thead>
-                      <tr>
-                        <th>PIC</th>
-                        <th>Problem</th>
-                        <th class="dt-terbesar-value">Menit</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <template x-for="(row, i) in line.rowsPadded" :key="line.mesin + '-' + i">
-                        <tr>
-                          <td class="dt-terbesar-pic" x-text="row.pic"></td>
-                          <td class="dt-terbesar-problem" x-text="row.problem"></td>
-                          <td class="mono dt-terbesar-value" x-text="row.value"></td>
-                        </tr>
-                      </template>
-                    </tbody>
-                  </table>
-                </div>
+            <!-- ===== Baris 1: Filter bar (Bulan/Tahun + Line) ===== -->
+            <div class="dxy-filterbar">
+              <div class="dxy-field">
+                <label>Bulan</label>
+                <select class="dxy-select" x-model.number="bulananMonth" @change="onBulananPeriodChange()">
+                  <template x-for="(nm, i) in BULAN_LABELS" :key="'bm-'+i">
+                    <option :value="i+1" x-text="nm"></option>
+                  </template>
+                </select>
               </div>
-            </template>
+              <div class="dxy-field">
+                <label>Tahun</label>
+                <select class="dxy-select" x-model.number="bulananYear" @change="onBulananPeriodChange()">
+                  <template x-for="y in tahunanYearOptions" :key="'by-'+y"><option :value="y" x-text="y"></option></template>
+                </select>
+              </div>
+              <div class="dxy-field">
+                <label>Line</label>
+                <select class="dxy-select" x-model="dxyLineFilter" @change="$nextTick(() => renderBulananCharts())">
+                  <option value="ALL">Semua Line</option>
+                  <template x-for="m in MACHINES_REF" :key="'bl-'+m.key"><option :value="m.key" x-text="m.key"></option></template>
+                </select>
+              </div>
+              <div class="dxy-spacer"></div>
+            </div>
+
+            <!-- ===== Baris 2: Productivity & Availability, harian 1-31, dalam % ===== -->
+            <div class="dxy-chart-grid">
+              <div class="dxy-panel dxy-span-6">
+                <div class="dxy-panel-head"><span class="dxy-panel-title">📈 Productivity</span><span class="dxy-panel-sub" x-text="BULAN_LABELS[bulananMonth-1] + ' ' + bulananYear"></span></div>
+                <div class="dxy-chart-box"><canvas id="dxbProductivity"></canvas></div>
+              </div>
+              <div class="dxy-panel dxy-span-6">
+                <div class="dxy-panel-head"><span class="dxy-panel-title">✅ Availability</span><span class="dxy-panel-sub" x-text="BULAN_LABELS[bulananMonth-1] + ' ' + bulananYear"></span></div>
+                <div class="dxy-chart-box"><canvas id="dxbAvailability"></canvas></div>
+              </div>
+            </div>
+
+            <!-- ===== Baris 3: Downtime harian 1-31 + Supporting (PIC) + Line ===== -->
+            <div class="dxy-chart-grid">
+              <div class="dxy-panel dxy-span-6">
+                <div class="dxy-panel-head"><span class="dxy-panel-title">⏱ Downtime Harian</span><span class="dxy-panel-sub">Tanggal 1-31 · menit</span></div>
+                <div class="dxy-chart-box tall"><canvas id="dxbDowntimeHarian"></canvas></div>
+              </div>
+              <div class="dxy-panel dxy-span-3">
+                <div class="dxy-panel-head"><span class="dxy-panel-title">🧑‍🔧 Downtime Supporting</span><span class="dxy-panel-sub">Per PIC</span></div>
+                <div class="dxy-chart-box tall"><canvas id="dxbDowntimeSupporting"></canvas></div>
+              </div>
+              <div class="dxy-panel dxy-span-3">
+                <div class="dxy-panel-head"><span class="dxy-panel-title">🏭 Downtime Line</span><span class="dxy-panel-sub">E-02 s/d E-07</span></div>
+                <div class="dxy-chart-box tall"><canvas id="dxbDowntimeLine"></canvas></div>
+              </div>
+            </div>
+
+            <!-- ===== Baris 4: Weekly (Week 1 - Week 5) ===== -->
+            <div class="dxy-weekly-grid">
+              <template x-for="(w, idx) in bulanan.weekly" :key="'bweek-'+idx">
+                <div class="dxy-panel">
+                  <div class="dxy-panel-head"><span class="dxy-panel-title" x-text="'WEEK ' + (idx + 1)"></span></div>
+                  <div class="dxy-chart-box"><canvas :id="'dxbWeek' + (idx + 1)"></canvas></div>
+                </div>
+              </template>
+            </div>
+
+            <!-- ===== Baris 5: Downtime Terbesar per line — 3 grid kesamping, 2 grid kebawah ===== -->
+            <div class="dxy-panel-title" style="margin: 4px 0 8px;">🏆 Downtime Terbesar per Line</div>
+            <div class="dxy-dt-terbesar-grid">
+              <template x-for="line in bulanan.downtimeTerbesar" :key="'bdt-'+line.mesin">
+                <div class="dxy-panel dxy-table-panel-sm">
+                  <div class="dxy-panel-head">
+                    <span class="dxy-panel-title" x-text="line.mesin"></span>
+                    <span class="dxy-panel-sub">Top 5</span>
+                  </div>
+                  <div class="dxy-table-scroll">
+                    <table class="dxy-table">
+                      <thead>
+                        <tr>
+                          <th>PIC</th>
+                          <th>Problem</th>
+                          <th>Area</th>
+                          <th>Countermeasure</th>
+                          <th>Status</th>
+                          <th>Shift</th>
+                          <th style="text-align:right">Menit</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <template x-for="(row, i) in line.rowsPadded" :key="line.mesin + '-bdt-' + i">
+                          <tr>
+                            <td>
+                              <template x-if="row.pic"><span class="dxy-pic-chip"><span class="dot" :style="'background:' + dxyPicColor(row.pic)"></span><span x-text="row.pic"></span></span></template>
+                              <template x-if="!row.pic"><span class="dxy-empty-cell">-</span></template>
+                            </td>
+                            <td><span x-show="row.problem" x-text="row.problem"></span><span class="dxy-empty-cell" x-show="!row.problem">-</span></td>
+                            <td><span x-show="row.area" x-text="row.area"></span><span class="dxy-empty-cell" x-show="!row.area">-</span></td>
+                            <td><span x-show="row.countermeasure" x-text="row.countermeasure"></span><span class="dxy-empty-cell" x-show="!row.countermeasure">-</span></td>
+                            <td>
+                              <span x-show="row.status" class="dxy-status-chip" :class="dxyStatusClass(row.status)" x-text="row.status"></span>
+                              <span class="dxy-empty-cell" x-show="!row.status">-</span>
+                            </td>
+                            <td><span x-show="row.shift" x-text="row.shift"></span><span class="dxy-empty-cell" x-show="!row.shift">-</span></td>
+                            <td style="text-align:right">
+                              <span x-show="row.menit !== ''" class="dxy-minute-badge" :style="dxyMinuteBadgeStyle(row.menit)" x-text="row.menit"></span>
+                              <span x-show="row.menit === ''" class="dxy-empty-cell">-</span>
+                            </td>
+                          </tr>
+                        </template>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </template>
+            </div>
+
           </div>
-        </div>
-        </div>
         </template>
       </div>
     </template>
@@ -692,6 +757,12 @@ const MACHINES = [
   { key: "E-07", label: "E-07", href: "machines/e-07.html" },
 ];
 
+const BULAN_LABELS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+// Jumlah hari dalam bulan tertentu (menangani tahun kabisat)
+function daysInMonth(year, month1to12) {
+  return new Date(year, month1to12, 0).getDate();
+}
+
 function fmtNum(n) {
   if (n === null || n === undefined || Number.isNaN(Number(n))) return "-";
   return Number(n).toLocaleString("en-US", { maximumFractionDigits: 1 });
@@ -799,17 +870,23 @@ function dashboardExhaust() {
     // ---------------------------------------------------------------
     bulananLoading: true,
     bulananLoaded: false,
+    // Periode yang lagi dipilih di tab Bulanan (bulan + tahun berjalan default)
+    bulananMonth: new Date().getMonth() + 1,
+    bulananYear: new Date().getFullYear(),
+    // ---------------------------------------------------------------
+    // Data "Bulanan" (harian, tanggal 1-31) -- diisi dari fetchBulanan()
+    // lewat RPC Supabase baru (lihat migration_dashboard_bulanan_harian.sql).
+    // Skeleton kosong dulu supaya template tidak error sebelum data datang.
+    // ---------------------------------------------------------------
     bulanan: {
-      monthLabels: [],
-      productivity: { value: 0, actual: [], target: 100 },
-      availability: { value: 0, actual: [], target: 100 },
-      ngInline: { qty: 0, value: 0, qtyByMonth: [], valueByMonth: [] },
-      straightpass: { value: 0, actual: [], qty: [], target: 100 },
-      downtimeExhaust: { labels: [], values: [] },
-      downtimeSupporting: { labels: [], plan: [], act: [] },
-      downtimeLine: { labels: [], plan: [], act: [] },
-      weekly: [],
-      downtimeTerbesar: [],
+      dayLabels: [],               // ["1","2",...,"31"] sesuai jumlah hari di bulan terpilih
+      productivity: { value: 0, actual: [], target: 100 },   // % per hari
+      availability: { value: 0, actual: [], target: 100 },   // % per hari
+      downtimeHarian: { labels: [], values: [] },             // menit per hari 1-31
+      downtimeSupporting: { labels: [], act: [] },             // per PIC: PE, MESIN, QC, PC-SUPP, PROD, PRESS
+      downtimeLine: { labels: [], act: [] },                   // per line: E-02..E-07
+      weekly: [],                  // 5 entri: { labels: [E-02..E-07], values: [...] }
+      downtimeTerbesar: [],        // per line: { mesin, rows: [{pic,problem,area,countermeasure,status,shift,menit}] }
     },
     bulananCharts: {},
     tahunanYear: new Date().getFullYear(),
@@ -841,104 +918,89 @@ function dashboardExhaust() {
       await this.fetchAll();
       if (this.activeTab === "bulanan") await this.setTab("bulanan");
     },
-    // ---- Ambil data Bulanan dari Supabase (sekali saja, di-cache) ----
+    // -----------------------------------------------------------------
+    // Ambil data Bulanan (HARIAN, tanggal 1-31) dari Supabase.
+    //
+    // !! PENTING -- RPC di bawah ini BELUM ADA di database dan perlu
+    // dibuat lewat migration_dashboard_bulanan_harian.sql (lihat file
+    // terpisah yang aku siapkan). Nama function/parameter di sini adalah
+    // KONTRAK yang dipakai frontend -- kalau nama RPC di Supabase kamu
+    // beda, tinggal samakan salah satu sisi (frontend atau SQL).
+    //
+    // RPC yang dipakai:
+    //   dashboard_harian_produksi(p_start, p_end)
+    //     -> per baris: { tanggal, wh_menit, target_std_menit, downtime_menit }
+    //   dashboard_harian_downtime_by_pic(p_start, p_end)
+    //     -> per baris: { pic, act_menit }               PIC: PE/MESIN/QC/PC-SUPP/PROD/PRESS
+    //   dashboard_harian_downtime_by_line(p_start, p_end)
+    //     -> per baris: { mesin, act_menit }              mesin: E-02..E-07
+    //   dashboard_bulanan_weekly(p_start, p_end)          (RPC lama, dipakai ulang)
+    //     -> per baris: { minggu_mulai, mesin, downtime_menit }
+    //   dashboard_harian_top_problems(p_mesin, p_start, p_end, p_limit)
+    //     -> per baris: { pic, problem, area, countermeasure, status, shift, total_menit }
+    // -----------------------------------------------------------------
     async fetchBulanan() {
       if (this.bulananLoaded) return;
       this.bulananLoading = true;
       try {
-        const now = new Date();
-        // Fiscal year: April -> Maret. Tahun mulai FY berjalan:
-        const fyStartYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1; // getMonth() 3 = April
-        const fyStart = new Date(fyStartYear, 3, 1);
-        const fyEnd = new Date(fyStartYear + 1, 3, 1);
-        const prevFyStart = new Date(fyStartYear - 1, 3, 1);
-        const bulanIni = new Date(now.getFullYear(), now.getMonth(), 1);
-        const bulanDepan = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        const year = this.bulananYear;
+        const month = this.bulananMonth; // 1-12
+        const periodStart = new Date(year, month - 1, 1);
+        const periodEnd = new Date(year, month, 1); // eksklusif, awal bulan berikutnya
+        const nHari = daysInMonth(year, month);
+        const dayLabels = Array.from({ length: nHari }, (_, i) => String(i + 1));
 
-        const [prodRes, ngRes, picRes, lineRes, weeklyRes] = await Promise.all([
-          supabaseClient.rpc("dashboard_bulanan_produksi", { p_start: prevFyStart.toISOString(), p_end: fyEnd.toISOString() }),
-          supabaseClient.rpc("dashboard_bulanan_ng_inline", { p_start: prevFyStart.toISOString(), p_end: fyEnd.toISOString() }),
-          // Downtime Supporting & Line: total dari awal tahun fiskal (April) s/d bulan berjalan
-          supabaseClient.rpc("dashboard_bulanan_downtime_by_pic", { p_start: fyStart.toISOString(), p_end: bulanDepan.toISOString() }),
-          supabaseClient.rpc("dashboard_bulanan_downtime_by_line", { p_start: fyStart.toISOString(), p_end: bulanDepan.toISOString() }),
-          supabaseClient.rpc("dashboard_bulanan_weekly", { p_start: bulanIni.toISOString(), p_end: bulanDepan.toISOString() }),
+        const [prodRes, picRes, lineRes, weeklyRes] = await Promise.all([
+          supabaseClient.rpc("dashboard_harian_produksi", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString() }),
+          supabaseClient.rpc("dashboard_harian_downtime_by_pic", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString() }),
+          supabaseClient.rpc("dashboard_harian_downtime_by_line", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString() }),
+          supabaseClient.rpc("dashboard_bulanan_weekly", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString() }),
         ]);
         const topRes = await Promise.all(MACHINES.map((m) =>
-          supabaseClient.rpc("dashboard_bulanan_top_problems", { p_mesin: m.key, p_start: bulanIni.toISOString(), p_end: bulanDepan.toISOString(), p_limit: 5 })
+          supabaseClient.rpc("dashboard_harian_top_problems", { p_mesin: m.key, p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_limit: 5 })
         ));
 
         const prodRows = prodRes.data || [];
-        const ngRows = ngRes.data || [];
-        const monthKeyStr = (d) => localDateStr(d);
+        const dayKeyStr = (day) => localDateStr(new Date(year, month - 1, day));
+        const findRow = (rows, day) => rows.find((r) => r.tanggal === dayKeyStr(day));
 
-        // 12 bulan FY berjalan (Apr..Mar)
-        const fyMonths = [];
-        for (let i = 0; i < 12; i++) fyMonths.push(new Date(fyStartYear, 3 + i, 1));
-        const monthLabelId = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
-
-        const findRow = (rows, d) => rows.find((r) => r.bulan === monthKeyStr(d));
-        const sumInRange = (rows, start, end, field) =>
-          rows.filter((r) => { const rd = new Date(r.bulan + "T00:00:00"); return rd >= start && rd < end; })
-              .reduce((a, r) => a + (Number(r[field]) || 0), 0);
-
-        // Productivity & Availability & Straightpass per bulan (FY berjalan)
-        const productivityActual = fyMonths.map((d) => {
-          const row = findRow(prodRows, d);
+        // Productivity & Availability per hari (%), null kalau belum ada data hari itu
+        const productivityActual = dayLabels.map((_, i) => {
+          const row = findRow(prodRows, i + 1);
           if (!row || !row.wh_menit) return null;
           return Number(((row.target_std_menit / row.wh_menit) * 100).toFixed(1));
         });
-        const availabilityActual = fyMonths.map((d) => {
-          const row = findRow(prodRows, d);
+        const availabilityActual = dayLabels.map((_, i) => {
+          const row = findRow(prodRows, i + 1);
           if (!row || !row.wh_menit) return null;
           return Number((((row.wh_menit - row.downtime_menit) / row.wh_menit) * 100).toFixed(1));
         });
-        const straightpassActual = fyMonths.map((d) => {
-          const row = findRow(prodRows, d);
-          const ngRow = findRow(ngRows, d);
-          if (!row || !row.stroke) return null;
-          const ngTotal = (Number(row.ng) || 0) + (ngRow ? Number(ngRow.qty) || 0 : 0);
-          return Number((((row.stroke - ngTotal) / row.stroke) * 100).toFixed(1));
-        });
-        const straightpassQty = fyMonths.map((d) => {
-          const row = findRow(prodRows, d);
-          return row ? Number(row.stroke) : null;
-        });
-
-        // Bulan berjalan (bulan terakhir yang ada datanya)
         const lastRow = [...prodRows].reverse().find((r) => r.wh_menit > 0) || null;
-        const lastNgRow = ngRows.length ? ngRows[ngRows.length - 1] : null;
         const productivityValue = lastRow ? Number(((lastRow.target_std_menit / lastRow.wh_menit) * 100).toFixed(1)) : 0;
         const availabilityValue = lastRow ? Number((((lastRow.wh_menit - lastRow.downtime_menit) / lastRow.wh_menit) * 100).toFixed(1)) : 0;
-        const straightpassValue = lastRow && lastRow.stroke
-          ? Number((((lastRow.stroke - ((Number(lastRow.ng) || 0) + (lastNgRow ? Number(lastNgRow.qty) || 0 : 0))) / lastRow.stroke) * 100).toFixed(1))
-          : 0;
 
-        // Downtime Exhaust: FY-1, FY, lalu 12 bulan Apr..Mar
-        const dtExhaustLabels = ["FY " + fyStartYear, "FY " + (fyStartYear + 1), ...fyMonths.map((d) => monthLabelId[d.getMonth()])];
-        const dtExhaustValues = [
-          Math.round(sumInRange(prodRows, prevFyStart, fyStart, "downtime_menit")),
-          Math.round(sumInRange(prodRows, fyStart, fyEnd, "downtime_menit")),
-          ...fyMonths.map((d) => { const r = findRow(prodRows, d); return r ? Math.round(Number(r.downtime_menit)) : 0; }),
-        ];
+        // Downtime harian 1-31 (menit)
+        const downtimeHarianValues = dayLabels.map((_, i) => {
+          const row = findRow(prodRows, i + 1);
+          return row ? Math.round(Number(row.downtime_menit) || 0) : 0;
+        });
 
-        // Downtime Supporting / Line (total FY berjalan: April s/d bulan ini)
+        // Downtime Supporting (per PIC) & Downtime Line (per mesin) -- total sebulan
         const picRows = picRes.data || [];
         const lineRows = lineRes.data || [];
         const PIC_ORDER = ["PE", "MESIN", "QC", "PC-SUPP", "PROD", "PRESS"];
         const downtimeSupporting = {
           labels: PIC_ORDER,
-          plan: PIC_ORDER.map((p) => { const r = picRows.find((x) => x.pic === p); return r ? Math.round(Number(r.plan_menit)) : 0; }),
           act: PIC_ORDER.map((p) => { const r = picRows.find((x) => x.pic === p); return r ? Math.round(Number(r.act_menit)) : 0; }),
         };
         const downtimeLine = {
           labels: MACHINES.map((m) => m.key),
-          plan: MACHINES.map((m) => { const r = lineRows.find((x) => x.mesin === m.key); return r ? Math.round(Number(r.plan_menit)) : 0; }),
           act: MACHINES.map((m) => { const r = lineRows.find((x) => x.mesin === m.key); return r ? Math.round(Number(r.act_menit)) : 0; }),
         };
 
-        // Weekly Breakdown (ISO week, Senin-Minggu) -- bulan berjalan.
-        // Selalu tampilkan semua minggu kalender di bulan ini (walau kosong),
-        // bukan cuma minggu yang kebetulan ada data downtime-nya.
+        // Weekly Breakdown (ISO week, Senin-Minggu) untuk bulan terpilih.
+        // Selalu tampilkan semua minggu kalender di bulan ini, sampai Week 5,
+        // supaya layout konsisten walau bulan tsb cuma punya 4 minggu.
         const weeklyRows = weeklyRes.data || [];
         const isoWeekStart = (d) => {
           const day = d.getDay(); // 0=Minggu .. 6=Sabtu
@@ -949,7 +1011,7 @@ function dashboardExhaust() {
           return ws;
         };
         const weekStartSet = new Set();
-        for (let d = new Date(bulanIni); d < bulanDepan; d.setDate(d.getDate() + 1)) {
+        for (let d = new Date(periodStart); d < periodEnd; d.setDate(d.getDate() + 1)) {
           weekStartSet.add(localDateStr(isoWeekStart(d)));
         }
         const weekStarts = Array.from(weekStartSet).sort();
@@ -960,32 +1022,31 @@ function dashboardExhaust() {
             return r ? Math.round(Number(r.downtime_menit)) : 0;
           }),
         }));
-        // Selalu tampilkan sampai Week 5 (beberapa bulan memang punya 5 minggu
-        // kalender) supaya layoutnya konsisten -- diisi 0 kalau minggunya
-        // tidak ada di bulan ini.
         while (weekly.length < 5) weekly.push({ labels: MACHINES.map((m) => m.key), values: MACHINES.map(() => 0) });
 
-        // Downtime Terbesar per line -- selalu tampilkan 5 baris ke bawah,
-        // baris kosong jadi placeholder kalau datanya belum sampai 5.
+        // Downtime Terbesar per line -- kolom lengkap: PIC, Problem, Area,
+        // Countermeasure, Status, Shift, Menit. Selalu tampilkan 5 baris ke
+        // bawah, baris kosong jadi placeholder kalau data belum sampai 5.
         const downtimeTerbesar = MACHINES.map((m, idx) => {
-          const rows = ((topRes[idx] && topRes[idx].data) || []).map((r) => ({ pic: r.pic, problem: r.problem, value: Math.round(Number(r.total_menit)) }));
+          const rows = ((topRes[idx] && topRes[idx].data) || []).map((r) => ({
+            pic: r.pic || "",
+            problem: r.problem || "",
+            area: r.area || "",
+            countermeasure: r.countermeasure || "",
+            status: r.status || "",
+            shift: r.shift || "",
+            menit: Math.round(Number(r.total_menit) || 0),
+          }));
           const rowsPadded = [...rows];
-          while (rowsPadded.length < 5) rowsPadded.push({ pic: "", problem: "", value: "" });
+          while (rowsPadded.length < 5) rowsPadded.push({ pic: "", problem: "", area: "", countermeasure: "", status: "", shift: "", menit: "" });
           return { mesin: m.key, rows, rowsPadded };
         });
 
         this.bulanan = {
-          monthLabels: dtExhaustLabels,
-          productivity: { value: productivityValue, actual: [null, null, ...productivityActual], target: 100 },
-          availability: { value: availabilityValue, actual: [null, null, ...availabilityActual], target: 100 },
-          ngInline: {
-            qty: lastNgRow ? Number(lastNgRow.qty) : 0,
-            value: lastNgRow ? Number(lastNgRow.value) : 0,
-            qtyByMonth: [null, null, ...fyMonths.map((d) => { const r = findRow(ngRows, d); return r ? Number(r.qty) : null; })],
-            valueByMonth: [null, null, ...fyMonths.map((d) => { const r = findRow(ngRows, d); return r ? Number(r.value) : null; })],
-          },
-          straightpass: { value: straightpassValue, actual: [null, null, ...straightpassActual], qty: [null, null, ...straightpassQty], target: 100 },
-          downtimeExhaust: { labels: dtExhaustLabels, values: dtExhaustValues },
+          dayLabels,
+          productivity: { value: productivityValue, actual: productivityActual, target: 100 },
+          availability: { value: availabilityValue, actual: availabilityActual, target: 100 },
+          downtimeHarian: { labels: dayLabels, values: downtimeHarianValues },
           downtimeSupporting,
           downtimeLine,
           weekly,
@@ -993,7 +1054,7 @@ function dashboardExhaust() {
         };
         this.bulananLoaded = true;
       } catch (e) {
-        console.error("Gagal mengambil data Bulanan:", e);
+        console.error("Gagal mengambil data Bulanan (harian):", e);
       } finally {
         this.bulananLoading = false;
       }
@@ -1161,6 +1222,22 @@ function dashboardExhaust() {
       if (v >= 30) return "background:rgba(249,115,22,.14); color:#F97316";
       return "background:rgba(16,185,129,.14); color:#10B981";
     },
+    // Status downtime terbesar: OPEN (merah) / PROGRESS (kuning) / CLOSE (hijau)
+    dxyStatusClass(status) {
+      const s = String(status || "").toUpperCase();
+      if (s.includes("OPEN")) return "dxy-status-open";
+      if (s.includes("PROG")) return "dxy-status-progress";
+      if (s.includes("CLOSE") || s.includes("DONE")) return "dxy-status-closed";
+      return "dxy-status-progress";
+    },
+    // Dipanggil saat dropdown Bulan/Tahun di tab Bulanan berubah
+    async onBulananPeriodChange() {
+      this.destroyBulananCharts();
+      this.bulananLoaded = false; // paksa fetch ulang periode baru
+      this.bulananLoading = true;
+      await this.fetchBulanan();
+      this.$nextTick(() => this.renderBulananCharts());
+    },
     // Semua tabel "Terbesar" (Downtime/NG Inline/Repair) defaultnya
     // menampilkan minimal 8 baris -- kalau data asli kurang dari 8, sisanya
     // diisi baris kosong (placeholder "-"). Kalau data asli LEBIH dari 8,
@@ -1306,24 +1383,93 @@ function dashboardExhaust() {
       return flat;
     },
     // ---- Chart Bulanan ----
+    // ---- Chart Bulanan (harian 1-31), gaya visual sama seperti Tahunan ----
     renderBulananCharts() {
       if (typeof Chart === "undefined") return;
       const b = this.bulanan;
       const destroy = (id) => { if (this.bulananCharts[id]) { this.bulananCharts[id].destroy(); delete this.bulananCharts[id]; } };
-      const baseScales = () => ({
-        x: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
-        y: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 }, maxTicksLimit: 5 }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
-      });
-      const legend = (show) => ({ display: show, position: "bottom", labels: { color: cssVar("--muted"), boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 9 }, padding: 8 } });
-      const tooltip = () => ({ backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"), borderColor: cssVar("--border"), borderWidth: 1, padding: 8 });
       const safe = (fn, label) => { try { fn(); } catch (e) { console.error("Gagal render chart Bulanan:", label, e); } };
-      // Animasi dimatikan: dashboard statis, dan mencegah error "Cannot read
-      // properties of null (reading 'save')" saat chart di-destroy/diganti
-      // sebelum animasinya selesai (leftover animation frame di Chart.js).
       const noAnim = { duration: 0 };
 
-      // --- 4 kartu KPI (bar Actual + line Target) ---
-      const kpiCombo = (canvasId, labels, actual, target, barColor) => {
+      const baseScales = (opts = {}) => ({
+        x: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
+        y: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 }, maxTicksLimit: 5 }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, ...opts },
+      });
+      const legend = (show) => ({ display: show, position: "bottom", labels: { color: cssVar("--muted"), boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 9 }, padding: 8 } });
+      const tooltip = () => ({ backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"), borderColor: cssVar("--border"), borderWidth: 1, padding: 8, cornerRadius: 8 });
+
+      const grad = (canvas, hex, alphaTop = 0.85, alphaBottom = 0.05) => {
+        const ctx = canvas.getContext("2d");
+        const h = canvas.height || 200;
+        const g = ctx.createLinearGradient(0, 0, 0, h);
+        const toRgba = (a) => {
+          const n = parseInt(hex.replace("#", ""), 16);
+          const r = (n >> 16) & 255, gg = (n >> 8) & 255, bl = n & 255;
+          return `rgba(${r},${gg},${bl},${a})`;
+        };
+        g.addColorStop(0, toRgba(alphaTop));
+        g.addColorStop(1, toRgba(alphaBottom));
+        return g;
+      };
+      const barBg = (canvas, hex, len) => { const full = grad(canvas, hex); return Array.from({ length: len }, () => full); };
+
+      // Label angka di dalam tiap segmen doughnut (dipakai Supporting & Line)
+      const donutLeaderLabels = (formatter) => ({
+        id: "dxbDonutInsideLabels",
+        afterDraw(chart) {
+          const { ctx } = chart;
+          const meta = chart.getDatasetMeta(0);
+          const dataset = chart.data.datasets[0];
+          if (!meta || !meta.data.length) return;
+          ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          meta.data.forEach((arc, i) => {
+            const val = Number(dataset.data[i]) || 0;
+            if (!val) return;
+            const { x: cx, y: cy, innerRadius, outerRadius, startAngle, endAngle } = arc.getProps(["x", "y", "innerRadius", "outerRadius", "startAngle", "endAngle"], true);
+            const angle = (startAngle + endAngle) / 2;
+            const r = (innerRadius + outerRadius) / 2;
+            const x = cx + Math.cos(angle) * r, y = cy + Math.sin(angle) * r;
+            const sweep = endAngle - startAngle;
+            const fontSize = sweep < 0.12 ? 8 : sweep < 0.22 ? 9.5 : 11;
+            ctx.save();
+            ctx.font = `700 ${fontSize}px Inter, sans-serif`;
+            ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0,0,0,.45)";
+            ctx.strokeText(formatter(val), x, y);
+            ctx.fillStyle = "#fff";
+            ctx.fillText(formatter(val), x, y);
+            ctx.restore();
+          });
+        },
+      });
+
+      // Label angka di atas tiap batang (anti-tabrakan, sama seperti Tahunan)
+      const barValueLabels = (formatter, datasetIndex = 0) => ({
+        id: "dxbBarValueLabels",
+        afterDatasetsDraw(chart) {
+          const { ctx, chartArea } = chart;
+          const meta = chart.getDatasetMeta(datasetIndex);
+          const dataset = chart.data.datasets[datasetIndex];
+          if (!meta || !dataset || meta.type !== "bar" || !meta.data) return;
+          const textColor = cssVar("--dxy-text") || "#1F2937";
+          const n = meta.data.length;
+          const slotWidth = chartArea && n ? chartArea.width / n : 30;
+          const fontSize = slotWidth < 18 ? 6.5 : slotWidth < 26 ? 7.5 : slotWidth < 40 ? 8.5 : 9.5;
+          ctx.save();
+          ctx.font = `700 ${fontSize}px Inter, sans-serif`;
+          ctx.textAlign = "center"; ctx.fillStyle = textColor;
+          meta.data.forEach((bar, i) => {
+            const val = Number(dataset.data[i]);
+            if (val === null || val === undefined || Number.isNaN(val) || val === 0) return;
+            const { x, y } = bar.getProps(["x", "y"], true);
+            ctx.textBaseline = "bottom";
+            ctx.fillText(formatter(val), x, y - 3);
+          });
+          ctx.restore();
+        },
+      });
+
+      // --- Productivity & Availability harian (%), bar gradient + target ---
+      const kpiBigPct = (canvasId, labels, actual, target, hex) => {
         destroy(canvasId);
         const canvas = document.getElementById(canvasId);
         if (!canvas) return;
@@ -1331,96 +1477,73 @@ function dashboardExhaust() {
           data: {
             labels,
             datasets: [
-              { type: "bar", label: "Actual", data: actual, backgroundColor: barColor, borderRadius: 3, barPercentage: 0.55, categoryPercentage: 0.7 },
-              { type: "line", label: "Target", data: labels.map(() => target), borderColor: cssVar("--red"), borderDash: [5, 4], borderWidth: 2, pointRadius: 0, tension: 0 },
+              { type: "bar", label: "Actual", data: actual, backgroundColor: barBg(canvas, hex, actual.length), borderRadius: 6, barPercentage: 0.65, categoryPercentage: 0.75, borderSkipped: false },
+              { type: "line", label: "Target", data: labels.map(() => target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0 },
             ],
           },
           options: {
             responsive: true, maintainAspectRatio: false, animation: noAnim,
+            layout: { padding: { top: 20 } },
             plugins: { legend: legend(true), tooltip: tooltip() },
-            scales: baseScales(),
+            scales: baseScales({ suggestedMax: 100, ticks: { callback: (v) => v + "%", color: cssVar("--chart-tick"), font: { size: 9 }, maxTicksLimit: 5 } }),
           },
+          plugins: [barValueLabels((v) => v + "%")],
         });
       };
-      safe(() => kpiCombo("kpiProductivityChart", b.monthLabels, b.productivity.actual, b.productivity.target, cssVar("--series-4")), "productivity");
-      safe(() => kpiCombo("kpiAvailabilityChart", b.monthLabels, b.availability.actual, b.availability.target, cssVar("--series-4")), "availability");
-      safe(() => kpiCombo("kpiStraightpassChart", b.monthLabels, b.straightpass.actual, b.straightpass.target, cssVar("--series-4")), "straightpass");
+      safe(() => kpiBigPct("dxbProductivity", b.dayLabels, b.productivity.actual, b.productivity.target, "#2563EB"), "productivity");
+      safe(() => kpiBigPct("dxbAvailability", b.dayLabels, b.availability.actual, b.availability.target, "#10B981"), "availability");
 
-      // --- NG Inline: bar Value (kiri) + line Qty (kanan) ---
+      // --- Downtime harian 1-31: bar + garis tren ---
       safe(() => {
-        destroy("kpiNgInlineChart");
-        const ngCanvas = document.getElementById("kpiNgInlineChart");
-        if (ngCanvas) {
-          this.bulananCharts.kpiNgInlineChart = new Chart(ngCanvas, {
-            data: {
-              labels: b.monthLabels,
-              datasets: [
-                { type: "bar", label: "Value", data: b.ngInline.valueByMonth, backgroundColor: cssVar("--category-other"), yAxisID: "y", borderRadius: 3, barPercentage: 0.55, categoryPercentage: 0.7 },
-                { type: "line", label: "Qty", data: b.ngInline.qtyByMonth, borderColor: cssVar("--series-4"), yAxisID: "y1", pointRadius: 3, tension: 0.3 },
-              ],
-            },
-            options: {
-              responsive: true, maintainAspectRatio: false, animation: noAnim,
-              plugins: { legend: legend(true), tooltip: tooltip() },
-              scales: {
-                x: baseScales().x,
-                y: { position: "left", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
-                y1: { position: "right", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
-              },
-            },
-          });
-        }
-      }, "ngInline");
-
-      // --- Downtime Exhaust: bar + line trend ---
-      safe(() => {
-        destroy("dtExhaustChart");
-        const dtEx = document.getElementById("dtExhaustChart");
-        if (dtEx) {
-          this.bulananCharts.dtExhaustChart = new Chart(dtEx, {
-            data: {
-              labels: b.downtimeExhaust.labels,
-              datasets: [
-                { type: "bar", label: "Downtime", data: b.downtimeExhaust.values, backgroundColor: cssVar("--category-other"), borderRadius: 3, barPercentage: 0.6, categoryPercentage: 0.7 },
-                { type: "line", label: "Trend", data: b.downtimeExhaust.values, borderColor: cssVar("--red"), pointRadius: 3, tension: 0.3 },
-              ],
-            },
-            options: { responsive: true, maintainAspectRatio: false, animation: noAnim, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
-          });
-        }
-      }, "downtimeExhaust");
-
-      // --- Downtime Supporting & Downtime Line: grouped bar Plan/Act ---
-      const groupedBar = (canvasId, labels, plan, act) => {
-        destroy(canvasId);
-        const canvas = document.getElementById(canvasId);
+        destroy("dxbDowntimeHarian");
+        const canvas = document.getElementById("dxbDowntimeHarian");
         if (!canvas) return;
-        this.bulananCharts[canvasId] = new Chart(canvas, {
-          type: "bar",
+        this.bulananCharts.dxbDowntimeHarian = new Chart(canvas, {
           data: {
-            labels,
+            labels: b.downtimeHarian.labels,
             datasets: [
-              { label: "Plan", data: plan, backgroundColor: cssVar("--category-other"), borderRadius: 3, barPercentage: 0.7, categoryPercentage: 0.7 },
-              { label: "Act", data: act, backgroundColor: cssVar("--series-5"), borderRadius: 3, barPercentage: 0.7, categoryPercentage: 0.7 },
+              { type: "bar", label: "Downtime", data: b.downtimeHarian.values, backgroundColor: barBg(canvas, "#F97316", b.downtimeHarian.values.length), borderRadius: 4, barPercentage: 0.6, categoryPercentage: 0.75 },
+              { type: "line", label: "Tren", data: b.downtimeHarian.values, borderColor: "#EF4444", pointRadius: 0, borderWidth: 2, tension: 0.3 },
             ],
           },
           options: { responsive: true, maintainAspectRatio: false, animation: noAnim, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
         });
+      }, "downtimeHarian");
+
+      // --- Downtime Supporting & Downtime Line: doughnut ---
+      const donut = (canvasId, labels, values, colorFn) => {
+        destroy(canvasId);
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        this.bulananCharts[canvasId] = new Chart(canvas, {
+          type: "doughnut",
+          data: { labels, datasets: [{ data: values, backgroundColor: labels.map(colorFn), borderWidth: 2, borderColor: cssVar("--panel") }] },
+          options: {
+            responsive: true, maintainAspectRatio: false, animation: noAnim, cutout: "58%",
+            plugins: { legend: legend(true), tooltip: tooltip() },
+          },
+          plugins: [donutLeaderLabels((v) => fmtNum(v))],
+        });
       };
-      safe(() => groupedBar("dtSupportingChart", b.downtimeSupporting.labels, b.downtimeSupporting.plan, b.downtimeSupporting.act), "downtimeSupporting");
-      safe(() => groupedBar("dtLineChart", b.downtimeLine.labels, b.downtimeLine.plan, b.downtimeLine.act), "downtimeLine");
+      safe(() => donut("dxbDowntimeSupporting", b.downtimeSupporting.labels, b.downtimeSupporting.act, (pic) => this.dxyPicColor(pic)), "downtimeSupporting");
+      safe(() => {
+        const lineColors = ["#2563EB", "#10B981", "#F97316", "#8B5CF6", "#EF4444", "#14B8A6"];
+        donut("dxbDowntimeLine", b.downtimeLine.labels, b.downtimeLine.act, (_l, i) => lineColors[i % lineColors.length]);
+      }, "downtimeLine");
+      // (colorFn di atas untuk Line dipanggil dgn (label, index) -- Array.map
+      // sudah otomatis mengoper index sbg argumen ke-2, jadi aman dipakai.)
 
       // --- Weekly Breakdown: bar per line + Total ---
       b.weekly.forEach((w, idx) => {
         safe(() => {
-          const canvasId = "weekChart" + (idx + 1);
+          const canvasId = "dxbWeek" + (idx + 1);
           destroy(canvasId);
           const canvas = document.getElementById(canvasId);
           if (!canvas) return;
           const total = w.values.reduce((a, v) => a + v, 0);
           const labels = [...w.labels, "Total"];
           const values = [...w.values, total];
-          const colors = [...w.labels.map(() => cssVar("--series-1")), cssVar("--navy")];
+          const colors = [...w.labels.map(() => "#2563EB"), "#0F172A"];
           this.bulananCharts[canvasId] = new Chart(canvas, {
             type: "bar",
             data: { labels, datasets: [{ data: values, backgroundColor: colors, borderRadius: 3, barPercentage: 0.6, categoryPercentage: 0.7 }] },
