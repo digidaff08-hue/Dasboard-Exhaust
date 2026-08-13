@@ -330,93 +330,18 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
         <h1>DASHBOARD EXHAUST</h1>
       </div>
       <div class="dash-controls">
-        <template x-if="activeTab === 'harian'">
-          <input type="date" x-model="tanggal" @change="fetchAll()">
-        </template>
-        <template x-if="activeTab === 'harian'">
-          <select x-model="shiftFilter" @change="fetchAll()">
-            <option value="all">Semua Shift</option>
-            <option value="1">Shift 1 (07:00–19:30)</option>
-            <option value="2">Shift 2 (19:30–07:00)</option>
-          </select>
-        </template>
         <button class="theme-toggle" @click="toggleTheme()" :title="theme === 'dark' ? 'Ke mode terang' : 'Ke mode gelap'">
           <span x-text="theme === 'dark' ? '☀️' : '🌙'"></span>
         </button>
       </div>
     </div>
 
-    <!-- Switch Harian / Bulanan / Kontrol Kualitas -->
+    <!-- Switch Tahunan / Bulanan / Kontrol Kualitas -->
     <div class="dash-subtab-nav" style="display:flex; gap:8px; margin-bottom:6px; flex-wrap:wrap;">
       <button class="btn-secondary btn-sm" :class="activeTab==='tahunan' ? 'btn-primary' : ''" @click="setTab('tahunan')">Tahunan</button>
       <button class="btn-secondary btn-sm" :class="activeTab==='bulanan' ? 'btn-primary' : ''" @click="setTab('bulanan')">Bulanan</button>
-      <button class="btn-secondary btn-sm" :class="activeTab==='harian' ? 'btn-primary' : ''" @click="setTab('harian')">Harian</button>
       <button class="btn-secondary btn-sm" :class="activeTab==='kualitas' ? 'btn-primary' : ''" @click="setTab('kualitas')">Kontrol Kualitas</button>
     </div>
-
-    <!-- ===== TAB: HARIAN ===== -->
-    <template x-if="activeTab === 'harian'">
-      <div>
-        <template x-if="loading"><p class="empty-state">Memuat data...</p></template>
-
-        <template x-if="!loading">
-          <div class="dash-body">
-            <!-- Ringkasan total gabungan kecil di atas -->
-            <div class="fleet-summary-grid">
-              <div class="perf-card">
-                <span class="hint">Line Aktif</span>
-                <b class="mono" x-text="lineAktif + ' / 6'"></b>
-              </div>
-              <div class="perf-card">
-                <span class="hint">Total Output (Stroke)</span>
-                <b class="mono" x-text="fmtNum(totals.stroke)"></b>
-              </div>
-              <div class="perf-card">
-                <span class="hint">Total NG</span>
-                <b class="mono" x-text="fmtNum(totals.ng)"></b>
-              </div>
-              <div class="perf-card">
-                <span class="hint">Total Downtime (menit)</span>
-                <b class="mono" x-text="fmtNum(totals.downtimeMenit)"></b>
-              </div>
-              <div class="perf-card">
-                <span class="hint">Rata-rata OEE</span>
-                <b class="mono" x-text="fmtNum(totals.avgOee) + '%'"></b>
-              </div>
-            </div>
-
-            <!-- Kartu per Line -->
-            <div class="machine-cards-grid">
-              <template x-for="m in machines" :key="m.key">
-                <a :href="m.href" class="machine-card" :class="'machine-card-' + statusClass(m)">
-                  <div class="machine-card-top">
-                    <span class="machine-card-name" x-text="m.label"></span>
-                    <span class="status-badge" :class="'status-' + statusBadge(m)" x-text="statusLabel(m)"></span>
-                  </div>
-                  <div class="machine-card-oee" x-text="fmtNum(m.data.oee) + '% OEE'"></div>
-                  <p class="hint" style="margin:2px 0 10px;">
-                    Part terakhir: <b x-text="m.data.lastPart || '-'"></b>
-                  </p>
-                  <div class="machine-card-stats" style="flex-wrap:wrap; row-gap:8px;">
-                    <div><span class="hint">Output</span><br><b x-text="fmtNum(m.data.stroke)"></b></div>
-                    <div><span class="hint">NG</span><br><b x-text="fmtNum(m.data.ng)"></b></div>
-                    <div><span class="hint">Downtime</span><br><b x-text="fmtNum(m.data.downtimeMenit) + ' m'"></b></div>
-                  </div>
-                  <div class="machine-card-stats" style="flex-wrap:wrap; row-gap:8px; margin-top:8px;">
-                    <div><span class="hint">GSPH</span><br><b x-text="fmtNum(m.data.gsph)"></b></div>
-                    <div><span class="hint">Target</span><br><b x-text="fmtNum(m.data.targetGsph)"></b></div>
-                    <div><span class="hint">Perf</span><br><b x-text="fmtNum(m.data.performanceFactor) + '%'"></b></div>
-                  </div>
-                  <div class="sqcpm-bar" style="margin-top:12px;">
-                    <div class="sqcpm-bar-fill" :style="'width:' + Math.max(0, Math.min(100, m.data.oee)) + '%'"></div>
-                  </div>
-                </a>
-              </template>
-            </div>
-          </div>
-        </template>
-      </div>
-    </template>
 
     <!-- ===== TAB: BULANAN (harian, tanggal 1-31) ===== -->
     <template x-if="activeTab === 'bulanan'">
@@ -456,17 +381,25 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
                   <template x-for="m in MACHINES_REF" :key="'bl-'+m.key"><option :value="m.key" x-text="m.key"></option></template>
                 </select>
               </div>
+              <div class="dxy-field">
+                <label>Tanggal</label>
+                <input type="date" class="dxy-input" style="min-width:150px;"
+                       x-model="bulananDate"
+                       :min="bulananDateMin()" :max="bulananDateMax()"
+                       :disabled="bulananLoading"
+                       @change="onBulananDateChange()">
+              </div>
               <div class="dxy-spacer"></div>
             </div>
 
             <!-- ===== Baris 2: Productivity & Availability, harian 1-31, dalam % ===== -->
             <div class="dxy-chart-grid">
               <div class="dxy-panel dxy-span-6">
-                <div class="dxy-panel-head"><span class="dxy-panel-title">📈 Productivity</span><span class="dxy-panel-sub" x-text="BULAN_LABELS[bulananMonth-1] + ' ' + bulananYear"></span></div>
+                <div class="dxy-panel-head"><span class="dxy-panel-title">📈 Productivity</span><span class="dxy-panel-sub" x-text="'Rata-rata ' + fmtNum(bulanan.productivity.avg) + '%'"></span></div>
                 <div class="dxy-chart-box"><canvas id="dxbProductivity"></canvas></div>
               </div>
               <div class="dxy-panel dxy-span-6">
-                <div class="dxy-panel-head"><span class="dxy-panel-title">✅ Availability</span><span class="dxy-panel-sub" x-text="BULAN_LABELS[bulananMonth-1] + ' ' + bulananYear"></span></div>
+                <div class="dxy-panel-head"><span class="dxy-panel-title">✅ Availability</span><span class="dxy-panel-sub" x-text="'Rata-rata ' + fmtNum(bulanan.availability.avg) + '%'"></span></div>
                 <div class="dxy-chart-box"><canvas id="dxbAvailability"></canvas></div>
               </div>
             </div>
@@ -474,15 +407,15 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
             <!-- ===== Baris 3: Downtime harian 1-31 + Supporting (PIC) + Line ===== -->
             <div class="dxy-chart-grid">
               <div class="dxy-panel dxy-span-6">
-                <div class="dxy-panel-head"><span class="dxy-panel-title">⏱ Downtime Harian</span><span class="dxy-panel-sub">Tanggal 1-31 · menit</span></div>
+                <div class="dxy-panel-head"><span class="dxy-panel-title">⏱ Downtime Harian</span><span class="dxy-panel-sub" x-text="'Total ' + fmtNum(bulanan.downtimeHarian.total) + ' menit'"></span></div>
                 <div class="dxy-chart-box tall"><canvas id="dxbDowntimeHarian"></canvas></div>
               </div>
               <div class="dxy-panel dxy-span-3">
-                <div class="dxy-panel-head"><span class="dxy-panel-title">🧑‍🔧 Downtime Supporting</span><span class="dxy-panel-sub">Per PIC</span></div>
+                <div class="dxy-panel-head"><span class="dxy-panel-title">🧑‍🔧 Downtime Supporting</span></div>
                 <div class="dxy-chart-box tall"><canvas id="dxbDowntimeSupporting"></canvas></div>
               </div>
               <div class="dxy-panel dxy-span-3">
-                <div class="dxy-panel-head"><span class="dxy-panel-title">🏭 Downtime Line</span><span class="dxy-panel-sub">E-02 s/d E-07</span></div>
+                <div class="dxy-panel-head"><span class="dxy-panel-title">🏭 Downtime Line</span></div>
                 <div class="dxy-chart-box tall"><canvas id="dxbDowntimeLine"></canvas></div>
               </div>
             </div>
@@ -498,13 +431,11 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
             </div>
 
             <!-- ===== Baris 5: Downtime Terbesar per line — 3 grid kesamping, 2 grid kebawah ===== -->
-            <div class="dxy-panel-title" style="margin: 4px 0 8px;">🏆 Downtime Terbesar per Line</div>
             <div class="dxy-dt-terbesar-grid">
               <template x-for="line in bulanan.downtimeTerbesar" :key="'bdt-'+line.mesin">
                 <div class="dxy-panel dxy-table-panel-sm">
                   <div class="dxy-panel-head">
                     <span class="dxy-panel-title" x-text="line.mesin"></span>
-                    <span class="dxy-panel-sub">Top 5</span>
                   </div>
                   <div class="dxy-table-scroll">
                     <table class="dxy-table">
@@ -781,13 +712,8 @@ function dashboardExhaust() {
   return {
     session: null, profile: null, mobileNavOpen: false, sidebarCollapsed: true,
     loading: true,
-    activeTab: "bulanan", // bulanan | harian | kualitas
+    activeTab: "bulanan", // bulanan | tahunan | kualitas
     theme: localStorage.getItem("theme_v1") || "light",
-    tanggal: localDateStr(new Date()),
-    shiftFilter: "all",
-    machines: [],
-    totals: { stroke: 0, ng: 0, downtimeMenit: 0, avgOee: 0 },
-    lineAktif: 0,
     fmtNum,
     isLeaderOrAdmin() { return this.profile && ["admin", "leader"].includes(this.profile.role); },
     destroyBulananCharts() {
@@ -828,37 +754,6 @@ function dashboardExhaust() {
       if (this.activeTab === "bulanan") this.$nextTick(() => this.renderBulananCharts());
       if (this.activeTab === "tahunan") this.$nextTick(() => this.renderTahunanCharts());
     },
-    bounds() {
-      const d = new Date(this.tanggal + "T00:00:00");
-      if (this.shiftFilter === "1") {
-        return { start: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 7, 0), end: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 19, 30) };
-      }
-      if (this.shiftFilter === "2") {
-        return { start: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 19, 30), end: new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 7, 0) };
-      }
-      return { start: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0), end: new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 0) };
-    },
-    statusClass(m) {
-      if (!m.data || m.data.stroke === 0) return "warn"; // idle -> abu2, dianggap warn utk border
-      const oee = m.data.oee || 0;
-      if (oee >= 75) return "good";
-      if (oee >= 50) return "warn";
-      return "bad";
-    },
-    statusBadge(m) {
-      if (!m.data || m.data.stroke === 0) return "idle";
-      const oee = m.data.oee || 0;
-      if (oee >= 75) return "running";
-      if (oee >= 50) return "warn";
-      return "stop";
-    },
-    statusLabel(m) {
-      if (!m.data || m.data.stroke === 0) return "OFF";
-      const oee = m.data.oee || 0;
-      if (oee >= 75) return "GOOD";
-      if (oee >= 50) return "FAIR";
-      return "POOR";
-    },
     // ---------------------------------------------------------------
     // DATA DUMMY "Bulanan" -- sementara statis, tinggal diganti hasil
     // query Supabase (RPC / view rollup bulanan) begitu tabelnya siap.
@@ -873,6 +768,10 @@ function dashboardExhaust() {
     // Periode yang lagi dipilih di tab Bulanan (bulan + tahun berjalan default)
     bulananMonth: new Date().getMonth() + 1,
     bulananYear: new Date().getFullYear(),
+    // Filter tanggal untuk tabel "Downtime Terbesar per Line" -- tabel ini
+    // SELALU per-tanggal (default hari ini, bisa diganti lewat date picker).
+    bulananDate: localDateStr(new Date()),
+    bulananDtLoading: false,
     // ---------------------------------------------------------------
     // Data "Bulanan" (harian, tanggal 1-31) -- diisi dari fetchBulanan()
     // lewat RPC Supabase baru (lihat migration_dashboard_bulanan_harian.sql).
@@ -880,9 +779,9 @@ function dashboardExhaust() {
     // ---------------------------------------------------------------
     bulanan: {
       dayLabels: [],               // ["1","2",...,"31"] sesuai jumlah hari di bulan terpilih
-      productivity: { value: 0, actual: [], target: 100 },   // % per hari
-      availability: { value: 0, actual: [], target: 100 },   // % per hari
-      downtimeHarian: { labels: [], values: [] },             // menit per hari 1-31
+      productivity: { value: 0, actual: [], target: 100, avg: 0 },   // % per hari
+      availability: { value: 0, actual: [], target: 100, avg: 0 },   // % per hari
+      downtimeHarian: { labels: [], values: [], total: 0 },             // menit per hari 1-31
       downtimeSupporting: { labels: [], act: [] },             // per PIC: PE, MESIN, QC, PC-SUPP, PROD, PRESS
       downtimeLine: { labels: [], act: [] },                   // per line: E-02..E-07
       weekly: [],                  // 5 entri: { labels: [E-02..E-07], values: [...] }
@@ -915,8 +814,9 @@ function dashboardExhaust() {
       if (!this.session) return;
       const { data } = await supabaseClient.from("profiles").select("*").eq("id", this.session.user.id).maybeSingle();
       this.profile = data;
-      await this.fetchAll();
+      this.loading = false;
       if (this.activeTab === "bulanan") await this.setTab("bulanan");
+      if (this.activeTab === "tahunan") await this.setTab("tahunan");
     },
     // -----------------------------------------------------------------
     // Ambil data Bulanan (HARIAN, tanggal 1-31) dari Supabase.
@@ -956,10 +856,6 @@ function dashboardExhaust() {
           supabaseClient.rpc("dashboard_harian_downtime_by_line", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString() }),
           supabaseClient.rpc("dashboard_bulanan_weekly", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString() }),
         ]);
-        const topRes = await Promise.all(MACHINES.map((m) =>
-          supabaseClient.rpc("dashboard_harian_top_problems", { p_mesin: m.key, p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_limit: 5 })
-        ));
-
         const prodRows = prodRes.data || [];
         const dayKeyStr = (day) => localDateStr(new Date(year, month - 1, day));
         const findRow = (rows, day) => rows.find((r) => r.tanggal === dayKeyStr(day));
@@ -1015,38 +911,57 @@ function dashboardExhaust() {
           weekStartSet.add(localDateStr(isoWeekStart(d)));
         }
         const weekStarts = Array.from(weekStartSet).sort();
-        const weekly = weekStarts.map((ws) => ({
+        const sumDowntime = (ws, m) => {
+          const r = weeklyRows.find((x) => x.minggu_mulai === ws && x.mesin === m.key);
+          return r ? Math.round(Number(r.downtime_menit)) : 0;
+        };
+        // Grid Weekly DIFIX 5 kolom (Week 1-5). Kalau bulan kalender ini
+        // ternyata punya lebih dari 5 minggu (mis. tanggal 1 jatuh di hari
+        // Sabtu sehingga sisa beberapa hari terakhir masuk ke minggu ke-6),
+        // sisa minggu ke-5 dan seterusnya itu DIGABUNG jadi satu bucket
+        // "Week 5" (dijumlahkan), bukan dibuat kolom ke-6.
+        const weekStartsCapped = weekStarts.slice(0, 4); // Week 1-4 apa adanya
+        const weekStartsMergedInto5 = weekStarts.slice(4); // Week 5 dst -> digabung
+        const weekly = weekStartsCapped.map((ws) => ({
           labels: MACHINES.map((m) => m.key),
-          values: MACHINES.map((m) => {
-            const r = weeklyRows.find((x) => x.minggu_mulai === ws && x.mesin === m.key);
-            return r ? Math.round(Number(r.downtime_menit)) : 0;
-          }),
+          values: MACHINES.map((m) => sumDowntime(ws, m)),
         }));
+        if (weekStartsMergedInto5.length > 0) {
+          weekly.push({
+            labels: MACHINES.map((m) => m.key),
+            values: MACHINES.map((m) => weekStartsMergedInto5.reduce((sum, ws) => sum + sumDowntime(ws, m), 0)),
+          });
+        }
         while (weekly.length < 5) weekly.push({ labels: MACHINES.map((m) => m.key), values: MACHINES.map(() => 0) });
 
-        // Downtime Terbesar per line -- kolom lengkap: PIC, Problem, Area,
-        // Countermeasure, Status, Shift, Menit. Selalu tampilkan 5 baris ke
-        // bawah, baris kosong jadi placeholder kalau data belum sampai 5.
-        const downtimeTerbesar = MACHINES.map((m, idx) => {
-          const rows = ((topRes[idx] && topRes[idx].data) || []).map((r) => ({
-            pic: r.pic || "",
-            problem: r.problem || "",
-            area: r.area || "",
-            countermeasure: r.countermeasure || "",
-            status: r.status || "",
-            shift: r.shift || "",
-            menit: Math.round(Number(r.total_menit) || 0),
-          }));
-          const rowsPadded = [...rows];
-          while (rowsPadded.length < 5) rowsPadded.push({ pic: "", problem: "", area: "", countermeasure: "", status: "", shift: "", menit: "" });
-          return { mesin: m.key, rows, rowsPadded };
-        });
+        // Downtime Terbesar per line -- SELALU per-tanggal (bukan sebulan
+        // penuh). bulananDate dijamin selalu terisi (default hari ini, atau
+        // tanggal 1 kalau lagi lihat bulan lain) -- lihat init() dan
+        // onBulananPeriodChange(). Kalau karena suatu hal kosong, fallback
+        // ke tanggal 1 bulan yang lagi dipilih supaya tetap per-tanggal.
+        if (!this.bulananDate) this.bulananDate = localDateStr(periodStart);
+        const dtStart = new Date(this.bulananDate + "T00:00:00");
+        const dtEnd = new Date(dtStart);
+        dtEnd.setDate(dtEnd.getDate() + 1);
+        const downtimeTerbesar = await this.fetchDowntimeTerbesarFor(dtStart, dtEnd);
+
+        // Rata-rata Productivity & Availability (dari hari yg sudah ada data),
+        // dan Total Downtime Harian (menit) sebulan -- ditampilkan di pojok
+        // kanan atas masing-masing chart.
+        const avgOf = (arr) => {
+          const nums = arr.filter((v) => v !== null && v !== undefined);
+          if (!nums.length) return 0;
+          return Number((nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(1));
+        };
+        const productivityAvg = avgOf(productivityActual);
+        const availabilityAvg = avgOf(availabilityActual);
+        const downtimeHarianTotal = downtimeHarianValues.reduce((a, b) => a + b, 0);
 
         this.bulanan = {
           dayLabels,
-          productivity: { value: productivityValue, actual: productivityActual, target: 100 },
-          availability: { value: availabilityValue, actual: availabilityActual, target: 100 },
-          downtimeHarian: { labels: dayLabels, values: downtimeHarianValues },
+          productivity: { value: productivityValue, actual: productivityActual, target: 100, avg: productivityAvg },
+          availability: { value: availabilityValue, actual: availabilityActual, target: 100, avg: availabilityAvg },
+          downtimeHarian: { labels: dayLabels, values: downtimeHarianValues, total: downtimeHarianTotal },
           downtimeSupporting,
           downtimeLine,
           weekly,
@@ -1235,8 +1150,74 @@ function dashboardExhaust() {
       this.destroyBulananCharts();
       this.bulananLoaded = false; // paksa fetch ulang periode baru
       this.bulananLoading = true;
+      // Kalau bulan/tahun yang dipilih adalah bulan berjalan, otomatis
+      // isi tanggal dengan hari ini lagi. Kalau bukan (mis. lihat bulan
+      // lalu), pindah ke tanggal 1 bulan tsb -- tabel selalu per-tanggal,
+      // tidak pernah kosong/sebulan-penuh.
+      const today = new Date();
+      if (this.bulananMonth === today.getMonth() + 1 && this.bulananYear === today.getFullYear()) {
+        this.bulananDate = localDateStr(today);
+      } else {
+        this.bulananDate = localDateStr(new Date(this.bulananYear, this.bulananMonth - 1, 1));
+      }
       await this.fetchBulanan();
       this.$nextTick(() => this.renderBulananCharts());
+    },
+    // Ambil Top 5 Downtime Terbesar per line untuk rentang [start, end)
+    // tertentu -- dipakai untuk satu tanggal spesifik (tabel ini selalu
+    // per-tanggal, tidak pernah agregat sebulan).
+    async fetchDowntimeTerbesarFor(start, end) {
+      const topRes = await Promise.all(MACHINES.map((m) =>
+        supabaseClient.rpc("dashboard_harian_top_problems", { p_mesin: m.key, p_start: start.toISOString(), p_end: end.toISOString(), p_limit: 5 })
+      ));
+      return MACHINES.map((m, idx) => {
+        const rows = ((topRes[idx] && topRes[idx].data) || []).map((r) => ({
+          pic: r.pic || "",
+          problem: r.problem || "",
+          area: r.area || "",
+          countermeasure: r.countermeasure || "",
+          status: r.status || "",
+          shift: r.shift || "",
+          menit: Math.round(Number(r.total_menit) || 0),
+        }));
+        const rowsPadded = [...rows];
+        while (rowsPadded.length < 5) rowsPadded.push({ pic: "", problem: "", area: "", countermeasure: "", status: "", shift: "", menit: "" });
+        return { mesin: m.key, rows, rowsPadded };
+      });
+    },
+    // Dipanggil saat date picker (di samping filter Line) berubah.
+    // Tabel ini SELALU per-tanggal -- kalau user berhasil mengosongkan
+    // input (lewat tombol clear bawaan browser), otomatis snap balik ke
+    // hari ini (kalau hari ini masih dalam bulan/tahun aktif) atau ke
+    // tanggal 1 bulan aktif.
+    async onBulananDateChange() {
+      if (!this.bulananDate) {
+        const today = new Date();
+        if (this.bulananMonth === today.getMonth() + 1 && this.bulananYear === today.getFullYear()) {
+          this.bulananDate = localDateStr(today);
+        } else {
+          this.bulananDate = localDateStr(new Date(this.bulananYear, this.bulananMonth - 1, 1));
+        }
+      }
+      const start = new Date(this.bulananDate + "T00:00:00");
+      const end = new Date(start);
+      end.setDate(end.getDate() + 1);
+      this.bulananDtLoading = true;
+      try {
+        this.bulanan.downtimeTerbesar = await this.fetchDowntimeTerbesarFor(start, end);
+      } catch (e) {
+        console.error("Gagal mengambil Downtime Terbesar untuk tanggal terpilih:", e);
+      } finally {
+        this.bulananDtLoading = false;
+      }
+    },
+    // Batas min/max date picker supaya user cuma bisa pilih tanggal
+    // di dalam bulan/tahun yang lagi aktif di tab Bulanan.
+    bulananDateMin() {
+      return localDateStr(new Date(this.bulananYear, this.bulananMonth - 1, 1));
+    },
+    bulananDateMax() {
+      return localDateStr(new Date(this.bulananYear, this.bulananMonth, 0));
     },
     // Semua tabel "Terbesar" (Downtime/NG Inline/Repair) defaultnya
     // menampilkan minimal 8 baris -- kalau data asli kurang dari 8, sisanya
@@ -1468,6 +1449,57 @@ function dashboardExhaust() {
         },
       });
 
+      // Label angka di atas tiap titik pada chart area/line (mis. Weekly)
+      const areaValueLabels = (formatter, datasetIndex = 0) => ({
+        id: "dxbAreaValueLabels",
+        afterDatasetsDraw(chart) {
+          const { ctx, chartArea } = chart;
+          const meta = chart.getDatasetMeta(datasetIndex);
+          const dataset = chart.data.datasets[datasetIndex];
+          if (!meta || !dataset || meta.type !== "line" || !meta.data) return;
+          const textColor = cssVar("--dxy-text") || "#1F2937";
+          const n = meta.data.length;
+          const slotWidth = chartArea && n ? chartArea.width / n : 30;
+          const fontSize = slotWidth < 18 ? 6.5 : slotWidth < 26 ? 7.5 : slotWidth < 40 ? 8.5 : 9.5;
+          ctx.save();
+          ctx.font = `700 ${fontSize}px Inter, sans-serif`;
+          ctx.textAlign = "center"; ctx.fillStyle = textColor;
+          meta.data.forEach((point, i) => {
+            const val = Number(dataset.data[i]);
+            if (val === null || val === undefined || Number.isNaN(val) || val === 0) return;
+            const { x, y } = point.getProps(["x", "y"], true);
+            ctx.textBaseline = "bottom";
+            ctx.fillText(formatter(val), x, y - 8);
+          });
+          ctx.restore();
+        },
+      });
+
+      // Efek "menyala" (glow) di belakang tiap titik pada chart area/line
+      const glowPoints = (colorFn, datasetIndex = 0) => ({
+        id: "dxbGlowPoints",
+        beforeDatasetsDraw(chart) {
+          const meta = chart.getDatasetMeta(datasetIndex);
+          if (!meta || !meta.data) return;
+          const { ctx } = chart;
+          meta.data.forEach((point, i) => {
+            const { x, y } = point.getProps(["x", "y"], true);
+            const hex = colorFn(i);
+            const glowR = 7;
+            ctx.save();
+            const g = ctx.createRadialGradient(x, y, 0, x, y, glowR);
+            g.addColorStop(0, hex + "40");   // pusat, tipis
+            g.addColorStop(0.6, hex + "1A"); // meredup lebih cepat
+            g.addColorStop(1, hex + "00");   // transparan penuh di tepi
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(x, y, glowR, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          });
+        },
+      });
+
       // --- Productivity & Availability harian (%), bar gradient + target ---
       const kpiBigPct = (canvasId, labels, actual, target, hex) => {
         destroy(canvasId);
@@ -1543,15 +1575,33 @@ function dashboardExhaust() {
           const total = w.values.reduce((a, v) => a + v, 0);
           const labels = [...w.labels, "Total"];
           const values = [...w.values, total];
-          const colors = [...w.labels.map(() => "#2563EB"), "#0F172A"];
+          // Titik biru untuk tiap line, titik navy gelap untuk Total
+          const pointColors = [...w.labels.map(() => "#2563EB"), "#0F172A"];
           this.bulananCharts[canvasId] = new Chart(canvas, {
-            type: "bar",
-            data: { labels, datasets: [{ data: values, backgroundColor: colors, borderRadius: 3, barPercentage: 0.6, categoryPercentage: 0.7 }] },
+            type: "line",
+            data: {
+              labels,
+              datasets: [{
+                data: values,
+                fill: true,
+                backgroundColor: grad(canvas, "#2563EB", 0.30, 0.02), // area transparan
+                borderColor: "#2563EB",
+                borderWidth: 1.5,
+                tension: 0.45, // kurva lebih halus
+                pointRadius: 3,
+                pointHoverRadius: 4,
+                pointBackgroundColor: pointColors,
+                pointBorderColor: cssVar("--panel") || "#fff",
+                pointBorderWidth: 1.5,
+              }],
+            },
             options: {
               responsive: true, maintainAspectRatio: false, animation: noAnim,
+              layout: { padding: { top: 20 } },
               plugins: { legend: legend(false), tooltip: tooltip() },
               scales: baseScales(),
             },
+            plugins: [glowPoints((i) => pointColors[i]), areaValueLabels((v) => fmtNum(v))],
           });
         }, "week" + (idx + 1));
       });
@@ -1842,49 +1892,6 @@ function dashboardExhaust() {
           plugins: [donutLeaderLabels((v) => fmtNum(v))],
         });
       }, "downtimeLine");
-    },
-    async fetchAll() {
-      this.loading = true;
-      const { start, end } = this.bounds();
-
-      const results = await Promise.all(MACHINES.map(async (m) => {
-        const [aggRes, settingsRes, statusRes] = await Promise.all([
-          supabaseClient.rpc("performance_aggregate", { p_mesin: m.key, p_stasiun_list: null, p_start: start.toISOString(), p_end: end.toISOString() }),
-          supabaseClient.from("mesin_settings").select("*").eq("mesin", m.key).maybeSingle(),
-          supabaseClient.from("production_log").select("part_number, waktu_akhir").eq("mesin", m.key)
-            .gte("waktu_awal", start.toISOString()).lt("waktu_awal", end.toISOString())
-            .order("waktu_awal", { ascending: false }).limit(1),
-        ]);
-        const row = (aggRes.data && aggRes.data[0]) || {};
-        const settings = settingsRes.data || { gsph_target_mode: "fixed", gsph_target_fixed: 0 };
-        const whJam = (Number(row.wh_menit) || 0) / 60;
-        const stroke = Number(row.stroke) || 0;
-        const ng = Number(row.ng) || 0;
-        const downtimeMenit = Math.round(Number(row.downtime_menit) || 0);
-        const targetStdMenit = Number(row.target_std_menit) || 0;
-        let targetGsph = Number(settings.gsph_target_fixed) || 0;
-        if (settings.gsph_target_mode === "per_part" && targetStdMenit > 0) targetGsph = stroke / (targetStdMenit / 60);
-        const gsph = whJam > 0 ? stroke / whJam : 0;
-        const availability = whJam > 0 ? Math.max(0, (whJam * 60 - downtimeMenit) / (whJam * 60)) * 100 : 0;
-        const performanceFactor = targetGsph > 0 ? Math.min(gsph / targetGsph, 1) * 100 : 0;
-        const quality = stroke > 0 ? Math.max(0, (stroke - ng) / stroke) * 100 : 100;
-        const oee = (availability / 100) * (performanceFactor / 100) * (quality / 100) * 100;
-        const last = (statusRes.data && statusRes.data[0]) || null;
-        return { mesin: m.key, data: { stroke, ng, downtimeMenit, gsph, targetGsph, performanceFactor, oee, lastPart: last ? last.part_number : null } };
-      }));
-
-      this.machines = MACHINES.map((m) => ({ ...m, data: results.find((r) => r.mesin === m.key).data }));
-
-      const t = results.reduce((acc, r) => ({
-        stroke: acc.stroke + r.data.stroke,
-        ng: acc.ng + r.data.ng,
-        downtimeMenit: acc.downtimeMenit + r.data.downtimeMenit,
-        oeeSum: acc.oeeSum + r.data.oee,
-      }), { stroke: 0, ng: 0, downtimeMenit: 0, oeeSum: 0 });
-      this.totals = { stroke: t.stroke, ng: t.ng, downtimeMenit: t.downtimeMenit, avgOee: t.oeeSum / MACHINES.length };
-      this.lineAktif = results.filter((r) => r.data.stroke > 0).length;
-
-      this.loading = false;
     },
     logout,
   };
