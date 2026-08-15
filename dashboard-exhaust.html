@@ -282,9 +282,9 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
 .qc-chart-month  { min-height: 200px !important; max-height: 200px; }
 .qc-chart-sub    { min-height: 160px !important; max-height: 160px; }
 .qc-chart-daily  { min-height: 170px !important; max-height: 170px; }
-.qc-detail-table { font-size: 11px; table-layout: fixed; }
-.qc-detail-table thead th { padding: 6px 8px; font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
-.qc-detail-table tbody td { padding: 5px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 22px; }
+.qc-detail-table { font-size: 10px; table-layout: fixed; }
+.qc-detail-table thead th { padding: 5px 4px; font-size: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center !important; text-transform: none !important; letter-spacing: normal !important; }
+.qc-detail-table tbody td { padding: 4px 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 20px; }
 @media (max-width: 1366px) { .dxy-qc-grid { grid-template-columns: 1fr; } }
 @media (max-width: 1366px) { .dxy-qc-subgrid { grid-template-columns: 1fr; } }
 
@@ -701,7 +701,7 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
               <div class="dxy-table-scroll">
                 <table class="dxy-table">
                   <thead>
-                    <tr><th style="width:130px">Repair Kategori</th><th style="text-align:right">Qty</th></tr>
+                    <tr><th style="width:130px">Repair Kategori</th><th>Qty</th></tr>
                   </thead>
                   <tbody>
                     <template x-for="(row, i) in dxyFilteredRepairTerbesar()" :key="row.mesin + '-' + i">
@@ -762,43 +762,35 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
 
               <div class="dxy-panel dxy-table-panel-sm">
                 <div class="dxy-panel-head">
-                  <span class="dxy-panel-title">Detail NG Inline</span>
+                  <span class="dxy-panel-title">Rekap NG Inline</span>
                   <input type="date" class="dxy-input" style="min-width:130px;" x-model="qcNgInlineDetailDate">
                 </div>
                 <div class="dxy-table-scroll">
                   <table class="dxy-table qc-detail-table">
                     <thead>
                       <tr>
-                        <th>Model</th><th>Line</th><th>Part No</th><th>Area</th><th>NG Proses</th>
-                        <th style="text-align:right">Qty</th><th>NG Kategori</th><th style="text-align:right">Value</th>
+                        <th style="width:48px">Model</th><th style="width:36px">Line</th><th style="width:13%">Part No</th><th style="width:13%">Area</th><th style="width:17%">NG Proses</th>
+                        <th style="width:36px">Qty</th><th style="width:18%">NG Kategori</th><th style="width:15%">Value</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr><td colspan="8" class="dxy-empty-cell" style="text-align:center; padding:20px;">Belum ada data — menunggu koneksi RPC.</td></tr>
+                      <template x-for="(row, i) in qcNgInlineRows()" :key="'qcng-'+i">
+                        <tr>
+                          <td x-text="row.model"></td>
+                          <td x-text="row.line"></td>
+                          <td x-text="row.partNo"></td>
+                          <td x-text="row.area"></td>
+                          <td x-text="row.ngProses"></td>
+                          <td x-text="row.qty"></td>
+                          <td x-text="row.ngKategori"></td>
+                          <td x-text="row.value"></td>
+                        </tr>
+                      </template>
                     </tbody>
                   </table>
                 </div>
               </div>
 
-              <div class="dxy-panel dxy-table-panel-sm">
-                <div class="dxy-panel-head">
-                  <span class="dxy-panel-title">Rekap All NG Inline</span>
-                  <span class="dxy-panel-sub" x-text="qcRekapMonthLabel"></span>
-                </div>
-                <div class="dxy-table-scroll">
-                  <table class="dxy-table qc-detail-table">
-                    <thead>
-                      <tr>
-                        <th>Model</th><th>Line</th><th>Part No</th><th>Area</th><th>NG Proses</th>
-                        <th style="text-align:right">Qty</th><th>NG Kategori</th><th style="text-align:right">Value</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr><td colspan="8" class="dxy-empty-cell" style="text-align:center; padding:20px;">Belum ada data — menunggu koneksi RPC.</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
             </div>
 
             <!-- ===== KOLOM 2: NG INLINE TRIAL ===== -->
@@ -828,39 +820,30 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
 
               <div class="dxy-panel dxy-table-panel-sm">
                 <div class="dxy-panel-head">
-                  <span class="dxy-panel-title">Detail NG Trial</span>
+                  <span class="dxy-panel-title">Rekap NG Trial</span>
                   <input type="date" class="dxy-input" style="min-width:130px;" x-model="qcNgTrialDetailDate">
                 </div>
                 <div class="dxy-table-scroll">
                   <table class="dxy-table qc-detail-table">
                     <thead>
                       <tr>
-                        <th>Model</th><th>Line</th><th>Part No</th><th>Area</th><th>NG Proses</th>
-                        <th style="text-align:right">Qty</th><th>NG Kategori</th><th style="text-align:right">Value</th>
+                        <th style="width:48px">Model</th><th style="width:36px">Line</th><th style="width:13%">Part No</th><th style="width:13%">Area</th><th style="width:17%">NG Proses</th>
+                        <th style="width:36px">Qty</th><th style="width:18%">NG Kategori</th><th style="width:15%">Value</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr><td colspan="8" class="dxy-empty-cell" style="text-align:center; padding:20px;">Belum ada data — menunggu koneksi RPC.</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div class="dxy-panel dxy-table-panel-sm">
-                <div class="dxy-panel-head">
-                  <span class="dxy-panel-title">Rekap All NG Trial</span>
-                  <span class="dxy-panel-sub" x-text="qcRekapMonthLabel"></span>
-                </div>
-                <div class="dxy-table-scroll">
-                  <table class="dxy-table qc-detail-table">
-                    <thead>
-                      <tr>
-                        <th>Model</th><th>Line</th><th>Part No</th><th>Area</th><th>NG Proses</th>
-                        <th style="text-align:right">Qty</th><th>NG Kategori</th><th style="text-align:right">Value</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr><td colspan="8" class="dxy-empty-cell" style="text-align:center; padding:20px;">Belum ada data — menunggu koneksi RPC.</td></tr>
+                      <template x-for="(row, i) in qcNgTrialRows()" :key="'qctrial-'+i">
+                        <tr>
+                          <td x-text="row.model"></td>
+                          <td x-text="row.line"></td>
+                          <td x-text="row.partNo"></td>
+                          <td x-text="row.area"></td>
+                          <td x-text="row.ngProses"></td>
+                          <td x-text="row.qty"></td>
+                          <td x-text="row.ngKategori"></td>
+                          <td x-text="row.value"></td>
+                        </tr>
+                      </template>
                     </tbody>
                   </table>
                 </div>
@@ -894,37 +877,28 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
 
               <div class="dxy-panel dxy-table-panel-sm">
                 <div class="dxy-panel-head">
-                  <span class="dxy-panel-title">Detail Straightpass</span>
+                  <span class="dxy-panel-title">Rekap Repair</span>
                   <input type="date" class="dxy-input" style="min-width:130px;" x-model="qcStraightpassDetailDate">
                 </div>
                 <div class="dxy-table-scroll">
                   <table class="dxy-table qc-detail-table">
                     <thead>
                       <tr>
-                        <th>Model</th><th>Line</th><th>Part No</th><th style="text-align:right">Qty</th>
+                        <th style="width:48px">Model</th><th style="width:36px">Line</th><th style="width:16%">Part No</th><th style="width:36px">Qty</th><th style="width:16%">Area</th><th style="width:12%">Point</th><th style="width:22%">Repair Kategori</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr><td colspan="4" class="dxy-empty-cell" style="text-align:center; padding:20px;">Belum ada data — menunggu koneksi RPC.</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div class="dxy-panel dxy-table-panel-sm">
-                <div class="dxy-panel-head">
-                  <span class="dxy-panel-title">Rekap All Repair</span>
-                  <span class="dxy-panel-sub" x-text="qcRekapMonthLabel"></span>
-                </div>
-                <div class="dxy-table-scroll">
-                  <table class="dxy-table qc-detail-table">
-                    <thead>
-                      <tr>
-                        <th>Model</th><th>Line</th><th>Part No</th><th style="text-align:right">Qty</th><th>Area</th><th>Point</th><th>Repair Kategori</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr><td colspan="7" class="dxy-empty-cell" style="text-align:center; padding:20px;">Belum ada data — menunggu koneksi RPC.</td></tr>
+                      <template x-for="(row, i) in qcRepairRows()" :key="'qcrep-'+i">
+                        <tr>
+                          <td x-text="row.model"></td>
+                          <td x-text="row.line"></td>
+                          <td x-text="row.partNo"></td>
+                          <td x-text="row.qty"></td>
+                          <td x-text="row.area"></td>
+                          <td x-text="row.point"></td>
+                          <td x-text="row.repairKategori"></td>
+                        </tr>
+                      </template>
                     </tbody>
                   </table>
                 </div>
@@ -1526,6 +1500,18 @@ function dashboardExhaust() {
       const out = flat.slice();
       while (out.length < minRows) out.push({ ...emptyRow });
       return out;
+    },
+    // Baris tabel di tab Kontrol Kualitas: default minimal 5 baris kosong,
+    // kalau data asli (belum ada sumbernya sekarang) lebih dari 5, semua
+    // tetap ditampilkan dan scroll otomatis muncul dari .dxy-table-scroll.
+    qcNgInlineRows() {
+      return this.dxyPadMin([], { model: "", line: "", partNo: "", area: "", ngProses: "", qty: "", ngKategori: "", value: "" }, 5);
+    },
+    qcNgTrialRows() {
+      return this.dxyPadMin([], { model: "", line: "", partNo: "", area: "", ngProses: "", qty: "", ngKategori: "", value: "" }, 5);
+    },
+    qcRepairRows() {
+      return this.dxyPadMin([], { model: "", line: "", partNo: "", qty: "", area: "", point: "", repairKategori: "" }, 5);
     },
     dxyFilteredTerbesar() {
       let flat = [];
@@ -2370,6 +2356,42 @@ function dashboardExhaust() {
       qcSimpleBar("qcNgTrialModel", QC_MODELS, "#06B6D4");
       qcSimpleBar("qcStraightpassPerline", QC_LINES, "#22C55E");
       qcSimpleBar("qcStraightpassModel", QC_MODELS, "#22C55E");
+
+      // --- Daily: tanggal 1-31, dual axis. NG Inline & NG Trial pakai
+      // Qty (bar) + Value (garis); Straightpass pakai Qty (bar) + % (garis).
+      // Data belum ada sumbernya -- dikosongkan dulu (struktur & style saja). ---
+      const QC_DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1));
+      const qcDualAxisDaily = (canvasId, hexBar, hexLine, barLabel, lineLabel, lineIsPercent) => {
+        safe(() => {
+          destroy(canvasId);
+          const canvas = document.getElementById(canvasId);
+          if (!canvas) return;
+          const emptyBar = QC_DAYS.map(() => null);
+          const emptyLine = QC_DAYS.map(() => null);
+          this.qcCharts[canvasId] = new Chart(canvas, {
+            data: {
+              labels: QC_DAYS,
+              datasets: [
+                { type: "bar", label: barLabel, data: emptyBar, backgroundColor: barBg(canvas, hexBar, QC_DAYS.length), yAxisID: "y", borderRadius: 4, barPercentage: 0.6, categoryPercentage: 0.75 },
+                { type: "line", label: lineLabel, data: emptyLine, borderColor: hexLine, backgroundColor: hexLine, yAxisID: "y1", pointRadius: 2, tension: 0.3 },
+              ],
+            },
+            options: {
+              responsive: true, maintainAspectRatio: false, animation: noAnim,
+              layout: { padding: { top: 22 } },
+              plugins: { legend: legend(true), tooltip: tooltip() },
+              scales: {
+                x: { ticks: { color: cssVar("--chart-tick"), font: { size: 8 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
+                y: { position: "left", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+                y1: { position: "right", ticks: { color: cssVar("--chart-tick"), font: { size: 9 }, callback: (v) => (lineIsPercent ? v + "%" : v) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, ...(lineIsPercent ? { max: 100 } : {}) },
+              },
+            },
+          });
+        }, canvasId);
+      };
+      qcDualAxisDaily("qcNgInlineDaily", "#F97316", "#8B5CF6", "Qty", "Value", false);
+      qcDualAxisDaily("qcNgTrialDaily", "#06B6D4", "#8B5CF6", "Qty", "Value", false);
+      qcDualAxisDaily("qcStraightpassDaily", "#22C55E", "#EF4444", "Qty", "%", true);
     },
     logout,
   };
