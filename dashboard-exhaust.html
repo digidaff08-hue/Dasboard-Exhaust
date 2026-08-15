@@ -34,7 +34,7 @@
   --dxy-shadow-hover: 0 4px 10px rgba(15,23,42,.06), 0 16px 32px -14px rgba(15,23,42,.18);
   background: var(--dxy-bg);
   color: var(--dxy-text);
-  padding: 12px;
+  padding: 4px 12px 12px 12px;
   border-radius: 20px;
   font-variant-numeric: tabular-nums;
 }
@@ -53,14 +53,15 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 8px;
+  margin-bottom: 6px;
 }
 .dxy-filterbar .dxy-spacer { flex: 1; }
 .dxy-field {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
 }
 .dxy-field label {
   font-size: 9.5px;
@@ -68,19 +69,20 @@
   letter-spacing: .04em;
   text-transform: uppercase;
   color: var(--dxy-muted);
+  white-space: nowrap;
 }
 .dxy-select, .dxy-input {
   background: var(--dxy-card);
   border: 1px solid var(--dxy-border);
   color: var(--dxy-text);
-  border-radius: 10px;
-  padding: 7px 10px;
-  font-size: 12.5px;
+  border-radius: 8px;
+  padding: 4px 7px;
+  font-size: 11.5px;
   font-family: inherit;
-  min-height: 32px;
+  min-height: 26px;
 }
 .dxy-select:disabled, .dxy-input:disabled { opacity: .45; cursor: not-allowed; }
-.dxy-input { min-width: 160px; }
+.dxy-input { min-width: 120px; }
 .dxy-btn {
   display: inline-flex; align-items: center; gap: 6px;
   background: var(--dxy-card);
@@ -152,14 +154,14 @@
 .dxy-chart-grid {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 6px;
+  margin-bottom: 6px;
 }
 .dxy-panel {
   background: var(--dxy-card);
   border: 1px solid var(--dxy-border);
   border-radius: 16px;
-  padding: 14px 16px !important;
+  padding: 10px 12px !important;
   box-shadow: var(--dxy-shadow);
   transition: box-shadow 200ms ease;
   display: flex;
@@ -167,7 +169,7 @@
   min-width: 0;
 }
 .dxy-panel:hover { box-shadow: var(--dxy-shadow-hover); }
-.dxy-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px !important; }
+.dxy-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px !important; }
 .dxy-panel-bignum { font-size: 24px; font-weight: 800; letter-spacing: -0.01em; margin: -6px 0 10px; color: var(--dxy-text); }
 .dxy-panel-title { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
 .dxy-panel-badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(16,185,129,.12); color: var(--dxy-green); }
@@ -176,17 +178,17 @@
 .dxy-span-4 { grid-column: span 4; }
 .dxy-span-6 { grid-column: span 6; }
 .dxy-span-12 { grid-column: span 12; }
-.dxy-chart-box { position: relative; flex: 1; min-height: 210px !important; max-height: 210px; }
-.dxy-chart-box.tall { min-height: 190px !important; max-height: 190px; }
+.dxy-chart-box { position: relative; flex: 1; min-height: 185px !important; max-height: 185px; }
+.dxy-chart-box.tall { min-height: 165px !important; max-height: 165px; }
 
 /* ---- Tabel Downtime Terbesar (redesign total) ---- */
 .dxy-table-panel { grid-column: span 12; }
 /* Varian tabel sejajar 3-kolom (Downtime / NG Inline / Repair Terbesar) */
 .dxy-table-panel-sm .dxy-table-scroll { max-height: 300px !important; overflow-x: hidden; }
 .dxy-table-panel-sm table.dxy-table { font-size: 11.5px; width: 100%; table-layout: fixed; }
-.dxy-table-panel-sm table.dxy-table thead th { padding: 7px 6px; font-size: 9px; }
-.dxy-table-panel-sm table.dxy-table tbody td { padding: 6px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dxy-table-scroll { max-height: 270px !important; overflow: auto; border-radius: 12px; border: 1px solid var(--dxy-border); }
+.dxy-table-panel-sm table.dxy-table thead th { padding: 5px 6px; font-size: 9px; }
+.dxy-table-panel-sm table.dxy-table tbody td { padding: 4px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 24px; }
+.dxy-table-scroll { max-height: 210px !important; overflow: auto; border-radius: 12px; border: 1px solid var(--dxy-border); }
 table.dxy-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12.5px; }
 table.dxy-table thead th {
   position: sticky; top: 0; z-index: 1;
@@ -199,7 +201,7 @@ table.dxy-table thead th {
   text-transform: uppercase;
   color: var(--dxy-muted);
 }
-table.dxy-table tbody td { padding: 7px 12px; border-bottom: 1px solid var(--dxy-border); vertical-align: middle; }
+table.dxy-table tbody td { padding: 5px 12px; border-bottom: 1px solid var(--dxy-border); vertical-align: middle; }
 table.dxy-table tbody tr:nth-child(even) { background: rgba(107,114,128,.045); }
 table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
 .dxy-rank-badge {
@@ -209,18 +211,18 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
 }
 .dxy-pic-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: var(--dxy-muted); }
 .dxy-pic-chip .dot { width: 7px; height: 7px; border-radius: 50%; }
-.dxy-minute-badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; }
+.dxy-minute-badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; background: rgba(100,116,139,.12); color: var(--dxy-text); }
 .dxy-empty-cell { color: var(--dxy-muted); font-style: italic; }
 
 /* ---- Bulanan (harian 1-31): grid Weekly 5 kolom sejajar ---- */
 .dxy-weekly-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 6px;
+  margin-bottom: 6px;
 }
 .dxy-weekly-grid .dxy-panel { min-width: 0; }
-.dxy-weekly-grid .dxy-chart-box { min-height: 150px !important; max-height: 150px; }
+.dxy-weekly-grid .dxy-chart-box { min-height: 130px !important; max-height: 130px; }
 @media (max-width: 1366px) { .dxy-weekly-grid { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 720px) { .dxy-weekly-grid { grid-template-columns: repeat(2, 1fr); } }
 
@@ -231,16 +233,85 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
   gap: 10px;
   margin-bottom: 10px;
 }
-.dxy-dt-terbesar-grid .dxy-table-scroll { max-height: 260px !important; overflow: auto; }
-.dxy-dt-terbesar-grid table.dxy-table { font-size: 10.5px; min-width: 560px; }
-.dxy-dt-terbesar-grid table.dxy-table thead th { padding: 6px 6px; font-size: 8.5px; white-space: nowrap; }
-.dxy-dt-terbesar-grid table.dxy-table tbody td { padding: 5px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px; }
+.dxy-dt-terbesar-grid .dxy-table-scroll { max-height: 165px !important; overflow: auto; }
+.dxy-dt-terbesar-grid table.dxy-table { font-size: 10px; table-layout: fixed; width: 100%; }
+.dxy-dt-terbesar-grid table.dxy-table thead th { padding: 4px 3px; font-size: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+.dxy-dt-terbesar-grid table.dxy-table tbody td { padding: 3px 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 18px; }
 .dxy-status-chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 9.5px; font-weight: 700; }
 .dxy-status-open { background: rgba(239,68,68,.14); color: #EF4444; }
 .dxy-status-progress { background: rgba(245,158,11,.14); color: #F59E0B; }
 .dxy-status-closed { background: rgba(16,185,129,.14); color: #10B981; }
 @media (max-width: 1366px) { .dxy-dt-terbesar-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 720px) { .dxy-dt-terbesar-grid { grid-template-columns: 1fr; } }
+.dxy-dt-merged-panel .dxy-table-scroll { max-height: none !important; overflow: visible !important; }
+.dxy-dt-merged-panel table.dxy-table { font-size: 14.5px; table-layout: fixed; }
+.dxy-dt-merged-panel table.dxy-table thead th { padding: 9px 12px; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+.dxy-dt-merged-panel table.dxy-table tbody td { padding: 9px 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---- Tab Kontrol Kualitas: 3 kolom (NG Inline / NG Inline Trial / Straightpass) ---- */
+.dxy-qc-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+.dxy-qc-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.dxy-qc-header {
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  text-align: center;
+  color: #fff;
+}
+.dxy-qc-amber { background: linear-gradient(90deg, #d97706, #f59e0b); }
+.dxy-qc-cyan  { background: linear-gradient(90deg, #0e7490, #06b6d4); }
+.dxy-qc-green { background: linear-gradient(90deg, #15803d, #22c55e); }
+.dxy-qc-subgrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.qc-chart-month  { min-height: 200px !important; max-height: 200px; }
+.qc-chart-sub    { min-height: 160px !important; max-height: 160px; }
+.qc-chart-daily  { min-height: 170px !important; max-height: 170px; }
+.qc-detail-table { font-size: 11px; table-layout: fixed; }
+.qc-detail-table thead th { padding: 6px 8px; font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+.qc-detail-table tbody td { padding: 5px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 22px; }
+@media (max-width: 1366px) { .dxy-qc-grid { grid-template-columns: 1fr; } }
+@media (max-width: 1366px) { .dxy-qc-subgrid { grid-template-columns: 1fr; } }
+
+/* ---- Khusus tab Tahunan: tinggikan chart Productivity/Availability/NG Inline/
+   Straight Pass & Downtime Exhaust/Supporting/Line. Discope pakai class
+   .dxy-tahunan-main-grid supaya tidak ikut mengubah tab Bulanan. ---- */
+.dxy-tahunan-main-grid .dxy-chart-box { min-height: 210px !important; max-height: 210px; }
+.dxy-tahunan-main-grid .dxy-chart-box.tall { min-height: 195px !important; max-height: 195px; }
+@media (min-width: 1400px) and (min-height: 700px) {
+  .dxy-tahunan-main-grid .dxy-chart-box { min-height: 21vh !important; max-height: 21vh !important; }
+  .dxy-tahunan-main-grid .dxy-chart-box.tall { min-height: 19vh !important; max-height: 19vh !important; }
+}
+
+/* ---- Auto-fit tinggi mengikuti viewport, HANYA untuk layar desktop penuh
+   (lebar >=1400px & tinggi >=700px). Di layar sempit/mobile tetap pakai
+   tinggi fixed (px) di atas supaya layout responsive tidak terganggu. ---- */
+@media (min-width: 1400px) and (min-height: 700px) {
+  .dxy-chart-box { min-height: 18vh !important; max-height: 18vh !important; }
+  .dxy-chart-box.tall { min-height: 15.5vh !important; max-height: 15.5vh !important; }
+  .dxy-weekly-grid .dxy-chart-box { min-height: 11.5vh !important; max-height: 11.5vh !important; }
+  .dxy-table-panel-sm .dxy-table-scroll { max-height: 30vh !important; }
+  .dxy-dt-merged-panel .dxy-table-scroll { max-height: none !important; overflow: visible !important; }
+  .dxy-fill { display: flex; flex-direction: column; min-height: calc(100vh - 120px); }
+  .dxy-fill > .dxy { display: flex; flex-direction: column; flex: 1; }
+  .dxy-dt-merged-panel { flex: 1; }
+  .dxy-dt-merged-panel .dxy-table-scroll { flex: 1; }
+}
 
 /* ---- Skeleton loading ---- */
 .dxy-skeleton-row { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; margin-bottom: 16px; }
@@ -273,9 +344,13 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
    Ini di luar namespace .dxy karena topbar/tab-nav dipakai bersama oleh
    semua tab, tapi hanya memangkas whitespace kosong -- tidak mengubah
    logika atau tampilan konten tab lain. ---- */
-.dash-topbar { margin-bottom: 4px !important; padding-bottom: 0 !important; }
-.dash-title-block h1 { margin: 0 !important; }
-.main { padding-top: 10px !important; }
+.dash-topbar { margin: 0 !important; padding: 0 !important; }
+.dash-title-block { margin: 0 !important; padding: 0 !important; }
+.dash-title-block h1 { margin: 0 !important; padding: 0 !important; line-height: 1.1 !important; }
+.main { padding-top: 0 !important; gap: 4px !important; }
+.dash-subtab-nav { margin: 0 !important; padding: 0 !important; }
+.dash-subtab-nav button { margin: 0 !important; }
+.dxy-fill { margin-top: 0 !important; padding-top: 0 !important; }
 </style>
 <script>
   (function () {
@@ -337,7 +412,7 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
     </div>
 
     <!-- Switch Tahunan / Bulanan / Kontrol Kualitas -->
-    <div class="dash-subtab-nav" style="display:flex; gap:8px; margin-bottom:6px; flex-wrap:wrap;">
+    <div class="dash-subtab-nav" style="display:flex; gap:8px; flex-wrap:wrap;">
       <button class="btn-secondary btn-sm" :class="activeTab==='tahunan' ? 'btn-primary' : ''" @click="setTab('tahunan')">Tahunan</button>
       <button class="btn-secondary btn-sm" :class="activeTab==='bulanan' ? 'btn-primary' : ''" @click="setTab('bulanan')">Bulanan</button>
       <button class="btn-secondary btn-sm" :class="activeTab==='kualitas' ? 'btn-primary' : ''" @click="setTab('kualitas')">Kontrol Kualitas</button>
@@ -381,6 +456,7 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
                   <template x-for="m in MACHINES_REF" :key="'bl-'+m.key"><option :value="m.key" x-text="m.key"></option></template>
                 </select>
               </div>
+              <div class="dxy-spacer"></div>
               <div class="dxy-field">
                 <label>Tanggal</label>
                 <input type="date" class="dxy-input" style="min-width:150px;"
@@ -389,17 +465,16 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
                        :disabled="bulananLoading"
                        @change="onBulananDateChange()">
               </div>
-              <div class="dxy-spacer"></div>
             </div>
 
             <!-- ===== Baris 2: Productivity & Availability, harian 1-31, dalam % ===== -->
             <div class="dxy-chart-grid">
               <div class="dxy-panel dxy-span-6">
-                <div class="dxy-panel-head"><span class="dxy-panel-title">📈 Productivity</span><span class="dxy-panel-sub" x-text="'Rata-rata ' + fmtNum(bulanan.productivity.avg) + '%'"></span></div>
+                <div class="dxy-panel-head"><span class="dxy-panel-title">📈 Productivity</span><span class="dxy-panel-sub" style="font-weight:700; color:var(--dxy-text);" x-text="'Rata-rata ' + fmtNum(bulanan.productivity.avg) + '%'"></span></div>
                 <div class="dxy-chart-box"><canvas id="dxbProductivity"></canvas></div>
               </div>
               <div class="dxy-panel dxy-span-6">
-                <div class="dxy-panel-head"><span class="dxy-panel-title">✅ Availability</span><span class="dxy-panel-sub" x-text="'Rata-rata ' + fmtNum(bulanan.availability.avg) + '%'"></span></div>
+                <div class="dxy-panel-head"><span class="dxy-panel-title">✅ Availability</span><span class="dxy-panel-sub" style="font-weight:700; color:var(--dxy-text);" x-text="'Rata-rata ' + fmtNum(bulanan.availability.avg) + '%'"></span></div>
                 <div class="dxy-chart-box"><canvas id="dxbAvailability"></canvas></div>
               </div>
             </div>
@@ -407,7 +482,7 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
             <!-- ===== Baris 3: Downtime harian 1-31 + Supporting (PIC) + Line ===== -->
             <div class="dxy-chart-grid">
               <div class="dxy-panel dxy-span-6">
-                <div class="dxy-panel-head"><span class="dxy-panel-title">⏱ Downtime Harian</span><span class="dxy-panel-sub" x-text="'Total ' + fmtNum(bulanan.downtimeHarian.total) + ' menit'"></span></div>
+                <div class="dxy-panel-head"><span class="dxy-panel-title">⏱ Downtime Harian</span><span class="dxy-panel-sub" style="font-weight:700; color:var(--dxy-text);" x-text="'Total ' + fmtNum(bulanan.downtimeHarian.total) + ' menit'"></span></div>
                 <div class="dxy-chart-box tall"><canvas id="dxbDowntimeHarian"></canvas></div>
               </div>
               <div class="dxy-panel dxy-span-3">
@@ -424,58 +499,53 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
             <div class="dxy-weekly-grid">
               <template x-for="(w, idx) in bulanan.weekly" :key="'bweek-'+idx">
                 <div class="dxy-panel">
-                  <div class="dxy-panel-head"><span class="dxy-panel-title" x-text="'WEEK ' + (idx + 1)"></span></div>
+                  <div class="dxy-panel-head"><span class="dxy-panel-title" x-text="'WEEK ' + (idx + 1)"></span><span class="dxy-panel-sub" style="font-weight:700; color:var(--dxy-text);" x-text="'Total ' + fmtNum(w.values.reduce((a,v)=>a+v,0)) + ' menit'"></span></div>
                   <div class="dxy-chart-box"><canvas :id="'dxbWeek' + (idx + 1)"></canvas></div>
                 </div>
               </template>
             </div>
 
-            <!-- ===== Baris 5: Downtime Terbesar per line — 3 grid kesamping, 2 grid kebawah ===== -->
-            <div class="dxy-dt-terbesar-grid">
-              <template x-for="line in bulanan.downtimeTerbesar" :key="'bdt-'+line.mesin">
-                <div class="dxy-panel dxy-table-panel-sm">
-                  <div class="dxy-panel-head">
-                    <span class="dxy-panel-title" x-text="line.mesin"></span>
-                  </div>
-                  <div class="dxy-table-scroll">
-                    <table class="dxy-table">
-                      <thead>
-                        <tr>
-                          <th>PIC</th>
-                          <th>Problem</th>
-                          <th>Area</th>
-                          <th>Countermeasure</th>
-                          <th>Status</th>
-                          <th>Shift</th>
-                          <th style="text-align:right">Menit</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <template x-for="(row, i) in line.rowsPadded" :key="line.mesin + '-bdt-' + i">
-                          <tr>
-                            <td>
-                              <template x-if="row.pic"><span class="dxy-pic-chip"><span class="dot" :style="'background:' + dxyPicColor(row.pic)"></span><span x-text="row.pic"></span></span></template>
-                              <template x-if="!row.pic"><span class="dxy-empty-cell">-</span></template>
-                            </td>
-                            <td><span x-show="row.problem" x-text="row.problem"></span><span class="dxy-empty-cell" x-show="!row.problem">-</span></td>
-                            <td><span x-show="row.area" x-text="row.area"></span><span class="dxy-empty-cell" x-show="!row.area">-</span></td>
-                            <td><span x-show="row.countermeasure" x-text="row.countermeasure"></span><span class="dxy-empty-cell" x-show="!row.countermeasure">-</span></td>
-                            <td>
-                              <span x-show="row.status" class="dxy-status-chip" :class="dxyStatusClass(row.status)" x-text="row.status"></span>
-                              <span class="dxy-empty-cell" x-show="!row.status">-</span>
-                            </td>
-                            <td><span x-show="row.shift" x-text="row.shift"></span><span class="dxy-empty-cell" x-show="!row.shift">-</span></td>
-                            <td style="text-align:right">
-                              <span x-show="row.menit !== ''" class="dxy-minute-badge" :style="dxyMinuteBadgeStyle(row.menit)" x-text="row.menit"></span>
-                              <span x-show="row.menit === ''" class="dxy-empty-cell">-</span>
-                            </td>
-                          </tr>
-                        </template>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </template>
+            <!-- ===== Baris 5: Downtime Terbesar per line — digabung jadi 1 tabel (kolom Line) ===== -->
+            <div class="dxy-panel dxy-table-panel-sm dxy-dt-merged-panel">
+              <div class="dxy-panel-head">
+                <span class="dxy-panel-title">⏱ Downtime Line</span>
+              </div>
+              <div class="dxy-table-scroll">
+                <table class="dxy-table">
+                  <thead>
+                    <tr>
+                      <th style="width:6%">Line</th>
+                      <th style="width:7%">PIC</th>
+                      <th style="width:18%">Problem</th>
+                      <th style="width:11%">Area</th>
+                      <th style="width:34%">Countermeasure</th>
+                      <th style="width:8%">Status</th>
+                      <th style="width:7%">Shift</th>
+                      <th style="width:9%">Menit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="(row, i) in bulananDowntimeMergedRows()" :key="'bdt-merged-'+i">
+                      <tr>
+                        <td style="font-weight:700;" x-text="row.mesin"></td>
+                        <td>
+                          <template x-if="row.pic"><span class="dxy-pic-chip" :title="row.pic"><span class="dot" :style="'background:' + dxyPicColor(row.pic)"></span><span x-text="row.pic"></span></span></template>
+                        </td>
+                        <td :title="row.problem"><span x-show="row.problem" x-text="row.problem"></span></td>
+                        <td :title="row.area"><span x-show="row.area" x-text="row.area"></span></td>
+                        <td :title="row.countermeasure"><span x-show="row.countermeasure" x-text="row.countermeasure"></span></td>
+                        <td>
+                          <span x-show="row.status" class="dxy-status-chip" :class="dxyStatusClass(row.status)" x-text="row.status"></span>
+                        </td>
+                        <td><span x-show="row.shift" x-text="row.shift"></span></td>
+                        <td style="text-align:right">
+                          <span x-show="row.menit !== ''" class="dxy-minute-badge" x-text="row.menit"></span>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
             </div>
 
           </div>
@@ -511,39 +581,38 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
                   <template x-for="m in MACHINES_REF" :key="m.key"><option :value="m.key" x-text="m.key"></option></template>
                 </select>
               </div>
-              <div class="dxy-spacer"></div>
             </div>
 
             <!-- ===== Grafik utama: Productivity, Availability, NG Inline, Straight Pass -- 4 kolom sejajar ===== -->
-            <div class="dxy-chart-grid">
+            <div class="dxy-chart-grid dxy-tahunan-main-grid">
               <div class="dxy-panel dxy-span-3">
-                <div class="dxy-panel-head"><span class="dxy-panel-title">📈 Productivity</span><span class="dxy-panel-sub" x-text="'FY ' + tahunanYear"></span></div>
+                <div class="dxy-panel-head"><span class="dxy-panel-title">📈 Productivity</span></div>
                 <div class="dxy-chart-box"><canvas id="dxyBigProductivity"></canvas></div>
               </div>
               <div class="dxy-panel dxy-span-3">
-                <div class="dxy-panel-head"><span class="dxy-panel-title">✅ Availability</span><span class="dxy-panel-sub" x-text="'FY ' + tahunanYear"></span></div>
+                <div class="dxy-panel-head"><span class="dxy-panel-title">✅ Availability</span></div>
                 <div class="dxy-chart-box"><canvas id="dxyBigAvailability"></canvas></div>
               </div>
               <div class="dxy-panel dxy-span-3">
-                <div class="dxy-panel-head"><span class="dxy-panel-title">🔶 NG Inline</span><span class="dxy-panel-sub">Qty &amp; Value</span></div>
+                <div class="dxy-panel-head"><span class="dxy-panel-title">🔶 NG Inline</span></div>
                 <div class="dxy-chart-box"><canvas id="dxyBigNg"></canvas></div>
               </div>
               <div class="dxy-panel dxy-span-3">
-                <div class="dxy-panel-head"><span class="dxy-panel-title">🎯 Straight Pass</span><span class="dxy-panel-sub" x-text="'FY ' + tahunanYear"></span></div>
+                <div class="dxy-panel-head"><span class="dxy-panel-title">🎯 Straight Pass</span></div>
                 <div class="dxy-chart-box"><canvas id="dxyBigStraightpass"></canvas></div>
               </div>
 
               <!-- Downtime Exhaust, Supporting, Line -- tetap 1 baris, Exhaust lebih lebar -->
               <div class="dxy-panel dxy-span-6">
-                <div class="dxy-panel-head"><span class="dxy-panel-title">⏱ Downtime Exhaust</span><span class="dxy-panel-sub">Puncak &amp; rata-rata</span></div>
+                <div class="dxy-panel-head"><span class="dxy-panel-title">⏱ Downtime Exhaust</span></div>
                 <div class="dxy-chart-box tall"><canvas id="dxyDowntimeExhaust"></canvas></div>
               </div>
               <div class="dxy-panel dxy-span-3">
-                <div class="dxy-panel-head"><span class="dxy-panel-title">🧑‍🔧 Downtime Supporting</span><span class="dxy-panel-sub">Per PIC</span></div>
+                <div class="dxy-panel-head"><span class="dxy-panel-title">🧑‍🔧 Downtime Supporting</span></div>
                 <div class="dxy-chart-box tall"><canvas id="dxyDowntimeSupporting"></canvas></div>
               </div>
               <div class="dxy-panel dxy-span-3">
-                <div class="dxy-panel-head"><span class="dxy-panel-title">🏭 Downtime Line</span><span class="dxy-panel-sub">Diurutkan dari terbesar</span></div>
+                <div class="dxy-panel-head"><span class="dxy-panel-title">🏭 Downtime Line</span></div>
                 <div class="dxy-chart-box tall"><canvas id="dxyDowntimeLine"></canvas></div>
               </div>
             </div>
@@ -553,21 +622,20 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
             <div class="dxy-panel dxy-span-4 dxy-table-panel-sm">
               <div class="dxy-panel-head">
                 <span class="dxy-panel-title">🏆 Downtime Terbesar</span>
-                <span class="dxy-panel-sub">Tahun fiskal terpilih · per line, top 5</span>
+                
               </div>
               <div class="dxy-table-scroll">
                 <table class="dxy-table">
                   <thead>
-                    <tr><th style="width:30px">#</th><th style="width:46px">Line</th><th style="width:70px">PIC</th><th>Problem</th><th style="width:56px; text-align:right">Menit</th></tr>
+                    <tr><th style="width:46px">Line</th><th style="width:70px">PIC</th><th>Problem</th><th style="width:56px; text-align:right">Menit</th></tr>
                   </thead>
                   <tbody>
                     <template x-for="(row, i) in dxyFilteredTerbesar()" :key="row.mesin + '-' + i">
                       <tr>
-                        <td><span class="dxy-rank-badge" :style="'background:' + dxyRankBadgeColor(i)" x-text="i+1"></span></td>
                         <td><b x-text="row.mesin"></b></td>
                         <td>
                           <template x-if="row.pic">
-                            <span class="dxy-pic-chip"><span class="dot" :style="'background:' + dxyPicColor(row.pic)"></span><span x-text="row.pic"></span></span>
+                            <span class="dxy-pic-chip"><span x-text="row.pic"></span></span>
                           </template>
                           <template x-if="!row.pic"><span class="dxy-empty-cell">-</span></template>
                         </td>
@@ -582,7 +650,7 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
                       </tr>
                     </template>
                     <template x-if="dxyFilteredTerbesar().length === 0">
-                      <tr><td colspan="5" class="dxy-empty-cell" style="text-align:center; padding:20px;">Tidak ada baris yang cocok dengan filter/pencarian.</td></tr>
+                      <tr><td colspan="4" class="dxy-empty-cell" style="text-align:center; padding:20px;">Tidak ada baris yang cocok dengan filter/pencarian.</td></tr>
                     </template>
                   </tbody>
                 </table>
@@ -593,36 +661,31 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
             <div class="dxy-panel dxy-span-4 dxy-table-panel-sm">
               <div class="dxy-panel-head">
                 <span class="dxy-panel-title">⚠️ NG Inline Terbesar</span>
-                <span class="dxy-panel-sub">Tahun fiskal terpilih · per line, top 5</span>
+                
               </div>
               <div class="dxy-table-scroll">
                 <table class="dxy-table">
                   <thead>
-                    <tr><th style="width:30px">#</th><th style="width:46px">Line</th><th>NG Kategori</th><th style="width:52px">Qty</th><th style="width:76px; text-align:right">Value</th></tr>
+                    <tr><th>NG Kategori</th><th style="width:52px">Qty</th><th style="width:76px; text-align:right">Value</th></tr>
                   </thead>
                   <tbody>
                     <template x-for="(row, i) in dxyFilteredNgTerbesar()" :key="row.mesin + '-' + i">
                       <tr>
-                        <td><span class="dxy-rank-badge" :style="'background:' + dxyRankBadgeColor(i)" x-text="i+1"></span></td>
-                        <td><b x-text="row.mesin"></b></td>
                         <td>
                           <template x-if="row.kategori">
-                            <span class="dxy-pic-chip"><span class="dot" :style="'background:' + dxyPicColor(row.kategori)"></span><span x-text="row.kategori"></span></span>
+                            <span class="dxy-pic-chip"><span x-text="row.kategori"></span></span>
                           </template>
-                          <template x-if="!row.kategori"><span class="dxy-empty-cell">-</span></template>
                         </td>
                         <td>
                           <span x-show="row.qty !== ''" x-text="row.qty"></span>
-                          <span class="dxy-empty-cell" x-show="row.qty === ''">No Problem</span>
                         </td>
                         <td style="text-align:right">
                           <span x-show="row.value !== ''" class="dxy-minute-badge" :style="dxyMinuteBadgeStyle(row.value)" x-text="row.value"></span>
-                          <span x-show="row.value === ''" class="dxy-empty-cell">-</span>
                         </td>
                       </tr>
                     </template>
                     <template x-if="dxyFilteredNgTerbesar().length === 0">
-                      <tr><td colspan="5" class="dxy-empty-cell" style="text-align:center; padding:20px;">Tidak ada baris yang cocok dengan filter/pencarian.</td></tr>
+                      <tr><td colspan="3" class="dxy-empty-cell" style="text-align:center; padding:20px;">Tidak ada baris yang cocok dengan filter/pencarian.</td></tr>
                     </template>
                   </tbody>
                 </table>
@@ -633,32 +696,28 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
             <div class="dxy-panel dxy-span-4 dxy-table-panel-sm">
               <div class="dxy-panel-head">
                 <span class="dxy-panel-title">🔧 Repair Terbesar</span>
-                <span class="dxy-panel-sub">Tahun fiskal terpilih · per line, top 5</span>
+                
               </div>
               <div class="dxy-table-scroll">
                 <table class="dxy-table">
                   <thead>
-                    <tr><th style="width:30px">#</th><th style="width:46px">Line</th><th style="width:130px">Repair Kategori</th><th style="text-align:right">Qty</th></tr>
+                    <tr><th style="width:130px">Repair Kategori</th><th style="text-align:right">Qty</th></tr>
                   </thead>
                   <tbody>
                     <template x-for="(row, i) in dxyFilteredRepairTerbesar()" :key="row.mesin + '-' + i">
                       <tr>
-                        <td><span class="dxy-rank-badge" :style="'background:' + dxyRankBadgeColor(i)" x-text="i+1"></span></td>
-                        <td><b x-text="row.mesin"></b></td>
                         <td>
                           <template x-if="row.kategori">
-                            <span class="dxy-pic-chip"><span class="dot" :style="'background:' + dxyPicColor(row.kategori)"></span><span x-text="row.kategori"></span></span>
+                            <span class="dxy-pic-chip"><span x-text="row.kategori"></span></span>
                           </template>
-                          <template x-if="!row.kategori"><span class="dxy-empty-cell">-</span></template>
                         </td>
                         <td style="text-align:right">
                           <span x-show="row.qty !== ''" x-text="row.qty"></span>
-                          <span class="dxy-empty-cell" x-show="row.qty === ''">-</span>
                         </td>
                       </tr>
                     </template>
                     <template x-if="dxyFilteredRepairTerbesar().length === 0">
-                      <tr><td colspan="4" class="dxy-empty-cell" style="text-align:center; padding:20px;">Tidak ada baris yang cocok dengan filter/pencarian.</td></tr>
+                      <tr><td colspan="2" class="dxy-empty-cell" style="text-align:center; padding:20px;">Tidak ada baris yang cocok dengan filter/pencarian.</td></tr>
                     </template>
                   </tbody>
                 </table>
@@ -671,8 +730,210 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
       </div>
     </template>
     <template x-if="activeTab === 'kualitas'">
-      <div class="dash-body">
-        <p class="empty-state">Tab Kontrol Kualitas belum diisi — menunggu spesifikasi/data dari kamu.</p>
+      <div class="dxy-fill">
+        <div class="dxy">
+
+          <div class="dxy-qc-grid">
+
+            <!-- ===== KOLOM 1: NG INLINE ===== -->
+            <div class="dxy-qc-col">
+              <div class="dxy-qc-header dxy-qc-amber">NG Inline</div>
+
+              <div class="dxy-panel">
+                <div class="dxy-panel-head"><span class="dxy-panel-title">Month</span></div>
+                <div class="dxy-chart-box qc-chart-month"><canvas id="qcNgInlineMonth"></canvas></div>
+              </div>
+
+              <div class="dxy-qc-subgrid">
+                <div class="dxy-panel">
+                  <div class="dxy-panel-head"><span class="dxy-panel-title">NG Inline Perline</span></div>
+                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcNgInlinePerline"></canvas></div>
+                </div>
+                <div class="dxy-panel">
+                  <div class="dxy-panel-head"><span class="dxy-panel-title">NG Inline Model</span></div>
+                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcNgInlineModel"></canvas></div>
+                </div>
+              </div>
+
+              <div class="dxy-panel">
+                <div class="dxy-panel-head"><span class="dxy-panel-title">Daily</span></div>
+                <div class="dxy-chart-box qc-chart-daily"><canvas id="qcNgInlineDaily"></canvas></div>
+              </div>
+
+              <div class="dxy-panel dxy-table-panel-sm">
+                <div class="dxy-panel-head">
+                  <span class="dxy-panel-title">Detail NG Inline</span>
+                  <input type="date" class="dxy-input" style="min-width:130px;" x-model="qcNgInlineDetailDate">
+                </div>
+                <div class="dxy-table-scroll">
+                  <table class="dxy-table qc-detail-table">
+                    <thead>
+                      <tr>
+                        <th>Model</th><th>Line</th><th>Part No</th><th>Area</th><th>NG Proses</th>
+                        <th style="text-align:right">Qty</th><th>NG Kategori</th><th style="text-align:right">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td colspan="8" class="dxy-empty-cell" style="text-align:center; padding:20px;">Belum ada data — menunggu koneksi RPC.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="dxy-panel dxy-table-panel-sm">
+                <div class="dxy-panel-head">
+                  <span class="dxy-panel-title">Rekap All NG Inline</span>
+                  <span class="dxy-panel-sub" x-text="qcRekapMonthLabel"></span>
+                </div>
+                <div class="dxy-table-scroll">
+                  <table class="dxy-table qc-detail-table">
+                    <thead>
+                      <tr>
+                        <th>Model</th><th>Line</th><th>Part No</th><th>Area</th><th>NG Proses</th>
+                        <th style="text-align:right">Qty</th><th>NG Kategori</th><th style="text-align:right">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td colspan="8" class="dxy-empty-cell" style="text-align:center; padding:20px;">Belum ada data — menunggu koneksi RPC.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- ===== KOLOM 2: NG INLINE TRIAL ===== -->
+            <div class="dxy-qc-col">
+              <div class="dxy-qc-header dxy-qc-cyan">NG Inline Trial</div>
+
+              <div class="dxy-panel">
+                <div class="dxy-panel-head"><span class="dxy-panel-title">Month</span></div>
+                <div class="dxy-chart-box qc-chart-month"><canvas id="qcNgTrialMonth"></canvas></div>
+              </div>
+
+              <div class="dxy-qc-subgrid">
+                <div class="dxy-panel">
+                  <div class="dxy-panel-head"><span class="dxy-panel-title">NG Trial Perline</span></div>
+                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcNgTrialPerline"></canvas></div>
+                </div>
+                <div class="dxy-panel">
+                  <div class="dxy-panel-head"><span class="dxy-panel-title">NG Trial Model</span></div>
+                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcNgTrialModel"></canvas></div>
+                </div>
+              </div>
+
+              <div class="dxy-panel">
+                <div class="dxy-panel-head"><span class="dxy-panel-title">Daily</span></div>
+                <div class="dxy-chart-box qc-chart-daily"><canvas id="qcNgTrialDaily"></canvas></div>
+              </div>
+
+              <div class="dxy-panel dxy-table-panel-sm">
+                <div class="dxy-panel-head">
+                  <span class="dxy-panel-title">Detail NG Trial</span>
+                  <input type="date" class="dxy-input" style="min-width:130px;" x-model="qcNgTrialDetailDate">
+                </div>
+                <div class="dxy-table-scroll">
+                  <table class="dxy-table qc-detail-table">
+                    <thead>
+                      <tr>
+                        <th>Model</th><th>Line</th><th>Part No</th><th>Area</th><th>NG Proses</th>
+                        <th style="text-align:right">Qty</th><th>NG Kategori</th><th style="text-align:right">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td colspan="8" class="dxy-empty-cell" style="text-align:center; padding:20px;">Belum ada data — menunggu koneksi RPC.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="dxy-panel dxy-table-panel-sm">
+                <div class="dxy-panel-head">
+                  <span class="dxy-panel-title">Rekap All NG Trial</span>
+                  <span class="dxy-panel-sub" x-text="qcRekapMonthLabel"></span>
+                </div>
+                <div class="dxy-table-scroll">
+                  <table class="dxy-table qc-detail-table">
+                    <thead>
+                      <tr>
+                        <th>Model</th><th>Line</th><th>Part No</th><th>Area</th><th>NG Proses</th>
+                        <th style="text-align:right">Qty</th><th>NG Kategori</th><th style="text-align:right">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td colspan="8" class="dxy-empty-cell" style="text-align:center; padding:20px;">Belum ada data — menunggu koneksi RPC.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- ===== KOLOM 3: STRAIGHTPASS ===== -->
+            <div class="dxy-qc-col">
+              <div class="dxy-qc-header dxy-qc-green">Straightpass</div>
+
+              <div class="dxy-panel">
+                <div class="dxy-panel-head"><span class="dxy-panel-title">Month</span></div>
+                <div class="dxy-chart-box qc-chart-month"><canvas id="qcStraightpassMonth"></canvas></div>
+              </div>
+
+              <div class="dxy-qc-subgrid">
+                <div class="dxy-panel">
+                  <div class="dxy-panel-head"><span class="dxy-panel-title">Straightpass Perline</span></div>
+                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcStraightpassPerline"></canvas></div>
+                </div>
+                <div class="dxy-panel">
+                  <div class="dxy-panel-head"><span class="dxy-panel-title">Straightpass Model</span></div>
+                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcStraightpassModel"></canvas></div>
+                </div>
+              </div>
+
+              <div class="dxy-panel">
+                <div class="dxy-panel-head"><span class="dxy-panel-title">Daily</span></div>
+                <div class="dxy-chart-box qc-chart-daily"><canvas id="qcStraightpassDaily"></canvas></div>
+              </div>
+
+              <div class="dxy-panel dxy-table-panel-sm">
+                <div class="dxy-panel-head">
+                  <span class="dxy-panel-title">Detail Straightpass</span>
+                  <input type="date" class="dxy-input" style="min-width:130px;" x-model="qcStraightpassDetailDate">
+                </div>
+                <div class="dxy-table-scroll">
+                  <table class="dxy-table qc-detail-table">
+                    <thead>
+                      <tr>
+                        <th>Model</th><th>Line</th><th>Part No</th><th style="text-align:right">Qty</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td colspan="4" class="dxy-empty-cell" style="text-align:center; padding:20px;">Belum ada data — menunggu koneksi RPC.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="dxy-panel dxy-table-panel-sm">
+                <div class="dxy-panel-head">
+                  <span class="dxy-panel-title">Rekap All Repair</span>
+                  <span class="dxy-panel-sub" x-text="qcRekapMonthLabel"></span>
+                </div>
+                <div class="dxy-table-scroll">
+                  <table class="dxy-table qc-detail-table">
+                    <thead>
+                      <tr>
+                        <th>Model</th><th>Line</th><th>Part No</th><th style="text-align:right">Qty</th><th>Area</th><th>Point</th><th>Repair Kategori</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td colspan="7" class="dxy-empty-cell" style="text-align:center; padding:20px;">Belum ada data — menunggu koneksi RPC.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
       </div>
     </template>
   </main>
@@ -728,9 +989,16 @@ function dashboardExhaust() {
         delete this.tahunanCharts[id];
       });
     },
+    destroyKualitasCharts() {
+      Object.keys(this.qcCharts).forEach((id) => {
+        try { this.qcCharts[id].destroy(); } catch (e) { /* noop */ }
+        delete this.qcCharts[id];
+      });
+    },
     async setTab(tab) {
       if (this.activeTab === "bulanan" && tab !== "bulanan") this.destroyBulananCharts();
       if (this.activeTab === "tahunan" && tab !== "tahunan") this.destroyTahunanCharts();
+      if (this.activeTab === "kualitas" && tab !== "kualitas") this.destroyKualitasCharts();
       this.activeTab = tab;
       if (tab === "bulanan") {
         await this.fetchBulanan();
@@ -739,6 +1007,10 @@ function dashboardExhaust() {
       if (tab === "tahunan") {
         await this.fetchTahunan();
         this.$nextTick(() => this.renderTahunanCharts());
+      }
+      if (tab === "kualitas") {
+        await this.fetchTahunan();
+        this.$nextTick(() => this.renderKualitasCharts());
       }
     },
     async onTahunanYearChange() {
@@ -773,6 +1045,18 @@ function dashboardExhaust() {
     bulananDate: localDateStr(new Date()),
     bulananDtLoading: false,
     // ---------------------------------------------------------------
+    // Tab "Kontrol Kualitas" -- struktur dulu (placeholder), belum
+    // disambungkan ke RPC/data asli. Chart & tabel masih kosong.
+    // ---------------------------------------------------------------
+    qcNgInlineDetailDate: localDateStr(new Date()),
+    qcNgTrialDetailDate: localDateStr(new Date()),
+    qcStraightpassDetailDate: localDateStr(new Date()),
+    get qcRekapMonthLabel() {
+      const d = new Date();
+      const bulanId = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+      return bulanId[d.getMonth()] + " " + d.getFullYear();
+    },
+    // ---------------------------------------------------------------
     // Data "Bulanan" (harian, tanggal 1-31) -- diisi dari fetchBulanan()
     // lewat RPC Supabase baru (lihat migration_dashboard_bulanan_harian.sql).
     // Skeleton kosong dulu supaya template tidak error sebelum data datang.
@@ -806,6 +1090,7 @@ function dashboardExhaust() {
       repairTerbesar: [],
     },
     tahunanCharts: {},
+    qcCharts: {},
     tahunanInsights: [],
     dxyLineFilter: "ALL",
     MACHINES_REF: MACHINES,
@@ -1145,6 +1430,20 @@ function dashboardExhaust() {
       if (s.includes("CLOSE") || s.includes("DONE")) return "dxy-status-closed";
       return "dxy-status-progress";
     },
+    // Lapisan tampilan saja: gabungkan rows semua line jadi 1 daftar rata,
+    // lalu pad minimal 8 baris (default kosong). Kalau data asli lebih dari
+    // 8 baris, semua tetap ditampilkan (tidak dipotong) -- scroll otomatis
+    // muncul dari .dxy-table-scroll. Tidak ada logika/RPC data yang diubah.
+    bulananDowntimeMergedRows() {
+      const flat = [];
+      (this.bulanan.downtimeTerbesar || []).forEach((line) => {
+        (line.rows || []).forEach((row) => flat.push({ mesin: line.mesin, ...row }));
+      });
+      while (flat.length < 10) {
+        flat.push({ mesin: "", pic: "", problem: "", area: "", countermeasure: "", status: "", shift: "", menit: "" });
+      }
+      return flat;
+    },
     // Dipanggil saat dropdown Bulan/Tahun di tab Bulanan berubah
     async onBulananPeriodChange() {
       this.destroyBulananCharts();
@@ -1223,7 +1522,7 @@ function dashboardExhaust() {
     // menampilkan minimal 8 baris -- kalau data asli kurang dari 8, sisanya
     // diisi baris kosong (placeholder "-"). Kalau data asli LEBIH dari 8,
     // baris otomatis nambah (tidak dipotong) dan tabel yang scroll.
-    dxyPadMin(flat, emptyRow, minRows = 8) {
+    dxyPadMin(flat, emptyRow, minRows = 12) {
       const out = flat.slice();
       while (out.length < minRows) out.push({ ...emptyRow });
       return out;
@@ -1535,7 +1834,6 @@ function dashboardExhaust() {
             labels: b.downtimeHarian.labels,
             datasets: [
               { type: "bar", label: "Downtime", data: b.downtimeHarian.values, backgroundColor: barBg(canvas, "#F97316", b.downtimeHarian.values.length), borderRadius: 4, barPercentage: 0.6, categoryPercentage: 0.75 },
-              { type: "line", label: "Tren", data: b.downtimeHarian.values, borderColor: "#EF4444", pointRadius: 0, borderWidth: 2, tension: 0.3 },
             ],
           },
           options: { responsive: true, maintainAspectRatio: false, animation: noAnim, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
@@ -1572,11 +1870,10 @@ function dashboardExhaust() {
           destroy(canvasId);
           const canvas = document.getElementById(canvasId);
           if (!canvas) return;
-          const total = w.values.reduce((a, v) => a + v, 0);
-          const labels = [...w.labels, "Total"];
-          const values = [...w.values, total];
-          // Titik biru untuk tiap line, titik navy gelap untuk Total
-          const pointColors = [...w.labels.map(() => "#2563EB"), "#0F172A"];
+          const labels = w.labels;
+          const values = w.values;
+          // Titik biru untuk tiap line
+          const pointColors = w.labels.map(() => "#2563EB");
           this.bulananCharts[canvasId] = new Chart(canvas, {
             type: "line",
             data: {
@@ -1892,6 +2189,187 @@ function dashboardExhaust() {
           plugins: [donutLeaderLabels((v) => fmtNum(v))],
         });
       }, "downtimeLine");
+    },
+    // Chart "Month" di tab Kontrol Kualitas (kolom NG Inline & Straightpass)
+    // sengaja diisi data yang SAMA dengan grafik di tab Tahunan (NG Inline
+    // & Straight Pass), bukan sumber data baru. Style & gradasi warna juga
+    // disamakan supaya konsisten.
+    renderKualitasCharts() {
+      if (typeof Chart === "undefined") return;
+      const b = this.tahunan;
+      if (!b || !b.monthLabels) return;
+      const destroy = (id) => { if (this.qcCharts[id]) { this.qcCharts[id].destroy(); delete this.qcCharts[id]; } };
+      const noAnim = { duration: 0 };
+      const safe = (fn, label) => { try { fn(); } catch (e) { console.error("Gagal render chart Kualitas:", label, e); } };
+
+      const baseScales = () => ({
+        x: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
+        y: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 }, maxTicksLimit: 5 }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+      });
+      const legend = (show) => ({ display: show, position: "bottom", labels: { color: cssVar("--muted"), boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 9 }, padding: 6 } });
+      const tooltip = () => ({ backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"), borderColor: cssVar("--border"), borderWidth: 1, padding: 10, cornerRadius: 8, displayColors: true, usePointStyle: true });
+      const grad = (canvas, hex, alphaTop = 0.85, alphaBottom = 0.05) => {
+        const ctx = canvas.getContext("2d");
+        const h = canvas.height || 200;
+        const g = ctx.createLinearGradient(0, 0, 0, h);
+        const toRgba = (a) => {
+          const n = parseInt(hex.replace("#", ""), 16);
+          const r = (n >> 16) & 255, gg = (n >> 8) & 255, bl = n & 255;
+          return `rgba(${r},${gg},${bl},${a})`;
+        };
+        g.addColorStop(0, toRgba(alphaTop));
+        g.addColorStop(1, toRgba(alphaBottom));
+        return g;
+      };
+      const barBg = (canvas, hex, len) => {
+        const full = grad(canvas, hex);
+        return Array.from({ length: len }, () => full);
+      };
+      const barValueLabels = (formatter, datasetIndex = 0) => ({
+        id: "dxyQcBarValueLabels_" + datasetIndex + "_" + Math.random(),
+        afterDatasetsDraw(chart) {
+          const { ctx, chartArea } = chart;
+          const meta = chart.getDatasetMeta(datasetIndex);
+          const dataset = chart.data.datasets[datasetIndex];
+          if (!meta || !dataset || meta.type !== "bar" || !meta.data) return;
+          const textColor = cssVar("--dxy-text") || "#1F2937";
+          const n = meta.data.length;
+          const slotWidth = chartArea && n ? chartArea.width / n : 30;
+          const fontSize = slotWidth < 24 ? 7.5 : slotWidth < 34 ? 8.5 : slotWidth < 46 ? 9.5 : 10.5;
+          ctx.save();
+          ctx.font = `700 ${fontSize}px Inter, sans-serif`;
+          ctx.textAlign = "center";
+          ctx.fillStyle = textColor;
+          meta.data.forEach((bar, i) => {
+            const val = Number(dataset.data[i]);
+            if (val === null || val === undefined || Number.isNaN(val)) return;
+            const { x, y, base } = bar.getProps(["x", "y", "base"], true);
+            const isUp = y <= base;
+            ctx.textBaseline = isUp ? "bottom" : "top";
+            ctx.fillText(formatter(val), x, isUp ? y - 6 : y + 14);
+          });
+          ctx.restore();
+        },
+      });
+
+      // --- Month · NG Inline: sama dengan grafik "NG Inline" di tab Tahunan
+      // (Qty bar oranye + Value garis ungu, dual axis) ---
+      safe(() => {
+        destroy("qcNgInlineMonth");
+        const canvas = document.getElementById("qcNgInlineMonth");
+        if (!canvas) return;
+        this.qcCharts.qcNgInlineMonth = new Chart(canvas, {
+          data: {
+            labels: b.monthLabels.slice(2),
+            datasets: [
+              { type: "bar", label: "Qty", data: b.ngInline.qtyByMonth.slice(2), backgroundColor: barBg(canvas, "#F97316", b.ngInline.qtyByMonth.length - 2), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
+              { type: "line", label: "Value", data: b.ngInline.valueByMonth.slice(2), borderColor: "#8B5CF6", backgroundColor: "#8B5CF6", yAxisID: "y1", pointRadius: 3, tension: 0.3 },
+            ],
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false, animation: noAnim,
+            layout: { padding: { top: 28 } },
+            plugins: { legend: legend(true), tooltip: tooltip() },
+            scales: {
+              x: baseScales().x,
+              y: { position: "left", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+              y1: { position: "right", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+            },
+          },
+          plugins: [barValueLabels((v) => fmtNum(v), 0)],
+        });
+      }, "qcNgInlineMonth");
+
+      // --- Month · NG Trial: STRUKTUR/STYLE sama persis dengan NG Inline
+      // (Qty bar oranye + Value garis ungu, dual axis) -- data sengaja
+      // dikosongkan dulu (belum ada sumber data NG Trial). ---
+      safe(() => {
+        destroy("qcNgTrialMonth");
+        const canvas = document.getElementById("qcNgTrialMonth");
+        if (!canvas) return;
+        const labels = b.monthLabels.slice(2);
+        const emptyQty = labels.map(() => null);
+        const emptyValue = labels.map(() => null);
+        this.qcCharts.qcNgTrialMonth = new Chart(canvas, {
+          data: {
+            labels,
+            datasets: [
+              { type: "bar", label: "Qty", data: emptyQty, backgroundColor: barBg(canvas, "#F97316", emptyQty.length), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
+              { type: "line", label: "Value", data: emptyValue, borderColor: "#8B5CF6", backgroundColor: "#8B5CF6", yAxisID: "y1", pointRadius: 3, tension: 0.3 },
+            ],
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false, animation: noAnim,
+            layout: { padding: { top: 28 } },
+            plugins: { legend: legend(true), tooltip: tooltip() },
+            scales: {
+              x: baseScales().x,
+              y: { position: "left", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+              y1: { position: "right", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+            },
+          },
+          plugins: [barValueLabels((v) => fmtNum(v), 0)],
+        });
+      }, "qcNgTrialMonth");
+
+      // --- Month · Straightpass: sama dengan grafik "Straight Pass" di tab
+      // Tahunan (bar gradient + garis target putus-putus) ---
+      safe(() => {
+        destroy("qcStraightpassMonth");
+        const canvas = document.getElementById("qcStraightpassMonth");
+        if (!canvas) return;
+        const labels = b.monthLabels.slice(2);
+        const actual = b.straightpass.actual.slice(2);
+        this.qcCharts.qcStraightpassMonth = new Chart(canvas, {
+          data: {
+            labels,
+            datasets: [
+              { type: "bar", label: "Actual", data: actual, backgroundColor: barBg(canvas, "#14B8A6", actual.length), borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7, borderSkipped: false },
+              { type: "line", label: "Target", data: labels.map(() => b.straightpass.target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0 },
+            ],
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false, animation: noAnim,
+            layout: { padding: { top: 28 } },
+            plugins: { legend: legend(true), tooltip: tooltip() },
+            scales: baseScales(),
+          },
+          plugins: [barValueLabels((v) => fmtNum(v), 0)],
+        });
+      }, "qcStraightpassMonth");
+
+      // --- Perline & Model: 6 chart bar sederhana (E-02..E-07 / daftar
+      // model) untuk 3 kolom. Belum ada sumber data breakdown per-line/
+      // per-model, jadi datanya dikosongkan dulu (struktur & style saja). ---
+      const QC_LINES = ["E-02", "E-03", "E-04", "E-05", "E-06", "E-07"];
+      const QC_MODELS = ["YR9", "YHA", "K15B", "K15C", "D98E", "889F", "D13", "D73F", "D40"];
+      const qcSimpleBar = (canvasId, categories, hex) => {
+        safe(() => {
+          destroy(canvasId);
+          const canvas = document.getElementById(canvasId);
+          if (!canvas) return;
+          this.qcCharts[canvasId] = new Chart(canvas, {
+            type: "bar",
+            data: {
+              labels: categories,
+              datasets: [{ label: "Qty", data: categories.map(() => null), backgroundColor: barBg(canvas, hex, categories.length), borderRadius: 6, barPercentage: 0.6, categoryPercentage: 0.7 }],
+            },
+            options: {
+              responsive: true, maintainAspectRatio: false, animation: noAnim,
+              layout: { padding: { top: 22 } },
+              plugins: { legend: legend(false), tooltip: tooltip() },
+              scales: baseScales(),
+            },
+            plugins: [barValueLabels((v) => fmtNum(v), 0)],
+          });
+        }, canvasId);
+      };
+      qcSimpleBar("qcNgInlinePerline", QC_LINES, "#F97316");
+      qcSimpleBar("qcNgInlineModel", QC_MODELS, "#F97316");
+      qcSimpleBar("qcNgTrialPerline", QC_LINES, "#06B6D4");
+      qcSimpleBar("qcNgTrialModel", QC_MODELS, "#06B6D4");
+      qcSimpleBar("qcStraightpassPerline", QC_LINES, "#22C55E");
+      qcSimpleBar("qcStraightpassModel", QC_MODELS, "#22C55E");
     },
     logout,
   };
