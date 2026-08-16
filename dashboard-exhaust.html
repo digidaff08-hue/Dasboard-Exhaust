@@ -34,7 +34,7 @@
   --dxy-shadow-hover: 0 4px 10px rgba(15,23,42,.06), 0 16px 32px -14px rgba(15,23,42,.18);
   background: var(--dxy-bg);
   color: var(--dxy-text);
-  padding: 4px 12px 12px 12px;
+  padding: 4px 6px 12px 6px;
   border-radius: 20px;
   font-variant-numeric: tabular-nums;
 }
@@ -161,7 +161,7 @@
   background: var(--dxy-card);
   border: 1px solid var(--dxy-border);
   border-radius: 16px;
-  padding: 10px 12px !important;
+  padding: 8px 10px !important;
   box-shadow: var(--dxy-shadow);
   transition: box-shadow 200ms ease;
   display: flex;
@@ -188,6 +188,60 @@
 .dxy-table-panel-sm table.dxy-table { font-size: 11.5px; width: 100%; table-layout: fixed; }
 .dxy-table-panel-sm table.dxy-table thead th { padding: 5px 6px; font-size: 9px; }
 .dxy-table-panel-sm table.dxy-table tbody td { padding: 4px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 24px; }
+/* Rekap NG Inline / NG Trial / Repair (qc-detail-table): samakan font sel data dengan font header (9px) */
+.dxy-table-panel-sm table.qc-detail-table tbody td { font-size: 9px; }
+/* Kotak Rekap Kontrol Kualitas: tinggi TETAP, pas menampung header + 5 baris data.
+   Kotak TIDAK melebar ke bawah -- kalau data lebih dari 5 baris, scroll muncul
+   DI DALAM kotak ini (kotaknya sendiri diam). Dipasang dengan spesifisitas tinggi
+   supaya menang dari rule breakpoint layar besar (30vh) manapun urutannya. */
+/* Kotak Rekap Kontrol Kualitas: tinggi TETAP/FIX -- TIDAK ikut mengecil atau
+   membesar berapa pun jumlah baris datanya (sedikit maupun banyak). Kalau
+   data melebihi tinggi ini, scroll muncul DI DALAM kotak; kotaknya sendiri
+   tidak pernah berubah ukuran.
+   CATATAN: dulu pakai max-height, tapi max-height masih ikut MENGECIL saat
+   data < 5 baris dan pembungkus kartu (.dxy-panel) di luarnya sama sekali
+   tidak dikunci, jadi kartu tetap "napas" ikut tinggi total isinya. Sekarang
+   dipakai height TETAP (bukan max-height) supaya area tabel selalu persis
+   198px, plus min-height/max-height pada kartu pembungkus supaya kartu itu
+   sendiri juga terkunci -- baik saat data sedikit maupun banyak. */
+.qc-rekap-scroll,
+.dxy-table-panel-sm .qc-rekap-scroll,
+.dxy-panel .qc-rekap-scroll,
+.dxy-qc-col .dxy-table-panel-sm .qc-rekap-scroll,
+.dxy-qc-grid .dxy-qc-col .dxy-panel .qc-rekap-scroll { height: 198px !important; max-height: 198px !important; overflow-y: auto !important; overflow-x: hidden !important; scrollbar-width: thin; scrollbar-color: #94A3B8 transparent; }
+/* Kartu pembungkus "Rekap NG Inline/Trial/Repair" (kolom Kontrol Kualitas
+   saja, lewat scope .dxy-qc-col) dikunci tinggi totalnya juga -- header
+   (judul + input tanggal, ~30px) + area tabel (198px) + padding kartu
+   (~16px) = konstan, tidak ikut membesar/mengecil sama sekali. */
+.dxy-qc-col .dxy-panel.dxy-table-panel-sm {
+  min-height: 246px !important;
+  max-height: 246px !important;
+  height: 246px !important;
+  overflow: hidden;
+}
+/* ---- Toggle "Tanggal" / "Sebulan" di header panel Rekap (Kontrol Kualitas) ---- */
+.qc-rekap-mode { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+.qc-rekap-mode-btn {
+  font-family: inherit;
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--dxy-border);
+  background: var(--dxy-card);
+  color: var(--dxy-muted);
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+  white-space: nowrap;
+}
+.qc-rekap-mode-btn:hover { color: var(--dxy-text); }
+.qc-rekap-mode-btn.active { background: var(--dxy-blue); border-color: var(--dxy-blue); color: #fff; }
+.qc-rekap-mode .dxy-input { min-height: 24px; padding: 3px 6px; font-size: 10.5px; }
+/* Scrollbar dibuat jelas kelihatan (default browser kadang terlalu tipis/transparan) */
+.qc-rekap-scroll::-webkit-scrollbar { width: 8px; }
+.qc-rekap-scroll::-webkit-scrollbar-track { background: transparent; }
+.qc-rekap-scroll::-webkit-scrollbar-thumb { background: #94A3B8; border-radius: 8px; }
+.qc-rekap-scroll::-webkit-scrollbar-thumb:hover { background: #64748B; }
 .dxy-table-scroll { max-height: 210px !important; overflow: auto; border-radius: 12px; border: 1px solid var(--dxy-border); }
 table.dxy-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12.5px; }
 table.dxy-table thead th {
@@ -252,13 +306,13 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
 .dxy-qc-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  gap: 6px;
   align-items: start;
 }
 .dxy-qc-col {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
   min-width: 0;
 }
 .dxy-qc-header {
@@ -270,19 +324,21 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
   text-transform: uppercase;
   text-align: center;
   color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,.25);
+  box-shadow: 0 4px 14px -4px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.25);
 }
-.dxy-qc-amber { background: linear-gradient(90deg, #d97706, #f59e0b); }
-.dxy-qc-cyan  { background: linear-gradient(90deg, #0e7490, #06b6d4); }
-.dxy-qc-green { background: linear-gradient(90deg, #15803d, #22c55e); }
+.dxy-qc-amber { background: linear-gradient(135deg, #92400e 0%, #f59e0b 55%, #fcd34d 100%); }
+.dxy-qc-cyan  { background: linear-gradient(135deg, #075985 0%, #06b6d4 55%, #67e8f9 100%); }
+.dxy-qc-green { background: linear-gradient(135deg, #14532d 0%, #22c55e 55%, #86efac 100%); }
 .dxy-qc-subgrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 5px;
 }
 .qc-chart-month  { min-height: 200px !important; max-height: 200px; }
 .qc-chart-sub    { min-height: 160px !important; max-height: 160px; }
 .qc-chart-daily  { min-height: 170px !important; max-height: 170px; }
-.qc-detail-table { font-size: 10px; table-layout: fixed; }
+.qc-detail-table { font-size: 8px; table-layout: fixed; }
 .qc-detail-table thead th { padding: 5px 4px; font-size: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center !important; text-transform: none !important; letter-spacing: normal !important; }
 .qc-detail-table tbody td { padding: 4px 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 20px; }
 @media (max-width: 1366px) { .dxy-qc-grid { grid-template-columns: 1fr; } }
@@ -347,7 +403,7 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
 .dash-topbar { margin: 0 !important; padding: 0 !important; }
 .dash-title-block { margin: 0 !important; padding: 0 !important; }
 .dash-title-block h1 { margin: 0 !important; padding: 0 !important; line-height: 1.1 !important; }
-.main { padding-top: 0 !important; gap: 4px !important; }
+.main { padding-top: 0 !important; padding-left: 14px !important; padding-right: 14px !important; gap: 4px !important; }
 .dash-subtab-nav { margin: 0 !important; padding: 0 !important; }
 .dash-subtab-nav button { margin: 0 !important; }
 .dxy-fill { margin-top: 0 !important; padding-top: 0 !important; }
@@ -733,14 +789,30 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
       <div class="dxy-fill">
         <div class="dxy">
 
+          <!-- ===== Baris 1: Filter bar (Bulan/Tahun) ===== -->
+          <div class="dxy-filterbar">
+            <div class="dxy-field">
+              <label>Bulan</label>
+              <select class="dxy-select" x-model.number="qcMonth" @change="onQcPeriodChange()">
+                <template x-for="(nm, i) in BULAN_LABELS" :key="'qm-'+i">
+                  <option :value="i+1" x-text="nm"></option>
+                </template>
+              </select>
+            </div>
+            <div class="dxy-field">
+              <label>Tahun</label>
+              <select class="dxy-select" x-model.number="qcYear" @change="onQcPeriodChange()">
+                <template x-for="y in tahunanYearOptions" :key="'qy-'+y"><option :value="y" x-text="y"></option></template>
+              </select>
+            </div>
+          </div>
+
           <div class="dxy-qc-grid">
 
             <!-- ===== KOLOM 1: NG INLINE ===== -->
             <div class="dxy-qc-col">
-              <div class="dxy-qc-header dxy-qc-amber">NG Inline</div>
-
               <div class="dxy-panel">
-                <div class="dxy-panel-head"><span class="dxy-panel-title">Month</span></div>
+                <div class="dxy-panel-head"><span class="dxy-panel-title">🔶 NG Inline</span></div>
                 <div class="dxy-chart-box qc-chart-month"><canvas id="qcNgInlineMonth"></canvas></div>
               </div>
 
@@ -763,12 +835,17 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
               <div class="dxy-panel dxy-table-panel-sm">
                 <div class="dxy-panel-head">
                   <span class="dxy-panel-title">Rekap NG Inline</span>
-                  <input type="date" class="dxy-input" style="min-width:130px;" x-model="qcNgInlineDetailDate">
+                  <div class="qc-rekap-mode">
+                    <button type="button" class="qc-rekap-mode-btn" :class="{ active: qcNgInlineDetailMode === 'tanggal' }" @click="setQcRekapMode('qcNgInline', 'tanggal')">Tanggal</button>
+                    <button type="button" class="qc-rekap-mode-btn" :class="{ active: qcNgInlineDetailMode === 'bulan' }" @click="setQcRekapMode('qcNgInline', 'bulan')">Sebulan</button>
+                    <input type="date" class="dxy-input" style="min-width:120px;" x-show="qcNgInlineDetailMode === 'tanggal'" x-model="qcNgInlineDetailDate" @change="fetchQcNgInlineDetail()">
+                  </div>
                 </div>
-                <div class="dxy-table-scroll">
+                <div class="dxy-table-scroll qc-rekap-scroll">
                   <table class="dxy-table qc-detail-table">
                     <thead>
                       <tr>
+                        <th style="width:52px" x-show="qcNgInlineDetailMode === 'bulan'">Tanggal</th>
                         <th style="width:48px">Model</th><th style="width:36px">Line</th><th style="width:13%">Part No</th><th style="width:13%">Area</th><th style="width:17%">NG Proses</th>
                         <th style="width:36px">Qty</th><th style="width:18%">NG Kategori</th><th style="width:15%">Value</th>
                       </tr>
@@ -776,6 +853,7 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
                     <tbody>
                       <template x-for="(row, i) in qcNgInlineRows()" :key="'qcng-'+i">
                         <tr>
+                          <td x-show="qcNgInlineDetailMode === 'bulan'" x-text="row.tanggal"></td>
                           <td x-text="row.model"></td>
                           <td x-text="row.line"></td>
                           <td x-text="row.partNo"></td>
@@ -795,10 +873,8 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
 
             <!-- ===== KOLOM 2: NG INLINE TRIAL ===== -->
             <div class="dxy-qc-col">
-              <div class="dxy-qc-header dxy-qc-cyan">NG Inline Trial</div>
-
               <div class="dxy-panel">
-                <div class="dxy-panel-head"><span class="dxy-panel-title">Month</span></div>
+                <div class="dxy-panel-head"><span class="dxy-panel-title">🔷 NG Inline Trial</span></div>
                 <div class="dxy-chart-box qc-chart-month"><canvas id="qcNgTrialMonth"></canvas></div>
               </div>
 
@@ -823,7 +899,7 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
                   <span class="dxy-panel-title">Rekap NG Trial</span>
                   <input type="date" class="dxy-input" style="min-width:130px;" x-model="qcNgTrialDetailDate">
                 </div>
-                <div class="dxy-table-scroll">
+                <div class="dxy-table-scroll qc-rekap-scroll">
                   <table class="dxy-table qc-detail-table">
                     <thead>
                       <tr>
@@ -852,10 +928,8 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
 
             <!-- ===== KOLOM 3: STRAIGHTPASS ===== -->
             <div class="dxy-qc-col">
-              <div class="dxy-qc-header dxy-qc-green">Straightpass</div>
-
               <div class="dxy-panel">
-                <div class="dxy-panel-head"><span class="dxy-panel-title">Month</span></div>
+                <div class="dxy-panel-head"><span class="dxy-panel-title">🟢 Straightpass</span></div>
                 <div class="dxy-chart-box qc-chart-month"><canvas id="qcStraightpassMonth"></canvas></div>
               </div>
 
@@ -880,7 +954,7 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
                   <span class="dxy-panel-title">Rekap Repair</span>
                   <input type="date" class="dxy-input" style="min-width:130px;" x-model="qcStraightpassDetailDate">
                 </div>
-                <div class="dxy-table-scroll">
+                <div class="dxy-table-scroll qc-rekap-scroll">
                   <table class="dxy-table qc-detail-table">
                     <thead>
                       <tr>
@@ -924,6 +998,9 @@ const MACHINES = [
 ];
 
 const BULAN_LABELS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+// Daftar tetap Line & Model untuk chart Perline/Model di tab Kontrol Kualitas
+const QC_LINES = ["E-02", "E-03", "E-04", "E-05", "E-06", "E-07"];
+const QC_MODELS = ["YR9", "YHA", "K15B", "K15C", "D98E", "889F", "D13", "D73F", "D40"];
 // Jumlah hari dalam bulan tertentu (menangani tahun kabisat)
 function daysInMonth(year, month1to12) {
   return new Date(year, month1to12, 0).getDate();
@@ -984,6 +1061,7 @@ function dashboardExhaust() {
       }
       if (tab === "kualitas") {
         await this.fetchTahunan();
+        await this.fetchQcNgInline();
         this.$nextTick(() => this.renderKualitasCharts());
       }
     },
@@ -1014,21 +1092,177 @@ function dashboardExhaust() {
     // Periode yang lagi dipilih di tab Bulanan (bulan + tahun berjalan default)
     bulananMonth: new Date().getMonth() + 1,
     bulananYear: new Date().getFullYear(),
+    qcMonth: new Date().getMonth() + 1,
+    qcYear: new Date().getFullYear(),
     // Filter tanggal untuk tabel "Downtime Terbesar per Line" -- tabel ini
     // SELALU per-tanggal (default hari ini, bisa diganti lewat date picker).
     bulananDate: localDateStr(new Date()),
     bulananDtLoading: false,
     // ---------------------------------------------------------------
-    // Tab "Kontrol Kualitas" -- struktur dulu (placeholder), belum
-    // disambungkan ke RPC/data asli. Chart & tabel masih kosong.
+    // Tab "Kontrol Kualitas" -- kolom NG Inline sudah disambungkan ke
+    // RPC asli (dashboard_qc_ng_*, lihat migration_dashboard_kualitas.sql).
+    // Kolom NG Trial & Straightpass masih placeholder kosong.
     // ---------------------------------------------------------------
     qcNgInlineDetailDate: localDateStr(new Date()),
     qcNgTrialDetailDate: localDateStr(new Date()),
     qcStraightpassDetailDate: localDateStr(new Date()),
+    // Mode tabel Rekap: 'tanggal' = 1 hari (RPC lama, p_tanggal),
+    // 'bulan' = seluruh bulan yang lagi dipilih (RPC baru, p_start/p_end).
+    qcNgInlineDetailMode: "tanggal",
+    qcNgTrialDetailMode: "tanggal",
+    qcStraightpassDetailMode: "tanggal",
+    // Dipanggil saat tombol "Tanggal"/"Sebulan" di panel Rekap diklik.
+    // key: 'qcNgInline' | 'qcNgTrial' | 'qcStraightpass'.
+    setQcRekapMode(key, mode) {
+      const modeProp = key + "DetailMode";
+      if (this[modeProp] === mode) return;
+      this[modeProp] = mode;
+      if (key === "qcNgInline") this.fetchQcNgInlineDetail();
+      // NG Trial & Straightpass belum tersambung RPC asli -- tinggal
+      // tambahkan pemanggilan fetch yang sama di sini kalau sudah ada.
+    },
+    qcNgInlineLoaded: false,
+    qcNgInline: {
+      monthLabels: [], qtyByMonth: [], valueByMonth: [],
+      perlineQty: [], perlineValue: [],
+      permodelQty: [], permodelValue: [],
+      dailyQty: [], dailyValue: [],
+      detailRows: [],
+    },
     get qcRekapMonthLabel() {
-      const d = new Date();
       const bulanId = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
-      return bulanId[d.getMonth()] + " " + d.getFullYear();
+      return bulanId[this.qcMonth - 1] + " " + this.qcYear;
+    },
+    // Dipanggil saat dropdown Bulan/Tahun di tab Kontrol Kualitas berubah.
+    onQcPeriodChange() {
+      if (this.qcYear !== this.tahunanYear) {
+        this.tahunanYear = this.qcYear;
+        this.tahunanLoaded = false;
+        this.fetchTahunan().then(() => this.$nextTick(() => this.renderKualitasCharts()));
+      }
+      // Samakan tanggal di input "Rekap" (NG Inline/Trial/Straightpass) dengan
+      // bulan+tahun yang baru dipilih (default ke tanggal 1), supaya tabel
+      // Rekap tidak "nyangkut" di bulan lama.
+      const firstOfMonth = localDateStr(new Date(this.qcYear, this.qcMonth - 1, 1));
+      this.qcNgInlineDetailDate = firstOfMonth;
+      this.qcNgTrialDetailDate = firstOfMonth;
+      this.qcStraightpassDetailDate = firstOfMonth;
+      this.qcNgInlineLoaded = false;
+      this.fetchQcNgInline().then(() => this.$nextTick(() => this.renderKualitasCharts()));
+    },
+    // Ambil data kolom "NG Inline" (Month/Perline/Model/Daily/Rekap) dari
+    // RPC dashboard_qc_ng_* dengan p_type_ng = 'NG PRODUKSI'.
+    // Lihat migration_dashboard_kualitas.sql untuk definisi RPC-nya.
+    async fetchQcNgInline() {
+      if (this.qcNgInlineLoaded) return;
+      try {
+        const fyStartYear = this.qcYear;
+        const fyStart = new Date(fyStartYear, 3, 1);
+        const fyEnd = new Date(fyStartYear + 1, 3, 1);
+        const monthStart = new Date(this.qcYear, this.qcMonth - 1, 1);
+        const monthEnd = new Date(this.qcYear, this.qcMonth, 1);
+        const TYPE_NG = "NG PRODUKSI";
+
+        const [monthRes, perlineRes, permodelRes, dailyRes] = await Promise.all([
+          supabaseClient.rpc("dashboard_qc_ng_month", { p_type_ng: TYPE_NG, p_start: fyStart.toISOString(), p_end: fyEnd.toISOString() }),
+          supabaseClient.rpc("dashboard_qc_ng_perline", { p_type_ng: TYPE_NG, p_start: monthStart.toISOString(), p_end: monthEnd.toISOString() }),
+          supabaseClient.rpc("dashboard_qc_ng_permodel", { p_type_ng: TYPE_NG, p_start: monthStart.toISOString(), p_end: monthEnd.toISOString() }),
+          supabaseClient.rpc("dashboard_qc_ng_daily", { p_type_ng: TYPE_NG, p_start: monthStart.toISOString(), p_end: monthEnd.toISOString() }),
+        ]);
+        if (monthRes.error) console.error("dashboard_qc_ng_month:", monthRes.error);
+        if (perlineRes.error) console.error("dashboard_qc_ng_perline:", perlineRes.error);
+        if (permodelRes.error) console.error("dashboard_qc_ng_permodel:", permodelRes.error);
+        if (dailyRes.error) console.error("dashboard_qc_ng_daily:", dailyRes.error);
+
+        const monthRows = monthRes.data || [];
+        const perlineRows = perlineRes.data || [];
+        const permodelRows = permodelRes.data || [];
+        const dailyRows = dailyRes.data || [];
+
+        // 12 bulan FY berjalan (Apr..Mar), selaras dengan tahunan.monthLabels
+        const fyMonths = [];
+        for (let i = 0; i < 12; i++) fyMonths.push(new Date(fyStartYear, 3 + i, 1));
+        const findMonthRow = (d) => monthRows.find((r) => r.bulan === localDateStr(d));
+        const qtyByMonth = fyMonths.map((d) => { const r = findMonthRow(d); return r ? Number(r.qty) || 0 : null; });
+        const valueByMonth = fyMonths.map((d) => { const r = findMonthRow(d); return r ? Number(r.value) || 0 : null; });
+
+        const perlineQty = QC_LINES.map((line) => { const r = perlineRows.find((x) => x.mesin === line); return r ? Number(r.qty) || 0 : 0; });
+        const perlineValue = QC_LINES.map((line) => { const r = perlineRows.find((x) => x.mesin === line); return r ? Number(r.value) || 0 : 0; });
+
+        const permodelQty = QC_MODELS.map((model) => { const r = permodelRows.find((x) => x.model === model); return r ? Number(r.qty) || 0 : 0; });
+        const permodelValue = QC_MODELS.map((model) => { const r = permodelRows.find((x) => x.model === model); return r ? Number(r.value) || 0 : 0; });
+
+        // Tanggal 1-31 bulan yang dipilih
+        const daysInMonth = new Date(this.qcYear, this.qcMonth, 0).getDate();
+        const findDayRow = (day) => dailyRows.find((r) => r.tanggal === localDateStr(new Date(this.qcYear, this.qcMonth - 1, day)));
+        // Tanggal yang belum lewat (belum ada datanya sama sekali) dikosongkan (null),
+        // bukan diisi 0 -- 0 hanya untuk tanggal yang sudah lewat dan memang tidak ada NG.
+        const todayLocal = new Date();
+        todayLocal.setHours(0, 0, 0, 0);
+        const dailyQty = Array.from({ length: 31 }, (_, i) => {
+          const day = i + 1;
+          if (day > daysInMonth) return null;
+          if (new Date(this.qcYear, this.qcMonth - 1, day) > todayLocal) return null;
+          const r = findDayRow(day);
+          return r ? Number(r.qty) || 0 : 0;
+        });
+        const dailyValue = Array.from({ length: 31 }, (_, i) => {
+          const day = i + 1;
+          if (day > daysInMonth) return null;
+          if (new Date(this.qcYear, this.qcMonth - 1, day) > todayLocal) return null;
+          const r = findDayRow(day);
+          return r ? Number(r.value) || 0 : 0;
+        });
+
+        this.qcNgInline = {
+          monthLabels: this.tahunan.monthLabels && this.tahunan.monthLabels.length ? this.tahunan.monthLabels.slice(2) : ["Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des","Jan","Feb","Mar"],
+          qtyByMonth, valueByMonth,
+          perlineQty, perlineValue,
+          permodelQty, permodelValue,
+          dailyQty, dailyValue,
+          detailRows: this.qcNgInline.detailRows,
+        };
+        this.qcNgInlineLoaded = true;
+        await this.fetchQcNgInlineDetail();
+      } catch (e) {
+        console.error("Gagal memuat data NG Inline (Kontrol Kualitas):", e);
+      }
+    },
+    // Ambil rincian baris NG untuk tabel "Rekap NG Inline".
+    // Mode 'tanggal': 1 hari saja, pakai RPC lama dashboard_qc_ng_detail.
+    // Mode 'bulan'  : seluruh bulan yang lagi dipilih (qcMonth/qcYear),
+    //                 pakai RPC baru dashboard_qc_ng_detail_range
+    //                 (lihat rpc_dashboard_qc_ng_detail_range.sql).
+    async fetchQcNgInlineDetail() {
+      try {
+        let data, error;
+        if (this.qcNgInlineDetailMode === "bulan") {
+          const monthStart = new Date(this.qcYear, this.qcMonth - 1, 1);
+          const monthEnd = new Date(this.qcYear, this.qcMonth, 1);
+          ({ data, error } = await supabaseClient.rpc("dashboard_qc_ng_detail_range", {
+            p_type_ng: "NG PRODUKSI",
+            p_start: localDateStr(monthStart),
+            p_end: localDateStr(monthEnd),
+          }));
+        } else {
+          ({ data, error } = await supabaseClient.rpc("dashboard_qc_ng_detail", {
+            p_type_ng: "NG PRODUKSI",
+            p_tanggal: this.qcNgInlineDetailDate,
+          }));
+        }
+        if (error) { console.error("dashboard_qc_ng_detail" + (this.qcNgInlineDetailMode === "bulan" ? "_range" : "") + ":", error); return; }
+        this.qcNgInline.detailRows = (data || []).map((r) => ({
+          // r.tanggal dari Supabase berformat "YYYY-MM-DD" -- ditampilkan
+          // ringkas "DD/MM" karena kolomnya sempit (cuma dipakai/terlihat
+          // saat mode "Sebulan").
+          tanggal: r.tanggal ? r.tanggal.slice(8, 10) + "/" + r.tanggal.slice(5, 7) : "",
+          model: r.model || "", line: r.mesin || "", partNo: r.part_number || "",
+          area: r.area || "", ngProses: r.ng_proses || "", qty: r.qty ?? "",
+          ngKategori: r.ng_kategori || "", value: r.value ?? "",
+        }));
+      } catch (e) {
+        console.error("Gagal memuat detail NG Inline:", e);
+      }
     },
     // ---------------------------------------------------------------
     // Data "Bulanan" (harian, tanggal 1-31) -- diisi dari fetchBulanan()
@@ -1501,17 +1735,19 @@ function dashboardExhaust() {
       while (out.length < minRows) out.push({ ...emptyRow });
       return out;
     },
-    // Baris tabel di tab Kontrol Kualitas: default minimal 5 baris kosong,
-    // kalau data asli (belum ada sumbernya sekarang) lebih dari 5, semua
-    // tetap ditampilkan dan scroll otomatis muncul dari .dxy-table-scroll.
+    // Baris tabel di tab Kontrol Kualitas: default minimal 8 baris kosong
+    // (supaya area kotak Rekap yang tingginya sudah dikunci 198px terisi
+    // pas sampai bawah, tidak ada sisa ruang kosong seperti saat masih
+    // 5 baris). Kalau data asli lebih dari 8, semua tetap ditampilkan
+    // dan scroll otomatis muncul dari .qc-rekap-scroll.
     qcNgInlineRows() {
-      return this.dxyPadMin([], { model: "", line: "", partNo: "", area: "", ngProses: "", qty: "", ngKategori: "", value: "" }, 5);
+      return this.dxyPadMin(this.qcNgInline.detailRows, { tanggal: "", model: "", line: "", partNo: "", area: "", ngProses: "", qty: "", ngKategori: "", value: "" }, 8);
     },
     qcNgTrialRows() {
-      return this.dxyPadMin([], { model: "", line: "", partNo: "", area: "", ngProses: "", qty: "", ngKategori: "", value: "" }, 5);
+      return this.dxyPadMin([], { model: "", line: "", partNo: "", area: "", ngProses: "", qty: "", ngKategori: "", value: "" }, 8);
     },
     qcRepairRows() {
-      return this.dxyPadMin([], { model: "", line: "", partNo: "", qty: "", area: "", point: "", repairKategori: "" }, 5);
+      return this.dxyPadMin([], { model: "", line: "", partNo: "", qty: "", area: "", point: "", repairKategori: "" }, 8);
     },
     dxyFilteredTerbesar() {
       let flat = [];
@@ -1989,8 +2225,10 @@ function dashboardExhaust() {
           const rowsUp = [];   // batas kanan label terakhir per baris, untuk batang positif (menumpuk ke atas)
           const rowsDown = []; // idem untuk batang negatif (menumpuk ke bawah)
           meta.data.forEach((bar, i) => {
-            const val = Number(dataset.data[i]);
-            if (val === null || val === undefined || Number.isNaN(val)) return;
+            const raw = dataset.data[i];
+            if (raw === null || raw === undefined) return;
+            const val = Number(raw);
+            if (Number.isNaN(val)) return;
             const { x, y, base } = bar.getProps(["x", "y", "base"], true);
             const label = formatter(val);
             const halfW = ctx.measureText(label).width / 2 + 4;
@@ -2227,8 +2465,10 @@ function dashboardExhaust() {
           ctx.textAlign = "center";
           ctx.fillStyle = textColor;
           meta.data.forEach((bar, i) => {
-            const val = Number(dataset.data[i]);
-            if (val === null || val === undefined || Number.isNaN(val)) return;
+            const raw = dataset.data[i];
+            if (raw === null || raw === undefined) return;
+            const val = Number(raw);
+            if (Number.isNaN(val)) return;
             const { x, y, base } = bar.getProps(["x", "y", "base"], true);
             const isUp = y <= base;
             ctx.textBaseline = isUp ? "bottom" : "top";
@@ -2238,18 +2478,20 @@ function dashboardExhaust() {
         },
       });
 
-      // --- Month · NG Inline: sama dengan grafik "NG Inline" di tab Tahunan
-      // (Qty bar oranye + Value garis ungu, dual axis) ---
+      // --- Month · NG Inline: sekarang pakai data ASLI dari RPC
+      // dashboard_qc_ng_month (type_ng = 'NG PRODUKSI'), bukan lagi
+      // numpang data gabungan dari tab Tahunan. ---
       safe(() => {
         destroy("qcNgInlineMonth");
         const canvas = document.getElementById("qcNgInlineMonth");
         if (!canvas) return;
+        const ngi = this.qcNgInline;
         this.qcCharts.qcNgInlineMonth = new Chart(canvas, {
           data: {
-            labels: b.monthLabels.slice(2),
+            labels: ngi.monthLabels,
             datasets: [
-              { type: "bar", label: "Qty", data: b.ngInline.qtyByMonth.slice(2), backgroundColor: barBg(canvas, "#F97316", b.ngInline.qtyByMonth.length - 2), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
-              { type: "line", label: "Value", data: b.ngInline.valueByMonth.slice(2), borderColor: "#8B5CF6", backgroundColor: "#8B5CF6", yAxisID: "y1", pointRadius: 3, tension: 0.3 },
+              { type: "bar", label: "Qty", data: ngi.qtyByMonth, backgroundColor: barBg(canvas, "#F97316", ngi.qtyByMonth.length), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
+              { type: "line", label: "Value", data: ngi.valueByMonth, borderColor: "#8B5CF6", backgroundColor: "#8B5CF6", yAxisID: "y1", pointRadius: 3, tension: 0.3 },
             ],
           },
           options: {
@@ -2325,20 +2567,19 @@ function dashboardExhaust() {
       }, "qcStraightpassMonth");
 
       // --- Perline & Model: 6 chart bar sederhana (E-02..E-07 / daftar
-      // model) untuk 3 kolom. Belum ada sumber data breakdown per-line/
-      // per-model, jadi datanya dikosongkan dulu (struktur & style saja). ---
-      const QC_LINES = ["E-02", "E-03", "E-04", "E-05", "E-06", "E-07"];
-      const QC_MODELS = ["YR9", "YHA", "K15B", "K15C", "D98E", "889F", "D13", "D73F", "D40"];
-      const qcSimpleBar = (canvasId, categories, hex) => {
+      // model) untuk 3 kolom. NG Inline sudah pakai data asli; NG Trial &
+      // Straightpass masih dikosongkan dulu (belum ada RPC-nya). ---
+      const qcSimpleBar = (canvasId, categories, hex, dataQty) => {
         safe(() => {
           destroy(canvasId);
           const canvas = document.getElementById(canvasId);
           if (!canvas) return;
+          const values = dataQty || categories.map(() => null);
           this.qcCharts[canvasId] = new Chart(canvas, {
             type: "bar",
             data: {
               labels: categories,
-              datasets: [{ label: "Qty", data: categories.map(() => null), backgroundColor: barBg(canvas, hex, categories.length), borderRadius: 6, barPercentage: 0.6, categoryPercentage: 0.7 }],
+              datasets: [{ label: "Qty", data: values, backgroundColor: barBg(canvas, hex, categories.length), borderRadius: 6, barPercentage: 0.6, categoryPercentage: 0.7 }],
             },
             options: {
               responsive: true, maintainAspectRatio: false, animation: noAnim,
@@ -2350,8 +2591,9 @@ function dashboardExhaust() {
           });
         }, canvasId);
       };
-      qcSimpleBar("qcNgInlinePerline", QC_LINES, "#F97316");
-      qcSimpleBar("qcNgInlineModel", QC_MODELS, "#F97316");
+      const ngi = this.qcNgInline;
+      qcSimpleBar("qcNgInlinePerline", QC_LINES, "#F97316", ngi.perlineQty);
+      qcSimpleBar("qcNgInlineModel", QC_MODELS, "#F97316", ngi.permodelQty);
       qcSimpleBar("qcNgTrialPerline", QC_LINES, "#06B6D4");
       qcSimpleBar("qcNgTrialModel", QC_MODELS, "#06B6D4");
       qcSimpleBar("qcStraightpassPerline", QC_LINES, "#22C55E");
@@ -2359,21 +2601,22 @@ function dashboardExhaust() {
 
       // --- Daily: tanggal 1-31, dual axis. NG Inline & NG Trial pakai
       // Qty (bar) + Value (garis); Straightpass pakai Qty (bar) + % (garis).
-      // Data belum ada sumbernya -- dikosongkan dulu (struktur & style saja). ---
+      // NG Inline sudah pakai data asli; NG Trial & Straightpass masih
+      // dikosongkan dulu (belum ada RPC-nya). ---
       const QC_DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1));
-      const qcDualAxisDaily = (canvasId, hexBar, hexLine, barLabel, lineLabel, lineIsPercent) => {
+      const qcDualAxisDaily = (canvasId, hexBar, hexLine, barLabel, lineLabel, lineIsPercent, dataBar, dataLine) => {
         safe(() => {
           destroy(canvasId);
           const canvas = document.getElementById(canvasId);
           if (!canvas) return;
-          const emptyBar = QC_DAYS.map(() => null);
-          const emptyLine = QC_DAYS.map(() => null);
+          const barData = dataBar || QC_DAYS.map(() => null);
+          const lineData = dataLine || QC_DAYS.map(() => null);
           this.qcCharts[canvasId] = new Chart(canvas, {
             data: {
               labels: QC_DAYS,
               datasets: [
-                { type: "bar", label: barLabel, data: emptyBar, backgroundColor: barBg(canvas, hexBar, QC_DAYS.length), yAxisID: "y", borderRadius: 4, barPercentage: 0.6, categoryPercentage: 0.75 },
-                { type: "line", label: lineLabel, data: emptyLine, borderColor: hexLine, backgroundColor: hexLine, yAxisID: "y1", pointRadius: 2, tension: 0.3 },
+                { type: "bar", label: barLabel, data: barData, backgroundColor: barBg(canvas, hexBar, QC_DAYS.length), yAxisID: "y", borderRadius: 4, barPercentage: 0.6, categoryPercentage: 0.75 },
+                { type: "line", label: lineLabel, data: lineData, borderColor: hexLine, backgroundColor: hexLine, yAxisID: "y1", pointRadius: 2, tension: 0.3 },
               ],
             },
             options: {
@@ -2386,10 +2629,11 @@ function dashboardExhaust() {
                 y1: { position: "right", ticks: { color: cssVar("--chart-tick"), font: { size: 9 }, callback: (v) => (lineIsPercent ? v + "%" : v) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, ...(lineIsPercent ? { max: 100 } : {}) },
               },
             },
+            plugins: [barValueLabels((v) => fmtNum(v), 0)],
           });
         }, canvasId);
       };
-      qcDualAxisDaily("qcNgInlineDaily", "#F97316", "#8B5CF6", "Qty", "Value", false);
+      qcDualAxisDaily("qcNgInlineDaily", "#F97316", "#8B5CF6", "Qty", "Value", false, ngi.dailyQty, ngi.dailyValue);
       qcDualAxisDaily("qcNgTrialDaily", "#06B6D4", "#8B5CF6", "Qty", "Value", false);
       qcDualAxisDaily("qcStraightpassDaily", "#22C55E", "#EF4444", "Qty", "%", true);
     },
