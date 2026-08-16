@@ -221,22 +221,49 @@
 }
 /* ---- Toggle "Tanggal" / "Sebulan" di header panel Rekap (Kontrol Kualitas) ---- */
 .qc-rekap-mode { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
-.qc-rekap-mode-btn {
-  font-family: inherit;
-  font-size: 9.5px;
-  font-weight: 700;
-  padding: 4px 8px;
+.qc-rekap-mode .dxy-input { min-height: 24px; padding: 3px 6px; font-size: 10.5px; }
+/* Field tanggal ini diam-diam terisi (tanggal 1 bulan terpilih) supaya
+   kalender bawaan browser terbuka di bulan yang benar -- tapi selama
+   user belum benar-benar memilih tanggal (qcNgInlineUseDate masih false),
+   teksnya disembunyikan (dibikin transparan) supaya tetap KELIHATAN
+   kosong di layar, sesuai tampilan mode "sebulan". */
+.qc-rekap-mode .dxy-input.qc-date-hidden { color: transparent; }
+.qc-rekap-mode .dxy-input.qc-date-hidden::-webkit-datetime-edit-fields-wrapper { color: transparent; }
+/* Wrapper input tanggal + overlay nama bulan di atasnya. Overlay disisakan
+   ruang ~22px di kanan supaya ikon kalender bawaan browser tetap kelihatan
+   & tetap bisa diklik (overlay pointer-events:none, klik tembus ke input
+   di bawahnya, jadi kalender tetap kebuka walau overlay sedang tampil). */
+.qc-date-wrap { position: relative; display: inline-block; }
+.qc-date-month-label {
+  position: absolute;
+  left: 0; top: 0; bottom: 0; right: 22px;
+  display: flex; align-items: center;
+  padding-left: 7px;
+  background: var(--dxy-card);
+  color: var(--dxy-text);
+  font-size: 10.5px;
+  font-weight: 600;
+  border-radius: 6px 0 0 6px;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+}
+/* Tombol kecil "✕" -- muncul cuma saat tanggal terisi, dipakai untuk
+   mengosongkan tanggal lagi supaya balik otomatis ke tampilan sebulan. */
+.qc-rekap-clear-btn {
+  width: 20px; height: 20px;
   border-radius: 999px;
   border: 1px solid var(--dxy-border);
   background: var(--dxy-card);
   color: var(--dxy-muted);
+  font-size: 10px;
+  line-height: 1;
   cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
   transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
-  white-space: nowrap;
 }
-.qc-rekap-mode-btn:hover { color: var(--dxy-text); }
-.qc-rekap-mode-btn.active { background: var(--dxy-blue); border-color: var(--dxy-blue); color: #fff; }
-.qc-rekap-mode .dxy-input { min-height: 24px; padding: 3px 6px; font-size: 10.5px; }
+.qc-rekap-clear-btn:hover { background: #ef4444; border-color: #ef4444; color: #fff; }
 /* Scrollbar dibuat jelas kelihatan (default browser kadang terlalu tipis/transparan) */
 .qc-rekap-scroll::-webkit-scrollbar { width: 8px; }
 .qc-rekap-scroll::-webkit-scrollbar-track { background: transparent; }
@@ -836,16 +863,18 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
                 <div class="dxy-panel-head">
                   <span class="dxy-panel-title">Rekap NG Inline</span>
                   <div class="qc-rekap-mode">
-                    <button type="button" class="qc-rekap-mode-btn" :class="{ active: qcNgInlineDetailMode === 'tanggal' }" @click="setQcRekapMode('qcNgInline', 'tanggal')">Tanggal</button>
-                    <button type="button" class="qc-rekap-mode-btn" :class="{ active: qcNgInlineDetailMode === 'bulan' }" @click="setQcRekapMode('qcNgInline', 'bulan')">Sebulan</button>
-                    <input type="date" class="dxy-input" style="min-width:120px;" x-show="qcNgInlineDetailMode === 'tanggal'" x-model="qcNgInlineDetailDate" @change="fetchQcNgInlineDetail()">
+                    <div class="qc-date-wrap">
+                      <input type="date" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !qcNgInlineUseDate }" x-model="qcNgInlineDetailDate" @change="qcNgInlineUseDate = true; fetchQcNgInlineDetail()">
+                      <span class="qc-date-month-label" x-show="!qcNgInlineUseDate" x-text="qcMonthShortLabel"></span>
+                    </div>
+                    <button type="button" class="qc-rekap-clear-btn" title="Kembali ke tampilan sebulan" x-show="qcNgInlineUseDate" @click="qcNgInlineUseDate = false; fetchQcNgInlineDetail()">✕</button>
                   </div>
                 </div>
                 <div class="dxy-table-scroll qc-rekap-scroll">
                   <table class="dxy-table qc-detail-table">
                     <thead>
                       <tr>
-                        <th style="width:52px" x-show="qcNgInlineDetailMode === 'bulan'">Tanggal</th>
+                        <th style="width:52px" x-show="!qcNgInlineUseDate">Tanggal</th>
                         <th style="width:48px">Model</th><th style="width:36px">Line</th><th style="width:13%">Part No</th><th style="width:13%">Area</th><th style="width:17%">NG Proses</th>
                         <th style="width:36px">Qty</th><th style="width:18%">NG Kategori</th><th style="width:15%">Value</th>
                       </tr>
@@ -853,7 +882,7 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
                     <tbody>
                       <template x-for="(row, i) in qcNgInlineRows()" :key="'qcng-'+i">
                         <tr>
-                          <td x-show="qcNgInlineDetailMode === 'bulan'" x-text="row.tanggal"></td>
+                          <td x-show="!qcNgInlineUseDate" x-text="row.tanggal"></td>
                           <td x-text="row.model"></td>
                           <td x-text="row.line"></td>
                           <td x-text="row.partNo"></td>
@@ -1103,24 +1132,19 @@ function dashboardExhaust() {
     // RPC asli (dashboard_qc_ng_*, lihat migration_dashboard_kualitas.sql).
     // Kolom NG Trial & Straightpass masih placeholder kosong.
     // ---------------------------------------------------------------
-    qcNgInlineDetailDate: localDateStr(new Date()),
-    qcNgTrialDetailDate: localDateStr(new Date()),
-    qcStraightpassDetailDate: localDateStr(new Date()),
-    // Mode tabel Rekap: 'tanggal' = 1 hari (RPC lama, p_tanggal),
-    // 'bulan' = seluruh bulan yang lagi dipilih (RPC baru, p_start/p_end).
-    qcNgInlineDetailMode: "tanggal",
-    qcNgTrialDetailMode: "tanggal",
-    qcStraightpassDetailMode: "tanggal",
-    // Dipanggil saat tombol "Tanggal"/"Sebulan" di panel Rekap diklik.
-    // key: 'qcNgInline' | 'qcNgTrial' | 'qcStraightpass'.
-    setQcRekapMode(key, mode) {
-      const modeProp = key + "DetailMode";
-      if (this[modeProp] === mode) return;
-      this[modeProp] = mode;
-      if (key === "qcNgInline") this.fetchQcNgInlineDetail();
-      // NG Trial & Straightpass belum tersambung RPC asli -- tinggal
-      // tambahkan pemanggilan fetch yang sama di sini kalau sudah ada.
-    },
+    // Default: field tanggal diisi DIAM-DIAM dengan tanggal 1 di bulan yang
+    // lagi dipilih -- ini SEMATA-MATA supaya saat kalender bawaan browser
+    // dibuka, dia terbuka pas di bulan yang benar (Juli misalnya), bukan
+    // di bulan hari-ini-beneran (browser defaultnya begitu kalau field
+    // kosong total). Tampilan tetap terlihat kosong di layar (lihat CSS
+    // .qc-rekap-mode .dxy-input { color: transparent } saat belum dipakai).
+    // Status mode "sebulan" vs "1 tanggal" TIDAK ditentukan dari isi/kosong
+    // field ini lagi, tapi dari flag qcNgInlineUseDate: true hanya kalau
+    // user BENERAN klik/pilih tanggal (event @change).
+    qcNgInlineDetailDate: "",
+    qcNgInlineUseDate: false,
+    qcNgTrialDetailDate: "",
+    qcStraightpassDetailDate: "",
     qcNgInlineLoaded: false,
     qcNgInline: {
       monthLabels: [], qtyByMonth: [], valueByMonth: [],
@@ -1133,6 +1157,13 @@ function dashboardExhaust() {
       const bulanId = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
       return bulanId[this.qcMonth - 1] + " " + this.qcYear;
     },
+    // Nama bulan singkat (tanpa tahun) -- dipakai sebagai overlay teks di
+    // field tanggal panel Rekap selama mode "sebulan" masih aktif, biar
+    // fieldnya nggak keliatan kosong melompong.
+    get qcMonthShortLabel() {
+      const bulanId = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+      return bulanId[this.qcMonth - 1];
+    },
     // Dipanggil saat dropdown Bulan/Tahun di tab Kontrol Kualitas berubah.
     onQcPeriodChange() {
       if (this.qcYear !== this.tahunanYear) {
@@ -1140,11 +1171,12 @@ function dashboardExhaust() {
         this.tahunanLoaded = false;
         this.fetchTahunan().then(() => this.$nextTick(() => this.renderKualitasCharts()));
       }
-      // Samakan tanggal di input "Rekap" (NG Inline/Trial/Straightpass) dengan
-      // bulan+tahun yang baru dipilih (default ke tanggal 1), supaya tabel
-      // Rekap tidak "nyangkut" di bulan lama.
+      // Balik ke mode "sebulan" (ikut bulan+tahun yang baru dipilih), dan
+      // isi ulang field tanggal ke tanggal 1 bulan baru itu -- diam-diam,
+      // cuma supaya kalender kebuka di bulan yang benar kalau nanti diklik.
       const firstOfMonth = localDateStr(new Date(this.qcYear, this.qcMonth - 1, 1));
       this.qcNgInlineDetailDate = firstOfMonth;
+      this.qcNgInlineUseDate = false;
       this.qcNgTrialDetailDate = firstOfMonth;
       this.qcStraightpassDetailDate = firstOfMonth;
       this.qcNgInlineLoaded = false;
@@ -1229,14 +1261,16 @@ function dashboardExhaust() {
       }
     },
     // Ambil rincian baris NG untuk tabel "Rekap NG Inline".
-    // Mode 'tanggal': 1 hari saja, pakai RPC lama dashboard_qc_ng_detail.
-    // Mode 'bulan'  : seluruh bulan yang lagi dipilih (qcMonth/qcYear),
-    //                 pakai RPC baru dashboard_qc_ng_detail_range
-    //                 (lihat rpc_dashboard_qc_ng_detail_range.sql).
+    // Otomatis, TANPA tombol/mode manual:
+    // - qcNgInlineDetailDate KOSONG -> tampil SEBULAN PENUH (qcMonth/qcYear),
+    //   pakai RPC baru dashboard_qc_ng_detail_range.
+    // - qcNgInlineDetailDate DIISI  -> tampil 1 hari itu saja, pakai RPC
+    //   lama dashboard_qc_ng_detail.
     async fetchQcNgInlineDetail() {
       try {
+        const isBulan = !this.qcNgInlineUseDate;
         let data, error;
-        if (this.qcNgInlineDetailMode === "bulan") {
+        if (isBulan) {
           const monthStart = new Date(this.qcYear, this.qcMonth - 1, 1);
           const monthEnd = new Date(this.qcYear, this.qcMonth, 1);
           ({ data, error } = await supabaseClient.rpc("dashboard_qc_ng_detail_range", {
@@ -1250,11 +1284,11 @@ function dashboardExhaust() {
             p_tanggal: this.qcNgInlineDetailDate,
           }));
         }
-        if (error) { console.error("dashboard_qc_ng_detail" + (this.qcNgInlineDetailMode === "bulan" ? "_range" : "") + ":", error); return; }
+        if (error) { console.error("dashboard_qc_ng_detail" + (isBulan ? "_range" : "") + ":", error); return; }
         this.qcNgInline.detailRows = (data || []).map((r) => ({
           // r.tanggal dari Supabase berformat "YYYY-MM-DD" -- ditampilkan
           // ringkas "DD/MM" karena kolomnya sempit (cuma dipakai/terlihat
-          // saat mode "Sebulan").
+          // saat tampilan sebulan, ketika input tanggal dikosongkan).
           tanggal: r.tanggal ? r.tanggal.slice(8, 10) + "/" + r.tanggal.slice(5, 7) : "",
           model: r.model || "", line: r.mesin || "", partNo: r.part_number || "",
           area: r.area || "", ngProses: r.ng_proses || "", qty: r.qty ?? "",
@@ -1894,7 +1928,7 @@ function dashboardExhaust() {
       const noAnim = { duration: 0 };
 
       const baseScales = (opts = {}) => ({
-        x: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
+        x: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
         y: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 }, maxTicksLimit: 5 }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, ...opts },
       });
       const legend = (show) => ({ display: show, position: "bottom", labels: { color: cssVar("--muted"), boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 9 }, padding: 8 } });
@@ -2133,7 +2167,7 @@ function dashboardExhaust() {
       const safe = (fn, label) => { try { fn(); } catch (e) { console.error("Gagal render chart Tahunan:", label, e); } };
 
       const baseScales = () => ({
-        x: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
+        x: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
         y: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 }, maxTicksLimit: 5 }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
       });
       const legend = (show) => ({ display: show, position: "bottom", labels: { color: cssVar("--muted"), boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 9 }, padding: 6 } });
@@ -2427,7 +2461,7 @@ function dashboardExhaust() {
       const safe = (fn, label) => { try { fn(); } catch (e) { console.error("Gagal render chart Kualitas:", label, e); } };
 
       const baseScales = () => ({
-        x: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
+        x: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
         y: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 }, maxTicksLimit: 5 }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
       });
       const legend = (show) => ({ display: show, position: "bottom", labels: { color: cssVar("--muted"), boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 9 }, padding: 6 } });
