@@ -177,6 +177,7 @@
 .dxy-span-3 { grid-column: span 3; }
 .dxy-span-4 { grid-column: span 4; }
 .dxy-span-6 { grid-column: span 6; }
+.dxy-span-8 { grid-column: span 8; }
 .dxy-span-12 { grid-column: span 12; }
 .dxy-chart-box { position: relative; flex: 1; min-height: 185px !important; max-height: 185px; }
 .dxy-chart-box.tall { min-height: 165px !important; max-height: 165px; }
@@ -185,11 +186,11 @@
 .dxy-table-panel { grid-column: span 12; }
 /* Varian tabel sejajar 3-kolom (Downtime / NG Inline / Repair Terbesar) */
 .dxy-table-panel-sm .dxy-table-scroll { max-height: 300px !important; overflow-x: hidden; }
-.dxy-table-panel-sm table.dxy-table { font-size: 11.5px; width: 100%; table-layout: fixed; }
-.dxy-table-panel-sm table.dxy-table thead th { padding: 5px 6px; font-size: 9px; }
-.dxy-table-panel-sm table.dxy-table tbody td { padding: 4px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 24px; }
-/* Rekap NG Inline / NG Trial / Repair (qc-detail-table): samakan font sel data dengan font header (9px) */
-.dxy-table-panel-sm table.qc-detail-table tbody td { font-size: 9px; }
+.dxy-table-panel-sm table.dxy-table { font-size: 10px; width: 100%; table-layout: fixed; }
+.dxy-table-panel-sm table.dxy-table thead th { padding: 5px 6px; font-size: 8px; }
+.dxy-table-panel-sm table.dxy-table tbody td { padding: 4px 6px; white-space: nowrap; overflow: hidden; text-overflow: clip; height: 24px; }
+/* Rekap NG Inline / NG Trial / Repair (qc-detail-table): samakan font sel data dengan font header (8px) */
+.dxy-table-panel-sm table.qc-detail-table tbody td { font-size: 8px; }
 /* Kotak Rekap Kontrol Kualitas: tinggi TETAP, pas menampung header + 5 baris data.
    Kotak TIDAK melebar ke bawah -- kalau data lebih dari 5 baris, scroll muncul
    DI DALAM kotak ini (kotaknya sendiri diam). Dipasang dengan spesifisitas tinggi
@@ -270,21 +271,114 @@
 .qc-rekap-scroll::-webkit-scrollbar-thumb { background: #94A3B8; border-radius: 8px; }
 .qc-rekap-scroll::-webkit-scrollbar-thumb:hover { background: #64748B; }
 .dxy-table-scroll { max-height: 210px !important; overflow: auto; border-radius: 12px; border: 1px solid var(--dxy-border); }
-table.dxy-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12.5px; }
+table.dxy-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; }
 table.dxy-table thead th {
   position: sticky; top: 0; z-index: 1;
   background: var(--dxy-card);
   border-bottom: 2px solid var(--dxy-border);
   text-align: left;
   padding: 8px 12px;
-  font-size: 10px;
+  font-size: 9px;
   letter-spacing: .05em;
   text-transform: uppercase;
   color: var(--dxy-muted);
 }
-table.dxy-table tbody td { padding: 5px 12px; border-bottom: 1px solid var(--dxy-border); vertical-align: middle; }
+table.dxy-table tbody td { padding: 5px 12px; border-bottom: 1px solid var(--dxy-border); vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: clip; }
 table.dxy-table tbody tr:nth-child(even) { background: rgba(107,114,128,.045); }
 table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
+/* ---- Filter per-kolom di tabel Rekap NG Inline / NG Trial / Repair ---- */
+table.qc-detail-table thead th { cursor: pointer; user-select: none; transition: background 120ms ease; }
+table.qc-detail-table thead th:hover { background: rgba(37,99,235,.08); }
+/* NOTE: warna di bawah ini SENGAJA di-hardcode (bukan var(--dxy-*)) karena
+   dropdown-nya di-teleport ke <body>, keluar dari elemen ".dxy" tempat
+   variabel --dxy-* itu didefinisikan -- kalau pakai var(--dxy-*) di sini,
+   nilainya jadi kosong/transparan begitu dropdown pindah ke luar scope-nya. */
+.qc-filter-dropdown {
+  position: fixed;
+  z-index: 999;
+  width: 200px;
+  max-width: 80vw;
+  background: #F0F9FF;
+  border: 1px solid #7DD3FC;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(14,165,233,.12), 0 16px 32px -14px rgba(14,165,233,.35);
+  padding: 9px;
+  font-size: 11px;
+  text-transform: none;
+  letter-spacing: normal;
+  color: #0C4A6E;
+  cursor: default;
+}
+[data-theme="dark"] .qc-filter-dropdown {
+  background: #0C2A3D;
+  border-color: #0369A1;
+  color: #E0F2FE;
+  box-shadow: 0 4px 10px rgba(0,0,0,.3), 0 16px 32px -14px rgba(0,0,0,.55);
+}
+.qc-filter-title { font-size: 10px; font-weight: 700; color: #0284C7; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+[data-theme="dark"] .qc-filter-title { color: #7DD3FC; }
+.qc-filter-search {
+  width: 100%;
+  box-sizing: border-box;
+  background: #E0F2FE;
+  border: 1px solid #BAE6FD;
+  color: #0C4A6E;
+  border-radius: 6px;
+  padding: 5px 7px;
+  font-size: 11px;
+  font-family: inherit;
+  margin-bottom: 6px;
+}
+[data-theme="dark"] .qc-filter-search { background: #082F49; border-color: #0369A1; color: #E0F2FE; }
+.qc-filter-actions { display: flex; gap: 6px; margin-bottom: 6px; }
+.qc-filter-actions button {
+  flex: 1;
+  background: #E0F2FE;
+  border: 1px solid #BAE6FD;
+  color: #0C4A6E;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+[data-theme="dark"] .qc-filter-actions button { background: #082F49; border-color: #0369A1; color: #E0F2FE; }
+.qc-filter-actions button:hover { border-color: #0EA5E9; color: #0EA5E9; }
+.qc-filter-actions button.qc-filter-close-btn { flex: 0 0 auto; padding: 4px 8px; }
+.qc-filter-list { max-height: 190px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.qc-filter-item {
+  display: flex; align-items: center; gap: 7px;
+  padding: 4px 5px; border-radius: 6px; cursor: pointer; font-size: 11px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.qc-filter-item:hover { background: rgba(14,165,233,.14); }
+.qc-filter-item input[type="checkbox"] { flex-shrink: 0; margin: 0; cursor: pointer; }
+.qc-filter-item span { overflow: hidden; text-overflow: ellipsis; }
+.qc-filter-empty { font-size: 10.5px; color: #0284C7; font-style: italic; padding: 6px 4px; }
+[data-theme="dark"] .qc-filter-empty { color: #7DD3FC; }
+
+/* ---- Chip ringkasan filter aktif (badge kecil di sebelah judul panel Rekap) ---- */
+.qc-panel-title-group { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.qc-filter-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: rgba(37,99,235,.12);
+  color: var(--dxy-blue);
+  border: 1px solid rgba(37,99,235,.3);
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.qc-filter-badge:hover { background: var(--dxy-blue); color: #fff; }
+/* Kolom yang lagi difilter: teks header-nya jadi biru -- ini SATU-SATUNYA
+   penanda visual di header (tidak ada ikon tambahan), supaya header tetap
+   bersih untuk kolom yang tidak difilter. */
+table.qc-detail-table thead th.qc-th-active { color: var(--dxy-blue); font-weight: 800; }
+
 .dxy-rank-badge {
   display: inline-flex; align-items: center; justify-content: center;
   width: 22px; height: 22px; border-radius: 50%;
@@ -294,6 +388,51 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
 .dxy-pic-chip .dot { width: 7px; height: 7px; border-radius: 50%; }
 .dxy-minute-badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; background: rgba(100,116,139,.12); color: var(--dxy-text); }
 .dxy-empty-cell { color: var(--dxy-muted); font-style: italic; }
+
+/* ---- Popup detail "Downtime Terbesar" (breakdown per Line) -- double-klik
+   row di tabel bulananTopProblem. Bukan modal tengah layar -- ini POPUP
+   KECIL yang nempel/floating di atas panel "Downtime Terbesar" (sama
+   seperti pola .qc-filter-dropdown). Warna hardcode karena di-teleport
+   ke <body>, keluar dari scope ".dxy". ---- */
+.dxy-pd-modal {
+  position: fixed;
+  z-index: 1000;
+  width: 260px;
+  max-width: 88vw;
+  max-height: 300px;
+  background: #F0F9FF; color: #0C4A6E;
+  border: 1px solid #7DD3FC; border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(14,165,233,.12), 0 16px 32px -14px rgba(14,165,233,.35);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+[data-theme="dark"] .dxy-pd-modal { background: #0C2A3D; color: #E0F2FE; border-color: #0369A1; }
+.dxy-pd-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 9px 10px 7px 10px; border-bottom: 1px solid #BAE6FD; background: #E0F2FE; }
+[data-theme="dark"] .dxy-pd-head { border-color: #0369A1; background: #082F49; }
+.dxy-pd-title { font-size: 8.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #0284C7; margin-bottom: 2px; }
+[data-theme="dark"] .dxy-pd-title { color: #7DD3FC; }
+.dxy-pd-problem { font-size: 12px; font-weight: 800; line-height: 1.3; color: #0C4A6E; }
+[data-theme="dark"] .dxy-pd-problem { color: #E0F2FE; }
+.dxy-pd-close { flex-shrink: 0; background: transparent; border: none; font-size: 13px; line-height: 1; cursor: pointer; color: #0284C7; padding: 2px 4px; border-radius: 5px; }
+.dxy-pd-close:hover { background: rgba(14,165,233,.18); color: #0C4A6E; }
+[data-theme="dark"] .dxy-pd-close:hover { color: #E0F2FE; }
+.dxy-pd-sub { padding: 6px 10px 0 10px; font-size: 9.5px; color: #0284C7; }
+[data-theme="dark"] .dxy-pd-sub { color: #7DD3FC; }
+.dxy-pd-body { padding: 5px 10px 8px 10px; overflow-y: auto; }
+.dxy-pd-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.dxy-pd-table th { text-align: left; font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: #0284C7; padding: 4px 5px; border-bottom: 1px solid #BAE6FD; }
+[data-theme="dark"] .dxy-pd-table th { color: #7DD3FC; border-color: #0369A1; }
+.dxy-pd-table td { padding: 5px 5px; border-bottom: 1px solid #BAE6FD; }
+[data-theme="dark"] .dxy-pd-table td { border-color: #0369A1; }
+.dxy-pd-table tr:last-child td { border-bottom: none; }
+.dxy-pd-table td.dxy-pd-menit { text-align: right; font-weight: 700; color: #0369A1; }
+[data-theme="dark"] .dxy-pd-table td.dxy-pd-menit { color: #7DD3FC; }
+.dxy-pd-loading, .dxy-pd-empty { padding: 12px 4px; text-align: center; font-size: 11px; color: #0284C7; font-style: italic; }
+[data-theme="dark"] .dxy-pd-loading, [data-theme="dark"] .dxy-pd-empty { color: #7DD3FC; }
+.dxy-pd-total { padding: 6px 10px; border-top: 1px solid #BAE6FD; display: flex; justify-content: space-between; font-size: 10.5px; font-weight: 700; background: #E0F2FE; color: #0369A1; }
+[data-theme="dark"] .dxy-pd-total { border-color: #0369A1; background: #082F49; color: #7DD3FC; }
+/* Baris tabel "Downtime Terbesar" bulanan jadi ada indikasi bisa di-klik */
+table.qc-detail-table tbody tr.dxy-row-clickable { cursor: pointer; }
+table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,235,.1); }
 
 /* ---- Bulanan (harian 1-31): grid Weekly 5 kolom sejajar ---- */
 .dxy-weekly-grid {
@@ -315,19 +454,38 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
   margin-bottom: 10px;
 }
 .dxy-dt-terbesar-grid .dxy-table-scroll { max-height: 165px !important; overflow: auto; }
-.dxy-dt-terbesar-grid table.dxy-table { font-size: 10px; table-layout: fixed; width: 100%; }
-.dxy-dt-terbesar-grid table.dxy-table thead th { padding: 4px 3px; font-size: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
-.dxy-dt-terbesar-grid table.dxy-table tbody td { padding: 3px 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 18px; }
+.dxy-dt-terbesar-grid table.dxy-table { font-size: 9px; table-layout: fixed; width: 100%; }
+.dxy-dt-terbesar-grid table.dxy-table thead th { padding: 4px 3px; font-size: 7px; white-space: nowrap; overflow: hidden; text-overflow: clip; text-align: center; }
+.dxy-dt-terbesar-grid table.dxy-table tbody td { padding: 3px 3px; white-space: nowrap; overflow: hidden; text-overflow: clip; height: 18px; }
 .dxy-status-chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 9.5px; font-weight: 700; }
 .dxy-status-open { background: rgba(239,68,68,.14); color: #EF4444; }
 .dxy-status-progress { background: rgba(245,158,11,.14); color: #F59E0B; }
 .dxy-status-closed { background: rgba(16,185,129,.14); color: #10B981; }
 @media (max-width: 1366px) { .dxy-dt-terbesar-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 720px) { .dxy-dt-terbesar-grid { grid-template-columns: 1fr; } }
-.dxy-dt-merged-panel .dxy-table-scroll { max-height: none !important; overflow: visible !important; }
-.dxy-dt-merged-panel table.dxy-table { font-size: 14.5px; table-layout: fixed; }
-.dxy-dt-merged-panel table.dxy-table thead th { padding: 9px 12px; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
-.dxy-dt-merged-panel table.dxy-table tbody td { padding: 9px 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Panel "Downtime Line" TIDAK lagi ikut membesar mengikuti jumlah baris --
+   dikunci ke tinggi yang sama dengan panel "Terbesar" lain (aturan umum
+   .dxy-table-panel-sm .dxy-table-scroll { max-height:300px !important }
+   di atas otomatis berlaku di sini juga, plus overflow:auto dari
+   .dxy-table-scroll dasar), sehingga kalau data lebih banyak dari 300px,
+   scroll muncul DI DALAM kotak, bukan kotaknya yang melar. */
+.dxy-dt-merged-panel table.dxy-table { font-size: 11px; table-layout: fixed; }
+.dxy-dt-merged-panel table.dxy-table thead th { padding: 6px 10px; font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: clip; text-align: center; }
+/* Baris ada isinya (chip Status / badge Menit) vs baris kosong tingginya
+   beda dikit karena chip/badge itu punya padding sendiri di luar padding
+   td -- dikunci tetap 26px semua (lebih ramping dari sebelumnya) supaya
+   rata, nggak peduli ada isinya atau kosong. */
+.dxy-dt-merged-panel table.dxy-table tbody tr { height: 26px; }
+.dxy-dt-merged-panel table.dxy-table tbody td { height: 26px; max-height: 26px; padding: 2px 10px; white-space: nowrap; overflow: hidden; text-overflow: clip; vertical-align: middle; box-sizing: border-box; line-height: 1; }
+.dxy-dt-merged-panel .dxy-status-chip { padding: 1px 7px; font-size: 9px; line-height: 1.4; }
+.dxy-dt-merged-panel .dxy-minute-badge { padding: 1px 7px; font-size: 10.5px; line-height: 1.4; }
+/* ---- Panel "Downtime Terbesar" (sebulan) -- sejajar Downtime Line ---- */
+.dxy-dt-summary-panel .dxy-table-scroll { max-height: 100%; overflow-y: auto; }
+.dxy-dt-summary-panel table.dxy-table { font-size: 11px; table-layout: fixed; }
+.dxy-dt-summary-panel table.dxy-table thead th { padding: 6px 8px; font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: clip; text-align: center; }
+.dxy-dt-summary-panel table.dxy-table tbody tr { height: 26px; }
+.dxy-dt-summary-panel table.dxy-table tbody td { height: 26px; max-height: 26px; padding: 2px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; box-sizing: border-box; line-height: 1; }
+.dxy-dt-summary-panel .dxy-freq-badge { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 700; background: rgba(37,99,235,.12); color: var(--dxy-blue); }
 
 /* ---- Tab Kontrol Kualitas: 3 kolom (NG Inline / NG Inline Trial / Straightpass) ---- */
 .dxy-qc-grid {
@@ -365,9 +523,9 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
 .qc-chart-month  { min-height: 200px !important; max-height: 200px; }
 .qc-chart-sub    { min-height: 160px !important; max-height: 160px; }
 .qc-chart-daily  { min-height: 170px !important; max-height: 170px; }
-.qc-detail-table { font-size: 8px; table-layout: fixed; }
-.qc-detail-table thead th { padding: 5px 4px; font-size: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center !important; text-transform: none !important; letter-spacing: normal !important; }
-.qc-detail-table tbody td { padding: 4px 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 20px; }
+.qc-detail-table { font-size: 7px; table-layout: fixed; }
+.qc-detail-table thead th { padding: 5px 4px; font-size: 7px; white-space: nowrap; overflow: hidden; text-overflow: clip; text-align: center !important; text-transform: none !important; letter-spacing: normal !important; }
+.qc-detail-table tbody td { padding: 4px 5px; white-space: nowrap; overflow: hidden; text-overflow: clip; height: 20px; }
 @media (max-width: 1366px) { .dxy-qc-grid { grid-template-columns: 1fr; } }
 @media (max-width: 1366px) { .dxy-qc-subgrid { grid-template-columns: 1fr; } }
 
@@ -389,11 +547,8 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
   .dxy-chart-box.tall { min-height: 15.5vh !important; max-height: 15.5vh !important; }
   .dxy-weekly-grid .dxy-chart-box { min-height: 11.5vh !important; max-height: 11.5vh !important; }
   .dxy-table-panel-sm .dxy-table-scroll { max-height: 30vh !important; }
-  .dxy-dt-merged-panel .dxy-table-scroll { max-height: none !important; overflow: visible !important; }
   .dxy-fill { display: flex; flex-direction: column; min-height: calc(100vh - 120px); }
   .dxy-fill > .dxy { display: flex; flex-direction: column; flex: 1; }
-  .dxy-dt-merged-panel { flex: 1; }
-  .dxy-dt-merged-panel .dxy-table-scroll { flex: 1; }
 }
 
 /* ---- Skeleton loading ---- */
@@ -414,9 +569,10 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
   .dxy-skeleton { grid-column: span 6; }
   .dxy-span-4 { grid-column: span 6; }
   .dxy-span-3 { grid-column: span 6; }
+  .dxy-span-8 { grid-column: span 8; }
 }
 @media (max-width: 1024px) {
-  .dxy-span-6, .dxy-span-4, .dxy-span-3 { grid-column: span 12; }
+  .dxy-span-6, .dxy-span-4, .dxy-span-3, .dxy-span-8 { grid-column: span 12; }
   .dxy-filterbar { gap: 8px; }
 }
 @media (max-width: 640px) {
@@ -540,14 +696,6 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
                 </select>
               </div>
               <div class="dxy-spacer"></div>
-              <div class="dxy-field">
-                <label>Tanggal</label>
-                <input type="date" class="dxy-input" style="min-width:150px;"
-                       x-model="bulananDate"
-                       :min="bulananDateMin()" :max="bulananDateMax()"
-                       :disabled="bulananLoading"
-                       @change="onBulananDateChange()">
-              </div>
             </div>
 
             <!-- ===== Baris 2: Productivity & Availability, harian 1-31, dalam % ===== -->
@@ -588,32 +736,44 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
               </template>
             </div>
 
-            <!-- ===== Baris 5: Downtime Terbesar per line — digabung jadi 1 tabel (kolom Line) ===== -->
-            <div class="dxy-panel dxy-table-panel-sm dxy-dt-merged-panel">
+            <!-- ===== Baris 5: Downtime Line (per hari, per line) sejajar dengan
+                 Downtime Terbesar (rekap sebulan, per Problem) ===== -->
+            <div class="dxy-chart-grid" style="align-items: stretch;">
+            <div class="dxy-panel dxy-span-8 dxy-table-panel-sm dxy-dt-merged-panel">
               <div class="dxy-panel-head">
-                <span class="dxy-panel-title">⏱ Downtime Line</span>
+                <div class="qc-panel-title-group">
+                  <span class="dxy-panel-title">⏱ Downtime Line</span>
+                  <span class="qc-filter-badge" x-show="qcActiveFilterChips('bulananDowntime').length" :title="'Filter aktif: ' + qcActiveFilterChips('bulananDowntime').map(c => c.label).join(', ') + ' — klik untuk hapus semua'" @click="qcResetFilters('bulananDowntime')">
+                    <span x-text="qcActiveFilterChips('bulananDowntime').length"></span> filter<span>✕</span>
+                  </span>
+                </div>
+                <div class="qc-rekap-mode">
+                  <div class="qc-date-wrap">
+                    <input type="date" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !bulananDowntimeUseDate }" x-model="bulananDate" :min="bulananDateMin()" :max="bulananDateMax()" @change="bulananDowntimeUseDate = true; onBulananDowntimeDateChange()">
+                    <span class="qc-date-month-label" x-show="!bulananDowntimeUseDate" x-text="bulananMonthLabel"></span>
+                  </div>
+                  <button type="button" class="qc-rekap-clear-btn" title="Kembali ke tampilan sebulan" x-show="bulananDowntimeUseDate" @click="bulananDowntimeUseDate = false; onBulananDowntimeDateChange()">✕</button>
+                </div>
               </div>
               <div class="dxy-table-scroll">
-                <table class="dxy-table">
+                <table class="dxy-table qc-detail-table">
                   <thead>
                     <tr>
-                      <th style="width:6%">Line</th>
-                      <th style="width:7%">PIC</th>
-                      <th style="width:18%">Problem</th>
-                      <th style="width:11%">Area</th>
-                      <th style="width:34%">Countermeasure</th>
-                      <th style="width:8%">Status</th>
-                      <th style="width:7%">Shift</th>
-                      <th style="width:9%">Menit</th>
+                      <th style="width:6%" :class="{ 'qc-th-active': qcColFilterActive('bulananDowntime', 'mesin') }" @click="qcToggleFilterDropdown('bulananDowntime', 'mesin', $event)">Line</th>
+                      <th style="width:7%" :class="{ 'qc-th-active': qcColFilterActive('bulananDowntime', 'pic') }" @click="qcToggleFilterDropdown('bulananDowntime', 'pic', $event)">PIC</th>
+                      <th style="width:18%" :class="{ 'qc-th-active': qcColFilterActive('bulananDowntime', 'problem') }" @click="qcToggleFilterDropdown('bulananDowntime', 'problem', $event)">Problem</th>
+                      <th style="width:11%" :class="{ 'qc-th-active': qcColFilterActive('bulananDowntime', 'area') }" @click="qcToggleFilterDropdown('bulananDowntime', 'area', $event)">Area</th>
+                      <th style="width:34%" :class="{ 'qc-th-active': qcColFilterActive('bulananDowntime', 'countermeasure') }" @click="qcToggleFilterDropdown('bulananDowntime', 'countermeasure', $event)">Countermeasure</th>
+                      <th style="width:11%" :class="{ 'qc-th-active': qcColFilterActive('bulananDowntime', 'status') }" @click="qcToggleFilterDropdown('bulananDowntime', 'status', $event)">Status</th>
+                      <th style="width:6%" :class="{ 'qc-th-active': qcColFilterActive('bulananDowntime', 'shift') }" @click="qcToggleFilterDropdown('bulananDowntime', 'shift', $event)">Shift</th>
+                      <th style="width:7%" :class="{ 'qc-th-active': qcColFilterActive('bulananDowntime', 'menit') }" @click="qcToggleFilterDropdown('bulananDowntime', 'menit', $event)">Menit</th>
                     </tr>
                   </thead>
                   <tbody>
                     <template x-for="(row, i) in bulananDowntimeMergedRows()" :key="'bdt-merged-'+i">
                       <tr>
                         <td style="font-weight:700;" x-text="row.mesin"></td>
-                        <td>
-                          <template x-if="row.pic"><span class="dxy-pic-chip" :title="row.pic"><span class="dot" :style="'background:' + dxyPicColor(row.pic)"></span><span x-text="row.pic"></span></span></template>
-                        </td>
+                        <td :title="row.pic"><span x-show="row.pic" x-text="row.pic"></span></td>
                         <td :title="row.problem"><span x-show="row.problem" x-text="row.problem"></span></td>
                         <td :title="row.area"><span x-show="row.area" x-text="row.area"></span></td>
                         <td :title="row.countermeasure"><span x-show="row.countermeasure" x-text="row.countermeasure"></span></td>
@@ -629,6 +789,43 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
                   </tbody>
                 </table>
               </div>
+            </div>
+
+            <div class="dxy-panel dxy-span-4 dxy-table-panel-sm dxy-dt-summary-panel" x-ref="bulananTopProblemPanel">
+              <div class="dxy-panel-head">
+                <div class="qc-panel-title-group">
+                  <span class="dxy-panel-title">🔥 Downtime Terbesar</span>
+                  <span class="qc-filter-badge" x-show="qcActiveFilterChips('bulananTopProblem').length" :title="'Filter aktif: ' + qcActiveFilterChips('bulananTopProblem').map(c => c.label).join(', ') + ' — klik untuk hapus semua'" @click="qcResetFilters('bulananTopProblem')">
+                    <span x-text="qcActiveFilterChips('bulananTopProblem').length"></span> filter<span>✕</span>
+                  </span>
+                </div>
+                <span class="dxy-panel-sub" style="font-weight:700; color:var(--dxy-text);" x-text="bulananMonthLabel"></span>
+              </div>
+              <div class="dxy-table-scroll">
+                <table class="dxy-table qc-detail-table">
+                  <thead>
+                    <tr>
+                      <th :class="{ 'qc-th-active': qcColFilterActive('bulananTopProblem', 'problem') }" @click="qcToggleFilterDropdown('bulananTopProblem', 'problem', $event)">Problem</th>
+                      <th style="width:64px" :class="{ 'qc-th-active': qcColFilterActive('bulananTopProblem', 'menit') }" @click="qcToggleFilterDropdown('bulananTopProblem', 'menit', $event)">Menit</th>
+                      <th style="width:70px" :class="{ 'qc-th-active': qcColFilterActive('bulananTopProblem', 'frekuensi') }" @click="qcToggleFilterDropdown('bulananTopProblem', 'frekuensi', $event)">Frekuensi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="(row, i) in bulananDowntimeTerbesarBulanRows()" :key="'bdt-summary-'+i">
+                      <tr :class="{ 'dxy-row-clickable': row.problem }" :title="row.problem ? 'Double-klik untuk detail per line' : ''" @dblclick="row.problem && openProblemDetail(row.problem)">
+                        <td :title="row.problem"><span x-show="row.problem" x-text="row.problem"></span></td>
+                        <td style="text-align:right">
+                          <span x-show="row.menit !== ''" class="dxy-minute-badge" x-text="row.menit"></span>
+                        </td>
+                        <td style="text-align:right">
+                          <span x-show="row.frekuensi !== ''" class="dxy-freq-badge" x-text="row.frekuensi"></span>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
             </div>
 
           </div>
@@ -704,13 +901,22 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
             <div class="dxy-chart-grid">
             <div class="dxy-panel dxy-span-4 dxy-table-panel-sm">
               <div class="dxy-panel-head">
-                <span class="dxy-panel-title">🏆 Downtime Terbesar</span>
-                
+                <div class="qc-panel-title-group">
+                  <span class="dxy-panel-title">🏆 Downtime Terbesar</span>
+                  <span class="qc-filter-badge" x-show="qcActiveFilterChips('tahunanDowntime').length" :title="'Filter aktif: ' + qcActiveFilterChips('tahunanDowntime').map(c => c.label).join(', ') + ' — klik untuk hapus semua'" @click="qcResetFilters('tahunanDowntime')">
+                    <span x-text="qcActiveFilterChips('tahunanDowntime').length"></span> filter<span>✕</span>
+                  </span>
+                </div>
               </div>
               <div class="dxy-table-scroll">
-                <table class="dxy-table">
+                <table class="dxy-table qc-detail-table">
                   <thead>
-                    <tr><th style="width:46px">Line</th><th style="width:70px">PIC</th><th>Problem</th><th style="width:56px; text-align:right">Menit</th></tr>
+                    <tr>
+                      <th style="width:46px" :class="{ 'qc-th-active': qcColFilterActive('tahunanDowntime', 'mesin') }" @click="qcToggleFilterDropdown('tahunanDowntime', 'mesin', $event)">Line</th>
+                      <th style="width:70px" :class="{ 'qc-th-active': qcColFilterActive('tahunanDowntime', 'pic') }" @click="qcToggleFilterDropdown('tahunanDowntime', 'pic', $event)">PIC</th>
+                      <th :class="{ 'qc-th-active': qcColFilterActive('tahunanDowntime', 'problem') }" @click="qcToggleFilterDropdown('tahunanDowntime', 'problem', $event)">Problem</th>
+                      <th style="width:56px; text-align:right" :class="{ 'qc-th-active': qcColFilterActive('tahunanDowntime', 'value') }" @click="qcToggleFilterDropdown('tahunanDowntime', 'value', $event)">Menit</th>
+                    </tr>
                   </thead>
                   <tbody>
                     <template x-for="(row, i) in dxyFilteredTerbesar()" :key="row.mesin + '-' + i">
@@ -722,7 +928,7 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
                           </template>
                           <template x-if="!row.pic"><span class="dxy-empty-cell">-</span></template>
                         </td>
-                        <td>
+                        <td :title="row.problem">
                           <span x-show="row.problem" x-text="row.problem"></span>
                           <span class="dxy-empty-cell" x-show="!row.problem">No Problem</span>
                         </td>
@@ -743,18 +949,26 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
             <!-- ===== Tabel NG Inline Terbesar (struktur sama seperti Downtime Terbesar) ===== -->
             <div class="dxy-panel dxy-span-4 dxy-table-panel-sm">
               <div class="dxy-panel-head">
-                <span class="dxy-panel-title">⚠️ NG Inline Terbesar</span>
-                
+                <div class="qc-panel-title-group">
+                  <span class="dxy-panel-title">⚠️ NG Inline Terbesar</span>
+                  <span class="qc-filter-badge" x-show="qcActiveFilterChips('tahunanNg').length" :title="'Filter aktif: ' + qcActiveFilterChips('tahunanNg').map(c => c.label).join(', ') + ' — klik untuk hapus semua'" @click="qcResetFilters('tahunanNg')">
+                    <span x-text="qcActiveFilterChips('tahunanNg').length"></span> filter<span>✕</span>
+                  </span>
+                </div>
               </div>
               <div class="dxy-table-scroll">
-                <table class="dxy-table">
+                <table class="dxy-table qc-detail-table">
                   <thead>
-                    <tr><th>NG Kategori</th><th style="width:52px">Qty</th><th style="width:76px; text-align:right">Value</th></tr>
+                    <tr>
+                      <th :class="{ 'qc-th-active': qcColFilterActive('tahunanNg', 'kategori') }" @click="qcToggleFilterDropdown('tahunanNg', 'kategori', $event)">NG Kategori</th>
+                      <th style="width:52px" :class="{ 'qc-th-active': qcColFilterActive('tahunanNg', 'qty') }" @click="qcToggleFilterDropdown('tahunanNg', 'qty', $event)">Qty</th>
+                      <th style="width:76px; text-align:right" :class="{ 'qc-th-active': qcColFilterActive('tahunanNg', 'value') }" @click="qcToggleFilterDropdown('tahunanNg', 'value', $event)">Value</th>
+                    </tr>
                   </thead>
                   <tbody>
                     <template x-for="(row, i) in dxyFilteredNgTerbesar()" :key="row.mesin + '-' + i">
                       <tr>
-                        <td>
+                        <td :title="row.kategori">
                           <template x-if="row.kategori">
                             <span class="dxy-pic-chip"><span x-text="row.kategori"></span></span>
                           </template>
@@ -778,18 +992,25 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
             <!-- ===== Tabel Repair Terbesar (struktur sama, tanpa kolom Menit) ===== -->
             <div class="dxy-panel dxy-span-4 dxy-table-panel-sm">
               <div class="dxy-panel-head">
-                <span class="dxy-panel-title">🔧 Repair Terbesar</span>
-                
+                <div class="qc-panel-title-group">
+                  <span class="dxy-panel-title">🔧 Repair Terbesar</span>
+                  <span class="qc-filter-badge" x-show="qcActiveFilterChips('tahunanRepair').length" :title="'Filter aktif: ' + qcActiveFilterChips('tahunanRepair').map(c => c.label).join(', ') + ' — klik untuk hapus semua'" @click="qcResetFilters('tahunanRepair')">
+                    <span x-text="qcActiveFilterChips('tahunanRepair').length"></span> filter<span>✕</span>
+                  </span>
+                </div>
               </div>
               <div class="dxy-table-scroll">
-                <table class="dxy-table">
+                <table class="dxy-table qc-detail-table">
                   <thead>
-                    <tr><th style="width:130px">Repair Kategori</th><th>Qty</th></tr>
+                    <tr>
+                      <th style="width:130px" :class="{ 'qc-th-active': qcColFilterActive('tahunanRepair', 'kategori') }" @click="qcToggleFilterDropdown('tahunanRepair', 'kategori', $event)">Repair Kategori</th>
+                      <th :class="{ 'qc-th-active': qcColFilterActive('tahunanRepair', 'qty') }" @click="qcToggleFilterDropdown('tahunanRepair', 'qty', $event)">Qty</th>
+                    </tr>
                   </thead>
                   <tbody>
                     <template x-for="(row, i) in dxyFilteredRepairTerbesar()" :key="row.mesin + '-' + i">
                       <tr>
-                        <td>
+                        <td :title="row.kategori">
                           <template x-if="row.kategori">
                             <span class="dxy-pic-chip"><span x-text="row.kategori"></span></span>
                           </template>
@@ -861,7 +1082,12 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
 
               <div class="dxy-panel dxy-table-panel-sm">
                 <div class="dxy-panel-head">
-                  <span class="dxy-panel-title">Rekap NG Inline</span>
+                  <div class="qc-panel-title-group">
+                    <span class="dxy-panel-title">Rekap NG Inline</span>
+                    <span class="qc-filter-badge" x-show="qcActiveFilterChips('ngInline').length" :title="'Filter aktif: ' + qcActiveFilterChips('ngInline').map(c => c.label).join(', ') + ' — klik untuk hapus semua'" @click="qcResetFilters('ngInline')">
+                      <span x-text="qcActiveFilterChips('ngInline').length"></span> filter<span>✕</span>
+                    </span>
+                  </div>
                   <div class="qc-rekap-mode">
                     <div class="qc-date-wrap">
                       <input type="date" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !qcNgInlineUseDate }" x-model="qcNgInlineDetailDate" @change="qcNgInlineUseDate = true; fetchQcNgInlineDetail()">
@@ -874,23 +1100,19 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
                   <table class="dxy-table qc-detail-table">
                     <thead>
                       <tr>
-                        <th style="width:52px" x-show="!qcNgInlineUseDate">Tanggal</th>
-                        <th style="width:48px">Model</th><th style="width:36px">Line</th><th style="width:13%">Part No</th><th style="width:13%">Area</th><th style="width:17%">NG Proses</th>
-                        <th style="width:36px">Qty</th><th style="width:18%">NG Kategori</th><th style="width:15%">Value</th>
+                        <template x-for="col in qcNgInlineCols()" :key="col.key">
+                          <th :style="'width:'+col.width" x-show="!col.dateOnly || !qcNgInlineUseDate" :class="{ 'qc-th-active': qcColFilterActive('ngInline', col.key) }" @click="qcToggleFilterDropdown('ngInline', col.key, $event)">
+                            <span x-text="col.label"></span>
+                          </th>
+                        </template>
                       </tr>
                     </thead>
                     <tbody>
                       <template x-for="(row, i) in qcNgInlineRows()" :key="'qcng-'+i">
                         <tr>
-                          <td x-show="!qcNgInlineUseDate" x-text="row.tanggal"></td>
-                          <td x-text="row.model"></td>
-                          <td x-text="row.line"></td>
-                          <td x-text="row.partNo"></td>
-                          <td x-text="row.area"></td>
-                          <td x-text="row.ngProses"></td>
-                          <td x-text="row.qty"></td>
-                          <td x-text="row.ngKategori"></td>
-                          <td x-text="row.value"></td>
+                          <template x-for="col in qcNgInlineCols()" :key="col.key">
+                            <td x-show="!col.dateOnly || !qcNgInlineUseDate" :title="row[col.key]" x-text="row[col.key]"></td>
+                          </template>
                         </tr>
                       </template>
                     </tbody>
@@ -925,28 +1147,37 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
 
               <div class="dxy-panel dxy-table-panel-sm">
                 <div class="dxy-panel-head">
-                  <span class="dxy-panel-title">Rekap NG Trial</span>
-                  <input type="date" class="dxy-input" style="min-width:130px;" x-model="qcNgTrialDetailDate">
+                  <div class="qc-panel-title-group">
+                    <span class="dxy-panel-title">Rekap NG Trial</span>
+                    <span class="qc-filter-badge" x-show="qcActiveFilterChips('ngTrial').length" :title="'Filter aktif: ' + qcActiveFilterChips('ngTrial').map(c => c.label).join(', ') + ' — klik untuk hapus semua'" @click="qcResetFilters('ngTrial')">
+                      <span x-text="qcActiveFilterChips('ngTrial').length"></span> filter<span>✕</span>
+                    </span>
+                  </div>
+                  <div class="qc-rekap-mode">
+                    <div class="qc-date-wrap">
+                      <input type="date" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !qcNgTrialUseDate }" x-model="qcNgTrialDetailDate" @change="qcNgTrialUseDate = true; fetchQcNgTrialDetail()">
+                      <span class="qc-date-month-label" x-show="!qcNgTrialUseDate" x-text="qcMonthShortLabel"></span>
+                    </div>
+                    <button type="button" class="qc-rekap-clear-btn" title="Kembali ke tampilan sebulan" x-show="qcNgTrialUseDate" @click="qcNgTrialUseDate = false; fetchQcNgTrialDetail()">✕</button>
+                  </div>
                 </div>
                 <div class="dxy-table-scroll qc-rekap-scroll">
                   <table class="dxy-table qc-detail-table">
                     <thead>
                       <tr>
-                        <th style="width:48px">Model</th><th style="width:36px">Line</th><th style="width:13%">Part No</th><th style="width:13%">Area</th><th style="width:17%">NG Proses</th>
-                        <th style="width:36px">Qty</th><th style="width:18%">NG Kategori</th><th style="width:15%">Value</th>
+                        <template x-for="col in qcNgTrialCols()" :key="col.key">
+                          <th :style="'width:'+col.width" x-show="!col.dateOnly || !qcNgTrialUseDate" :class="{ 'qc-th-active': qcColFilterActive('ngTrial', col.key) }" @click="qcToggleFilterDropdown('ngTrial', col.key, $event)">
+                            <span x-text="col.label"></span>
+                          </th>
+                        </template>
                       </tr>
                     </thead>
                     <tbody>
                       <template x-for="(row, i) in qcNgTrialRows()" :key="'qctrial-'+i">
                         <tr>
-                          <td x-text="row.model"></td>
-                          <td x-text="row.line"></td>
-                          <td x-text="row.partNo"></td>
-                          <td x-text="row.area"></td>
-                          <td x-text="row.ngProses"></td>
-                          <td x-text="row.qty"></td>
-                          <td x-text="row.ngKategori"></td>
-                          <td x-text="row.value"></td>
+                          <template x-for="col in qcNgTrialCols()" :key="col.key">
+                            <td x-show="!col.dateOnly || !qcNgTrialUseDate" :title="row[col.key]" x-text="row[col.key]"></td>
+                          </template>
                         </tr>
                       </template>
                     </tbody>
@@ -974,32 +1205,43 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
               </div>
 
               <div class="dxy-panel">
-                <div class="dxy-panel-head"><span class="dxy-panel-title">Daily</span></div>
+                <div class="dxy-panel-head"><span class="dxy-panel-title">Daily · % Straightpass</span></div>
                 <div class="dxy-chart-box qc-chart-daily"><canvas id="qcStraightpassDaily"></canvas></div>
               </div>
 
               <div class="dxy-panel dxy-table-panel-sm">
                 <div class="dxy-panel-head">
-                  <span class="dxy-panel-title">Rekap Repair</span>
-                  <input type="date" class="dxy-input" style="min-width:130px;" x-model="qcStraightpassDetailDate">
+                  <div class="qc-panel-title-group">
+                    <span class="dxy-panel-title">Rekap Repair</span>
+                    <span class="qc-filter-badge" x-show="qcActiveFilterChips('repair').length" :title="'Filter aktif: ' + qcActiveFilterChips('repair').map(c => c.label).join(', ') + ' — klik untuk hapus semua'" @click="qcResetFilters('repair')">
+                      <span x-text="qcActiveFilterChips('repair').length"></span> filter<span>✕</span>
+                    </span>
+                  </div>
+                  <div class="qc-rekap-mode">
+                    <div class="qc-date-wrap">
+                      <input type="date" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !qcRepairUseDate }" x-model="qcRepairDetailDate" @change="qcRepairUseDate = true; fetchQcRepairDetail()">
+                      <span class="qc-date-month-label" x-show="!qcRepairUseDate" x-text="qcMonthShortLabel"></span>
+                    </div>
+                    <button type="button" class="qc-rekap-clear-btn" title="Kembali ke tampilan sebulan" x-show="qcRepairUseDate" @click="qcRepairUseDate = false; fetchQcRepairDetail()">✕</button>
+                  </div>
                 </div>
                 <div class="dxy-table-scroll qc-rekap-scroll">
                   <table class="dxy-table qc-detail-table">
                     <thead>
                       <tr>
-                        <th style="width:48px">Model</th><th style="width:36px">Line</th><th style="width:16%">Part No</th><th style="width:36px">Qty</th><th style="width:16%">Area</th><th style="width:12%">Point</th><th style="width:22%">Repair Kategori</th>
+                        <template x-for="col in qcRepairCols()" :key="col.key">
+                          <th :style="'width:'+col.width" x-show="!col.dateOnly || !qcRepairUseDate" :class="{ 'qc-th-active': qcColFilterActive('repair', col.key) }" @click="qcToggleFilterDropdown('repair', col.key, $event)">
+                            <span x-text="col.label"></span>
+                          </th>
+                        </template>
                       </tr>
                     </thead>
                     <tbody>
                       <template x-for="(row, i) in qcRepairRows()" :key="'qcrep-'+i">
                         <tr>
-                          <td x-text="row.model"></td>
-                          <td x-text="row.line"></td>
-                          <td x-text="row.partNo"></td>
-                          <td x-text="row.qty"></td>
-                          <td x-text="row.area"></td>
-                          <td x-text="row.point"></td>
-                          <td x-text="row.repairKategori"></td>
+                          <template x-for="col in qcRepairCols()" :key="col.key">
+                            <td x-show="!col.dateOnly || !qcRepairUseDate" :title="row[col.key]" x-text="row[col.key]"></td>
+                          </template>
                         </tr>
                       </template>
                     </tbody>
@@ -1014,6 +1256,77 @@ table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
       </div>
     </template>
   </main>
+
+  <!-- Dropdown filter per-kolom (Rekap NG Inline / NG Trial / Repair) --
+       satu elemen dipakai bersama untuk semua kolom/tabel (isinya
+       reaktif mengikuti qcFilterOpen). Di-teleport ke <body> supaya
+       tidak terpotong overflow:hidden/auto milik box tabel yang di
+       atasnya (.qc-rekap-scroll). -->
+  <template x-teleport="body">
+    <div class="qc-filter-dropdown" x-ref="qcFilterBox" x-show="qcFilterOpen" x-cloak :style="'top:'+qcFilterPos.top+'px; left:'+qcFilterPos.left+'px;'" @click.outside="qcFilterOpen = null" @keydown.escape.window="qcFilterOpen = null">
+      <div class="qc-filter-title" x-text="'Filter: ' + qcFilterColLabel()"></div>
+      <input type="text" class="qc-filter-search" x-model="qcFilterSearch" placeholder="Cari nilai...">
+      <div class="qc-filter-actions">
+        <button type="button" @click="qcSelectAllFilter()">Pilih Semua</button>
+        <button type="button" @click="qcClearAllFilter()">Kosongkan</button>
+        <button type="button" class="qc-filter-close-btn" @click="qcFilterOpen = null" title="Tutup">✕</button>
+      </div>
+      <div class="qc-filter-list">
+        <template x-for="val in qcFilterValues()" :key="val">
+          <label class="qc-filter-item">
+            <input type="checkbox" :checked="qcIsValueChecked(val)" @change="qcToggleFilterValue(val)">
+            <span x-text="val === '' ? '(kosong)' : val"></span>
+          </label>
+        </template>
+        <div class="qc-filter-empty" x-show="qcFilterValues().length === 0">Tidak ada nilai</div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Popup detail "Downtime Terbesar" (bottom Bulanan) -- double-klik row
+       di tabel Problem untuk lihat breakdown per Line untuk bulan yang lagi
+       aktif. Bukan modal tengah layar -- popup ini nempel/floating di ATAS
+       panel "Downtime Terbesar" (posisi dihitung di positionProblemDetail()
+       sama seperti pola dropdown filter kolom). Di-teleport ke <body>
+       supaya tidak kepotong overflow tabel. -->
+  <template x-teleport="body">
+    <div class="dxy-pd-modal" x-ref="dxyProblemDetailBox" x-show="dxyProblemDetail.open" x-cloak :style="'top:'+dxyProblemDetailPos.top+'px; left:'+dxyProblemDetailPos.left+'px;'" @click.outside="closeProblemDetail()" @keydown.escape.window="closeProblemDetail()">
+        <div class="dxy-pd-head">
+          <div>
+            <div class="dxy-pd-title">Detail Downtime per Line</div>
+            <div class="dxy-pd-problem" x-text="dxyProblemDetail.problem"></div>
+          </div>
+          <button type="button" class="dxy-pd-close" @click="closeProblemDetail()" title="Tutup">✕</button>
+        </div>
+        <div class="dxy-pd-sub" x-text="bulananMonthLabel + ' ' + bulananYear"></div>
+        <div class="dxy-pd-body">
+          <div class="dxy-pd-loading" x-show="dxyProblemDetail.loading">Memuat detail...</div>
+          <template x-if="!dxyProblemDetail.loading">
+            <div>
+              <table class="dxy-pd-table" x-show="dxyProblemDetail.rows.length">
+                <thead>
+                  <tr><th>Line</th><th style="text-align:right">Frek.</th><th style="text-align:right">Menit</th></tr>
+                </thead>
+                <tbody>
+                  <template x-for="(r, i) in dxyProblemDetail.rows" :key="'pd-'+i">
+                    <tr>
+                      <td style="font-weight:700;" x-text="r.mesin"></td>
+                      <td style="text-align:right" x-text="r.frekuensi"></td>
+                      <td class="dxy-pd-menit" x-text="fmtNum(r.menit)"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+              <div class="dxy-pd-empty" x-show="!dxyProblemDetail.rows.length">Tidak ada detail per line untuk problem ini.</div>
+            </div>
+          </template>
+        </div>
+        <div class="dxy-pd-total" x-show="dxyProblemDetail.rows.length">
+          <span>Total</span>
+          <span x-text="fmtNum(dxyProblemDetail.rows.reduce((a,r)=>a+r.menit,0)) + ' menit'"></span>
+        </div>
+    </div>
+  </template>
 </div>
 
 <script>
@@ -1091,6 +1404,10 @@ function dashboardExhaust() {
       if (tab === "kualitas") {
         await this.fetchTahunan();
         await this.fetchQcNgInline();
+        await this.fetchQcNgTrial();
+        await this.fetchQcRepairDetail();
+        await this.fetchQcRepairPerlineModel();
+        await this.fetchQcStraightpassBreakdown();
         this.$nextTick(() => this.renderKualitasCharts());
       }
     },
@@ -1098,6 +1415,7 @@ function dashboardExhaust() {
       this.destroyTahunanCharts();
       this.tahunanLoaded = false;
       await this.fetchTahunan();
+      this.qcColFilters = { ...this.qcColFilters, tahunanDowntime: {}, tahunanNg: {}, tahunanRepair: {} };
       this.$nextTick(() => this.renderTahunanCharts());
     },
     toggleTheme() {
@@ -1126,6 +1444,10 @@ function dashboardExhaust() {
     // Filter tanggal untuk tabel "Downtime Terbesar per Line" -- tabel ini
     // SELALU per-tanggal (default hari ini, bisa diganti lewat date picker).
     bulananDate: localDateStr(new Date()),
+    // Mode tabel "Downtime Line": FALSE (default) = tampil SEBULAN PENUH,
+    // TRUE = tampil 1 tanggal spesifik (bulananDate) -- persis pola
+    // qcNgInlineUseDate di tab Kontrol Kualitas.
+    bulananDowntimeUseDate: false,
     bulananDtLoading: false,
     // ---------------------------------------------------------------
     // Tab "Kontrol Kualitas" -- kolom NG Inline sudah disambungkan ke
@@ -1144,6 +1466,7 @@ function dashboardExhaust() {
     qcNgInlineDetailDate: "",
     qcNgInlineUseDate: false,
     qcNgTrialDetailDate: "",
+    qcNgTrialUseDate: false,
     qcStraightpassDetailDate: "",
     qcNgInlineLoaded: false,
     qcNgInline: {
@@ -1153,6 +1476,242 @@ function dashboardExhaust() {
       dailyQty: [], dailyValue: [],
       detailRows: [],
     },
+    qcNgTrialLoaded: false,
+    qcNgTrial: {
+      monthLabels: [], qtyByMonth: [], valueByMonth: [],
+      perlineQty: [], perlineValue: [],
+      permodelQty: [], permodelValue: [],
+      dailyQty: [], dailyValue: [],
+      detailRows: [],
+    },
+    // Repair -- cuma butuh 1 tabel (Rekap Repair), tidak ada
+    // grafik Month/Perline/Model/Daily seperti NG Inline/Trial.
+    qcRepairDetailDate: "",
+    qcRepairUseDate: false,
+    qcRepair: { detailRows: [], perlineQty: [], permodelQty: [] },
+    // ---- Filter per-kolom untuk tabel Rekap NG Inline / NG Trial / Repair ----
+    // qcFilterOpen: null kalau tidak ada dropdown yang terbuka, atau string
+    // "namaTabel:namaKolom" (mis. "ngInline:partNo") kalau sedang terbuka --
+    // cuma 1 dropdown yang bisa terbuka dalam satu waktu (gaya Excel).
+    qcFilterOpen: null,
+    qcFilterSearch: "",
+    qcFilterPos: { top: 0, left: 0 },
+    // qcColFilters[namaTabel][namaKolom] = array nilai yang DIPILIH untuk
+    // ditampilkan. Kalau key kolom tidak ada di object ini, artinya belum
+    // ada filter aktif (tampilkan semua nilai) -- ini beda dengan array
+    // kosong [] yang artinya user sengaja "Kosongkan" semua pilihan.
+    qcColFilters: { ngInline: {}, ngTrial: {}, repair: {}, bulananDowntime: {}, bulananTopProblem: {}, tahunanDowntime: {}, tahunanNg: {}, tahunanRepair: {} },
+    // State modal detail "Downtime Terbesar" per Line (double-klik row di
+    // tabel bulananTopProblem, tab Bulanan). Lihat openProblemDetail().
+    dxyProblemDetail: { open: false, loading: false, problem: "", rows: [] },
+    dxyProblemDetailPos: { top: 0, left: 0 },
+    // Definisi kolom tabel Rekap (dipakai buat render header+body via
+    // x-for, dan juga buat tahu kolom apa saja yang bisa difilter).
+    // dateOnly:true khusus kolom Tanggal -- kolom ini cuma tampil kalau
+    // mode "1 tanggal" (bukan tampilan sebulan), sama seperti sebelumnya.
+    qcNgInlineCols() {
+      return [
+        { key: "tanggal", label: "Tanggal", width: "52px", dateOnly: true },
+        { key: "model", label: "Model", width: "48px" },
+        { key: "line", label: "Line", width: "36px" },
+        { key: "partNo", label: "Part No", width: "13%" },
+        { key: "area", label: "Area", width: "13%" },
+        { key: "ngProses", label: "NG Proses", width: "17%" },
+        { key: "qty", label: "Qty", width: "36px" },
+        { key: "ngKategori", label: "NG Kategori", width: "18%" },
+        { key: "value", label: "Value", width: "15%" },
+      ];
+    },
+    qcNgTrialCols() {
+      // Struktur kolom sama persis dengan NG Inline.
+      return this.qcNgInlineCols();
+    },
+    qcRepairCols() {
+      return [
+        { key: "tanggal", label: "Tanggal", width: "52px", dateOnly: true },
+        { key: "model", label: "Model", width: "48px" },
+        { key: "line", label: "Line", width: "36px" },
+        { key: "partNo", label: "Part No", width: "16%" },
+        { key: "qty", label: "Qty", width: "36px" },
+        { key: "area", label: "Area", width: "16%" },
+        { key: "point", label: "Point", width: "12%" },
+        { key: "repairKategori", label: "Repair Kategori", width: "22%" },
+      ];
+    },
+    // Data mentah (belum dipad ke minimal 8 baris) per tabel -- dipakai
+    // sebagai sumber daftar nilai unik untuk dropdown filter & buat
+    // difilter sebelum ditampilkan.
+    qcRawRowsFor(table) {
+      if (table === "ngInline") return this.qcNgInline.detailRows || [];
+      if (table === "ngTrial") return this.qcNgTrial.detailRows || [];
+      if (table === "repair") return this.qcRepair.detailRows || [];
+      if (table === "bulananDowntime") return this.dxyDowntimeFlatBulanan();
+      if (table === "bulananTopProblem") return this.bulanan.downtimeTerbesarBulan || [];
+      if (table === "tahunanDowntime") return this.dxyDowntimeFlatTahunan();
+      if (table === "tahunanNg") return this.dxyNgFlatTahunan();
+      if (table === "tahunanRepair") return this.dxyRepairFlatTahunan();
+      return [];
+    },
+    qcColsFor(table) {
+      if (table === "ngInline") return this.qcNgInlineCols();
+      if (table === "ngTrial") return this.qcNgTrialCols();
+      if (table === "repair") return this.qcRepairCols();
+      if (table === "bulananDowntime") {
+        return [
+          { key: "mesin", label: "Line" },
+          { key: "pic", label: "PIC" },
+          { key: "problem", label: "Problem" },
+          { key: "area", label: "Area" },
+          { key: "countermeasure", label: "Countermeasure" },
+          { key: "status", label: "Status" },
+          { key: "shift", label: "Shift" },
+          { key: "menit", label: "Menit" },
+        ];
+      }
+      if (table === "bulananTopProblem") {
+        return [
+          { key: "problem", label: "Problem" },
+          { key: "menit", label: "Menit" },
+          { key: "frekuensi", label: "Frekuensi" },
+        ];
+      }
+      if (table === "tahunanDowntime") {
+        return [
+          { key: "mesin", label: "Line" },
+          { key: "pic", label: "PIC" },
+          { key: "problem", label: "Problem" },
+          { key: "value", label: "Menit" },
+        ];
+      }
+      if (table === "tahunanNg") {
+        return [
+          { key: "kategori", label: "NG Kategori" },
+          { key: "qty", label: "Qty" },
+          { key: "value", label: "Value" },
+        ];
+      }
+      if (table === "tahunanRepair") {
+        return [
+          { key: "kategori", label: "Repair Kategori" },
+          { key: "qty", label: "Qty" },
+        ];
+      }
+      return [];
+    },
+    // Terapkan semua filter kolom yang aktif punya tabel tsb ke array baris.
+    qcApplyColFilters(table, rows) {
+      const filters = this.qcColFilters[table] || {};
+      const activeCols = Object.keys(filters);
+      if (activeCols.length === 0) return rows;
+      return rows.filter((row) => activeCols.every((col) => (filters[col] || []).includes(String(row[col] ?? ""))));
+    },
+    // Buka/tutup dropdown filter untuk kolom tertentu. Posisi dropdown
+    // dihitung dari posisi header (<th>) yang diklik supaya dropdown
+    // muncul persis di bawahnya, walau tabelnya ada di dalam box yang
+    // discroll (dropdown sendiri di-teleport ke <body> jadi tidak
+    // kepotong overflow:hidden/auto box tabel).
+    qcToggleFilterDropdown(table, col, evt) {
+      const key = table + ":" + col;
+      if (this.qcFilterOpen === key) {
+        this.qcFilterOpen = null;
+        return;
+      }
+      this.qcFilterSearch = "";
+      this.qcFilterOpen = key;
+      const th = evt.currentTarget || (evt.target && evt.target.closest("th"));
+      this.$nextTick(() => {
+        if (!th) return;
+        const rect = th.getBoundingClientRect();
+        const box = this.$refs.qcFilterBox;
+        const boxHeight = box ? box.offsetHeight : 260;
+        const boxWidth = box ? box.offsetWidth : 200;
+        // Selalu muncul di ATAS header. Kalau ruang di atas nggak cukup
+        // (header-nya deket banget ke ujung atas layar), baru turun
+        // sedikit supaya tetap kelihatan penuh, bukan kepotong.
+        let top = rect.top - boxHeight - 6;
+        if (top < 8) top = 8;
+        let left = rect.left;
+        if (left + boxWidth > window.innerWidth - 8) left = window.innerWidth - boxWidth - 8;
+        if (left < 8) left = 8;
+        this.qcFilterPos = { top, left };
+      });
+    },
+    qcColFilterActive(table, col) {
+      return Object.prototype.hasOwnProperty.call(this.qcColFilters[table] || {}, col);
+    },
+    // Label kolom yang dropdown-nya lagi kebuka -- ditampilkan sebagai
+    // judul kecil di dalam dropdown (mis. "Filter: Part No") supaya tetap
+    // jelas ini filter kolom apa, walau header sendiri tidak dikasih ikon.
+    qcFilterColLabel() {
+      if (!this.qcFilterOpen) return "";
+      const [table, col] = this.qcFilterOpen.split(":");
+      const colDef = this.qcColsFor(table).find((c) => c.key === col);
+      return colDef ? colDef.label : col;
+    },
+    // Ringkasan kolom-kolom yang lagi difilter untuk 1 tabel -- dipakai
+    // buat badge kecil "N filter" di sebelah judul panel Rekap.
+    qcActiveFilterChips(table) {
+      const filters = this.qcColFilters[table] || {};
+      const cols = this.qcColsFor(table);
+      return Object.keys(filters).map((key) => {
+        const colDef = cols.find((c) => c.key === key);
+        return { key, label: colDef ? colDef.label : key };
+      });
+    },
+    qcResetFilters(table) {
+      this.qcColFilters = { ...this.qcColFilters, [table]: {} };
+    },
+    // Daftar nilai unik (mentah, belum difilter kolom lain) untuk kolom
+    // yang dropdown-nya sedang terbuka, disaring lagi oleh kotak pencarian.
+    qcFilterValues() {
+      if (!this.qcFilterOpen) return [];
+      const [table, col] = this.qcFilterOpen.split(":");
+      const rows = this.qcRawRowsFor(table);
+      const set = new Set();
+      rows.forEach((row) => set.add(String(row[col] ?? "")));
+      let values = Array.from(set).sort((a, b) => a.localeCompare(b, "id", { numeric: true }));
+      const q = (this.qcFilterSearch || "").trim().toLowerCase();
+      if (q) values = values.filter((v) => v.toLowerCase().includes(q));
+      return values;
+    },
+    qcIsValueChecked(val) {
+      if (!this.qcFilterOpen) return false;
+      const [table, col] = this.qcFilterOpen.split(":");
+      const filters = this.qcColFilters[table] || {};
+      if (!Object.prototype.hasOwnProperty.call(filters, col)) return true; // belum difilter = semua tercentang
+      return (filters[col] || []).includes(val);
+    },
+    qcToggleFilterValue(val) {
+      if (!this.qcFilterOpen) return;
+      const [table, col] = this.qcFilterOpen.split(":");
+      const rows = this.qcRawRowsFor(table);
+      const allValues = Array.from(new Set(rows.map((row) => String(row[col] ?? ""))));
+      const filters = this.qcColFilters[table];
+      let current = Object.prototype.hasOwnProperty.call(filters, col) ? filters[col].slice() : allValues.slice();
+      if (current.includes(val)) current = current.filter((v) => v !== val);
+      else current.push(val);
+      if (current.length === allValues.length) delete filters[col]; // kembali ke "semua" -> hapus filter
+      else filters[col] = current;
+      this.qcColFilters = { ...this.qcColFilters, [table]: { ...filters } };
+    },
+    qcSelectAllFilter() {
+      if (!this.qcFilterOpen) return;
+      const [table, col] = this.qcFilterOpen.split(":");
+      const filters = { ...this.qcColFilters[table] };
+      delete filters[col];
+      this.qcColFilters = { ...this.qcColFilters, [table]: filters };
+    },
+    qcClearAllFilter() {
+      if (!this.qcFilterOpen) return;
+      const [table, col] = this.qcFilterOpen.split(":");
+      this.qcColFilters = { ...this.qcColFilters, [table]: { ...this.qcColFilters[table], [col]: [] } };
+    },
+    // Straightpass Perline/Model -- data stroke & NG per line/model dari
+    // RPC baru dashboard_qc_produksi_perline/permodel, dihitung jadi
+    // persentase (stroke-ng)/stroke*100, formula sama persis dengan
+    // kartu Straightpass utama (lihat fetchTahunan()).
+    qcStraightpassLoaded: false,
+    qcStraightpass: { perlineActual: [], permodelActual: [], dailyRepairQty: [], dailyPercent: [] },
     get qcRekapMonthLabel() {
       const bulanId = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
       return bulanId[this.qcMonth - 1] + " " + this.qcYear;
@@ -1163,6 +1722,15 @@ function dashboardExhaust() {
     get qcMonthShortLabel() {
       const bulanId = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
       return bulanId[this.qcMonth - 1];
+    },
+    // Sama seperti qcMonthShortLabel di atas, tapi ini punya tab Bulanan
+    // sendiri (bulananMonth/bulananYear) -- supaya label "Juli"/"Agustus"
+    // di panel-panel tab Bulanan (mis. Downtime Terbesar) selalu ikut
+    // Bulan/Tahun yang lagi dipilih di tab Bulanan, bukan ikut tab
+    // Kontrol Kualitas.
+    get bulananMonthLabel() {
+      const bulanId = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+      return bulanId[this.bulananMonth - 1];
     },
     // Dipanggil saat dropdown Bulan/Tahun di tab Kontrol Kualitas berubah.
     onQcPeriodChange() {
@@ -1178,9 +1746,27 @@ function dashboardExhaust() {
       this.qcNgInlineDetailDate = firstOfMonth;
       this.qcNgInlineUseDate = false;
       this.qcNgTrialDetailDate = firstOfMonth;
+      this.qcNgTrialUseDate = false;
+      this.qcRepairDetailDate = firstOfMonth;
+      this.qcRepairUseDate = false;
       this.qcStraightpassDetailDate = firstOfMonth;
+      // Filter per-kolom di-reset supaya tidak "nyangkut" ke data bulan/
+      // tahun yang baru (mis. Part No yang cuma ada di bulan sebelumnya).
+      this.qcFilterOpen = null;
+      this.qcColFilters = { ngInline: {}, ngTrial: {}, repair: {} };
       this.qcNgInlineLoaded = false;
+      this.qcNgTrialLoaded = false;
       this.fetchQcNgInline().then(() => this.$nextTick(() => this.renderKualitasCharts()));
+      this.fetchQcNgTrial().then(() => this.$nextTick(() => this.renderKualitasCharts()));
+      this.fetchQcRepairDetail();
+      // fetchQcStraightpassBreakdown() butuh this.qcRepair.perlineQty/
+      // permodelQty (Qty Repair) sudah terisi lebih dulu -- makanya
+      // di-chain setelah fetchQcRepairPerlineModel() selesai, bukan
+      // dijalankan paralel begitu saja.
+      this.fetchQcRepairPerlineModel().then(() => {
+        this.fetchQcStraightpassBreakdown().then(() => this.$nextTick(() => this.renderKualitasCharts()));
+        this.$nextTick(() => this.renderKualitasCharts());
+      });
     },
     // Ambil data kolom "NG Inline" (Month/Perline/Model/Daily/Rekap) dari
     // RPC dashboard_qc_ng_* dengan p_type_ng = 'NG PRODUKSI'.
@@ -1298,6 +1884,245 @@ function dashboardExhaust() {
         console.error("Gagal memuat detail NG Inline:", e);
       }
     },
+    // Ambil data kolom "NG Trial" (Month/Perline/Model/Daily/Rekap) dari
+    // RPC dashboard_qc_ng_* yang SAMA dengan NG Inline, bedanya cuma
+    // p_type_ng = 'NG TRIAL' (dikonfirmasi lewat query ke ng_inline_log).
+    async fetchQcNgTrial() {
+      if (this.qcNgTrialLoaded) return;
+      try {
+        const fyStartYear = this.qcYear;
+        const fyStart = new Date(fyStartYear, 3, 1);
+        const fyEnd = new Date(fyStartYear + 1, 3, 1);
+        const monthStart = new Date(this.qcYear, this.qcMonth - 1, 1);
+        const monthEnd = new Date(this.qcYear, this.qcMonth, 1);
+        const TYPE_NG = "NG TRIAL";
+
+        const [monthRes, perlineRes, permodelRes, dailyRes] = await Promise.all([
+          supabaseClient.rpc("dashboard_qc_ng_month", { p_type_ng: TYPE_NG, p_start: fyStart.toISOString(), p_end: fyEnd.toISOString() }),
+          supabaseClient.rpc("dashboard_qc_ng_perline", { p_type_ng: TYPE_NG, p_start: monthStart.toISOString(), p_end: monthEnd.toISOString() }),
+          supabaseClient.rpc("dashboard_qc_ng_permodel", { p_type_ng: TYPE_NG, p_start: monthStart.toISOString(), p_end: monthEnd.toISOString() }),
+          supabaseClient.rpc("dashboard_qc_ng_daily", { p_type_ng: TYPE_NG, p_start: monthStart.toISOString(), p_end: monthEnd.toISOString() }),
+        ]);
+        if (monthRes.error) console.error("dashboard_qc_ng_month (trial):", monthRes.error);
+        if (perlineRes.error) console.error("dashboard_qc_ng_perline (trial):", perlineRes.error);
+        if (permodelRes.error) console.error("dashboard_qc_ng_permodel (trial):", permodelRes.error);
+        if (dailyRes.error) console.error("dashboard_qc_ng_daily (trial):", dailyRes.error);
+
+        const monthRows = monthRes.data || [];
+        const perlineRows = perlineRes.data || [];
+        const permodelRows = permodelRes.data || [];
+        const dailyRows = dailyRes.data || [];
+
+        const fyMonths = [];
+        for (let i = 0; i < 12; i++) fyMonths.push(new Date(fyStartYear, 3 + i, 1));
+        const findMonthRow = (d) => monthRows.find((r) => r.bulan === localDateStr(d));
+        const qtyByMonth = fyMonths.map((d) => { const r = findMonthRow(d); return r ? Number(r.qty) || 0 : null; });
+        const valueByMonth = fyMonths.map((d) => { const r = findMonthRow(d); return r ? Number(r.value) || 0 : null; });
+
+        const perlineQty = QC_LINES.map((line) => { const r = perlineRows.find((x) => x.mesin === line); return r ? Number(r.qty) || 0 : 0; });
+        const perlineValue = QC_LINES.map((line) => { const r = perlineRows.find((x) => x.mesin === line); return r ? Number(r.value) || 0 : 0; });
+
+        const permodelQty = QC_MODELS.map((model) => { const r = permodelRows.find((x) => x.model === model); return r ? Number(r.qty) || 0 : 0; });
+        const permodelValue = QC_MODELS.map((model) => { const r = permodelRows.find((x) => x.model === model); return r ? Number(r.value) || 0 : 0; });
+
+        const daysInMonth = new Date(this.qcYear, this.qcMonth, 0).getDate();
+        const findDayRow = (day) => dailyRows.find((r) => r.tanggal === localDateStr(new Date(this.qcYear, this.qcMonth - 1, day)));
+        const todayLocal = new Date();
+        todayLocal.setHours(0, 0, 0, 0);
+        const dailyQty = Array.from({ length: 31 }, (_, i) => {
+          const day = i + 1;
+          if (day > daysInMonth) return null;
+          if (new Date(this.qcYear, this.qcMonth - 1, day) > todayLocal) return null;
+          const r = findDayRow(day);
+          return r ? Number(r.qty) || 0 : 0;
+        });
+        const dailyValue = Array.from({ length: 31 }, (_, i) => {
+          const day = i + 1;
+          if (day > daysInMonth) return null;
+          if (new Date(this.qcYear, this.qcMonth - 1, day) > todayLocal) return null;
+          const r = findDayRow(day);
+          return r ? Number(r.value) || 0 : 0;
+        });
+
+        this.qcNgTrial = {
+          monthLabels: this.tahunan.monthLabels && this.tahunan.monthLabels.length ? this.tahunan.monthLabels.slice(2) : ["Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des","Jan","Feb","Mar"],
+          qtyByMonth, valueByMonth,
+          perlineQty, perlineValue,
+          permodelQty, permodelValue,
+          dailyQty, dailyValue,
+          detailRows: this.qcNgTrial.detailRows,
+        };
+        this.qcNgTrialLoaded = true;
+        await this.fetchQcNgTrialDetail();
+      } catch (e) {
+        console.error("Gagal memuat data NG Trial (Kontrol Kualitas):", e);
+      }
+    },
+    // Ambil rincian baris NG untuk tabel "Rekap NG Trial". Sama persis
+    // logikanya dengan fetchQcNgInlineDetail(), bedanya p_type_ng = 'NG TRIAL'.
+    async fetchQcNgTrialDetail() {
+      try {
+        const isBulan = !this.qcNgTrialUseDate;
+        let data, error;
+        if (isBulan) {
+          const monthStart = new Date(this.qcYear, this.qcMonth - 1, 1);
+          const monthEnd = new Date(this.qcYear, this.qcMonth, 1);
+          ({ data, error } = await supabaseClient.rpc("dashboard_qc_ng_detail_range", {
+            p_type_ng: "NG TRIAL",
+            p_start: localDateStr(monthStart),
+            p_end: localDateStr(monthEnd),
+          }));
+        } else {
+          ({ data, error } = await supabaseClient.rpc("dashboard_qc_ng_detail", {
+            p_type_ng: "NG TRIAL",
+            p_tanggal: this.qcNgTrialDetailDate,
+          }));
+        }
+        if (error) { console.error("dashboard_qc_ng_detail" + (isBulan ? "_range" : "") + " (trial):", error); return; }
+        this.qcNgTrial.detailRows = (data || []).map((r) => ({
+          tanggal: r.tanggal ? r.tanggal.slice(8, 10) + "/" + r.tanggal.slice(5, 7) : "",
+          model: r.model || "", line: r.mesin || "", partNo: r.part_number || "",
+          area: r.area || "", ngProses: r.ng_proses || "", qty: r.qty ?? "",
+          ngKategori: r.ng_kategori || "", value: r.value ?? "",
+        }));
+      } catch (e) {
+        console.error("Gagal memuat detail NG Trial:", e);
+      }
+    },
+    // Ambil rincian baris Repair untuk tabel "Rekap Repair".
+    // Cuma ada 1 RPC (dashboard_qc_repair_detail_range), dipakai baik
+    // untuk mode "sebulan" maupun "1 tanggal" -- kalau 1 tanggal, p_start
+    // & p_end dibuat selisih pas 1 hari.
+    // Kolom Model di-lookup dari ng_model_parts (sama seperti popup Repair
+    // di machine-page.js -> repairPartNoModelMap). Kolom Area masih
+    // dikosongkan (belum ada sumbernya di database).
+    async fetchQcRepairDetail() {
+      try {
+        let start, end;
+        if (this.qcRepairUseDate) {
+          start = new Date(this.qcRepairDetailDate);
+          end = new Date(this.qcRepairDetailDate);
+          end.setDate(end.getDate() + 1);
+        } else {
+          start = new Date(this.qcYear, this.qcMonth - 1, 1);
+          end = new Date(this.qcYear, this.qcMonth, 1);
+        }
+        const { data, error } = await supabaseClient.rpc("dashboard_qc_repair_detail_range", {
+          p_start: localDateStr(start),
+          p_end: localDateStr(end),
+        });
+        if (error) { console.error("dashboard_qc_repair_detail_range:", error); return; }
+        this.qcRepair.detailRows = (data || []).map((r) => ({
+          tanggal: r.tanggal ? r.tanggal.slice(8, 10) + "/" + r.tanggal.slice(5, 7) : "",
+          model: r.model || "", line: r.mesin || "", partNo: r.part_number || "",
+          qty: r.qty ?? "", area: "", point: r.point_label || "",
+          repairKategori: r.kategori_repair || "",
+        }));
+      } catch (e) {
+        console.error("Gagal memuat detail Repair:", e);
+      }
+    },
+    // Ambil Qty Repair per line & per model (SELALU per bulan yang lagi
+    // dipilih, TIDAK ikut toggle tanggal/sebulan panel "Rekap Repair" --
+    // sama seperti Perline/Model NG Inline/Trial yang juga selalu
+    // per-bulan). Dipakai buat bar "Qty Repair" di chart Straightpass
+    // Perline/Model.
+    async fetchQcRepairPerlineModel() {
+      try {
+        const monthStart = new Date(this.qcYear, this.qcMonth - 1, 1);
+        const monthEnd = new Date(this.qcYear, this.qcMonth, 1);
+        const [perlineRes, permodelRes] = await Promise.all([
+          supabaseClient.rpc("dashboard_qc_repair_perline", { p_start: localDateStr(monthStart), p_end: localDateStr(monthEnd) }),
+          supabaseClient.rpc("dashboard_qc_repair_permodel", { p_start: localDateStr(monthStart), p_end: localDateStr(monthEnd) }),
+        ]);
+        if (perlineRes.error) { console.error("dashboard_qc_repair_perline:", perlineRes.error); return; }
+        if (permodelRes.error) { console.error("dashboard_qc_repair_permodel:", permodelRes.error); return; }
+        const perlineRows = perlineRes.data || [];
+        const permodelRows = permodelRes.data || [];
+        this.qcRepair.perlineQty = QC_LINES.map((line) => { const r = perlineRows.find((x) => x.mesin === line); return r ? Number(r.qty) || 0 : 0; });
+        this.qcRepair.permodelQty = QC_MODELS.map((model) => { const r = permodelRows.find((x) => x.model === model); return r ? Number(r.qty) || 0 : 0; });
+      } catch (e) {
+        console.error("Gagal memuat Qty Repair per line/model:", e);
+      }
+    },
+    // Ambil stroke & NG per line/model (RPC baru dashboard_qc_produksi_*),
+    // gabungkan dengan NG per line/model dari NG Inline (this.qcNgInline,
+    // sudah kefetch lewat fetchQcNgInline()) untuk hitung persentase
+    // Straightpass per line/model -- rumus sama persis kartu utama:
+    // (Stroke - NG) / Stroke * 100.
+    async fetchQcStraightpassBreakdown() {
+      try {
+        const monthStart = new Date(this.qcYear, this.qcMonth - 1, 1);
+        const monthEnd = new Date(this.qcYear, this.qcMonth, 1);
+        const [perlineRes, permodelRes, dailyProdRes, dailyRepairRes] = await Promise.all([
+          supabaseClient.rpc("dashboard_qc_produksi_perline", { p_start: monthStart.toISOString(), p_end: monthEnd.toISOString() }),
+          supabaseClient.rpc("dashboard_qc_produksi_permodel", { p_start: monthStart.toISOString(), p_end: monthEnd.toISOString() }),
+          supabaseClient.rpc("dashboard_qc_produksi_daily", { p_start: monthStart.toISOString(), p_end: monthEnd.toISOString() }),
+          supabaseClient.rpc("dashboard_qc_repair_daily", { p_start: localDateStr(monthStart), p_end: localDateStr(monthEnd) }),
+        ]);
+        if (perlineRes.error) { console.error("dashboard_qc_produksi_perline:", perlineRes.error); return; }
+        if (permodelRes.error) { console.error("dashboard_qc_produksi_permodel:", permodelRes.error); return; }
+        if (dailyProdRes.error) { console.error("dashboard_qc_produksi_daily:", dailyProdRes.error); return; }
+        if (dailyRepairRes.error) { console.error("dashboard_qc_repair_daily:", dailyRepairRes.error); return; }
+
+        const perlineRows = perlineRes.data || [];
+        const permodelRows = permodelRes.data || [];
+        // Qty Repair per line/model -- SUDAH difetch lewat
+        // fetchQcRepairPerlineModel() (dipanggil sebelum fungsi ini di
+        // setTab()/onQcPeriodChange()), tinggal dipakai dari this.qcRepair.
+        const repairPerlineQty = this.qcRepair.perlineQty || [];
+        const repairPermodelQty = this.qcRepair.permodelQty || [];
+
+        // % Straightpass = (Stroke - Qty Repair) / Stroke * 100 -- rumus
+        // BARU. NG (production_log.ng maupun NG Inline) TIDAK dipakai lagi
+        // di rumus ini sama sekali.
+        const perlineActual = QC_LINES.map((line, i) => {
+          const r = perlineRows.find((x) => x.mesin === line);
+          if (!r || !r.stroke) return null;
+          const repairQty = Number(repairPerlineQty[i]) || 0;
+          return Number((((Number(r.stroke) - repairQty) / Number(r.stroke)) * 100).toFixed(1));
+        });
+        const permodelActual = QC_MODELS.map((model, i) => {
+          const r = permodelRows.find((x) => x.model === model);
+          if (!r || !r.stroke) return null;
+          const repairQty = Number(repairPermodelQty[i]) || 0;
+          return Number((((Number(r.stroke) - repairQty) / Number(r.stroke)) * 100).toFixed(1));
+        });
+
+        // --- Daily (1-31): % Straightpass harian = (Stroke - Qty Repair)
+        // / Stroke * 100. Null untuk hari yang belum tiba / di luar jumlah
+        // hari bulan itu, pola sama seperti dailyQty/dailyValue di
+        // fetchQcNgInline().
+        const dailyProdRows = dailyProdRes.data || [];
+        const dailyRepairRows = dailyRepairRes.data || [];
+        const daysInMonthQc = new Date(this.qcYear, this.qcMonth, 0).getDate();
+        const findProdDay = (day) => dailyProdRows.find((r) => r.tanggal === localDateStr(new Date(this.qcYear, this.qcMonth - 1, day)));
+        const findRepairDay = (day) => dailyRepairRows.find((r) => r.tanggal === localDateStr(new Date(this.qcYear, this.qcMonth - 1, day)));
+        const todayLocal = new Date();
+        todayLocal.setHours(0, 0, 0, 0);
+        const dailyRepairQty = Array.from({ length: 31 }, (_, i) => {
+          const day = i + 1;
+          if (day > daysInMonthQc) return null;
+          if (new Date(this.qcYear, this.qcMonth - 1, day) > todayLocal) return null;
+          const r = findRepairDay(day);
+          return r ? Number(r.qty) || 0 : 0;
+        });
+        const dailyPercent = Array.from({ length: 31 }, (_, i) => {
+          const day = i + 1;
+          if (day > daysInMonthQc) return null;
+          if (new Date(this.qcYear, this.qcMonth - 1, day) > todayLocal) return null;
+          const r = findProdDay(day);
+          if (!r || !r.stroke) return null;
+          const repairQty = Number(dailyRepairQty[i]) || 0;
+          return Number((((Number(r.stroke) - repairQty) / Number(r.stroke)) * 100).toFixed(1));
+        });
+
+        this.qcStraightpass = { perlineActual, permodelActual, dailyRepairQty, dailyPercent };
+        this.qcStraightpassLoaded = true;
+      } catch (e) {
+        console.error("Gagal memuat breakdown Straightpass:", e);
+      }
+    },
     // ---------------------------------------------------------------
     // Data "Bulanan" (harian, tanggal 1-31) -- diisi dari fetchBulanan()
     // lewat RPC Supabase baru (lihat migration_dashboard_bulanan_harian.sql).
@@ -1312,6 +2137,7 @@ function dashboardExhaust() {
       downtimeLine: { labels: [], act: [] },                   // per line: E-02..E-07
       weekly: [],                  // 5 entri: { labels: [E-02..E-07], values: [...] }
       downtimeTerbesar: [],        // per line: { mesin, rows: [{pic,problem,area,countermeasure,status,shift,menit}] }
+      downtimeTerbesarBulan: [],   // rekap 1 bulan penuh per Problem: { problem, menit, frekuensi }
     },
     bulananCharts: {},
     tahunanYear: new Date().getFullYear(),
@@ -1365,6 +2191,11 @@ function dashboardExhaust() {
     //     -> per baris: { minggu_mulai, mesin, downtime_menit }
     //   dashboard_harian_top_problems(p_mesin, p_start, p_end, p_limit)
     //     -> per baris: { pic, problem, area, countermeasure, status, shift, total_menit }
+    //   dashboard_bulanan_problem_detail_by_line(p_problem, p_start, p_end)  [BARU]
+    //     -> per baris: { mesin, total_menit, frekuensi }   dipakai modal
+    //        detail "Downtime Terbesar" (double-klik row Problem, tab
+    //        Bulanan) -- lihat openProblemDetail(). Contoh SQL disiapkan
+    //        terpisah, belum dibuat di Supabase.
     // -----------------------------------------------------------------
     async fetchBulanan() {
       if (this.bulananLoaded) return;
@@ -1377,11 +2208,12 @@ function dashboardExhaust() {
         const nHari = daysInMonth(year, month);
         const dayLabels = Array.from({ length: nHari }, (_, i) => String(i + 1));
 
-        const [prodRes, picRes, lineRes, weeklyRes] = await Promise.all([
+        const [prodRes, picRes, lineRes, weeklyRes, topProblemSummaryRes] = await Promise.all([
           supabaseClient.rpc("dashboard_harian_produksi", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString() }),
           supabaseClient.rpc("dashboard_harian_downtime_by_pic", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString() }),
           supabaseClient.rpc("dashboard_harian_downtime_by_line", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString() }),
           supabaseClient.rpc("dashboard_bulanan_weekly", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString() }),
+          supabaseClient.rpc("dashboard_bulanan_top_problems_summary", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_limit: 10 }),
         ]);
         const prodRows = prodRes.data || [];
         const dayKeyStr = (day) => localDateStr(new Date(year, month - 1, day));
@@ -1461,16 +2293,31 @@ function dashboardExhaust() {
         }
         while (weekly.length < 5) weekly.push({ labels: MACHINES.map((m) => m.key), values: MACHINES.map(() => 0) });
 
-        // Downtime Terbesar per line -- SELALU per-tanggal (bukan sebulan
-        // penuh). bulananDate dijamin selalu terisi (default hari ini, atau
-        // tanggal 1 kalau lagi lihat bulan lain) -- lihat init() dan
-        // onBulananPeriodChange(). Kalau karena suatu hal kosong, fallback
-        // ke tanggal 1 bulan yang lagi dipilih supaya tetap per-tanggal.
+        // Downtime Terbesar per line -- DEFAULT tampil SEBULAN PENUH
+        // (persis pola "Rekap NG Inline" di tab Kontrol Kualitas). Kalau
+        // user sudah pilih tanggal spesifik (bulananDowntimeUseDate true),
+        // pakai rentang 1 hari itu saja. bulananDate tetap dijaga selalu
+        // terisi (default hari ini / tanggal 1 bulan aktif) supaya kalau
+        // date-picker dibuka, kalendernya langsung di bulan yang benar.
         if (!this.bulananDate) this.bulananDate = localDateStr(periodStart);
-        const dtStart = new Date(this.bulananDate + "T00:00:00");
-        const dtEnd = new Date(dtStart);
-        dtEnd.setDate(dtEnd.getDate() + 1);
+        let dtStart, dtEnd;
+        if (this.bulananDowntimeUseDate) {
+          dtStart = new Date(this.bulananDate + "T00:00:00");
+          dtEnd = new Date(dtStart);
+          dtEnd.setDate(dtEnd.getDate() + 1);
+        } else {
+          dtStart = periodStart;
+          dtEnd = periodEnd;
+        }
         const downtimeTerbesar = await this.fetchDowntimeTerbesarFor(dtStart, dtEnd);
+
+        // Downtime Terbesar SEBULAN (digabung semua line, per Problem) --
+        // untuk panel baru yang sejajar dengan tabel Downtime Line.
+        const downtimeTerbesarBulan = ((topProblemSummaryRes && topProblemSummaryRes.data) || []).map((r) => ({
+          problem: r.problem || "",
+          menit: Math.round(Number(r.total_menit) || 0),
+          frekuensi: Number(r.frekuensi) || 0,
+        }));
 
         // Rata-rata Productivity & Availability (dari hari yg sudah ada data),
         // dan Total Downtime Harian (menit) sebulan -- ditampilkan di pojok
@@ -1493,6 +2340,7 @@ function dashboardExhaust() {
           downtimeLine,
           weekly,
           downtimeTerbesar,
+          downtimeTerbesarBulan,
         };
         this.bulananLoaded = true;
       } catch (e) {
@@ -1514,12 +2362,17 @@ function dashboardExhaust() {
         const bulanIni = new Date(now.getFullYear(), now.getMonth(), 1);
         const bulanDepan = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-        const [prodRes, ngRes, picRes, lineRes] = await Promise.all([
+        const [prodRes, ngRes, picRes, lineRes, repairMonthRes] = await Promise.all([
           supabaseClient.rpc("dashboard_bulanan_produksi", { p_start: prevFyStart.toISOString(), p_end: fyEnd.toISOString() }),
           supabaseClient.rpc("dashboard_bulanan_ng_inline", { p_start: prevFyStart.toISOString(), p_end: fyEnd.toISOString() }),
           // Downtime Supporting & Line: total 1 tahun fiskal PENUH sesuai dropdown Tahun
           supabaseClient.rpc("dashboard_bulanan_downtime_by_pic", { p_start: fyStart.toISOString(), p_end: fyEnd.toISOString() }),
           supabaseClient.rpc("dashboard_bulanan_downtime_by_line", { p_start: fyStart.toISOString(), p_end: fyEnd.toISOString() }),
+          // Qty Repair per bulan (semua line) -- dipakai rumus % Straightpass
+          // yang BARU: (Stroke - Qty Repair) / Stroke * 100. NG (ngRes di
+          // atas) TIDAK dipakai lagi di rumus ini -- ngRes tetap dipakai
+          // hanya untuk kartu "NG Inline" yang terpisah (tidak diubah).
+          supabaseClient.rpc("dashboard_qc_repair_month", { p_start: localDateStr(prevFyStart), p_end: localDateStr(fyEnd) }),
         ]);
         // Downtime Terbesar: ikut 1 tahun fiskal yang dipilih (bukan bulan berjalan)
         const topRes = await Promise.all(MACHINES.map((m) =>
@@ -1528,6 +2381,7 @@ function dashboardExhaust() {
 
         const prodRows = prodRes.data || [];
         const ngRows = ngRes.data || [];
+        const repairMonthRows = repairMonthRes.data || [];
         const monthKeyStr = (d) => localDateStr(d);
 
         // 12 bulan FY berjalan (Apr..Mar)
@@ -1551,12 +2405,14 @@ function dashboardExhaust() {
           if (!row || !row.wh_menit) return null;
           return Number((((row.wh_menit - row.downtime_menit) / row.wh_menit) * 100).toFixed(1));
         });
+        // % Straightpass = (Stroke - Qty Repair) / Stroke * 100 -- rumus
+        // BARU, NG tidak dipakai lagi di sini sama sekali.
         const straightpassActual = fyMonths.map((d) => {
           const row = findRow(prodRows, d);
-          const ngRow = findRow(ngRows, d);
+          const repairRow = findRow(repairMonthRows, d);
           if (!row || !row.stroke) return null;
-          const ngTotal = (Number(row.ng) || 0) + (ngRow ? Number(ngRow.qty) || 0 : 0);
-          return Number((((row.stroke - ngTotal) / row.stroke) * 100).toFixed(1));
+          const repairQty = repairRow ? Number(repairRow.qty) || 0 : 0;
+          return Number((((row.stroke - repairQty) / row.stroke) * 100).toFixed(1));
         });
         const straightpassQty = fyMonths.map((d) => {
           const row = findRow(prodRows, d);
@@ -1566,10 +2422,11 @@ function dashboardExhaust() {
         // Bulan berjalan (bulan terakhir yang ada datanya)
         const lastRow = [...prodRows].reverse().find((r) => r.wh_menit > 0) || null;
         const lastNgRow = ngRows.length ? ngRows[ngRows.length - 1] : null;
+        const lastRepairMonthRow = repairMonthRows.length ? repairMonthRows[repairMonthRows.length - 1] : null;
         const productivityValue = lastRow ? Number(((lastRow.target_std_menit / lastRow.wh_menit) * 100).toFixed(1)) : 0;
         const availabilityValue = lastRow ? Number((((lastRow.wh_menit - lastRow.downtime_menit) / lastRow.wh_menit) * 100).toFixed(1)) : 0;
         const straightpassValue = lastRow && lastRow.stroke
-          ? Number((((lastRow.stroke - ((Number(lastRow.ng) || 0) + (lastNgRow ? Number(lastNgRow.qty) || 0 : 0))) / lastRow.stroke) * 100).toFixed(1))
+          ? Number((((lastRow.stroke - (lastRepairMonthRow ? Number(lastRepairMonthRow.qty) || 0 : 0)) / lastRow.stroke) * 100).toFixed(1))
           : 0;
 
         // Downtime Exhaust: FY-1, FY, lalu 12 bulan Apr..Mar
@@ -1676,40 +2533,116 @@ function dashboardExhaust() {
     // lalu pad minimal 8 baris (default kosong). Kalau data asli lebih dari
     // 8 baris, semua tetap ditampilkan (tidak dipotong) -- scroll otomatis
     // muncul dari .dxy-table-scroll. Tidak ada logika/RPC data yang diubah.
-    bulananDowntimeMergedRows() {
+    // Data mentah (rata, belum di-pad/filter kolom) untuk tabel "Downtime
+    // Line" di tab Bulanan -- dipakai sekaligus oleh bulananDowntimeMergedRows()
+    // dan sebagai sumber nilai unik dropdown filter (qcRawRowsFor).
+    dxyDowntimeFlatBulanan() {
       const flat = [];
       (this.bulanan.downtimeTerbesar || []).forEach((line) => {
         (line.rows || []).forEach((row) => flat.push({ mesin: line.mesin, ...row }));
       });
-      while (flat.length < 10) {
-        flat.push({ mesin: "", pic: "", problem: "", area: "", countermeasure: "", status: "", shift: "", menit: "" });
-      }
       return flat;
+    },
+    bulananDowntimeMergedRows() {
+      const flat = this.qcApplyColFilters("bulananDowntime", this.dxyDowntimeFlatBulanan());
+      const out = flat.slice();
+      while (out.length < 10) {
+        out.push({ mesin: "", pic: "", problem: "", area: "", countermeasure: "", status: "", shift: "", menit: "" });
+      }
+      return out;
+    },
+    // Panel "Downtime Terbesar" (sebulan, per Problem) -- sejajar Downtime
+    // Line. Datanya sudah diurutkan terbesar->kecil oleh RPC, di sini
+    // cuma diterapkan filter kolom (kalau ada) lalu di-pad.
+    bulananDowntimeTerbesarBulanRows() {
+      const flat = this.qcApplyColFilters("bulananTopProblem", this.bulanan.downtimeTerbesarBulan || []);
+      return this.dxyPadMin(flat, { problem: "", menit: "", frekuensi: "" }, 10);
+    },
+    // Double-klik salah satu row di tabel "Downtime Terbesar" (rekap
+    // sebulan, per Problem, semua line digabung) -> buka popup kecil
+    // (floating, nempel di ATAS panel "Downtime Terbesar" -- lihat
+    // positionProblemDetail()) berisi breakdown problem itu per Line
+    // untuk bulan/tahun yang lagi aktif di tab Bulanan. RPC
+    // "dashboard_bulanan_problem_detail_by_line" perlu ada di Supabase.
+    async openProblemDetail(problem) {
+      this.dxyProblemDetail = { open: true, loading: true, problem, rows: [] };
+      this.$nextTick(() => this.positionProblemDetail());
+      try {
+        const periodStart = new Date(this.bulananYear, this.bulananMonth - 1, 1);
+        const periodEnd = new Date(this.bulananYear, this.bulananMonth, 1); // eksklusif
+        const { data, error } = await supabaseClient.rpc("dashboard_bulanan_problem_detail_by_line", {
+          p_problem: problem,
+          p_start: periodStart.toISOString(),
+          p_end: periodEnd.toISOString(),
+        });
+        if (error) throw error;
+        const rows = (data || [])
+          .map((r) => ({ mesin: r.mesin || "", menit: Math.round(Number(r.total_menit) || 0), frekuensi: Number(r.frekuensi) || 0 }))
+          .sort((a, b) => b.menit - a.menit);
+        this.dxyProblemDetail = { open: true, loading: false, problem, rows };
+      } catch (e) {
+        console.error("Gagal mengambil detail Downtime per Line:", e);
+        this.dxyProblemDetail = { open: true, loading: false, problem, rows: [] };
+      }
+      // Tinggi popup berubah setelah data selesai dimuat (loading -> rows) --
+      // hitung ulang posisi supaya tetap nempel rapi di atas panel.
+      this.$nextTick(() => this.positionProblemDetail());
+    },
+    // Hitung posisi popup (fixed top/left) supaya nempel di ATAS panel
+    // "Downtime Terbesar" (x-ref="bulananTopProblemPanel"). Pola sama
+    // seperti qcToggleFilterDropdown(): kalau ruang di atas nggak cukup,
+    // popup turun ke bawah panel supaya tidak kepotong ujung layar.
+    positionProblemDetail() {
+      const panel = this.$refs.bulananTopProblemPanel;
+      const box = this.$refs.dxyProblemDetailBox;
+      if (!panel || !box) return;
+      const rect = panel.getBoundingClientRect();
+      const boxHeight = box.offsetHeight || 220;
+      const boxWidth = box.offsetWidth || 260;
+      let top = rect.top - boxHeight - 8;
+      if (top < 8) top = Math.min(rect.bottom + 8, window.innerHeight - boxHeight - 8);
+      let left = rect.left;
+      if (left + boxWidth > window.innerWidth - 8) left = window.innerWidth - boxWidth - 8;
+      if (left < 8) left = 8;
+      this.dxyProblemDetailPos = { top, left };
+    },
+    closeProblemDetail() {
+      this.dxyProblemDetail = { open: false, loading: false, problem: "", rows: [] };
     },
     // Dipanggil saat dropdown Bulan/Tahun di tab Bulanan berubah
     async onBulananPeriodChange() {
       this.destroyBulananCharts();
       this.bulananLoaded = false; // paksa fetch ulang periode baru
       this.bulananLoading = true;
-      // Kalau bulan/tahun yang dipilih adalah bulan berjalan, otomatis
-      // isi tanggal dengan hari ini lagi. Kalau bukan (mis. lihat bulan
-      // lalu), pindah ke tanggal 1 bulan tsb -- tabel selalu per-tanggal,
-      // tidak pernah kosong/sebulan-penuh.
+      // Balik ke mode "sebulan" tiap kali Bulan/Tahun diganti (persis pola
+      // onQcPeriodChange di tab Kontrol Kualitas). Field tanggal cuma diisi
+      // diam-diam ke hari ini (kalau bulan berjalan) atau tanggal 1 bulan
+      // yang dipilih -- semata supaya kalender terbuka di bulan yang benar
+      // kalau nanti diklik, BUKAN otomatis pindah ke mode per-tanggal.
       const today = new Date();
       if (this.bulananMonth === today.getMonth() + 1 && this.bulananYear === today.getFullYear()) {
         this.bulananDate = localDateStr(today);
       } else {
         this.bulananDate = localDateStr(new Date(this.bulananYear, this.bulananMonth - 1, 1));
       }
+      this.bulananDowntimeUseDate = false;
       await this.fetchBulanan();
+      this.qcColFilters = { ...this.qcColFilters, bulananDowntime: {}, bulananTopProblem: {} };
       this.$nextTick(() => this.renderBulananCharts());
     },
-    // Ambil Top 5 Downtime Terbesar per line untuk rentang [start, end)
-    // tertentu -- dipakai untuk satu tanggal spesifik (tabel ini selalu
-    // per-tanggal, tidak pernah agregat sebulan).
+    // Ambil SEMUA Downtime per line untuk rentang [start, end) tertentu --
+    // dipakai untuk satu tanggal spesifik (tabel ini selalu per-tanggal,
+    // tidak pernah agregat sebulan).
+    // CATATAN FIX: sebelumnya p_limit dikunci ke 5 (cuma ambil 5 problem
+    // terbesar per line per hari), sehingga kalau dalam 1 hari ada lebih
+    // dari 5 kejadian downtime di satu line, sisanya tidak ikut ditampilkan
+    // di tabel -- ini yang bikin total manual per-tanggal jadi lebih kecil
+    // dari total sebenarnya (mismatch dengan chart "Downtime Line" yang
+    // menjumlahkan tanpa batas). p_limit dinaikkan jadi angka besar supaya
+    // efektif mengambil SEMUA baris di tanggal itu, bukan cuma top 5.
     async fetchDowntimeTerbesarFor(start, end) {
       const topRes = await Promise.all(MACHINES.map((m) =>
-        supabaseClient.rpc("dashboard_harian_top_problems", { p_mesin: m.key, p_start: start.toISOString(), p_end: end.toISOString(), p_limit: 5 })
+        supabaseClient.rpc("dashboard_harian_top_problems", { p_mesin: m.key, p_start: start.toISOString(), p_end: end.toISOString(), p_limit: 1000 })
       ));
       return MACHINES.map((m, idx) => {
         const rows = ((topRes[idx] && topRes[idx].data) || []).map((r) => ({
@@ -1726,28 +2659,30 @@ function dashboardExhaust() {
         return { mesin: m.key, rows, rowsPadded };
       });
     },
-    // Dipanggil saat date picker (di samping filter Line) berubah.
-    // Tabel ini SELALU per-tanggal -- kalau user berhasil mengosongkan
-    // input (lewat tombol clear bawaan browser), otomatis snap balik ke
-    // hari ini (kalau hari ini masih dalam bulan/tahun aktif) atau ke
-    // tanggal 1 bulan aktif.
-    async onBulananDateChange() {
-      if (!this.bulananDate) {
-        const today = new Date();
-        if (this.bulananMonth === today.getMonth() + 1 && this.bulananYear === today.getFullYear()) {
-          this.bulananDate = localDateStr(today);
-        } else {
-          this.bulananDate = localDateStr(new Date(this.bulananYear, this.bulananMonth - 1, 1));
-        }
+    // Dipanggil saat date-picker di header panel "Downtime Line" berubah,
+    // ATAU saat tombol "✕" (kembali ke sebulan) diklik -- persis pola
+    // fetchQcNgInlineDetail() di tab Kontrol Kualitas:
+    // - bulananDowntimeUseDate FALSE (default) -> tampil SEBULAN PENUH,
+    //   ikut bulananMonth/bulananYear yang lagi aktif.
+    // - bulananDowntimeUseDate TRUE  -> tampil 1 tanggal itu saja
+    //   (bulananDate).
+    async onBulananDowntimeDateChange() {
+      let start, end;
+      if (this.bulananDowntimeUseDate) {
+        if (!this.bulananDate) this.bulananDate = localDateStr(new Date(this.bulananYear, this.bulananMonth - 1, 1));
+        start = new Date(this.bulananDate + "T00:00:00");
+        end = new Date(start);
+        end.setDate(end.getDate() + 1);
+      } else {
+        start = new Date(this.bulananYear, this.bulananMonth - 1, 1);
+        end = new Date(this.bulananYear, this.bulananMonth, 1);
       }
-      const start = new Date(this.bulananDate + "T00:00:00");
-      const end = new Date(start);
-      end.setDate(end.getDate() + 1);
       this.bulananDtLoading = true;
       try {
         this.bulanan.downtimeTerbesar = await this.fetchDowntimeTerbesarFor(start, end);
+        this.qcColFilters = { ...this.qcColFilters, bulananDowntime: {} };
       } catch (e) {
-        console.error("Gagal mengambil Downtime Terbesar untuk tanggal terpilih:", e);
+        console.error("Gagal mengambil Downtime Terbesar untuk periode terpilih:", e);
       } finally {
         this.bulananDtLoading = false;
       }
@@ -1775,15 +2710,22 @@ function dashboardExhaust() {
     // 5 baris). Kalau data asli lebih dari 8, semua tetap ditampilkan
     // dan scroll otomatis muncul dari .qc-rekap-scroll.
     qcNgInlineRows() {
-      return this.dxyPadMin(this.qcNgInline.detailRows, { tanggal: "", model: "", line: "", partNo: "", area: "", ngProses: "", qty: "", ngKategori: "", value: "" }, 8);
+      const filtered = this.qcApplyColFilters("ngInline", this.qcNgInline.detailRows);
+      return this.dxyPadMin(filtered, { tanggal: "", model: "", line: "", partNo: "", area: "", ngProses: "", qty: "", ngKategori: "", value: "" }, 8);
     },
     qcNgTrialRows() {
-      return this.dxyPadMin([], { model: "", line: "", partNo: "", area: "", ngProses: "", qty: "", ngKategori: "", value: "" }, 8);
+      const filtered = this.qcApplyColFilters("ngTrial", this.qcNgTrial.detailRows);
+      return this.dxyPadMin(filtered, { tanggal: "", model: "", line: "", partNo: "", area: "", ngProses: "", qty: "", ngKategori: "", value: "" }, 8);
     },
     qcRepairRows() {
-      return this.dxyPadMin([], { model: "", line: "", partNo: "", qty: "", area: "", point: "", repairKategori: "" }, 8);
+      const filtered = this.qcApplyColFilters("repair", this.qcRepair.detailRows);
+      return this.dxyPadMin(filtered, { tanggal: "", model: "", line: "", partNo: "", qty: "", area: "", point: "", repairKategori: "" }, 8);
     },
-    dxyFilteredTerbesar() {
+    // ---- Data mentah (rata, sudah kena filter Line dari dropdown atas,
+    // TAPI belum kena filter per-kolom & belum di-sort/pad) untuk 3 tabel
+    // "Terbesar" di tab Tahunan -- dipakai bareng oleh dxyFiltered...()
+    // dan sebagai sumber nilai unik dropdown filter (qcRawRowsFor). ----
+    dxyDowntimeFlatTahunan() {
       let flat = [];
       (this.tahunan.downtimeTerbesar || []).forEach((line) => {
         const real = (line.rows || []).filter((r) => r.pic || r.problem || r.value !== "");
@@ -1794,12 +2736,9 @@ function dashboardExhaust() {
         }
       });
       if (this.dxyLineFilter !== "ALL") flat = flat.filter((r) => r.mesin === this.dxyLineFilter);
-      flat.sort((a, c) => (Number(c.value) || 0) - (Number(a.value) || 0));
-      return this.dxyPadMin(flat, { mesin: "", pic: "", problem: "", value: "" });
+      return flat;
     },
-    // ---- NG Inline Terbesar: struktur sama seperti dxyFilteredTerbesar,
-    // tapi field-nya kategori/qty/value (bukan pic/problem/value) ----
-    dxyFilteredNgTerbesar() {
+    dxyNgFlatTahunan() {
       let flat = [];
       (this.tahunan.ngInlineTerbesar || []).forEach((line) => {
         const real = (line.rows || []).filter((r) => r.kategori || r.qty !== "");
@@ -1810,12 +2749,9 @@ function dashboardExhaust() {
         }
       });
       if (this.dxyLineFilter !== "ALL") flat = flat.filter((r) => r.mesin === this.dxyLineFilter);
-      flat.sort((a, c) => (Number(c.value) || 0) - (Number(a.value) || 0));
-      return this.dxyPadMin(flat, { mesin: "", kategori: "", qty: "", value: "" });
+      return flat;
     },
-    // ---- Repair Terbesar: sama seperti di atas, tapi tanpa kolom value
-    // (menit dihapus) -- urutan berdasarkan qty terbesar ----
-    dxyFilteredRepairTerbesar() {
+    dxyRepairFlatTahunan() {
       let flat = [];
       (this.tahunan.repairTerbesar || []).forEach((line) => {
         const real = (line.rows || []).filter((r) => r.kategori || r.qty !== "");
@@ -1826,6 +2762,24 @@ function dashboardExhaust() {
         }
       });
       if (this.dxyLineFilter !== "ALL") flat = flat.filter((r) => r.mesin === this.dxyLineFilter);
+      return flat;
+    },
+    dxyFilteredTerbesar() {
+      const flat = this.qcApplyColFilters("tahunanDowntime", this.dxyDowntimeFlatTahunan());
+      flat.sort((a, c) => (Number(c.value) || 0) - (Number(a.value) || 0));
+      return this.dxyPadMin(flat, { mesin: "", pic: "", problem: "", value: "" });
+    },
+    // ---- NG Inline Terbesar: struktur sama seperti dxyFilteredTerbesar,
+    // tapi field-nya kategori/qty/value (bukan pic/problem/value) ----
+    dxyFilteredNgTerbesar() {
+      const flat = this.qcApplyColFilters("tahunanNg", this.dxyNgFlatTahunan());
+      flat.sort((a, c) => (Number(c.value) || 0) - (Number(a.value) || 0));
+      return this.dxyPadMin(flat, { mesin: "", kategori: "", qty: "", value: "" });
+    },
+    // ---- Repair Terbesar: sama seperti di atas, tapi tanpa kolom value
+    // (menit dihapus) -- urutan berdasarkan qty terbesar ----
+    dxyFilteredRepairTerbesar() {
+      const flat = this.qcApplyColFilters("tahunanRepair", this.dxyRepairFlatTahunan());
       flat.sort((a, c) => (Number(c.qty) || 0) - (Number(a.qty) || 0));
       return this.dxyPadMin(flat, { mesin: "", kategori: "", qty: "" });
     },
@@ -1979,7 +2933,7 @@ function dashboardExhaust() {
       });
 
       // Label angka di atas tiap batang (anti-tabrakan, sama seperti Tahunan)
-      const barValueLabels = (formatter, datasetIndex = 0) => ({
+      const barValueLabels = (formatter, datasetIndex = 0, sizeScale = 1) => ({
         id: "dxbBarValueLabels",
         afterDatasetsDraw(chart) {
           const { ctx, chartArea } = chart;
@@ -1989,7 +2943,7 @@ function dashboardExhaust() {
           const textColor = cssVar("--dxy-text") || "#1F2937";
           const n = meta.data.length;
           const slotWidth = chartArea && n ? chartArea.width / n : 30;
-          const fontSize = slotWidth < 18 ? 6.5 : slotWidth < 26 ? 7.5 : slotWidth < 40 ? 8.5 : 9.5;
+          const fontSize = (slotWidth < 18 ? 6.5 : slotWidth < 26 ? 7.5 : slotWidth < 40 ? 8.5 : 9.5) * sizeScale;
           ctx.save();
           ctx.font = `700 ${fontSize}px Inter, sans-serif`;
           ctx.textAlign = "center"; ctx.fillStyle = textColor;
@@ -2021,7 +2975,7 @@ function dashboardExhaust() {
           ctx.textAlign = "center"; ctx.fillStyle = textColor;
           meta.data.forEach((point, i) => {
             const val = Number(dataset.data[i]);
-            if (val === null || val === undefined || Number.isNaN(val) || val === 0) return;
+            if (val === null || val === undefined || Number.isNaN(val)) return;
             const { x, y } = point.getProps(["x", "y"], true);
             ctx.textBaseline = "bottom";
             ctx.fillText(formatter(val), x, y - 8);
@@ -2056,7 +3010,7 @@ function dashboardExhaust() {
       });
 
       // --- Productivity & Availability harian (%), bar gradient + target ---
-      const kpiBigPct = (canvasId, labels, actual, target, hex) => {
+      const kpiBigPct = (canvasId, labels, actual, target, hex, labelScale = 1) => {
         destroy(canvasId);
         const canvas = document.getElementById(canvasId);
         if (!canvas) return;
@@ -2074,11 +3028,11 @@ function dashboardExhaust() {
             plugins: { legend: legend(true), tooltip: tooltip() },
             scales: baseScales({ suggestedMax: 100, ticks: { callback: (v) => v + "%", color: cssVar("--chart-tick"), font: { size: 9 }, maxTicksLimit: 5 } }),
           },
-          plugins: [barValueLabels((v) => v + "%")],
+          plugins: [barValueLabels((v) => v + "%", 0, labelScale)],
         });
       };
       safe(() => kpiBigPct("dxbProductivity", b.dayLabels, b.productivity.actual, b.productivity.target, "#2563EB"), "productivity");
-      safe(() => kpiBigPct("dxbAvailability", b.dayLabels, b.availability.actual, b.availability.target, "#10B981"), "availability");
+      safe(() => kpiBigPct("dxbAvailability", b.dayLabels, b.availability.actual, b.availability.target, "#10B981", 0.8), "availability");
 
       // --- Downtime harian 1-31: bar + garis tren ---
       safe(() => {
@@ -2092,7 +3046,8 @@ function dashboardExhaust() {
               { type: "bar", label: "Downtime", data: b.downtimeHarian.values, backgroundColor: barBg(canvas, "#F97316", b.downtimeHarian.values.length), borderRadius: 4, barPercentage: 0.6, categoryPercentage: 0.75 },
             ],
           },
-          options: { responsive: true, maintainAspectRatio: false, animation: noAnim, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
+          options: { responsive: true, maintainAspectRatio: false, animation: noAnim, layout: { padding: { top: 20 } }, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
+          plugins: [barValueLabels((v) => fmtNum(v))],
         });
       }, "downtimeHarian");
 
@@ -2512,6 +3467,47 @@ function dashboardExhaust() {
         },
       });
 
+      // Sama seperti barValueLabels, tapi buat dataset garis (line) --
+      // dipakai buat nampilin angka di atas tiap titik, misal "% Straightpass".
+      const lineValueLabels = (formatter, datasetIndex = 1) => ({
+        id: "dxyQcLineValueLabels_" + datasetIndex + "_" + Math.random(),
+        afterDatasetsDraw(chart) {
+          const { ctx, chartArea } = chart;
+          const meta = chart.getDatasetMeta(datasetIndex);
+          const dataset = chart.data.datasets[datasetIndex];
+          if (!meta || !dataset || meta.type !== "line" || !meta.data) return;
+          const textColor = cssVar("--dxy-text") || "#1F2937";
+          const n = meta.data.length;
+          const slotWidth = chartArea && n ? chartArea.width / n : 30;
+          // Turunkan lagi ambang batasnya (tambah tingkatan 6px) supaya di
+          // chart sempit (banyak kategori + dual axis) teksnya tetap muat.
+          const fontSize = slotWidth < 18 ? 6 : slotWidth < 24 ? 7 : slotWidth < 34 ? 8 : slotWidth < 46 ? 9 : 10;
+          ctx.save();
+          ctx.font = `700 ${fontSize}px Inter, sans-serif`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "bottom";
+          ctx.fillStyle = textColor;
+          // Hindari tabrakan: kalau bounding-box label ini masih tumpang
+          // tindih dengan label terakhir yang berhasil digambar, lewati
+          // (skip) -- daripada dipaksa gambar & saling menimpa jadi tidak
+          // terbaca sama sekali.
+          let lastRightEdge = -Infinity;
+          meta.data.forEach((point, i) => {
+            const raw = dataset.data[i];
+            if (raw === null || raw === undefined) return;
+            const val = Number(raw);
+            if (Number.isNaN(val)) return;
+            const label = formatter(val);
+            const { x, y } = point.getProps(["x", "y"], true);
+            const halfW = ctx.measureText(label).width / 2 + 2;
+            if (x - halfW < lastRightEdge) return; // akan tabrakan, lewati
+            ctx.fillText(label, x, y - 6);
+            lastRightEdge = x + halfW;
+          });
+          ctx.restore();
+        },
+      });
+
       // --- Month · NG Inline: sekarang pakai data ASLI dari RPC
       // dashboard_qc_ng_month (type_ng = 'NG PRODUKSI'), bukan lagi
       // numpang data gabungan dari tab Tahunan. ---
@@ -2543,21 +3539,22 @@ function dashboardExhaust() {
       }, "qcNgInlineMonth");
 
       // --- Month · NG Trial: STRUKTUR/STYLE sama persis dengan NG Inline
-      // (Qty bar oranye + Value garis ungu, dual axis) -- data sengaja
-      // dikosongkan dulu (belum ada sumber data NG Trial). ---
+      // (Qty bar oranye + Value garis ungu, dual axis) -- sekarang sudah
+      // pakai data asli dari fetchQcNgTrial() (p_type_ng = 'NG TRIAL'). ---
       safe(() => {
         destroy("qcNgTrialMonth");
         const canvas = document.getElementById("qcNgTrialMonth");
         if (!canvas) return;
+        const ngt = this.qcNgTrial;
         const labels = b.monthLabels.slice(2);
-        const emptyQty = labels.map(() => null);
-        const emptyValue = labels.map(() => null);
+        const trialQty = ngt.qtyByMonth && ngt.qtyByMonth.length ? ngt.qtyByMonth : labels.map(() => null);
+        const trialValue = ngt.valueByMonth && ngt.valueByMonth.length ? ngt.valueByMonth : labels.map(() => null);
         this.qcCharts.qcNgTrialMonth = new Chart(canvas, {
           data: {
             labels,
             datasets: [
-              { type: "bar", label: "Qty", data: emptyQty, backgroundColor: barBg(canvas, "#F97316", emptyQty.length), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
-              { type: "line", label: "Value", data: emptyValue, borderColor: "#8B5CF6", backgroundColor: "#8B5CF6", yAxisID: "y1", pointRadius: 3, tension: 0.3 },
+              { type: "bar", label: "Qty", data: trialQty, backgroundColor: barBg(canvas, "#F97316", trialQty.length), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
+              { type: "line", label: "Value", data: trialValue, borderColor: "#8B5CF6", backgroundColor: "#8B5CF6", yAxisID: "y1", pointRadius: 3, tension: 0.3 },
             ],
           },
           options: {
@@ -2625,13 +3622,55 @@ function dashboardExhaust() {
           });
         }, canvasId);
       };
+      // Dual-axis: bar "Qty Repair" (kiri) + garis "% Straightpass" (kanan,
+      // 0-100) -- dipakai di chart Straightpass Perline & Model.
+      const qcRepairStraightpassBar = (canvasId, categories, qtyData, pctData) => {
+        safe(() => {
+          destroy(canvasId);
+          const canvas = document.getElementById(canvasId);
+          if (!canvas) return;
+          const qty = qtyData || categories.map(() => null);
+          const pct = pctData || categories.map(() => null);
+          this.qcCharts[canvasId] = new Chart(canvas, {
+            data: {
+              labels: categories,
+              datasets: [
+                { type: "bar", label: "Qty Repair", data: qty, backgroundColor: barBg(canvas, "#EF4444", qty.length), yAxisID: "y", borderRadius: 6, barPercentage: 0.6, categoryPercentage: 0.7 },
+                { type: "line", label: "% Straightpass", data: pct, borderColor: "#22C55E", backgroundColor: "#22C55E", yAxisID: "y1", pointRadius: 3, tension: 0.3, spanGaps: true },
+              ],
+            },
+            options: {
+              responsive: true, maintainAspectRatio: false, animation: noAnim,
+              layout: { padding: { top: 28 } },
+              plugins: { legend: legend(true), tooltip: tooltip() },
+              scales: {
+                // Font sumbu X dikecilkan khusus di chart ini (bukan pakai
+                // baseScales().x apa adanya) -- karena chart ini dual-axis
+                // (2 sumbu Y kiri-kanan), ruang buat kategori (E-02..E-07 /
+                // 9 nama model) jadi lebih sempit dibanding chart NG yang
+                // cuma 1 sumbu, jadi nama model gampang numpuk kalau
+                // fontnya tidak diperkecil.
+                x: { ticks: { color: cssVar("--chart-tick"), font: { size: 8 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
+                // Judul sumbu ("Qty Repair" / "% Straightpass") DIHAPUS --
+                // teks judul itu makan lebar chart-area, mengecilkan ruang
+                // horizontal yang tersisa buat kategori. Info kategori mana
+                // punya-siapa sudah cukup jelas dari warna + legend di bawah.
+                y: { position: "left", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+                y1: { position: "right", ticks: { color: cssVar("--chart-tick"), font: { size: 9 }, callback: (v) => v + "%" }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, suggestedMax: 100 },
+              },
+            },
+            plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0), lineValueLabels((v) => (v === null ? "" : v + "%"), 1)],
+          });
+        }, canvasId);
+      };
       const ngi = this.qcNgInline;
+      const ngt = this.qcNgTrial;
       qcSimpleBar("qcNgInlinePerline", QC_LINES, "#F97316", ngi.perlineQty);
       qcSimpleBar("qcNgInlineModel", QC_MODELS, "#F97316", ngi.permodelQty);
-      qcSimpleBar("qcNgTrialPerline", QC_LINES, "#06B6D4");
-      qcSimpleBar("qcNgTrialModel", QC_MODELS, "#06B6D4");
-      qcSimpleBar("qcStraightpassPerline", QC_LINES, "#22C55E");
-      qcSimpleBar("qcStraightpassModel", QC_MODELS, "#22C55E");
+      qcSimpleBar("qcNgTrialPerline", QC_LINES, "#06B6D4", ngt.perlineQty);
+      qcSimpleBar("qcNgTrialModel", QC_MODELS, "#06B6D4", ngt.permodelQty);
+      qcRepairStraightpassBar("qcStraightpassPerline", QC_LINES, this.qcRepair.perlineQty, this.qcStraightpass.perlineActual);
+      qcRepairStraightpassBar("qcStraightpassModel", QC_MODELS, this.qcRepair.permodelQty, this.qcStraightpass.permodelActual);
 
       // --- Daily: tanggal 1-31, dual axis. NG Inline & NG Trial pakai
       // Qty (bar) + Value (garis); Straightpass pakai Qty (bar) + % (garis).
@@ -2650,7 +3689,7 @@ function dashboardExhaust() {
               labels: QC_DAYS,
               datasets: [
                 { type: "bar", label: barLabel, data: barData, backgroundColor: barBg(canvas, hexBar, QC_DAYS.length), yAxisID: "y", borderRadius: 4, barPercentage: 0.6, categoryPercentage: 0.75 },
-                { type: "line", label: lineLabel, data: lineData, borderColor: hexLine, backgroundColor: hexLine, yAxisID: "y1", pointRadius: 2, tension: 0.3 },
+                { type: "line", label: lineLabel, data: lineData, borderColor: hexLine, backgroundColor: hexLine, yAxisID: "y1", pointRadius: 2, tension: 0.3, spanGaps: true },
               ],
             },
             options: {
@@ -2663,13 +3702,13 @@ function dashboardExhaust() {
                 y1: { position: "right", ticks: { color: cssVar("--chart-tick"), font: { size: 9 }, callback: (v) => (lineIsPercent ? v + "%" : v) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, ...(lineIsPercent ? { max: 100 } : {}) },
               },
             },
-            plugins: [barValueLabels((v) => fmtNum(v), 0)],
+            plugins: [barValueLabels((v) => fmtNum(v), 0), ...(lineIsPercent ? [lineValueLabels((v) => v + "%", 1)] : [])],
           });
         }, canvasId);
       };
       qcDualAxisDaily("qcNgInlineDaily", "#F97316", "#8B5CF6", "Qty", "Value", false, ngi.dailyQty, ngi.dailyValue);
-      qcDualAxisDaily("qcNgTrialDaily", "#06B6D4", "#8B5CF6", "Qty", "Value", false);
-      qcDualAxisDaily("qcStraightpassDaily", "#22C55E", "#EF4444", "Qty", "%", true);
+      qcDualAxisDaily("qcNgTrialDaily", "#06B6D4", "#8B5CF6", "Qty", "Value", false, ngt.dailyQty, ngt.dailyValue);
+      qcDualAxisDaily("qcStraightpassDaily", "#EF4444", "#22C55E", "Qty Repair", "% Straightpass", true, this.qcStraightpass.dailyRepairQty, this.qcStraightpass.dailyPercent);
     },
     logout,
   };
