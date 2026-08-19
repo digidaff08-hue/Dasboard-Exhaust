@@ -179,5 +179,14 @@ insert into public.ng_model_areas (mesin, model, area, ng_proses) values
   ('E-07', 'D40', 'JIG 7 E07 D40', 'CONVERTER PIPE ASSY'),
   ('E-07', 'D40', 'JIG 8 E07 D40', 'EXHAUST MANIFOLD'),
   ('E-07', 'D40', 'TIG WELD E07 D40', 'CASE BLANK (0Y050)'),
-  ('E-07', 'D40', 'SPINNING E07 D40', 'CONVERTER')
+  ('E-07', 'D40', 'SPINNING E07 D40', 'CONVERTER'),
+  ('E-07', 'D13', 'JIG 1 E07 D13', 'REAR FLANGE / PIPE ASSY'),
+  ('E-07', 'D13', 'JIG 2 E07 D13', 'SHELL UP-LOW ASSY'),
+  ('E-07', 'D13', 'JIG 3 & 4 E07 D13', 'MONAKA ASSY / MANIFOLD ASSY'),
+  ('E-07', 'D13', 'JIG 5 E07 D13', 'CONE MANIFOLD ASSY / CONE MONAKA ASSY'),
+  ('E-07', 'D13', 'JIG 6 E07 D13', 'CONVERTER CONE ASSY'),
+  ('E-07', 'D13', 'JIG 7 E07 D13', 'CONVERTER PIPE ASSY'),
+  ('E-07', 'D13', 'JIG 8 E07 D13', 'EXHAUST MANIFOLD'),
+  ('E-07', 'D13', 'TIG WELD E07 D13', 'CASE BLANK'),
+  ('E-07', 'D13', 'SPINNING E07 D13', 'CONVERTER')
 on conflict (mesin, model, area, ng_proses) do nothing;
