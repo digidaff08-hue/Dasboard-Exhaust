@@ -21,8 +21,8 @@
   --dxy-bg: #F5F7FB;
   --dxy-card: #FFFFFF;
   --dxy-border: #E5E7EB;
-  --dxy-text: #1F2937;
-  --dxy-muted: #6B7280;
+  --dxy-text: #000000;
+  --dxy-muted: #1A1A1A;
   --dxy-blue: #2563EB;
   --dxy-green: #10B981;
   --dxy-orange: #F97316;
@@ -158,17 +158,20 @@
   margin-bottom: 6px;
 }
 .dxy-panel {
-  background: var(--dxy-card);
-  border: 1px solid var(--dxy-border);
+  background: #F1F9FE;
+  border: 1px solid #7DD3FC;
+  border-top: 4px solid #0EA5E9;
   border-radius: 16px;
   padding: 8px 10px !important;
-  box-shadow: var(--dxy-shadow);
-  transition: box-shadow 200ms ease;
+  box-shadow: 0 1px 3px rgba(14,165,233,.12), 0 8px 24px -12px rgba(14,165,233,.28);
+  transition: box-shadow 200ms ease, border-color 200ms ease;
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
-.dxy-panel:hover { box-shadow: var(--dxy-shadow-hover); }
+.dxy-panel:hover { box-shadow: 0 4px 12px rgba(14,165,233,.18), 0 16px 32px -14px rgba(14,165,233,.42); border-color: #38BDF8; }
+[data-theme="dark"] .dxy-panel { background: #14273A; border-color: #0284C7; border-top-color: #38BDF8; }
+[data-theme="dark"] .dxy-panel:hover { border-color: #7DD3FC; }
 .dxy-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px !important; }
 .dxy-panel-bignum { font-size: 24px; font-weight: 800; letter-spacing: -0.01em; margin: -6px 0 10px; color: var(--dxy-text); }
 .dxy-panel-title { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
@@ -270,25 +273,30 @@
 .qc-rekap-scroll::-webkit-scrollbar-track { background: transparent; }
 .qc-rekap-scroll::-webkit-scrollbar-thumb { background: #94A3B8; border-radius: 8px; }
 .qc-rekap-scroll::-webkit-scrollbar-thumb:hover { background: #64748B; }
-.dxy-table-scroll { max-height: 210px !important; overflow: auto; border-radius: 12px; border: 1px solid var(--dxy-border); }
+.dxy-table-scroll { max-height: 210px !important; overflow: auto; border-radius: 12px; border: 1px solid #BAE6FD; }
+[data-theme="dark"] .dxy-table-scroll { border-color: #0369A1; }
 table.dxy-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; }
 table.dxy-table thead th {
   position: sticky; top: 0; z-index: 1;
-  background: var(--dxy-card);
-  border-bottom: 2px solid var(--dxy-border);
+  background: #E0F2FE;
+  border-bottom: 2px solid #7DD3FC;
   text-align: left;
   padding: 8px 12px;
   font-size: 9px;
   letter-spacing: .05em;
   text-transform: uppercase;
-  color: var(--dxy-muted);
+  color: #0284C7;
 }
+[data-theme="dark"] table.dxy-table thead th { background: #082F49; border-color: #0369A1; color: #7DD3FC; }
+[data-theme="dark"] table.dxy-table tbody tr { background: #0B1F32; }
+[data-theme="dark"] table.dxy-table tbody tr:nth-child(even) { background: #0F2A40; }
 table.dxy-table tbody td { padding: 5px 12px; border-bottom: 1px solid var(--dxy-border); vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: clip; }
-table.dxy-table tbody tr:nth-child(even) { background: rgba(107,114,128,.045); }
-table.dxy-table tbody tr:hover { background: rgba(37,99,235,.06); }
+table.dxy-table tbody tr { background: #F9FCFF; }
+table.dxy-table tbody tr:nth-child(even) { background: #EDF7FE; }
+table.dxy-table tbody tr:hover { background: rgba(14,165,233,.08); }
 /* ---- Filter per-kolom di tabel Rekap NG Inline / NG Trial / Repair ---- */
 table.qc-detail-table thead th { cursor: pointer; user-select: none; transition: background 120ms ease; }
-table.qc-detail-table thead th:hover { background: rgba(37,99,235,.08); }
+table.qc-detail-table thead th:hover { background: rgba(14,165,233,.16); }
 /* NOTE: warna di bawah ini SENGAJA di-hardcode (bukan var(--dxy-*)) karena
    dropdown-nya di-teleport ke <body>, keluar dari elemen ".dxy" tempat
    variabel --dxy-* itu didefinisikan -- kalau pakai var(--dxy-*) di sini,
@@ -377,7 +385,8 @@ table.qc-detail-table thead th:hover { background: rgba(37,99,235,.08); }
 /* Kolom yang lagi difilter: teks header-nya jadi biru -- ini SATU-SATUNYA
    penanda visual di header (tidak ada ikon tambahan), supaya header tetap
    bersih untuk kolom yang tidak difilter. */
-table.qc-detail-table thead th.qc-th-active { color: var(--dxy-blue); font-weight: 800; }
+table.qc-detail-table thead th.qc-th-active { color: #0369A1; font-weight: 800; }
+[data-theme="dark"] table.qc-detail-table thead th.qc-th-active { color: #7DD3FC; }
 
 .dxy-rank-badge {
   display: inline-flex; align-items: center; justify-content: center;
@@ -458,9 +467,9 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
 .dxy-dt-terbesar-grid table.dxy-table thead th { padding: 4px 3px; font-size: 7px; white-space: nowrap; overflow: hidden; text-overflow: clip; text-align: center; }
 .dxy-dt-terbesar-grid table.dxy-table tbody td { padding: 3px 3px; white-space: nowrap; overflow: hidden; text-overflow: clip; height: 18px; }
 .dxy-status-chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 9.5px; font-weight: 700; }
-.dxy-status-open { background: rgba(239,68,68,.14); color: #EF4444; }
-.dxy-status-progress { background: rgba(245,158,11,.14); color: #F59E0B; }
-.dxy-status-closed { background: rgba(16,185,129,.14); color: #10B981; }
+.dxy-status-open { background: rgba(239,68,68,.14); color: #000000; }
+.dxy-status-progress { background: rgba(245,158,11,.14); color: #000000; }
+.dxy-status-closed { background: rgba(16,185,129,.14); color: #000000; }
 @media (max-width: 1366px) { .dxy-dt-terbesar-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 720px) { .dxy-dt-terbesar-grid { grid-template-columns: 1fr; } }
 /* Panel "Downtime Line" TIDAK lagi ikut membesar mengikuti jumlah baris --
@@ -520,12 +529,27 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
   grid-template-columns: 1fr 1fr;
   gap: 5px;
 }
+/* Panel-panel kecil (Perline/Model/dsb) dalam subgrid ini sengaja dibikin
+   lebih tipis border & strip aksennya -- kalau samain kekuatannya dengan
+   panel besar, banyaknya kotak kecil berdempetan bikin layar kerasa penuh
+   garis biru. Warna tetap satu keluarga (biru langit), cuma dikurangi
+   ketebalannya saja. */
+.dxy-qc-subgrid .dxy-panel {
+  border-width: 1px;
+  border-top-width: 2px;
+  border-color: #D3ECFA;
+  border-top-color: #7DD3FC;
+  box-shadow: none;
+}
+.dxy-qc-subgrid .dxy-panel:hover { border-color: #BAE6FD; box-shadow: 0 2px 6px rgba(14,165,233,.10); }
+[data-theme="dark"] .dxy-qc-subgrid .dxy-panel { border-color: #163650; border-top-color: #0284C7; }
+[data-theme="dark"] .dxy-qc-subgrid .dxy-panel:hover { border-color: #0369A1; }
 .qc-chart-month  { min-height: 200px !important; max-height: 200px; }
 .qc-chart-sub    { min-height: 160px !important; max-height: 160px; }
 .qc-chart-daily  { min-height: 170px !important; max-height: 170px; }
 .qc-detail-table { font-size: 7px; table-layout: fixed; }
 .qc-detail-table thead th { padding: 5px 4px; font-size: 7px; white-space: nowrap; overflow: hidden; text-overflow: clip; text-align: center !important; text-transform: none !important; letter-spacing: normal !important; }
-.qc-detail-table tbody td { padding: 4px 5px; white-space: nowrap; overflow: hidden; text-overflow: clip; height: 20px; }
+.qc-detail-table tbody td { padding: 4px 5px; white-space: nowrap; overflow: hidden; text-overflow: clip; height: 20px; color: #000000 !important; }
 @media (max-width: 1366px) { .dxy-qc-grid { grid-template-columns: 1fr; } }
 @media (max-width: 1366px) { .dxy-qc-subgrid { grid-template-columns: 1fr; } }
 
@@ -2517,9 +2541,9 @@ function dashboardExhaust() {
     },
     dxyMinuteBadgeStyle(value) {
       const v = Number(value) || 0;
-      if (v >= 60) return "background:rgba(239,68,68,.14); color:#EF4444";
-      if (v >= 30) return "background:rgba(249,115,22,.14); color:#F97316";
-      return "background:rgba(16,185,129,.14); color:#10B981";
+      if (v >= 60) return "background:rgba(239,68,68,.14); color:#000000";
+      if (v >= 30) return "background:rgba(249,115,22,.14); color:#000000";
+      return "background:rgba(16,185,129,.14); color:#000000";
     },
     // Status downtime terbesar: OPEN (merah) / PROGRESS (kuning) / CLOSE (hijau)
     dxyStatusClass(status) {
@@ -2882,10 +2906,10 @@ function dashboardExhaust() {
       const noAnim = { duration: 0 };
 
       const baseScales = (opts = {}) => ({
-        x: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
-        y: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 }, maxTicksLimit: 5 }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, ...opts },
+        x: { ticks: { color: "#000000", font: { size: 9 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
+        y: { ticks: { color: "#000000", font: { size: 9 }, maxTicksLimit: 5 }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, ...opts },
       });
-      const legend = (show) => ({ display: show, position: "bottom", labels: { color: cssVar("--muted"), boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 9 }, padding: 8 } });
+      const legend = (show) => ({ display: show, position: "bottom", labels: { color: "#000000", boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 9 }, padding: 8 } });
       const tooltip = () => ({ backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"), borderColor: cssVar("--border"), borderWidth: 1, padding: 8, cornerRadius: 8 });
 
       const grad = (canvas, hex, alphaTop = 0.85, alphaBottom = 0.05) => {
@@ -2940,7 +2964,7 @@ function dashboardExhaust() {
           const meta = chart.getDatasetMeta(datasetIndex);
           const dataset = chart.data.datasets[datasetIndex];
           if (!meta || !dataset || meta.type !== "bar" || !meta.data) return;
-          const textColor = cssVar("--dxy-text") || "#1F2937";
+          const textColor = "#000000";
           const n = meta.data.length;
           const slotWidth = chartArea && n ? chartArea.width / n : 30;
           const fontSize = (slotWidth < 18 ? 6.5 : slotWidth < 26 ? 7.5 : slotWidth < 40 ? 8.5 : 9.5) * sizeScale;
@@ -2966,7 +2990,7 @@ function dashboardExhaust() {
           const meta = chart.getDatasetMeta(datasetIndex);
           const dataset = chart.data.datasets[datasetIndex];
           if (!meta || !dataset || meta.type !== "line" || !meta.data) return;
-          const textColor = cssVar("--dxy-text") || "#1F2937";
+          const textColor = "#000000";
           const n = meta.data.length;
           const slotWidth = chartArea && n ? chartArea.width / n : 30;
           const fontSize = slotWidth < 18 ? 6.5 : slotWidth < 26 ? 7.5 : slotWidth < 40 ? 8.5 : 9.5;
@@ -3026,12 +3050,12 @@ function dashboardExhaust() {
             responsive: true, maintainAspectRatio: false, animation: noAnim,
             layout: { padding: { top: 20 } },
             plugins: { legend: legend(true), tooltip: tooltip() },
-            scales: baseScales({ suggestedMax: 100, ticks: { callback: (v) => v + "%", color: cssVar("--chart-tick"), font: { size: 9 }, maxTicksLimit: 5 } }),
+            scales: baseScales({ suggestedMax: 100, ticks: { callback: (v) => v + "%", color: "#000000", font: { size: 9 }, maxTicksLimit: 5 } }),
           },
           plugins: [barValueLabels((v) => v + "%", 0, labelScale)],
         });
       };
-      safe(() => kpiBigPct("dxbProductivity", b.dayLabels, b.productivity.actual, b.productivity.target, "#2563EB"), "productivity");
+      safe(() => kpiBigPct("dxbProductivity", b.dayLabels, b.productivity.actual, b.productivity.target, "#0EA5E9"), "productivity");
       safe(() => kpiBigPct("dxbAvailability", b.dayLabels, b.availability.actual, b.availability.target, "#10B981", 0.8), "availability");
 
       // --- Downtime harian 1-31: bar + garis tren ---
@@ -3122,10 +3146,10 @@ function dashboardExhaust() {
       const safe = (fn, label) => { try { fn(); } catch (e) { console.error("Gagal render chart Tahunan:", label, e); } };
 
       const baseScales = () => ({
-        x: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
-        y: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 }, maxTicksLimit: 5 }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+        x: { ticks: { color: "#000000", font: { size: 9 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
+        y: { ticks: { color: "#000000", font: { size: 9 }, maxTicksLimit: 5 }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
       });
-      const legend = (show) => ({ display: show, position: "bottom", labels: { color: cssVar("--muted"), boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 9 }, padding: 6 } });
+      const legend = (show) => ({ display: show, position: "bottom", labels: { color: "#000000", boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 9 }, padding: 6 } });
       const tooltip = () => ({ backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"), borderColor: cssVar("--border"), borderWidth: 1, padding: 10, cornerRadius: 8, displayColors: true, usePointStyle: true });
 
       const grad = (canvas, hex, alphaTop = 0.85, alphaBottom = 0.05) => {
@@ -3200,7 +3224,7 @@ function dashboardExhaust() {
           const meta = chart.getDatasetMeta(datasetIndex);
           const dataset = chart.data.datasets[datasetIndex];
           if (!meta || !dataset || meta.type !== "bar" || !meta.data) return;
-          const textColor = cssVar("--dxy-text") || "#1F2937";
+          const textColor = "#000000";
           const n = meta.data.length;
           const slotWidth = chartArea && n ? chartArea.width / n : 30;
           const fontSize = slotWidth < 24 ? 7.5 : slotWidth < 34 ? 8.5 : slotWidth < 46 ? 9.5 : 10.5;
@@ -3312,8 +3336,8 @@ function dashboardExhaust() {
             plugins: { legend: legend(true), tooltip: tooltip() },
             scales: {
               x: baseScales().x,
-              y: { position: "left", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
-              y1: { position: "right", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+              y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+              y1: { position: "right", ticks: { color: "#000000", font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
             },
           },
           plugins: [barValueLabels((v) => fmtNum(v), 0)],
@@ -3416,10 +3440,10 @@ function dashboardExhaust() {
       const safe = (fn, label) => { try { fn(); } catch (e) { console.error("Gagal render chart Kualitas:", label, e); } };
 
       const baseScales = () => ({
-        x: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
-        y: { ticks: { color: cssVar("--chart-tick"), font: { size: 9 }, maxTicksLimit: 5 }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+        x: { ticks: { color: "#000000", font: { size: 9 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
+        y: { ticks: { color: "#000000", font: { size: 9 }, maxTicksLimit: 5 }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
       });
-      const legend = (show) => ({ display: show, position: "bottom", labels: { color: cssVar("--muted"), boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 9 }, padding: 6 } });
+      const legend = (show) => ({ display: show, position: "bottom", labels: { color: "#000000", boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 9 }, padding: 6 } });
       const tooltip = () => ({ backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"), borderColor: cssVar("--border"), borderWidth: 1, padding: 10, cornerRadius: 8, displayColors: true, usePointStyle: true });
       const grad = (canvas, hex, alphaTop = 0.85, alphaBottom = 0.05) => {
         const ctx = canvas.getContext("2d");
@@ -3445,7 +3469,7 @@ function dashboardExhaust() {
           const meta = chart.getDatasetMeta(datasetIndex);
           const dataset = chart.data.datasets[datasetIndex];
           if (!meta || !dataset || meta.type !== "bar" || !meta.data) return;
-          const textColor = cssVar("--dxy-text") || "#1F2937";
+          const textColor = "#000000";
           const n = meta.data.length;
           const slotWidth = chartArea && n ? chartArea.width / n : 30;
           const fontSize = slotWidth < 24 ? 7.5 : slotWidth < 34 ? 8.5 : slotWidth < 46 ? 9.5 : 10.5;
@@ -3476,7 +3500,7 @@ function dashboardExhaust() {
           const meta = chart.getDatasetMeta(datasetIndex);
           const dataset = chart.data.datasets[datasetIndex];
           if (!meta || !dataset || meta.type !== "line" || !meta.data) return;
-          const textColor = cssVar("--dxy-text") || "#1F2937";
+          const textColor = "#000000";
           const n = meta.data.length;
           const slotWidth = chartArea && n ? chartArea.width / n : 30;
           // Turunkan lagi ambang batasnya (tambah tingkatan 6px) supaya di
@@ -3530,8 +3554,8 @@ function dashboardExhaust() {
             plugins: { legend: legend(true), tooltip: tooltip() },
             scales: {
               x: baseScales().x,
-              y: { position: "left", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
-              y1: { position: "right", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+              y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+              y1: { position: "right", ticks: { color: "#000000", font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
             },
           },
           plugins: [barValueLabels((v) => fmtNum(v), 0)],
@@ -3563,8 +3587,8 @@ function dashboardExhaust() {
             plugins: { legend: legend(true), tooltip: tooltip() },
             scales: {
               x: baseScales().x,
-              y: { position: "left", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
-              y1: { position: "right", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+              y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+              y1: { position: "right", ticks: { color: "#000000", font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
             },
           },
           plugins: [barValueLabels((v) => fmtNum(v), 0)],
@@ -3650,13 +3674,13 @@ function dashboardExhaust() {
                 // 9 nama model) jadi lebih sempit dibanding chart NG yang
                 // cuma 1 sumbu, jadi nama model gampang numpuk kalau
                 // fontnya tidak diperkecil.
-                x: { ticks: { color: cssVar("--chart-tick"), font: { size: 8 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
+                x: { ticks: { color: "#000000", font: { size: 8 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
                 // Judul sumbu ("Qty Repair" / "% Straightpass") DIHAPUS --
                 // teks judul itu makan lebar chart-area, mengecilkan ruang
                 // horizontal yang tersisa buat kategori. Info kategori mana
                 // punya-siapa sudah cukup jelas dari warna + legend di bawah.
-                y: { position: "left", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
-                y1: { position: "right", ticks: { color: cssVar("--chart-tick"), font: { size: 9 }, callback: (v) => v + "%" }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, suggestedMax: 100 },
+                y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+                y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => v + "%" }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, suggestedMax: 100 },
               },
             },
             plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0), lineValueLabels((v) => (v === null ? "" : v + "%"), 1)],
@@ -3697,9 +3721,9 @@ function dashboardExhaust() {
               layout: { padding: { top: 22 } },
               plugins: { legend: legend(true), tooltip: tooltip() },
               scales: {
-                x: { ticks: { color: cssVar("--chart-tick"), font: { size: 8 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
-                y: { position: "left", ticks: { color: cssVar("--chart-tick"), font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
-                y1: { position: "right", ticks: { color: cssVar("--chart-tick"), font: { size: 9 }, callback: (v) => (lineIsPercent ? v + "%" : v) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, ...(lineIsPercent ? { max: 100 } : {}) },
+                x: { ticks: { color: "#000000", font: { size: 8 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
+                y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+                y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => (lineIsPercent ? v + "%" : v) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, ...(lineIsPercent ? { max: 100 } : {}) },
               },
             },
             plugins: [barValueLabels((v) => fmtNum(v), 0), ...(lineIsPercent ? [lineValueLabels((v) => v + "%", 1)] : [])],

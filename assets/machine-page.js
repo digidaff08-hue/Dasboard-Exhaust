@@ -134,6 +134,12 @@ function fmtDecimal(n, digits = 2) {
   if (Number.isNaN(num)) return "-";
   return num.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
+function fmtRupiah(n) {
+  if (n === null || n === undefined || n === "") return "-";
+  const num = Number(n);
+  if (Number.isNaN(num)) return "-";
+  return "Rp " + num.toLocaleString("id-ID", { maximumFractionDigits: 0 });
+}
 function fmtClock(iso) {
   if (!iso) return "";
   return new Date(iso).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
@@ -209,7 +215,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       "DOUBLE WELDING", "WELDING KECIL", "WELDING KURANG", "WELDING OVER",
       "PENDEK", "CRACK", "MATI LISTRIK", "OTHER",
     ],
-    ngForm: { tanggal: localDateStr(new Date()), type_ng: "", pic: "", model: "", part_number: "", area_id: "", area: "", ng_proses: "", qty: "", ng_kategori: "", reason: "" },
+    ngForm: { tanggal: localDateStr(new Date()), type_ng: "", pic: "", model: "", part_number: "", area_id: "", area: "", ng_proses: "", qty: "", harga: 0, ng_kategori: "", reason: "" },
     ngFotoFile: null, ngFotoPreviewUrl: "", ngSaving: false,
     editingNgId: null, ngExistingFotoUrl: "",
 
@@ -1712,13 +1718,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
 
     async onModelChangeNg() {
       // reset field turunan tiap kali Model diganti
-      this.ngForm.part_number = ""; this.ngForm.area_id = ""; this.ngForm.area = ""; this.ngForm.ng_proses = "";
+      this.ngForm.part_number = ""; this.ngForm.area_id = ""; this.ngForm.area = ""; this.ngForm.ng_proses = ""; this.ngForm.harga = 0;
       this.ngPartNoList = []; this.ngAreaOptions = [];
       if (!this.ngForm.model) return;
 
       const [partRes, areaRes] = await Promise.all([
         supabaseClient.from("ng_model_parts").select("id, part_no").eq("model", this.ngForm.model).order("part_no"),
-        supabaseClient.from("ng_model_areas").select("id, area, ng_proses").eq("mesin", machineKey).eq("model", this.ngForm.model).order("area"),
+        supabaseClient.from("ng_model_areas").select("id, area, ng_proses, harga").eq("mesin", machineKey).eq("model", this.ngForm.model).order("area"),
       ]);
       if (partRes.error) { this.flash("Gagal memuat Part No: " + partRes.error.message, true); return; }
       if (areaRes.error) { this.flash("Gagal memuat Area: " + areaRes.error.message, true); return; }
@@ -1737,6 +1743,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const sel = this.ngAreaOptions.find((a) => a.id === this.ngForm.area_id);
       this.ngForm.area = sel ? sel.area : "";
       this.ngForm.ng_proses = sel ? sel.ng_proses : "";
+      this.ngForm.harga = sel ? Number(sel.harga || 0) : 0;
+    },
+    // Value = Qty x Harga (harga otomatis dari Area yang dipilih).
+    ngValue(f) {
+      const qty = Number(f.qty) || 0;
+      const harga = Number(f.harga) || 0;
+      return qty * harga;
     },
     onNgFotoSelected(evt) {
       const file = evt.target.files && evt.target.files[0];
@@ -1746,7 +1759,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.ngFotoPreviewUrl = URL.createObjectURL(file);
     },
     resetNgForm() {
-      this.ngForm = { tanggal: localDateStr(new Date()), type_ng: "", pic: "", model: "", part_number: "", area_id: "", area: "", ng_proses: "", qty: "", ng_kategori: "", reason: "" };
+      this.ngForm = { tanggal: localDateStr(new Date()), type_ng: "", pic: "", model: "", part_number: "", area_id: "", area: "", ng_proses: "", qty: "", harga: 0, ng_kategori: "", reason: "" };
       this.ngPartNoList = []; this.ngAreaOptions = [];
       if (this.ngFotoPreviewUrl) URL.revokeObjectURL(this.ngFotoPreviewUrl);
       this.ngFotoFile = null; this.ngFotoPreviewUrl = ""; this.ngExistingFotoUrl = "";
@@ -1758,7 +1771,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.ngForm = {
         tanggal: row.tanggal, type_ng: row.type_ng, pic: row.pic, model: row.model,
         part_number: row.part_number, area_id: "", area: row.area, ng_proses: row.ng_proses,
-        qty: row.qty, ng_kategori: row.ng_kategori, reason: row.reason,
+        qty: row.qty, harga: Number(row.value || 0) / (Number(row.qty) || 1), ng_kategori: row.ng_kategori, reason: row.reason,
       };
       if (this.ngFotoPreviewUrl) URL.revokeObjectURL(this.ngFotoPreviewUrl);
       this.ngFotoFile = null; this.ngFotoPreviewUrl = "";
@@ -1769,7 +1782,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // area_id yang sesuai (biar dropdown Area kepilih otomatis).
       const [partRes, areaRes] = await Promise.all([
         supabaseClient.from("ng_model_parts").select("id, part_no").eq("model", row.model).order("part_no"),
-        supabaseClient.from("ng_model_areas").select("id, area, ng_proses").eq("mesin", machineKey).eq("model", row.model).order("area"),
+        supabaseClient.from("ng_model_areas").select("id, area, ng_proses, harga").eq("mesin", machineKey).eq("model", row.model).order("area"),
       ]);
       if (partRes.error) { this.flash("Gagal memuat Part No: " + partRes.error.message, true); return; }
       if (areaRes.error) { this.flash("Gagal memuat Area: " + areaRes.error.message, true); return; }
@@ -1782,6 +1795,9 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       }));
       const matchArea = this.ngAreaOptions.find((a) => a.area === row.area && a.ng_proses === row.ng_proses);
       this.ngForm.area_id = matchArea ? matchArea.id : "";
+      // Harga dari master (bukan dari hasil bagi row.value/qty) supaya akurat
+      // kalau harga master sudah sempat diubah setelah data lama disimpan.
+      if (matchArea) this.ngForm.harga = Number(matchArea.harga || 0);
 
       // scroll ke form biar kelihatan lagi ngedit apa
       this.$nextTick(() => { document.querySelector('[x-show="tab === \'ng_inline\'"]')?.scrollIntoView({ behavior: "smooth", block: "start" }); });
@@ -1814,7 +1830,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const payload = {
           mesin: machineKey, tanggal: f.tanggal, type_ng: f.type_ng, model: f.model, pic: f.pic,
           part_number: f.part_number, area: f.area, ng_proses: f.ng_proses,
-          qty: Number(f.qty), ng_kategori: f.ng_kategori, reason: f.reason.trim(),
+          qty: Number(f.qty), value: this.ngValue(f), ng_kategori: f.ng_kategori, reason: f.reason.trim(),
           foto_url: fotoUrl,
         };
 

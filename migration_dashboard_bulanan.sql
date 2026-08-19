@@ -122,10 +122,8 @@ as $$
   select
     date_trunc('month', n.tanggal)::date as bulan,
     sum(n.qty) as qty,
-    sum(n.qty * coalesce(pn.harga_pcs, 0)) as value
+    sum(n.value) as value
   from public.ng_inline_log n
-  left join public.part_numbers pn
-    on pn.mesin = n.mesin and pn.value = n.part_number
   where n.tanggal >= p_start::date and n.tanggal < p_end::date
   group by 1
   order by 1;

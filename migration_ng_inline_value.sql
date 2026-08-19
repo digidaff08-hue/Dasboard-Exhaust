@@ -1,0 +1,71 @@
+-- =========================================================
+-- REVISI: Kolom Value (Qty x Harga) di NG Inline
+-- Jalankan file ini SETELAH schema_ng_inline_cascade.sql +
+-- seed_ng_inline_master.sql sudah jalan.
+-- AMAN dijalankan berkali-kali (idempotent).
+--
+-- Harga ditempel per baris Area (tabel ng_model_areas), karena
+-- tiap Area punya harga NG yang berbeda-beda (dikonfirmasi kawan).
+-- Saat user pilih Area di form, ng_proses DAN harga sama-sama
+-- otomatis terisi -- lalu Value = Qty x Harga dihitung otomatis.
+-- =========================================================
+
+-- 1. Kolom harga per Area (default 0 -- WAJIB diisi manual sesuai
+--    harga aktual tiap Area, lihat contoh UPDATE di paling bawah file ini).
+alter table public.ng_model_areas add column if not exists harga numeric not null default 0;
+
+-- 2. Kolom value (hasil Qty x Harga) di log NG Inline, disimpan permanen
+--    tiap baris data supaya histori tidak berubah kalau harga master
+--    diubah belakangan.
+alter table public.ng_inline_log add column if not exists value numeric not null default 0;
+
+-- =========================================================
+-- SELESAI.
+--
+-- Isi harga tiap Area lewat Supabase SQL Editor / Table Editor,
+-- contoh lewat SQL (sesuaikan mesin/model/area/harga-nya):
+--
+--   update public.ng_model_areas
+--   set harga = 50000
+--   where mesin = 'E-02' and model = 'YHA' and area = 'JIG 1 & 2 E02 YHA';
+--
+-- Atau paling gampang: buka tab "Table Editor" > ng_model_areas
+-- di Supabase, lalu isi kolom "harga" langsung per baris di situ.
+--
+-- =========================================================
+-- PENTING -- PR (belum selesai, butuh source SQL yang tidak ada
+-- di project ini):
+--
+-- migration_dashboard_bulanan.sql sudah diupdate (fungsi
+-- dashboard_bulanan_ng_inline sekarang pakai n.value langsung,
+-- BUKAN lagi qty x part_numbers.harga_pcs).
+--
+-- TAPI dashboard-exhaust.html juga manggil RPC lain yang sepertinya
+-- juga menghitung Value NG Inline, dan source SQL-nya TIDAK ADA
+-- di dalam file-file project ini (kemungkinan dibuat langsung di
+-- Supabase SQL Editor, tidak pernah di-export ke file):
+--
+--   - dashboard_qc_ng_month
+--   - dashboard_qc_ng_perline
+--   - dashboard_qc_ng_permodel
+--   - dashboard_qc_ng_daily
+--   - dashboard_qc_ng_detail
+--   - dashboard_qc_ng_detail_range
+--
+-- Kalau function-function itu JUGA menghitung Value dari
+-- part_numbers.harga_pcs (bukan dari ng_inline_log.value), maka
+-- bagian dashboard "Kontrol Kualitas" (grafik Month/Perline/
+-- Permodel/Daily/Rekap NG Inline) akan menampilkan Value yang BEDA
+-- dari form input & riwayat yang baru direvisi ini.
+--
+-- Cara cek & benerin manual:
+--   1. Buka Supabase > SQL Editor > Database > Functions, cari
+--      6 nama function di atas, lihat definisinya.
+--   2. Kalau ada join ke part_numbers/harga_pcs, ganti jadi pakai
+--      kolom ng_inline_log.value langsung (contoh polanya sama
+--      seperti dashboard_bulanan_ng_inline di file
+--      migration_dashboard_bulanan.sql ini).
+--   3. Kalau kawan bisa export definisi function itu (lewat
+--      Supabase SQL Editor: klik function > "Copy as SQL" atau
+--      pg_dump), kirim ke saya, saya bantu revisi.
+-- =========================================================

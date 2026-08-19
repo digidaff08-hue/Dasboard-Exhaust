@@ -1044,6 +1044,7 @@
                 </div>
                 <div class="field"><label>NG Proses</label><input type="text" x-model="ngForm.ng_proses" readonly placeholder="Otomatis dari Area"></div>
                 <div class="field"><label>Qty *</label><input type="text" inputmode="numeric" pattern="[0-9]*" x-model.number="ngForm.qty" @input='$event.target.value = $event.target.value.replace(/[^0-9]/g, ""); ngForm.qty = $event.target.value === "" ? "" : Number($event.target.value)' placeholder="0"></div>
+                <div class="field"><label>Value</label><input type="text" :value="fmtRupiah(ngValue(ngForm))" readonly placeholder="Otomatis dari Qty x Harga Area"></div>
                 <div class="field">
                   <label>NG Kategori *</label>
                   <select x-model="ngForm.ng_kategori">
@@ -1080,7 +1081,7 @@
                 <thead>
                   <tr>
                     <th>Tanggal</th><th>Type</th><th>Model</th><th>PIC</th><th>Part No</th><th>Area</th>
-                    <th>NG Proses</th><th>Qty</th><th>Kategori</th><th>Reason</th><th>Foto</th><th>Aksi</th>
+                    <th>NG Proses</th><th>Qty</th><th>Value</th><th>Kategori</th><th>Reason</th><th>Foto</th><th>Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1094,6 +1095,7 @@
                       <td x-text="row.area"></td>
                       <td x-text="row.ng_proses"></td>
                       <td class="mono" x-text="row.qty"></td>
+                      <td class="mono" x-text="fmtRupiah(row.value)"></td>
                       <td x-text="row.ng_kategori"></td>
                       <td x-text="row.reason"></td>
                       <td>
@@ -1107,7 +1109,7 @@
                       </td>
                     </tr>
                   </template>
-                  <tr x-show="ngInlineRows.length === 0"><td colspan="12" class="empty-state">Belum ada data NG Inline.</td></tr>
+                  <tr x-show="ngInlineRows.length === 0"><td colspan="13" class="empty-state">Belum ada data NG Inline.</td></tr>
                 </tbody>
               </table>
             </div>
