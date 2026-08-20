@@ -323,7 +323,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         state: "idle", // idle | awaiting_gap | awaiting_actual_start | running | nonproduksi_running | edit
         entryStart: null, entryEnd: null,
         editingId: null,
-        form: { part_number: "", qty: "", manpower: "" },
+        form: { part_number: "", qty: "", manpower: "", repair: "" },
         gapInfo: null, // {gapStart, gapEnd}
         gapForm: { nonproduksi_nama: "" },
         gapAddedList: [], // daftar nama non-produksi yang sudah ditambahkan berurutan (K -> B1 -> A)
@@ -423,7 +423,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     openPartSelection(stationId, startIso) {
       const line = this.lines[stationId];
       line.entryStart = startIso; line.entryEnd = null;
-      line.form = { part_number: "", qty: "", manpower: "" };
+      line.form = { part_number: "", qty: "", manpower: "", repair: "" };
       line.routingType = null; line.routingNumbers = [];
       line.state = "awaiting_actual_start";
     },
@@ -461,14 +461,22 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     cancelLine(stationId) { this.lines[stationId] = this.freshLine(); },
 
     async chooseSetupNext(stationId) {
-      await this.commitProductionRow(stationId);
       const line = this.lines[stationId];
+      if (line.form.qty === "" || line.form.qty === null || Number(line.form.qty) < 0) {
+        this.flash("Qty Aktual wajib diisi sebelum lanjut.", true);
+        return;
+      }
+      await this.commitProductionRow(stationId);
       line.afterFinishChoice = false;
       this.openPartSelection(stationId, line.entryEnd || new Date().toISOString());
     },
     async chooseNonProduksiNext(stationId) {
-      await this.commitProductionRow(stationId);
       const line = this.lines[stationId];
+      if (line.form.qty === "" || line.form.qty === null || Number(line.form.qty) < 0) {
+        this.flash("Qty Aktual wajib diisi sebelum lanjut.", true);
+        return;
+      }
+      await this.commitProductionRow(stationId);
       const endTime = line.entryEnd || new Date().toISOString();
       line.afterFinishChoice = false;
       line.state = "nonproduksi_running";
@@ -1224,7 +1232,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (this.editingDowntimeId) {
         const { error } = await supabaseClient.from("downtime_log").update(payload).eq("id", this.editingDowntimeId);
         if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
-        this.flash("Data downtime diperbarui, ter-link ke produksi otomatis.");
+        this.flash("Data downtime diperbarui, ter-link ke produksi otomatis. Cek lagi Qty di Input Produksi terkait, siapa tahu perlu disesuaikan.");
       } else {
         payload.created_by = this.session.user.id;
         const { error } = await supabaseClient.from("downtime_log").insert(payload);
@@ -1232,7 +1240,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           this.flash("Gagal menyimpan downtime: " + error.message, true);
           return;
         }
-        this.flash("Data downtime tersimpan, ter-link ke produksi otomatis.");
+        this.flash("Data downtime tersimpan, ter-link ke produksi otomatis. Cek lagi Qty di Input Produksi terkait, siapa tahu perlu disesuaikan.");
       }
       this.cancelDowntime();
       await Promise.all([this.fetchDowntime(), this.fetchProduction(), this.fetchProduksiNew()]);
@@ -1648,6 +1656,28 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (!qty) return null;
       const totalRepair = Number(row.total_repair_menit) || 0;
       return (1 - (totalRepair / qty)) * 100;
+    },
+    // 7. Cek kewajaran Qty vs waktu bersih yang ada (Workmin), khusus kalau
+    //    ada Waktu Problem (downtime) yang ke-link. Ini nangkep kasus: Qty
+    //    ditulis di awal / sebelum tau ada problem mesin, terus problem itu
+    //    di-link belakangan dari tab Downtime -- Qty-nya sendiri TIDAK
+    //    otomatis berkurang (cuma Waktu Problem yang ke-update), jadi bisa
+    //    keliatan "kepenuhan" dibanding waktu kerja bersih yang tersisa.
+    //    Tidak memblokir simpan -- cuma pengingat visual buat operator/leader
+    //    supaya dicek ulang manual.
+    produksiNewQtyIssue(row) {
+      const waktuProblem = Number(row.waktu_problem_menit) || 0;
+      if (waktuProblem <= 0) return null; // gak ada downtime ke-link -> gak perlu cek
+      const earned = this.produksiNewEarned(row);
+      const workmin = this.produksiNewWorkmin(row);
+      if (earned === null || workmin === null) return null;
+      if (workmin < 0) {
+        return "Total Waktu Problem + Dandori melebihi waktu yang tersedia di sesi ini. Cek lagi Waktu Awal/Akhir atau downtime yang ke-link.";
+      }
+      if (earned > workmin) {
+        return "Qty ini butuh waktu kerja lebih besar dari waktu bersih yang tersisa setelah dikurangi Waktu Problem & Dandori. Kemungkinan Qty belum disesuaikan dengan problem yang terjadi -- cek & update kalau perlu.";
+      }
+      return null;
     },
 
     // ---- CRUD ----

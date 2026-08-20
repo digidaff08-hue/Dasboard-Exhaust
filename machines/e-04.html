@@ -25,7 +25,7 @@
 <body>
 
 <div class="app-shell"
-     x-data='machinePage("E-04", "E-04", [], 0, ["MACHINE", "MATERIAL", "METHODE", "MAN"], {"mode": "none"})'
+     x-data='machinePage("E-04", "E-04", [{"key": "repair", "label": "Repair"}], 0, ["MACHINE", "MATERIAL", "METHODE", "MAN"], {"mode": "none"})'
      x-init="init()">
   <div class="mobile-topbar">
     <button class="hamburger" @click="mobileNavOpen = true">☰</button>
@@ -128,6 +128,10 @@
                   <div class="field"><label>Straightpass</label><input type="text" disabled :value="produksiNewStraightpass(produksiNewForm) !== null ? fmtNum(produksiNewStraightpass(produksiNewForm)) + '%' : '-'"></div>
                 </div>
                 <p class="hint" style="margin-top:6px;">Earned & Operation Min butuh Std CT dan Std MP yang diisi lewat Master Data Part Number.</p>
+                <div class="qty-warn-msg" x-show="produksiNewQtyIssue(produksiNewForm)" x-cloak>
+                  <span>⚠️</span>
+                  <span x-text="produksiNewQtyIssue(produksiNewForm)"></span>
+                </div>
               </div>
 
               <div class="form-actions">
@@ -151,12 +155,15 @@
                 </thead>
                 <tbody>
                   <template x-for="row in produksiNewRows" :key="row.id">
-                    <tr>
+                    <tr :class="produksiNewQtyIssue(row) ? 'row-qty-warn' : ''">
                       <td class="mono" x-text="row.kode || '-'"></td>
                       <td class="mono" x-text="fmt(row.waktu_awal)"></td>
                       <td class="mono" x-text="fmt(row.waktu_akhir)"></td>
                       <td x-text="row.part_number"></td>
-                      <td x-text="fmtNum(row.qty)"></td>
+                      <td>
+                        <span x-text="fmtNum(row.qty)"></span>
+                        <span class="qty-warn-badge" x-show="produksiNewQtyIssue(row)" x-cloak :title="produksiNewQtyIssue(row)">⚠️</span>
+                      </td>
                       <td class="mono" x-text="fmtNum(row.break_menit) + ' mnt'"></td>
                       <td class="mono" x-text="fmtNum(row.dandori_menit) + ' mnt'"></td>
                       <td class="mono" x-text="fmtNum(row.waktu_problem_menit) + ' mnt'"></td>
@@ -268,7 +275,8 @@
                     </select>
                   </div>
                   <div class="field"><label>Qty</label><input type="number" x-model="lines[st.id].form.qty"></div>
-                  <div class="field"><label>Jumlah MP</label><input type="number" x-model="lines[st.id].form.manpower"></div>
+                  <!-- Jumlah MP disembunyikan dari form input (auto-terisi dari Std MP Master Data Part Number lewat autofillManpower()), data tetap tersimpan ke Supabase -->
+                  <div class="field" style="display:none;"><label>Jumlah MP</label><input type="number" x-model="lines[st.id].form.manpower"></div>
 
                 </div>
                 <div class="field" x-show="routingMax > 0" style="margin-bottom:16px;">
@@ -297,9 +305,18 @@
                 </div>
               </div>
 
-              <!-- FINISHED: pilih Setup atau Non-Produksi -->
+              <!-- FINISHED: konfirmasi Qty Aktual, baru pilih Setup atau Non-Produksi -->
               <div class="classification-box" x-show="lines[st.id].afterFinishChoice" x-cloak>
-                <p class="classification-title">Selesai jam <span x-text="fmtClock(lines[st.id].entryEnd)"></span> — lanjut apa?</p>
+                <p class="classification-title">Selesai jam <span x-text="fmtClock(lines[st.id].entryEnd)"></span> — <span x-text="lines[st.id].form.part_number"></span></p>
+                <div class="field" style="max-width:240px;margin-bottom:6px;">
+                  <label>Qty Aktual *</label>
+                  <input type="number" x-model="lines[st.id].form.qty">
+                </div>
+                <div class="field" style="max-width:240px;margin-bottom:6px;">
+                  <label>Repair</label>
+                  <input type="number" x-model="lines[st.id].form.repair">
+                </div>
+                <p class="hint" style="margin-bottom:14px;">Qty ini terisi dari yang diketik sebelum mulai produksi. Kalau selama produksi tadi ada problem mesin / downtime yang bikin hasil aktualnya beda, sesuaikan dulu angkanya di sini sebelum lanjut. Isi Repair kalau ada hasil yang perlu diperbaiki ulang.</p>
                 <div class="form-actions" style="justify-content:flex-start;">
                   <button type="button" class="btn-primary" @click="chooseSetupNext(st.id)">🔧 Setup (ganti part)</button>
                   <button type="button" class="btn-secondary" @click="chooseNonProduksiNext(st.id)">Non-Produksi</button>
@@ -336,6 +353,7 @@
                   <div class="field"><label>Part Number</label><input type="text" x-model="lines[st.id].editForm.part_number"></div>
                   <div class="field"><label>Qty</label><input type="number" x-model="lines[st.id].editForm.qty"></div>
                   <div class="field"><label>Jumlah MP</label><input type="number" x-model="lines[st.id].editForm.manpower"></div>
+                  <div class="field"><label>Repair</label><input type="number" x-model="lines[st.id].editForm.repair"></div>
                   <div class="field"><label>Dandori (menit)</label><input type="number" x-model="lines[st.id].editForm.dandori_menit"></div>
                   <div class="field"><label>Break (menit)</label><input type="number" x-model="lines[st.id].editForm.break_menit"></div>
 
@@ -407,7 +425,7 @@
                     <th>Kode</th>
                     <th x-show="stationConfig.mode !== 'none'">Stasiun</th>
                     <th>Waktu Awal</th><th>Waktu Akhir</th>
-                    <th>Part Number</th><th>Qty</th><th>MP</th>
+                    <th>Part Number</th><th>Qty</th><th>MP</th><th>Repair</th>
                     <th>Earned</th><th>Operation</th><th>Availability</th>
                     <th>Dandori</th><th>Downtime</th><th>Break</th>
                     <th x-show="routingMax > 0">Routing</th>
@@ -424,6 +442,7 @@
                       <td x-text="detailRiwayat(row)"></td>
                       <td x-text="row._tipe === 'produksi' ? fmtNum(row.qty) : '-'"></td>
                       <td x-text="row._tipe === 'produksi' ? fmtNum(row.manpower) : '-'"></td>
+                      <td x-text="row._tipe === 'produksi' ? (row.extra?.repair ?? '-') : '-'"></td>
                       <td class="mono" x-text="earnedMenit(row) !== null ? fmtNum(earnedMenit(row)) + ' mnt' : '-'"></td>
                       <td class="mono" x-text="operationMenit(row) !== null ? fmtNum(operationMenit(row)) + ' mnt' : '-'"></td>
                       <td class="mono" x-text="rowAvailability(row) !== null ? fmtNum(rowAvailability(row)) + '%' : '-'"></td>
@@ -493,7 +512,7 @@
                     <th>Kode</th>
                     <th x-show="stationConfig.mode !== 'none'">Stasiun</th>
                     <th>Waktu Awal</th><th>Waktu Akhir</th>
-                    <th>Part Number</th><th>Qty</th><th>MP</th>
+                    <th>Part Number</th><th>Qty</th><th>MP</th><th>Repair</th>
                     <th>Dandori</th><th>Downtime</th><th>Break</th>
                     <th x-show="routingMax > 0">Routing</th>
                     <th>Aksi</th>
@@ -509,6 +528,7 @@
                       <td x-text="detailRiwayat(row)"></td>
                       <td x-text="row._tipe === 'produksi' ? fmtNum(row.qty) : '-'"></td>
                       <td x-text="row._tipe === 'produksi' ? fmtNum(row.manpower) : '-'"></td>
+                      <td x-text="row._tipe === 'produksi' ? (row.extra?.repair ?? '-') : '-'"></td>
                       <td class="mono" x-text="row._tipe === 'produksi' ? (fmtNum(row.dandori_menit ?? 0) + ' mnt') : '-'"></td>
                       <td class="mono">
                         <template x-if="row._tipe === 'produksi' && (row.downtime_menit ?? 0) > 0">
