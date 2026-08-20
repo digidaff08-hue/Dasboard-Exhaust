@@ -25,7 +25,7 @@
 <body>
 
 <div class="app-shell"
-     x-data='machinePage("E-07", "E-07", [{"key": "repair", "label": "Repair"}], 0, ["MACHINE", "MATERIAL", "METHODE", "MAN"], {"mode": "none"})'
+     x-data='machinePage("E-07", "E-07", [], 0, ["MACHINE", "MATERIAL", "METHODE", "MAN"], {"mode": "none"})'
      x-init="init()">
   <div class="mobile-topbar">
     <button class="hamburger" @click="mobileNavOpen = true">☰</button>
@@ -275,7 +275,7 @@
                     </select>
                   </div>
                   <div class="field"><label>Qty</label><input type="number" x-model="lines[st.id].form.qty"></div>
-                  <!-- Jumlah MP disembunyikan dari form input (auto-terisi dari Std MP Master Data Part Number lewat autofillManpower()), data tetap tersimpan ke Supabase -->
+                  <!-- Jumlah MP SELALU disembunyikan dari form input, data auto-terisi dari Std MP Master Data Part Number lewat autofillManpower() -->
                   <div class="field" style="display:none;"><label>Jumlah MP</label><input type="number" x-model="lines[st.id].form.manpower"></div>
 
                 </div>
@@ -442,7 +442,7 @@
                       <td x-text="detailRiwayat(row)"></td>
                       <td x-text="row._tipe === 'produksi' ? fmtNum(row.qty) : '-'"></td>
                       <td x-text="row._tipe === 'produksi' ? fmtNum(row.manpower) : '-'"></td>
-                      <td x-text="row._tipe === 'produksi' ? (row.extra?.repair ?? '-') : '-'"></td>
+                      <td x-text="row._tipe === 'produksi' ? (row.repair ?? '-') : '-'"></td>
                       <td class="mono" x-text="earnedMenit(row) !== null ? fmtNum(earnedMenit(row)) + ' mnt' : '-'"></td>
                       <td class="mono" x-text="operationMenit(row) !== null ? fmtNum(operationMenit(row)) + ' mnt' : '-'"></td>
                       <td class="mono" x-text="rowAvailability(row) !== null ? fmtNum(rowAvailability(row)) + '%' : '-'"></td>
@@ -528,7 +528,7 @@
                       <td x-text="detailRiwayat(row)"></td>
                       <td x-text="row._tipe === 'produksi' ? fmtNum(row.qty) : '-'"></td>
                       <td x-text="row._tipe === 'produksi' ? fmtNum(row.manpower) : '-'"></td>
-                      <td x-text="row._tipe === 'produksi' ? (row.extra?.repair ?? '-') : '-'"></td>
+                      <td x-text="row._tipe === 'produksi' ? (row.repair ?? '-') : '-'"></td>
                       <td class="mono" x-text="row._tipe === 'produksi' ? (fmtNum(row.dandori_menit ?? 0) + ' mnt') : '-'"></td>
                       <td class="mono">
                         <template x-if="row._tipe === 'produksi' && (row.downtime_menit ?? 0) > 0">

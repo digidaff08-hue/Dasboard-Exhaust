@@ -443,6 +443,15 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         this.lines[stationId].form.manpower = entry.std_mp;
       }
     },
+    // Std MP part ini belum diisi di Master Data -> autofill gak ada yang
+    // ditarik, jadi field Jumlah MP harus tetap ditampilkan supaya operator
+    // isi manual (biar gak kesimpen kosong ke Supabase).
+    mpAutofillMissing(stationId) {
+      const pn = this.lines[stationId]?.form?.part_number;
+      if (!pn) return false;
+      const entry = this.partNumberList.find((p) => p.value === pn);
+      return !entry || entry.std_mp === null || entry.std_mp === undefined || entry.std_mp === "";
+    },
 
     confirmActualStart(stationId) {
       const line = this.lines[stationId];
@@ -527,8 +536,9 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         waktu_awal: line.entryStart, waktu_akhir: line.entryEnd,
         part_number: line.form.part_number, qty: line.form.qty === "" ? null : Number(line.form.qty),
         manpower: line.form.manpower === "" ? null : Number(line.form.manpower),
+        repair: line.form.repair === "" ? null : Number(line.form.repair),
         dandori_menit: dandoriMenit, downtime_menit: 0, break_menit: breakMenit,
-        ng: null, kategori_ng: null, extra: JSON.stringify(extra),
+        ng: null, extra: extra,
       };
       if (line.form.part_number) this.learnPartNumber(line.form.part_number);
 
@@ -1121,7 +1131,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       line.editForm = {
         waktu_awal: toLocalInput(row.waktu_awal), waktu_akhir: toLocalInput(row.waktu_akhir),
         part_number: row.part_number || "", qty: row.qty ?? "", manpower: row.manpower ?? "",
-        ng: row.ng ?? "",
+        ng: row.ng ?? "", repair: row.repair ?? "",
         dandori_menit: row.dandori_menit ?? "", break_menit: row.break_menit ?? "",
       };
       this.extraFields.forEach((f) => (line.editForm[f.key] = row.extra?.[f.key] ?? ""));
@@ -1141,9 +1151,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         part_number: f.part_number || null, qty: f.qty === "" ? null : Number(f.qty),
         manpower: f.manpower === "" ? null : Number(f.manpower),
         ng: f.ng === "" ? null : Number(f.ng),
+        repair: f.repair === "" ? null : Number(f.repair),
         dandori_menit: f.dandori_menit === "" ? null : Number(f.dandori_menit),
         break_menit: f.break_menit === "" ? null : Number(f.break_menit),
-        extra: JSON.stringify(extra),
+        extra: extra,
       };
       const { error } = await supabaseClient.from("production_log").update(payload).eq("id", line.editingId);
       if (error) { this.flash("Gagal simpan (butuh koneksi): " + error.message, true); return; }
