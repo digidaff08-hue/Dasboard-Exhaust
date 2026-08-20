@@ -1001,7 +1001,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                           <span x-show="row.qty !== ''" x-text="row.qty"></span>
                         </td>
                         <td style="text-align:right">
-                          <span x-show="row.value !== ''" class="dxy-minute-badge" :style="dxyMinuteBadgeStyle(row.value)" x-text="row.value"></span>
+                          <span x-show="row.value !== ''" class="dxy-minute-badge" :style="dxyMinuteBadgeStyle(row.value)" x-text="fmtRibuan(row.value)"></span>
                         </td>
                       </tr>
                     </template>
@@ -1135,7 +1135,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                       <template x-for="(row, i) in qcNgInlineRows()" :key="'qcng-'+i">
                         <tr>
                           <template x-for="col in qcNgInlineCols()" :key="col.key">
-                            <td x-show="!col.dateOnly || !qcNgInlineUseDate" :title="row[col.key]" x-text="row[col.key]"></td>
+                            <td x-show="!col.dateOnly || !qcNgInlineUseDate" :title="row[col.key]" x-text="col.key === 'value' ? fmtRibuan(row[col.key]) : row[col.key]"></td>
                           </template>
                         </tr>
                       </template>
@@ -1200,7 +1200,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                       <template x-for="(row, i) in qcNgTrialRows()" :key="'qctrial-'+i">
                         <tr>
                           <template x-for="col in qcNgTrialCols()" :key="col.key">
-                            <td x-show="!col.dateOnly || !qcNgTrialUseDate" :title="row[col.key]" x-text="row[col.key]"></td>
+                            <td x-show="!col.dateOnly || !qcNgTrialUseDate" :title="row[col.key]" x-text="col.key === 'value' ? fmtRibuan(row[col.key]) : row[col.key]"></td>
                           </template>
                         </tr>
                       </template>
@@ -1243,10 +1243,10 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                   </div>
                   <div class="qc-rekap-mode">
                     <div class="qc-date-wrap">
-                      <input type="date" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !qcRepairUseDate }" x-model="qcRepairDetailDate" @change="qcRepairUseDate = true; fetchQcRepairDetail()">
+                      <input type="date" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !qcRepairUseDate }" x-model="qcRepairDetailDate" @change="qcRepairUseDate = true; qcRepairDetailLoaded = false; fetchQcRepairDetail()">
                       <span class="qc-date-month-label" x-show="!qcRepairUseDate" x-text="qcMonthShortLabel"></span>
                     </div>
-                    <button type="button" class="qc-rekap-clear-btn" title="Kembali ke tampilan sebulan" x-show="qcRepairUseDate" @click="qcRepairUseDate = false; fetchQcRepairDetail()">✕</button>
+                    <button type="button" class="qc-rekap-clear-btn" title="Kembali ke tampilan sebulan" x-show="qcRepairUseDate" @click="qcRepairUseDate = false; qcRepairDetailLoaded = false; fetchQcRepairDetail()">✕</button>
                   </div>
                 </div>
                 <div class="dxy-table-scroll qc-rekap-scroll">
@@ -1375,6 +1375,12 @@ function daysInMonth(year, month1to12) {
 function fmtNum(n) {
   if (n === null || n === undefined || Number.isNaN(Number(n))) return "-";
   return Number(n).toLocaleString("en-US", { maximumFractionDigits: 1 });
+}
+// Angka utuh (TIDAK dibagi 1000) tapi dikasih titik pemisah ribuan --
+// dipakai buat kolom Value NG Inline/NG Trial di tabel Rekap & NG Terbesar.
+function fmtRibuan(n) {
+  if (n === null || n === undefined || n === "" || Number.isNaN(Number(n))) return n ?? "";
+  return Number(n).toLocaleString("id-ID", { maximumFractionDigits: 0 });
 }
 function localDateStr(d) {
   const y = d.getFullYear();
@@ -1513,6 +1519,12 @@ function dashboardExhaust() {
     qcRepairDetailDate: "",
     qcRepairUseDate: false,
     qcRepair: { detailRows: [], perlineQty: [], permodelQty: [] },
+    // Cache biar setTab('kualitas') tidak fetch ulang ke Supabase tiap kali
+    // tab dibuka/dipindah balik (dulu 3 fungsi ini fetch ulang terus,
+    // makanya sempat kosong beberapa detik tiap buka tab -- lihat pola
+    // qcNgInlineLoaded/qcNgTrialLoaded di atas, sama persis).
+    qcRepairDetailLoaded: false,
+    qcRepairPerlineModelLoaded: false,
     // ---- Filter per-kolom untuk tabel Rekap NG Inline / NG Trial / Repair ----
     // qcFilterOpen: null kalau tidak ada dropdown yang terbuka, atau string
     // "namaTabel:namaKolom" (mis. "ngInline:partNo") kalau sedang terbuka --
@@ -1780,6 +1792,9 @@ function dashboardExhaust() {
       this.qcColFilters = { ngInline: {}, ngTrial: {}, repair: {} };
       this.qcNgInlineLoaded = false;
       this.qcNgTrialLoaded = false;
+      this.qcRepairDetailLoaded = false;
+      this.qcRepairPerlineModelLoaded = false;
+      this.qcStraightpassLoaded = false;
       this.fetchQcNgInline().then(() => this.$nextTick(() => this.renderKualitasCharts()));
       this.fetchQcNgTrial().then(() => this.$nextTick(() => this.renderKualitasCharts()));
       this.fetchQcRepairDetail();
@@ -2021,6 +2036,7 @@ function dashboardExhaust() {
     // di machine-page.js -> repairPartNoModelMap). Kolom Area masih
     // dikosongkan (belum ada sumbernya di database).
     async fetchQcRepairDetail() {
+      if (this.qcRepairDetailLoaded) return;
       try {
         let start, end;
         if (this.qcRepairUseDate) {
@@ -2042,6 +2058,7 @@ function dashboardExhaust() {
           qty: r.qty ?? "", area: "", point: r.point_label || "",
           repairKategori: r.kategori_repair || "",
         }));
+        this.qcRepairDetailLoaded = true;
       } catch (e) {
         console.error("Gagal memuat detail Repair:", e);
       }
@@ -2052,6 +2069,7 @@ function dashboardExhaust() {
     // per-bulan). Dipakai buat bar "Qty Repair" di chart Straightpass
     // Perline/Model.
     async fetchQcRepairPerlineModel() {
+      if (this.qcRepairPerlineModelLoaded) return;
       try {
         const monthStart = new Date(this.qcYear, this.qcMonth - 1, 1);
         const monthEnd = new Date(this.qcYear, this.qcMonth, 1);
@@ -2065,6 +2083,7 @@ function dashboardExhaust() {
         const permodelRows = permodelRes.data || [];
         this.qcRepair.perlineQty = QC_LINES.map((line) => { const r = perlineRows.find((x) => x.mesin === line); return r ? Number(r.qty) || 0 : 0; });
         this.qcRepair.permodelQty = QC_MODELS.map((model) => { const r = permodelRows.find((x) => x.model === model); return r ? Number(r.qty) || 0 : 0; });
+        this.qcRepairPerlineModelLoaded = true;
       } catch (e) {
         console.error("Gagal memuat Qty Repair per line/model:", e);
       }
@@ -2075,6 +2094,7 @@ function dashboardExhaust() {
     // Straightpass per line/model -- rumus sama persis kartu utama:
     // (Stroke - NG) / Stroke * 100.
     async fetchQcStraightpassBreakdown() {
+      if (this.qcStraightpassLoaded) return;
       try {
         const monthStart = new Date(this.qcYear, this.qcMonth - 1, 1);
         const monthEnd = new Date(this.qcYear, this.qcMonth, 1);
@@ -3217,7 +3237,7 @@ function dashboardExhaust() {
       // Anti-tabrakan: kalau beberapa batang berdekatan dan labelnya lebar,
       // label otomatis ditumpuk ke "baris" berikutnya (sebanyak yang diperlukan)
       // supaya SEMUA angka tetap terlihat tanpa saling menimpa.
-      const barValueLabels = (formatter, datasetIndex = 0) => ({
+      const barValueLabels = (formatter, datasetIndex = 0, pos = "above") => ({
         id: "dxyBarValueLabels",
         afterDatasetsDraw(chart) {
           const { ctx, chartArea } = chart;
@@ -3245,7 +3265,15 @@ function dashboardExhaust() {
             const { x, y, base } = bar.getProps(["x", "y", "base"], true);
             const label = formatter(val);
             const halfW = ctx.measureText(label).width / 2 + 4;
-            const isUp = y <= base; // batang positif -> tip di atas; batang negatif -> tip di bawah
+            if (pos === "base") {
+              // Label selalu digambar di DASAR batang (dekat garis sumbu-x),
+              // dipakai supaya tidak tabrakan sama label garis Value yang
+              // digambar di atas chart (lihat lineValueLabels).
+              ctx.textBaseline = "bottom";
+              ctx.fillText(label, x, base - 4);
+              return;
+            }
+            const isUp = y <= base;
             const rows = isUp ? rowsUp : rowsDown;
 
             let row = 0;
@@ -3256,6 +3284,41 @@ function dashboardExhaust() {
             const labelY = isUp ? Math.max(chartArea.top + fontSize, y - 6 - rowGap) : y + 14 + rowGap;
             ctx.textBaseline = isUp ? "bottom" : "top";
             ctx.fillText(label, x, labelY);
+          });
+          ctx.restore();
+        },
+      });
+
+      // Label angka DI ATAS tiap titik garis (line) -- dipakai buat Value
+      // NG (Rp), ditampilkan dibagi 1000 lewat formatter yang dikirim.
+      const lineValueLabels = (formatter, datasetIndex = 1) => ({
+        id: "dxyLineValueLabels",
+        afterDatasetsDraw(chart) {
+          const { ctx, chartArea } = chart;
+          const meta = chart.getDatasetMeta(datasetIndex);
+          const dataset = chart.data.datasets[datasetIndex];
+          if (!meta || !dataset || meta.type !== "line" || !meta.data) return;
+          ctx.save();
+          ctx.font = "700 9.5px Inter, sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "bottom";
+          ctx.fillStyle = "#000000";
+          let lastRightEdge = -Infinity;
+          meta.data.forEach((point, i) => {
+            const raw = dataset.data[i];
+            if (raw === null || raw === undefined) return;
+            const val = Number(raw);
+            if (Number.isNaN(val)) return;
+            const label = formatter(val);
+            const { x, y } = point.getProps(["x", "y"], true);
+            // Jarak aman minimum dari dasar chart -- supaya label garis
+            // tidak ketimpa label angka batang (Qty) yang digambar dekat
+            // sumbu-x (lihat barValueLabels pos "base").
+            const labelY = chartArea ? Math.min(y - 6, chartArea.bottom - 18) : y - 6;
+            const halfW = ctx.measureText(label).width / 2 + 2;
+            if (x - halfW < lastRightEdge) return;
+            ctx.fillText(label, x, labelY);
+            lastRightEdge = x + halfW;
           });
           ctx.restore();
         },
@@ -3317,7 +3380,7 @@ function dashboardExhaust() {
       safe(() => kpiBig("dxyBigAvailability", b.monthLabels.slice(2), b.availability.actual.slice(2), b.availability.target, "#10B981"), "big-availability");
       safe(() => kpiBig("dxyBigStraightpass", b.monthLabels.slice(2), b.straightpass.actual.slice(2), b.straightpass.target, "#14B8A6"), "big-straightpass");
 
-      // --- NG Inline dual axis: Qty (bar oranye) + Value (garis ungu) ---
+      // --- NG Inline dual axis: Qty (bar oranye) + Value (area hitam tipis) ---
       safe(() => {
         destroy("dxyBigNg");
         const canvas = document.getElementById("dxyBigNg");
@@ -3327,7 +3390,7 @@ function dashboardExhaust() {
             labels: b.monthLabels.slice(2),
             datasets: [
               { type: "bar", label: "Qty", data: b.ngInline.qtyByMonth.slice(2), backgroundColor: barBg(canvas, "#F97316", b.ngInline.qtyByMonth.length - 2), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
-              { type: "line", label: "Value", data: b.ngInline.valueByMonth.slice(2), borderColor: "#8B5CF6", backgroundColor: "#8B5CF6", yAxisID: "y1", pointRadius: 3, tension: 0.3 },
+              { type: "line", label: "Value", data: b.ngInline.valueByMonth.slice(2), borderColor: "#1D4ED8", backgroundColor: "rgba(29,78,216,0.1)", borderWidth: 1.5, fill: true, yAxisID: "y1", pointRadius: 1, tension: 0.3 },
             ],
           },
           options: {
@@ -3337,10 +3400,10 @@ function dashboardExhaust() {
             scales: {
               x: baseScales().x,
               y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
-              y1: { position: "right", ticks: { color: "#000000", font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+              y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => fmtNum(Math.round(v / 1000)) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
             },
           },
-          plugins: [barValueLabels((v) => fmtNum(v), 0)],
+          plugins: [barValueLabels((v) => fmtNum(v), 0, "base"), lineValueLabels((v) => fmtNum(Math.round(v / 1000)), 1)],
         });
       }, "ngInline");
 
@@ -3462,7 +3525,7 @@ function dashboardExhaust() {
         const full = grad(canvas, hex);
         return Array.from({ length: len }, () => full);
       };
-      const barValueLabels = (formatter, datasetIndex = 0) => ({
+      const barValueLabels = (formatter, datasetIndex = 0, pos = "above") => ({
         id: "dxyQcBarValueLabels_" + datasetIndex + "_" + Math.random(),
         afterDatasetsDraw(chart) {
           const { ctx, chartArea } = chart;
@@ -3483,6 +3546,13 @@ function dashboardExhaust() {
             const val = Number(raw);
             if (Number.isNaN(val)) return;
             const { x, y, base } = bar.getProps(["x", "y", "base"], true);
+            if (pos === "base") {
+              // Label di DASAR batang (dekat garis sumbu-x), supaya tidak
+              // tabrakan sama label garis Value di atas chart.
+              ctx.textBaseline = "bottom";
+              ctx.fillText(formatter(val), x, base - 4);
+              return;
+            }
             const isUp = y <= base;
             ctx.textBaseline = isUp ? "bottom" : "top";
             ctx.fillText(formatter(val), x, isUp ? y - 6 : y + 14);
@@ -3523,9 +3593,13 @@ function dashboardExhaust() {
             if (Number.isNaN(val)) return;
             const label = formatter(val);
             const { x, y } = point.getProps(["x", "y"], true);
+            // Jarak aman minimum dari dasar chart -- supaya label garis
+            // tidak ketimpa label angka batang (Qty) yang digambar dekat
+            // sumbu-x (lihat barValueLabels pos "base").
+            const labelY = chartArea ? Math.min(y - 6, chartArea.bottom - 18) : y - 6;
             const halfW = ctx.measureText(label).width / 2 + 2;
             if (x - halfW < lastRightEdge) return; // akan tabrakan, lewati
-            ctx.fillText(label, x, y - 6);
+            ctx.fillText(label, x, labelY);
             lastRightEdge = x + halfW;
           });
           ctx.restore();
@@ -3545,7 +3619,7 @@ function dashboardExhaust() {
             labels: ngi.monthLabels,
             datasets: [
               { type: "bar", label: "Qty", data: ngi.qtyByMonth, backgroundColor: barBg(canvas, "#F97316", ngi.qtyByMonth.length), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
-              { type: "line", label: "Value", data: ngi.valueByMonth, borderColor: "#8B5CF6", backgroundColor: "#8B5CF6", yAxisID: "y1", pointRadius: 3, tension: 0.3 },
+              { type: "line", label: "Value", data: ngi.valueByMonth, borderColor: "#1D4ED8", backgroundColor: "rgba(29,78,216,0.1)", borderWidth: 1.5, fill: true, yAxisID: "y1", pointRadius: 1, tension: 0.3 },
             ],
           },
           options: {
@@ -3555,10 +3629,10 @@ function dashboardExhaust() {
             scales: {
               x: baseScales().x,
               y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
-              y1: { position: "right", ticks: { color: "#000000", font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+              y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => fmtNum(Math.round(v / 1000)) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
             },
           },
-          plugins: [barValueLabels((v) => fmtNum(v), 0)],
+          plugins: [barValueLabels((v) => fmtNum(v), 0, "base"), lineValueLabels((v) => fmtNum(Math.round(v / 1000)), 1)],
         });
       }, "qcNgInlineMonth");
 
@@ -3578,7 +3652,7 @@ function dashboardExhaust() {
             labels,
             datasets: [
               { type: "bar", label: "Qty", data: trialQty, backgroundColor: barBg(canvas, "#F97316", trialQty.length), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
-              { type: "line", label: "Value", data: trialValue, borderColor: "#8B5CF6", backgroundColor: "#8B5CF6", yAxisID: "y1", pointRadius: 3, tension: 0.3 },
+              { type: "line", label: "Value", data: trialValue, borderColor: "#1D4ED8", backgroundColor: "rgba(29,78,216,0.1)", borderWidth: 1.5, fill: true, yAxisID: "y1", pointRadius: 1, tension: 0.3 },
             ],
           },
           options: {
@@ -3588,10 +3662,10 @@ function dashboardExhaust() {
             scales: {
               x: baseScales().x,
               y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
-              y1: { position: "right", ticks: { color: "#000000", font: { size: 9 } }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+              y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => fmtNum(Math.round(v / 1000)) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
             },
           },
-          plugins: [barValueLabels((v) => fmtNum(v), 0)],
+          plugins: [barValueLabels((v) => fmtNum(v), 0, "base"), lineValueLabels((v) => fmtNum(Math.round(v / 1000)), 1)],
         });
       }, "qcNgTrialMonth");
 
@@ -3687,12 +3761,43 @@ function dashboardExhaust() {
           });
         }, canvasId);
       };
+      // Dual-axis: bar "Qty" (kiri) + garis area "Value" (kanan, Rp/1000)
+      // -- dipakai di chart NG Inline/Trial Perline & Model.
+      const qcQtyValueBar = (canvasId, categories, hexBar, qtyData, valueData) => {
+        safe(() => {
+          destroy(canvasId);
+          const canvas = document.getElementById(canvasId);
+          if (!canvas) return;
+          const qty = qtyData || categories.map(() => null);
+          const value = valueData || categories.map(() => null);
+          this.qcCharts[canvasId] = new Chart(canvas, {
+            data: {
+              labels: categories,
+              datasets: [
+                { type: "bar", label: "Qty", data: qty, backgroundColor: barBg(canvas, hexBar, qty.length), yAxisID: "y", borderRadius: 6, barPercentage: 0.6, categoryPercentage: 0.7 },
+                { type: "line", label: "Value", data: value, borderColor: "#1D4ED8", backgroundColor: "rgba(29,78,216,0.1)", borderWidth: 1.5, fill: true, yAxisID: "y1", pointRadius: 1, tension: 0.3, spanGaps: true },
+              ],
+            },
+            options: {
+              responsive: true, maintainAspectRatio: false, animation: noAnim,
+              layout: { padding: { top: 28 } },
+              plugins: { legend: legend(true), tooltip: tooltip() },
+              scales: {
+                x: { ticks: { color: "#000000", font: { size: 8 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
+                y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+                y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => fmtNum(Math.round(v / 1000)) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+              },
+            },
+            plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabels((v) => (v === null ? "" : fmtNum(Math.round(v / 1000))), 1)],
+          });
+        }, canvasId);
+      };
       const ngi = this.qcNgInline;
       const ngt = this.qcNgTrial;
-      qcSimpleBar("qcNgInlinePerline", QC_LINES, "#F97316", ngi.perlineQty);
-      qcSimpleBar("qcNgInlineModel", QC_MODELS, "#F97316", ngi.permodelQty);
-      qcSimpleBar("qcNgTrialPerline", QC_LINES, "#06B6D4", ngt.perlineQty);
-      qcSimpleBar("qcNgTrialModel", QC_MODELS, "#06B6D4", ngt.permodelQty);
+      qcQtyValueBar("qcNgInlinePerline", QC_LINES, "#F97316", ngi.perlineQty, ngi.perlineValue);
+      qcQtyValueBar("qcNgInlineModel", QC_MODELS, "#F97316", ngi.permodelQty, ngi.permodelValue);
+      qcQtyValueBar("qcNgTrialPerline", QC_LINES, "#06B6D4", ngt.perlineQty, ngt.perlineValue);
+      qcQtyValueBar("qcNgTrialModel", QC_MODELS, "#06B6D4", ngt.permodelQty, ngt.permodelValue);
       qcRepairStraightpassBar("qcStraightpassPerline", QC_LINES, this.qcRepair.perlineQty, this.qcStraightpass.perlineActual);
       qcRepairStraightpassBar("qcStraightpassModel", QC_MODELS, this.qcRepair.permodelQty, this.qcStraightpass.permodelActual);
 
@@ -3701,19 +3806,23 @@ function dashboardExhaust() {
       // NG Inline sudah pakai data asli; NG Trial & Straightpass masih
       // dikosongkan dulu (belum ada RPC-nya). ---
       const QC_DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1));
-      const qcDualAxisDaily = (canvasId, hexBar, hexLine, barLabel, lineLabel, lineIsPercent, dataBar, dataLine) => {
+      const qcDualAxisDaily = (canvasId, hexBar, hexLine, barLabel, lineLabel, lineIsPercent, dataBar, dataLine, opts = {}) => {
         safe(() => {
           destroy(canvasId);
           const canvas = document.getElementById(canvasId);
           if (!canvas) return;
           const barData = dataBar || QC_DAYS.map(() => null);
           const lineData = dataLine || QC_DAYS.map(() => null);
+          // opts.isMoney -> dipakai buat garis Value (Rp): hitam, area
+          // tipis transparan 30%, label angka di atas (dibagi 1000), dan
+          // label Qty dipindah ke dalam batang supaya tidak tabrakan.
+          const isMoney = !!opts.isMoney;
           this.qcCharts[canvasId] = new Chart(canvas, {
             data: {
               labels: QC_DAYS,
               datasets: [
                 { type: "bar", label: barLabel, data: barData, backgroundColor: barBg(canvas, hexBar, QC_DAYS.length), yAxisID: "y", borderRadius: 4, barPercentage: 0.6, categoryPercentage: 0.75 },
-                { type: "line", label: lineLabel, data: lineData, borderColor: hexLine, backgroundColor: hexLine, yAxisID: "y1", pointRadius: 2, tension: 0.3, spanGaps: true },
+                { type: "line", label: lineLabel, data: lineData, borderColor: isMoney ? "#1D4ED8" : hexLine, backgroundColor: isMoney ? "rgba(29,78,216,0.1)" : hexLine, borderWidth: isMoney ? 1.5 : undefined, fill: isMoney, yAxisID: "y1", pointRadius: isMoney ? 1 : 2, tension: 0.3, spanGaps: true },
               ],
             },
             options: {
@@ -3723,15 +3832,19 @@ function dashboardExhaust() {
               scales: {
                 x: { ticks: { color: "#000000", font: { size: 8 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
                 y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
-                y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => (lineIsPercent ? v + "%" : v) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, ...(lineIsPercent ? { max: 100 } : {}) },
+                y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => (lineIsPercent ? v + "%" : isMoney ? fmtNum(Math.round(v / 1000)) : v) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, ...(lineIsPercent ? { max: 100 } : {}) },
               },
             },
-            plugins: [barValueLabels((v) => fmtNum(v), 0), ...(lineIsPercent ? [lineValueLabels((v) => v + "%", 1)] : [])],
+            plugins: [
+              barValueLabels((v) => fmtNum(v), 0, isMoney ? "base" : "above"),
+              ...(lineIsPercent ? [lineValueLabels((v) => v + "%", 1)] : []),
+              ...(isMoney ? [lineValueLabels((v) => fmtNum(Math.round(v / 1000)), 1)] : []),
+            ],
           });
         }, canvasId);
       };
-      qcDualAxisDaily("qcNgInlineDaily", "#F97316", "#8B5CF6", "Qty", "Value", false, ngi.dailyQty, ngi.dailyValue);
-      qcDualAxisDaily("qcNgTrialDaily", "#06B6D4", "#8B5CF6", "Qty", "Value", false, ngt.dailyQty, ngt.dailyValue);
+      qcDualAxisDaily("qcNgInlineDaily", "#F97316", "#8B5CF6", "Qty", "Value", false, ngi.dailyQty, ngi.dailyValue, { isMoney: true });
+      qcDualAxisDaily("qcNgTrialDaily", "#06B6D4", "#8B5CF6", "Qty", "Value", false, ngt.dailyQty, ngt.dailyValue, { isMoney: true });
       qcDualAxisDaily("qcStraightpassDaily", "#EF4444", "#22C55E", "Qty Repair", "% Straightpass", true, this.qcStraightpass.dailyRepairQty, this.qcStraightpass.dailyPercent);
     },
     logout,
