@@ -523,6 +523,17 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.flash("Shift ditutup — mesin dianggap tidak beroperasi sampai Mulai Produksi ditekan lagi.");
     },
 
+    // Break Edit form otomatis dihitung ulang dari jadwal break resmi shift
+    // (sama seperti alur normal Mulai/Selesai Produksi), tiap kali Waktu
+    // Awal/Akhir di form Edit diubah.
+    recalcEditBreak(stationId) {
+      const f = this.lines[stationId].editForm;
+      if (!f.waktu_awal || !f.waktu_akhir) return;
+      const wa = new Date(f.waktu_awal), wk = new Date(f.waktu_akhir);
+      if (Number.isNaN(wa.getTime()) || Number.isNaN(wk.getTime()) || wk < wa) return;
+      f.break_menit = computeBreakMinutes(wa.toISOString(), wk.toISOString());
+    },
+
     async commitProductionRow(stationId) {
       const line = this.lines[stationId];
       const dandoriMenit = Math.round((new Date(line.actualStartConfirmedAt) - new Date(line.entryStart)) / 60000);
@@ -1137,6 +1148,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.extraFields.forEach((f) => (line.editForm[f.key] = row.extra?.[f.key] ?? ""));
       line.routingType = row.extra?.routing_type || null;
       line.routingNumbers = row.extra?.routing_numbers || [];
+      if (!row.break_menit) this.recalcEditBreak(stationId);
       this.tab = "produksi";
       window.scrollTo({ top: 0, behavior: "smooth" });
     },

@@ -348,8 +348,8 @@
               <form @submit.prevent="saveEditProduction(st.id)" x-show="lines[st.id].state === 'edit'" x-cloak>
                 <p class="hint" style="margin-bottom:10px;">Mode edit — koreksi data lama.</p>
                 <div class="form-grid">
-                  <div class="field"><label>Waktu Awal</label><input type="datetime-local" x-model="lines[st.id].editForm.waktu_awal"></div>
-                  <div class="field"><label>Waktu Akhir</label><input type="datetime-local" x-model="lines[st.id].editForm.waktu_akhir"></div>
+                  <div class="field"><label>Waktu Awal</label><input type="datetime-local" x-model="lines[st.id].editForm.waktu_awal" @change="recalcEditBreak(st.id)"></div>
+                  <div class="field"><label>Waktu Akhir</label><input type="datetime-local" x-model="lines[st.id].editForm.waktu_akhir" @change="recalcEditBreak(st.id)"></div>
                   <div class="field"><label>Part Number</label><input type="text" x-model="lines[st.id].editForm.part_number"></div>
                   <div class="field"><label>Qty</label><input type="number" x-model="lines[st.id].editForm.qty"></div>
                   <div class="field"><label>Jumlah MP</label><input type="number" x-model="lines[st.id].editForm.manpower"></div>
