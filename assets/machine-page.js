@@ -637,7 +637,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         ? this.stationConfig.variants[this.tandemVariant]
         : null;
       let q = supabaseClient.from("production_log")
-        .select("id, stasiun, waktu_awal, waktu_akhir, part_number, qty, dandori_menit, downtime_menit, break_menit")
+        .select("id, stasiun, waktu_awal, waktu_akhir, part_number, qty, repair, dandori_menit, downtime_menit, break_menit")
         .eq("mesin", machineKey)
         .gte("waktu_awal", start.toISOString())
         .lt("waktu_awal", end.toISOString());
@@ -646,26 +646,21 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (error) { this.perfDayRows = []; return; }
 
       const ids = (data || []).map((r) => r.id);
-      // NG Inline & Repair dicocokkan ke baris produksi lewat production_log_id
+      // NG Inline dicocokkan ke baris produksi lewat production_log_id
       // (auto-link berdasar jam kejadian -- lihat migration_ng_repair_link_produksi.sql).
       // Baris lama (sebelum migrasi ini) belum punya link, jadi tampil 0 di sini.
-      const [ngInlineRes, repairRes] = ids.length
-        ? await Promise.all([
-            supabaseClient.from("ng_inline_log").select("production_log_id, qty").in("production_log_id", ids),
-            supabaseClient.from("repair_log").select("production_log_id, qty").in("production_log_id", ids),
-          ])
-        : [{ data: [] }, { data: [] }];
+      // Repair diambil LANGSUNG dari kolom production_log.repair (diisi di form
+      // Input Produksi NEW) -- BUKAN dari tabel repair_log (menu Repair 3D terpisah).
+      const ngInlineRes = ids.length
+        ? await supabaseClient.from("ng_inline_log").select("production_log_id, qty").in("production_log_id", ids)
+        : { data: [] };
       const ngInlineByRow = {};
       (ngInlineRes.data || []).forEach((r) => {
         ngInlineByRow[r.production_log_id] = (ngInlineByRow[r.production_log_id] || 0) + (Number(r.qty) || 0);
       });
-      const repairByRow = {};
-      (repairRes.data || []).forEach((r) => {
-        repairByRow[r.production_log_id] = (repairByRow[r.production_log_id] || 0) + (Number(r.qty) || 0);
-      });
 
       this.perfDayRows = (data || [])
-        .map((r) => ({ ...r, ngInlineQty: ngInlineByRow[r.id] || 0, repairQty: repairByRow[r.id] || 0 }))
+        .map((r) => ({ ...r, ngInlineQty: ngInlineByRow[r.id] || 0, repairQty: Number(r.repair) || 0 }))
         .sort((a, b) => {
           const s = String(a.stasiun || "").localeCompare(String(b.stasiun || ""));
           if (s !== 0) return s;
