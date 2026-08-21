@@ -157,6 +157,19 @@ function localDateStr(d) {
   const p = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
+// Jam lokal 'HH:MM' -- dipakai sebagai default field Jam di form NG Inline & Repair.
+function localTimeStr(d) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+// Gabungkan tanggal ('YYYY-MM-DD') + jam ('HH:MM') jadi ISO string timestamptz,
+// dipakai backend buat mencocokkan ke baris produksi (production_log_id).
+function tanggalJamToIso(tanggal, jam) {
+  if (!tanggal || !jam) return null;
+  const d = new Date(`${tanggal}T${jam}:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
 
 // =========================================================
 // Komponen utama
@@ -215,7 +228,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       "DOUBLE WELDING", "WELDING KECIL", "WELDING KURANG", "WELDING OVER",
       "PENDEK", "CRACK", "MATI LISTRIK", "OTHER",
     ],
-    ngForm: { tanggal: localDateStr(new Date()), type_ng: "", pic: "", model: "", part_number: "", area_id: "", area: "", ng_proses: "", qty: "", harga: 0, ng_kategori: "", reason: "" },
+    ngForm: { tanggal: localDateStr(new Date()), jam: localTimeStr(new Date()), type_ng: "", pic: "", model: "", part_number: "", area_id: "", area: "", ng_proses: "", qty: "", harga: 0, ng_kategori: "", reason: "" },
     ngFotoFile: null, ngFotoPreviewUrl: "", ngSaving: false,
     editingNgId: null, ngExistingFotoUrl: "",
 
@@ -230,7 +243,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     repairPartNoByModel: {},
     repairPartNoModelMap: {},
     repairLogRows: [],
-    repairForm: { tanggal: localDateStr(new Date()), part_number: "", qty: "", kategori_repair: "" },
+    repairForm: { tanggal: localDateStr(new Date()), jam: localTimeStr(new Date()), part_number: "", qty: "", kategori_repair: "" },
     repairModalOpen: false, repairModalPoint: null, repairSaving: false,
     editingRepairId: null,
     // Mode admin buat naruh titik baru di Master Data
@@ -631,11 +644,33 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (stasiunList) q = q.in("stasiun", stasiunList);
       const { data, error } = await q.order("waktu_awal", { ascending: true });
       if (error) { this.perfDayRows = []; return; }
-      this.perfDayRows = (data || []).sort((a, b) => {
-        const s = String(a.stasiun || "").localeCompare(String(b.stasiun || ""));
-        if (s !== 0) return s;
-        return new Date(a.waktu_awal) - new Date(b.waktu_awal);
+
+      const ids = (data || []).map((r) => r.id);
+      // NG Inline & Repair dicocokkan ke baris produksi lewat production_log_id
+      // (auto-link berdasar jam kejadian -- lihat migration_ng_repair_link_produksi.sql).
+      // Baris lama (sebelum migrasi ini) belum punya link, jadi tampil 0 di sini.
+      const [ngInlineRes, repairRes] = ids.length
+        ? await Promise.all([
+            supabaseClient.from("ng_inline_log").select("production_log_id, qty").in("production_log_id", ids),
+            supabaseClient.from("repair_log").select("production_log_id, qty").in("production_log_id", ids),
+          ])
+        : [{ data: [] }, { data: [] }];
+      const ngInlineByRow = {};
+      (ngInlineRes.data || []).forEach((r) => {
+        ngInlineByRow[r.production_log_id] = (ngInlineByRow[r.production_log_id] || 0) + (Number(r.qty) || 0);
       });
+      const repairByRow = {};
+      (repairRes.data || []).forEach((r) => {
+        repairByRow[r.production_log_id] = (repairByRow[r.production_log_id] || 0) + (Number(r.qty) || 0);
+      });
+
+      this.perfDayRows = (data || [])
+        .map((r) => ({ ...r, ngInlineQty: ngInlineByRow[r.id] || 0, repairQty: repairByRow[r.id] || 0 }))
+        .sort((a, b) => {
+          const s = String(a.stasiun || "").localeCompare(String(b.stasiun || ""));
+          if (s !== 0) return s;
+          return new Date(a.waktu_awal) - new Date(b.waktu_awal);
+        });
     },
     setActivePerfSection(section) {
       this.activePerfSection = section;
@@ -832,6 +867,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           breakMenit: Math.round(Number(row.break_menit) || 0),
           whJam, gsph,
           jumlahBaris: Number(row.jumlah_baris) || 0,
+          repairQty: Math.round(Number(row.repair_qty) || 0),
           targetGsph, availability, performanceFactor, quality, oee,
         };
       });
@@ -851,7 +887,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           downtimeMenit: a.downtimeMenit + (t.downtimeMenit || 0),
           breakMenit: a.breakMenit + (t.breakMenit || 0),
           whJam: a.whJam + (t.whJam || 0),
-        }), { stroke: 0, ng: 0, ngValue: 0, dandoriMenit: 0, downtimeMenit: 0, breakMenit: 0, whJam: 0 });
+          repairQty: a.repairQty + (t.repairQty || 0),
+        }), { stroke: 0, ng: 0, ngValue: 0, dandoriMenit: 0, downtimeMenit: 0, breakMenit: 0, whJam: 0, repairQty: 0 });
         const gsph = sum.whJam > 0 ? sum.stroke / sum.whJam : 0;
         const tg = (valid.find((t) => t.targetGsph > 0) || {}).targetGsph || 0;
         const availability = sum.whJam > 0 ? Math.max(0, (sum.whJam * 60 - sum.downtimeMenit) / (sum.whJam * 60)) * 100 : 0;
@@ -1812,7 +1849,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.ngFotoPreviewUrl = URL.createObjectURL(file);
     },
     resetNgForm() {
-      this.ngForm = { tanggal: localDateStr(new Date()), type_ng: "", pic: "", model: "", part_number: "", area_id: "", area: "", ng_proses: "", qty: "", harga: 0, ng_kategori: "", reason: "" };
+      this.ngForm = { tanggal: localDateStr(new Date()), jam: localTimeStr(new Date()), type_ng: "", pic: "", model: "", part_number: "", area_id: "", area: "", ng_proses: "", qty: "", harga: 0, ng_kategori: "", reason: "" };
       this.ngPartNoList = []; this.ngAreaOptions = [];
       if (this.ngFotoPreviewUrl) URL.revokeObjectURL(this.ngFotoPreviewUrl);
       this.ngFotoFile = null; this.ngFotoPreviewUrl = ""; this.ngExistingFotoUrl = "";
@@ -1822,7 +1859,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     async editNgInline(row) {
       this.editingNgId = row.id;
       this.ngForm = {
-        tanggal: row.tanggal, type_ng: row.type_ng, pic: row.pic, model: row.model,
+        tanggal: row.tanggal, jam: row.jam || localTimeStr(new Date()), type_ng: row.type_ng, pic: row.pic, model: row.model,
         part_number: row.part_number, area_id: "", area: row.area, ng_proses: row.ng_proses,
         qty: row.qty, harga: Number(row.value || 0) / (Number(row.qty) || 1), ng_kategori: row.ng_kategori, reason: row.reason,
       };
@@ -1862,7 +1899,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const f = this.ngForm;
       const isEditing = !!this.editingNgId;
       const hasFoto = this.ngFotoFile || (isEditing && this.ngExistingFotoUrl);
-      if (!f.tanggal || !f.type_ng || !f.pic || !f.model || !f.part_number || !f.area_id || !f.ng_proses || !f.qty || !f.ng_kategori || !(f.reason || "").trim() || !hasFoto) {
+      if (!f.tanggal || !f.jam || !f.type_ng || !f.pic || !f.model || !f.part_number || !f.area_id || !f.ng_proses || !f.qty || !f.ng_kategori || !(f.reason || "").trim() || !hasFoto) {
         this.flash("Semua kolom wajib diisi, termasuk foto.", true); return;
       }
       if (!navigator.onLine) {
@@ -1881,7 +1918,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         }
 
         const payload = {
-          mesin: machineKey, tanggal: f.tanggal, type_ng: f.type_ng, model: f.model, pic: f.pic,
+          mesin: machineKey, tanggal: f.tanggal, jam: f.jam, waktu_kejadian: tanggalJamToIso(f.tanggal, f.jam),
+          type_ng: f.type_ng, model: f.model, pic: f.pic,
           part_number: f.part_number, area: f.area, ng_proses: f.ng_proses,
           qty: Number(f.qty), value: this.ngValue(f), ng_kategori: f.ng_kategori, reason: f.reason.trim(),
           foto_url: fotoUrl,
@@ -1988,14 +2026,14 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (this.repairEditMode) return; // di mode edit, klik ditangani handleRepair3DClick (lihat viewer 3D)
       this.editingRepairId = null;
       this.repairModalPoint = point;
-      this.repairForm = { tanggal: localDateStr(new Date()), part_number: "", qty: "", kategori_repair: "" };
+      this.repairForm = { tanggal: localDateStr(new Date()), jam: localTimeStr(new Date()), part_number: "", qty: "", kategori_repair: "" };
       this.repairModalOpen = true;
     },
     editRepairLog(row) {
       const point = this.repairPoints.find((p) => p.id === row.point_id) || { id: row.point_id, label: row.point_label };
       this.editingRepairId = row.id;
       this.repairModalPoint = point;
-      this.repairForm = { tanggal: row.tanggal, part_number: row.part_number || "", qty: row.qty, kategori_repair: row.kategori_repair };
+      this.repairForm = { tanggal: row.tanggal, jam: row.jam || localTimeStr(new Date()), part_number: row.part_number || "", qty: row.qty, kategori_repair: row.kategori_repair };
       this.repairModalOpen = true;
     },
     closeRepairModal() {
@@ -2003,12 +2041,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
     async submitRepairPoint() {
       const f = this.repairForm;
-      if (!f.tanggal || !f.part_number || !f.qty || Number(f.qty) <= 0 || !f.kategori_repair) {
-        this.flash("Tanggal, Part No, Qty, dan Kategori Repair wajib diisi.", true); return;
+      if (!f.tanggal || !f.jam || !f.part_number || !f.qty || Number(f.qty) <= 0 || !f.kategori_repair) {
+        this.flash("Tanggal, Jam, Part No, Qty, dan Kategori Repair wajib diisi.", true); return;
       }
       this.repairSaving = true;
       const payload = {
-        mesin: machineKey, tanggal: f.tanggal,
+        mesin: machineKey, tanggal: f.tanggal, jam: f.jam, waktu_kejadian: tanggalJamToIso(f.tanggal, f.jam),
         view_id: this.repairActiveViewId, point_id: this.repairModalPoint?.id || null,
         point_label: this.repairModalPoint?.label || null,
         part_number: f.part_number, qty: Number(f.qty), kategori_repair: f.kategori_repair,

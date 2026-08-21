@@ -587,9 +587,9 @@
                         Q <b x-text="fmtNum(perf.tahunan.data.quality)"></b>%
                       </span>
                     </div>
-                    <div class="perf-card perf-card-accent"><span class="perf-label">GSPH Aktual</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.gsph)"></span></div>
-                    <div class="perf-card"><span class="perf-label">GSPH Target</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.targetGsph)"></span></div>
-                    <div class="perf-card"><span class="perf-label">Stroke (Qty)</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.stroke)"></span></div>
+                    <div class="perf-card perf-card-accent"><span class="perf-label">Perjam Aktual</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.gsph)"></span></div>
+                    <div class="perf-card"><span class="perf-label">Repair</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.repairQty)"></span></div>
+                    <div class="perf-card"><span class="perf-label">Qty Produksi</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.stroke)"></span></div>
                     <div class="perf-card"><span class="perf-label">NG</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.ng)"></span></div>
                     <div class="perf-card"><span class="perf-label">Downtime</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.downtimeMenit) + ' mnt'"></span></div>
                     <div class="perf-card"><span class="perf-label">Dandori</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.dandoriMenit) + ' mnt'"></span></div>
@@ -611,7 +611,7 @@
                               <tr>
                                 <th x-show="stationConfig.mode !== 'none'">Stasiun</th>
                                 <th>Mulai</th><th>Selesai</th><th>Part Number</th>
-                                <th>Qty</th><th>Dandori</th><th>DT</th><th>Break</th>
+                                <th>Qty</th><th>NG Inline</th><th>Repair</th><th>Dandori</th><th>DT</th><th>Break</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -622,12 +622,14 @@
                                   <td class="mono" x-text="fmtJam(row.waktu_akhir)"></td>
                                   <td x-text="row.part_number"></td>
                                   <td class="mono" x-text="fmtNum(row.qty)"></td>
+                                  <td class="mono" x-text="fmtNum(row.ngInlineQty ?? 0)"></td>
+                                  <td class="mono" x-text="fmtNum(row.repairQty ?? 0)"></td>
                                   <td class="mono" x-text="fmtNum(row.dandori_menit ?? 0)"></td>
                                   <td class="mono" x-text="fmtNum(row.downtime_menit ?? 0)"></td>
                                   <td class="mono" x-text="fmtNum(row.break_menit ?? 0)"></td>
                                 </tr>
                               </template>
-                              <tr x-show="perfDayRows.length === 0"><td colspan="8" class="empty-state">Tidak ada produksi di tanggal ini.</td></tr>
+                              <tr x-show="perfDayRows.length === 0"><td colspan="10" class="empty-state">Tidak ada produksi di tanggal ini.</td></tr>
                             </tbody>
                           </table>
                         </div>
@@ -687,9 +689,9 @@
                         Q <b x-text="fmtNum(perf.bulanan.data.quality)"></b>%
                       </span>
                     </div>
-                    <div class="perf-card perf-card-accent"><span class="perf-label">GSPH Aktual</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.gsph)"></span></div>
-                    <div class="perf-card"><span class="perf-label">GSPH Target</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.targetGsph)"></span></div>
-                    <div class="perf-card"><span class="perf-label">Stroke (Qty)</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.stroke)"></span></div>
+                    <div class="perf-card perf-card-accent"><span class="perf-label">Perjam Aktual</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.gsph)"></span></div>
+                    <div class="perf-card"><span class="perf-label">Repair</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.repairQty)"></span></div>
+                    <div class="perf-card"><span class="perf-label">Qty Produksi</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.stroke)"></span></div>
                     <div class="perf-card"><span class="perf-label">NG</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.ng)"></span></div>
                     <div class="perf-card"><span class="perf-label">Downtime</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.downtimeMenit) + ' mnt'"></span></div>
                     <div class="perf-card"><span class="perf-label">Dandori</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.dandoriMenit) + ' mnt'"></span></div>
@@ -711,7 +713,7 @@
                               <tr>
                                 <th x-show="stationConfig.mode !== 'none'">Stasiun</th>
                                 <th>Mulai</th><th>Selesai</th><th>Part Number</th>
-                                <th>Qty</th><th>Dandori</th><th>DT</th><th>Break</th>
+                                <th>Qty</th><th>NG Inline</th><th>Repair</th><th>Dandori</th><th>DT</th><th>Break</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -722,12 +724,14 @@
                                   <td class="mono" x-text="fmtJam(row.waktu_akhir)"></td>
                                   <td x-text="row.part_number"></td>
                                   <td class="mono" x-text="fmtNum(row.qty)"></td>
+                                  <td class="mono" x-text="fmtNum(row.ngInlineQty ?? 0)"></td>
+                                  <td class="mono" x-text="fmtNum(row.repairQty ?? 0)"></td>
                                   <td class="mono" x-text="fmtNum(row.dandori_menit ?? 0)"></td>
                                   <td class="mono" x-text="fmtNum(row.downtime_menit ?? 0)"></td>
                                   <td class="mono" x-text="fmtNum(row.break_menit ?? 0)"></td>
                                 </tr>
                               </template>
-                              <tr x-show="perfDayRows.length === 0"><td colspan="8" class="empty-state">Tidak ada produksi di tanggal ini.</td></tr>
+                              <tr x-show="perfDayRows.length === 0"><td colspan="10" class="empty-state">Tidak ada produksi di tanggal ini.</td></tr>
                             </tbody>
                           </table>
                         </div>
@@ -787,9 +791,9 @@
                         Q <b x-text="fmtNum(perf.harian.data.quality)"></b>%
                       </span>
                     </div>
-                    <div class="perf-card perf-card-accent"><span class="perf-label">GSPH Aktual</span><span class="perf-value" x-text="fmtNum(perf.harian.data.gsph)"></span></div>
-                    <div class="perf-card"><span class="perf-label">GSPH Target</span><span class="perf-value" x-text="fmtNum(perf.harian.data.targetGsph)"></span></div>
-                    <div class="perf-card"><span class="perf-label">Stroke (Qty)</span><span class="perf-value" x-text="fmtNum(perf.harian.data.stroke)"></span></div>
+                    <div class="perf-card perf-card-accent"><span class="perf-label">Perjam Aktual</span><span class="perf-value" x-text="fmtNum(perf.harian.data.gsph)"></span></div>
+                    <div class="perf-card"><span class="perf-label">Repair</span><span class="perf-value" x-text="fmtNum(perf.harian.data.repairQty)"></span></div>
+                    <div class="perf-card"><span class="perf-label">Qty Produksi</span><span class="perf-value" x-text="fmtNum(perf.harian.data.stroke)"></span></div>
                     <div class="perf-card"><span class="perf-label">NG</span><span class="perf-value" x-text="fmtNum(perf.harian.data.ng)"></span></div>
                     <div class="perf-card"><span class="perf-label">Downtime</span><span class="perf-value" x-text="fmtNum(perf.harian.data.downtimeMenit) + ' mnt'"></span></div>
                     <div class="perf-card"><span class="perf-label">Dandori</span><span class="perf-value" x-text="fmtNum(perf.harian.data.dandoriMenit) + ' mnt'"></span></div>
@@ -811,7 +815,7 @@
                               <tr>
                                 <th x-show="stationConfig.mode !== 'none'">Stasiun</th>
                                 <th>Mulai</th><th>Selesai</th><th>Part Number</th>
-                                <th>Qty</th><th>Dandori</th><th>DT</th><th>Break</th>
+                                <th>Qty</th><th>NG Inline</th><th>Repair</th><th>Dandori</th><th>DT</th><th>Break</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -822,12 +826,14 @@
                                   <td class="mono" x-text="fmtJam(row.waktu_akhir)"></td>
                                   <td x-text="row.part_number"></td>
                                   <td class="mono" x-text="fmtNum(row.qty)"></td>
+                                  <td class="mono" x-text="fmtNum(row.ngInlineQty ?? 0)"></td>
+                                  <td class="mono" x-text="fmtNum(row.repairQty ?? 0)"></td>
                                   <td class="mono" x-text="fmtNum(row.dandori_menit ?? 0)"></td>
                                   <td class="mono" x-text="fmtNum(row.downtime_menit ?? 0)"></td>
                                   <td class="mono" x-text="fmtNum(row.break_menit ?? 0)"></td>
                                 </tr>
                               </template>
-                              <tr x-show="perfDayRows.length === 0"><td colspan="8" class="empty-state">Tidak ada produksi di tanggal ini.</td></tr>
+                              <tr x-show="perfDayRows.length === 0"><td colspan="10" class="empty-state">Tidak ada produksi di tanggal ini.</td></tr>
                             </tbody>
                           </table>
                         </div>
@@ -1026,6 +1032,7 @@
             <form @submit.prevent="saveNgInline">
               <div class="form-grid">
                 <div class="field"><label>Tanggal *</label><input type="date" x-model="ngForm.tanggal"></div>
+                <div class="field"><label>Jam *</label><input type="time" x-model="ngForm.jam"></div>
                 <div class="field" style="grid-column: span 2;">
                   <label>Type NG *</label>
                   <div class="chip-row">
@@ -1189,6 +1196,7 @@
             <p class="panel-title" x-text="(editingRepairId ? 'Edit ' : '') + 'Repair — ' + (repairModalPoint?.label || 'Point')"></p>
             <div class="form-grid">
               <div class="field" style="grid-column: span 2;"><label>Tanggal *</label><input type="date" x-model="repairForm.tanggal"></div>
+              <div class="field" style="grid-column: span 2;"><label>Jam *</label><input type="time" x-model="repairForm.jam"></div>
               <div class="field" style="grid-column: span 2;">
                 <label>Part No *</label>
                 <select x-model="repairForm.part_number">
