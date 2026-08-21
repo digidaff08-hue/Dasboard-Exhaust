@@ -575,6 +575,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         }
         this.flash("Data produksi tersimpan.");
         await Promise.all([this.fetchProduction(), this.fetchPlanning()]);
+        this.fetchAllPerf();
       } catch (err) {
         if (isNetworkError(err)) {
           enqueueOffline("production_log", payload);
@@ -1205,6 +1206,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.flash("Data produksi diperbarui.");
       this.lines[stationId] = this.freshLine();
       await this.fetchProduction();
+      this.fetchAllPerf();
     },
     async deleteProduction(id) {
       if (String(id).startsWith("pending_")) { this.flash("Masih menunggu sinkron.", true); return; }
@@ -1213,6 +1215,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (error) { this.flash("Gagal menghapus: " + error.message, true); return; }
       this.flash("Data produksi dihapus.");
       await this.fetchProduction();
+      this.fetchAllPerf();
     },
     editNonProduksiRow(row) {
       this.editingNonProduksiId = row.id;
@@ -1299,6 +1302,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       }
       this.cancelDowntime();
       await Promise.all([this.fetchDowntime(), this.fetchProduction(), this.fetchProduksiNew()]);
+      this.fetchAllPerf();
     },
     editDowntime(row) {
       this.editingDowntimeId = row.id;
@@ -1318,6 +1322,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (error) { this.flash("Gagal menghapus: " + error.message, true); return; }
       this.flash("Data downtime dihapus.");
       await Promise.all([this.fetchDowntime(), this.fetchProduction()]);
+      this.fetchAllPerf();
     },
 
     // ================= PLANNING PRODUKSI =================
@@ -1939,6 +1944,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       } finally {
         this.ngSaving = false;
       }
+      this.fetchAllPerf();
     },
     async deleteNgInline(id) {
       if (!confirm("Hapus data NG Inline ini?")) return;
@@ -1946,6 +1952,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
       this.ngInlineRows = this.ngInlineRows.filter((r) => r.id !== id);
       if (this.editingNgId === id) this.resetNgForm();
+      this.fetchAllPerf();
     },
 
     // ================= REPAIR (klik titik di gambar -> popup) =================
