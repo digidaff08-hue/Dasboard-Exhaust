@@ -187,6 +187,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
   const WELD_LINE_COLOR = "#dc2626";
   const WELD_LINE_HOVER_COLOR = "#fb923c";
   const WELD_LINE_DRAW_COLOR = "#fbbf24";
+  const WELD_LINE_OPACITY = 0.55;       // kondisi normal -- tipis/gak mencolok
+  const WELD_LINE_HOVER_OPACITY = 1;    // pas kursor/jari nempel -- nyala jelas
   return {
     session: null, profile: null, tab: "produksi_new", loading: true,
     errorMsg: "", successMsg: "",
@@ -2612,8 +2614,14 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const curve = new THREE.CatmullRomCurve3(pushed, false, "centripetal", 0.5);
       const tubularSegments = Math.max(16, Math.min(120, pushed.length * 6));
 
-      const visibleGeo = new THREE.TubeGeometry(curve, tubularSegments, Math.max(maxDim * 0.0045, 0.05), 6, false);
-      const visibleMat = new THREE.MeshBasicMaterial({ color: WELD_LINE_COLOR, toneMapped: false });
+      // Garis dibikin TIPIS & agak transparan (bukan mencolok) di kondisi
+      // normal -- biar gak "berat" mendominasi tampilan part. Baru nyala
+      // lebih tebal/solid pas di-hover (lihat setRepairHover).
+      const visibleGeo = new THREE.TubeGeometry(curve, tubularSegments, Math.max(maxDim * 0.0022, 0.03), 6, false);
+      const visibleMat = new THREE.MeshBasicMaterial({
+        color: WELD_LINE_COLOR, toneMapped: false,
+        transparent: true, opacity: WELD_LINE_OPACITY, depthWrite: false,
+      });
       const visibleMesh = new THREE.Mesh(visibleGeo, visibleMat);
       visibleMesh.renderOrder = 998;
       visibleMesh.userData.isRepairAux = true;
@@ -2758,12 +2766,14 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     setRepairHover(pointId) {
       const r = repairThreeState; if (!r) return;
       if (r.hoveredPointId && r.hoveredPointId !== pointId && r.weldLineMeshes.has(r.hoveredPointId)) {
-        r.weldLineMeshes.get(r.hoveredPointId).visible.material.color.set(WELD_LINE_COLOR);
+        const wl = r.weldLineMeshes.get(r.hoveredPointId).visible.material;
+        wl.color.set(WELD_LINE_COLOR); wl.opacity = WELD_LINE_OPACITY;
       }
       r.hoveredPointId = pointId;
       if (r.container) r.container.style.cursor = pointId ? "pointer" : "";
       if (pointId && r.weldLineMeshes.has(pointId)) {
-        r.weldLineMeshes.get(pointId).visible.material.color.set(WELD_LINE_HOVER_COLOR);
+        const wl = r.weldLineMeshes.get(pointId).visible.material;
+        wl.color.set(WELD_LINE_HOVER_COLOR); wl.opacity = WELD_LINE_HOVER_OPACITY;
       }
     },
     // ---- Gambar garis las baru: tahan (pointerdown di permukaan kosong) -> seret -> lepas ----
