@@ -1240,23 +1240,23 @@
               <div class="repair-3d-loading" x-show="repairModelLoading">Memuat model 3D...</div>
               <p class="repair-3d-hint">Seret buat putar &middot; scroll/cubit buat zoom</p>
             </div>
-            <p class="repair-edit-hint" x-show="repairEditMode">Klik permukaan model buat nambah Point baru. Klik Point yang sudah ada buat menghapusnya.</p>
+            <p class="repair-edit-hint" x-show="repairEditMode">Tahan &amp; seret di permukaan model buat gambar garis Point baru (menyusuri jalur las). Klik garis/Point yang sudah ada buat menghapusnya.</p>
           </div>
 
           <div class="panel">
             <p class="panel-title">Riwayat Repair <span class="count" x-text="repairLogRows.length + ' baris'"></span></p>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Tanggal</th><th>Point</th><th>Model</th><th>Part No</th><th>Qty</th><th>Kategori Repair</th><th>Aksi</th></tr></thead>
+                <thead><tr><th>Tanggal</th><th>Point</th><th>Model</th><th>Part No</th><th class="num-col">Qty</th><th>Kategori Repair</th><th>Aksi</th></tr></thead>
                 <tbody>
                   <template x-for="row in repairLogRows" :key="row.id">
                     <tr>
                       <td class="mono" x-text="row.tanggal"></td>
-                      <td x-text="row.point_label || '-'"></td>
+                      <td class="mono" style="font-weight:600;" x-text="row.point_label || '-'"></td>
                       <td class="mono" x-text="repairPartNoModelMap[row.part_number] || '-'"></td>
                       <td class="mono" x-text="row.part_number || '-'"></td>
-                      <td class="mono" x-text="row.qty"></td>
-                      <td><span class="badge" x-text="row.kategori_repair"></span></td>
+                      <td class="mono num-col" x-text="row.qty"></td>
+                      <td><span class="tag-chip" x-text="row.kategori_repair"></span></td>
                       <td style="white-space:nowrap;">
                         <button class="btn-secondary btn-sm" @click="editRepairLog(row)">Edit</button>
                         <button class="btn-danger btn-sm" @click="deleteRepairLog(row.id)">Hapus</button>
