@@ -1338,6 +1338,17 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       };
       this.tab = "downtime";
     },
+    // Ubah cuma jam (HH:MM) dari input type=time, tanggalnya tetap ikut
+    // dtStart/dtEnd yang sudah ada (dari data aslinya) -- dipakai pas Edit.
+    updateDtTime(which, value) {
+      if (!value) return;
+      const base = which === "start" ? this.dtStart : this.dtEnd;
+      const d = base ? new Date(base) : new Date();
+      const [hh, mm] = value.split(":").map(Number);
+      d.setHours(hh, mm, 0, 0);
+      if (which === "start") this.dtStart = d.toISOString();
+      else this.dtEnd = d.toISOString();
+    },
     async deleteDowntime(id) {
       if (!confirm("Hapus data downtime ini?")) return;
       const { error } = await supabaseClient.from("downtime_log").delete().eq("id", id);

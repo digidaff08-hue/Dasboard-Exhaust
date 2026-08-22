@@ -1026,6 +1026,16 @@
                     </template>
                   </div>
                 </div>
+                <div class="field" style="grid-column: span 2; display:flex; gap:14px; align-items:flex-start;" x-show="editingDowntimeId" x-cloak>
+                  <div style="flex:1;min-width:0;">
+                    <label>Jam Mulai</label>
+                    <input type="time" :value="dtStart ? localTimeStr(new Date(dtStart)) : ''" @change="updateDtTime('start', $event.target.value)">
+                  </div>
+                  <div style="flex:1;min-width:0;">
+                    <label>Jam Selesai</label>
+                    <input type="time" :value="dtEnd ? localTimeStr(new Date(dtEnd)) : ''" @change="updateDtTime('end', $event.target.value)">
+                  </div>
+                </div>
                 <div class="field" style="grid-column: span 2;">
                   <label>Total Losstime</label>
                   <div class="mono" style="padding:10px 0;font-weight:600;font-size:15px;" x-text="durasiMenit(dtStart, dtEnd)"></div>
