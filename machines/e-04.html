@@ -578,23 +578,43 @@
               <div>
                 <div class="perf-top-grid">
                   <div class="perf-cards-col">
-                    <div class="perf-card perf-card-oee">
+                    <div class="perf-card perf-card-oee" :class="perfOeeStatusClass(perf.tahunan.data)">
                       <span class="perf-label">OEE</span>
                       <span class="perf-value perf-value-xl" x-text="fmtNum(perf.tahunan.data.oee) + '%'"></span>
-                      <span class="perf-oee-breakdown">
-                        A <b x-text="fmtNum(perf.tahunan.data.availability)"></b>% ·
-                        P <b x-text="fmtNum(perf.tahunan.data.performanceFactor)"></b>% ·
-                        Q <b x-text="fmtNum(perf.tahunan.data.quality)"></b>%
-                      </span>
+                      <div class="perf-apq-bars">
+                        <div class="perf-apq-row">
+                          <span class="perf-apq-tag">A</span>
+                          <div class="perf-apq-track"><div class="perf-apq-fill perf-apq-fill-a" :style="'width:' + perfBarWidth(perf.tahunan.data.availability) + '%'"></div></div>
+                          <span class="perf-apq-num" x-text="fmtNum(perf.tahunan.data.availability) + '%'"></span>
+                        </div>
+                        <div class="perf-apq-row">
+                          <span class="perf-apq-tag">P</span>
+                          <div class="perf-apq-track"><div class="perf-apq-fill perf-apq-fill-p" :style="'width:' + perfBarWidth(perf.tahunan.data.performanceFactor) + '%'"></div></div>
+                          <span class="perf-apq-num" x-text="fmtNum(perf.tahunan.data.performanceFactor) + '%'"></span>
+                        </div>
+                        <div class="perf-apq-row">
+                          <span class="perf-apq-tag">Q</span>
+                          <div class="perf-apq-track"><div class="perf-apq-fill perf-apq-fill-q" :style="'width:' + perfBarWidth(perf.tahunan.data.quality) + '%'"></div></div>
+                          <span class="perf-apq-num" x-text="fmtNum(perf.tahunan.data.quality) + '%'"></span>
+                        </div>
+                      </div>
                     </div>
-                    <div class="perf-card perf-card-accent"><span class="perf-label">Perjam Aktual</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.gsph)"></span></div>
-                    <div class="perf-card"><span class="perf-label">Repair</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.repairQty)"></span></div>
-                    <div class="perf-card"><span class="perf-label">Qty Produksi</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.stroke)"></span></div>
-                    <div class="perf-card"><span class="perf-label">NG</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.ng)"></span></div>
-                    <div class="perf-card"><span class="perf-label">Downtime</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.downtimeMenit) + ' mnt'"></span></div>
-                    <div class="perf-card"><span class="perf-label">Dandori</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.dandoriMenit) + ' mnt'"></span></div>
-                    <div class="perf-card"><span class="perf-label">Break</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.breakMenit) + ' mnt'"></span></div>
-                    <div class="perf-card"><span class="perf-label">Jam Kerja</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.whJam) + ' jam'"></span></div>
+
+                    <p class="perf-group-label">Produksi</p>
+                    <div class="perf-mini-grid">
+                      <div class="perf-card perf-card-accent"><span class="perf-label">Perjam Aktual</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.gsph)"></span></div>
+                      <div class="perf-card"><span class="perf-label">Qty Produksi</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.stroke)"></span></div>
+                      <div class="perf-card" :class="perf.tahunan.data.ng > 0 ? 'perf-card-warn' : ''"><span class="perf-label">NG</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.ng)"></span></div>
+                      <div class="perf-card" :class="perf.tahunan.data.repairQty > 0 ? 'perf-card-warn' : ''"><span class="perf-label">Repair</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.repairQty)"></span></div>
+                    </div>
+
+                    <p class="perf-group-label">Waktu Kerja</p>
+                    <div class="perf-mini-grid">
+                      <div class="perf-card" :class="perf.tahunan.data.downtimeMenit > 30 ? 'perf-card-bad' : (perf.tahunan.data.downtimeMenit > 0 ? 'perf-card-warn' : '')"><span class="perf-label">Downtime</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.downtimeMenit) + ' mnt'"></span></div>
+                      <div class="perf-card"><span class="perf-label">Dandori</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.dandoriMenit) + ' mnt'"></span></div>
+                      <div class="perf-card"><span class="perf-label">Break</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.breakMenit) + ' mnt'"></span></div>
+                      <div class="perf-card"><span class="perf-label">Jam Kerja</span><span class="perf-value" x-text="fmtNum(perf.tahunan.data.whJam) + ' jam'"></span></div>
+                    </div>
                   </div>
                   <div class="perf-chart-col">
                     <div class="perf-chart-wrap" x-show="'tahunan' !== 'harian'"><canvas id="perfChart_E-04_tahunan"></canvas></div>
@@ -629,7 +649,7 @@
                                   <td class="mono" x-text="fmtNum(row.break_menit ?? 0)"></td>
                                 </tr>
                               </template>
-                              <tr x-show="perfDayRows.length === 0"><td colspan="10" class="empty-state">Tidak ada produksi di tanggal ini.</td></tr>
+                              <tr x-show="perfDayRows.length === 0"><td colspan="10"><div class="empty-state-daily"><span class="empty-state-title">Belum ada produksi</span>Belum ada baris produksi yang masuk untuk tanggal ini.</div></td></tr>
                             </tbody>
                           </table>
                         </div>
@@ -680,23 +700,43 @@
               <div>
                 <div class="perf-top-grid">
                   <div class="perf-cards-col">
-                    <div class="perf-card perf-card-oee">
+                    <div class="perf-card perf-card-oee" :class="perfOeeStatusClass(perf.bulanan.data)">
                       <span class="perf-label">OEE</span>
                       <span class="perf-value perf-value-xl" x-text="fmtNum(perf.bulanan.data.oee) + '%'"></span>
-                      <span class="perf-oee-breakdown">
-                        A <b x-text="fmtNum(perf.bulanan.data.availability)"></b>% ·
-                        P <b x-text="fmtNum(perf.bulanan.data.performanceFactor)"></b>% ·
-                        Q <b x-text="fmtNum(perf.bulanan.data.quality)"></b>%
-                      </span>
+                      <div class="perf-apq-bars">
+                        <div class="perf-apq-row">
+                          <span class="perf-apq-tag">A</span>
+                          <div class="perf-apq-track"><div class="perf-apq-fill perf-apq-fill-a" :style="'width:' + perfBarWidth(perf.bulanan.data.availability) + '%'"></div></div>
+                          <span class="perf-apq-num" x-text="fmtNum(perf.bulanan.data.availability) + '%'"></span>
+                        </div>
+                        <div class="perf-apq-row">
+                          <span class="perf-apq-tag">P</span>
+                          <div class="perf-apq-track"><div class="perf-apq-fill perf-apq-fill-p" :style="'width:' + perfBarWidth(perf.bulanan.data.performanceFactor) + '%'"></div></div>
+                          <span class="perf-apq-num" x-text="fmtNum(perf.bulanan.data.performanceFactor) + '%'"></span>
+                        </div>
+                        <div class="perf-apq-row">
+                          <span class="perf-apq-tag">Q</span>
+                          <div class="perf-apq-track"><div class="perf-apq-fill perf-apq-fill-q" :style="'width:' + perfBarWidth(perf.bulanan.data.quality) + '%'"></div></div>
+                          <span class="perf-apq-num" x-text="fmtNum(perf.bulanan.data.quality) + '%'"></span>
+                        </div>
+                      </div>
                     </div>
-                    <div class="perf-card perf-card-accent"><span class="perf-label">Perjam Aktual</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.gsph)"></span></div>
-                    <div class="perf-card"><span class="perf-label">Repair</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.repairQty)"></span></div>
-                    <div class="perf-card"><span class="perf-label">Qty Produksi</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.stroke)"></span></div>
-                    <div class="perf-card"><span class="perf-label">NG</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.ng)"></span></div>
-                    <div class="perf-card"><span class="perf-label">Downtime</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.downtimeMenit) + ' mnt'"></span></div>
-                    <div class="perf-card"><span class="perf-label">Dandori</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.dandoriMenit) + ' mnt'"></span></div>
-                    <div class="perf-card"><span class="perf-label">Break</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.breakMenit) + ' mnt'"></span></div>
-                    <div class="perf-card"><span class="perf-label">Jam Kerja</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.whJam) + ' jam'"></span></div>
+
+                    <p class="perf-group-label">Produksi</p>
+                    <div class="perf-mini-grid">
+                      <div class="perf-card perf-card-accent"><span class="perf-label">Perjam Aktual</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.gsph)"></span></div>
+                      <div class="perf-card"><span class="perf-label">Qty Produksi</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.stroke)"></span></div>
+                      <div class="perf-card" :class="perf.bulanan.data.ng > 0 ? 'perf-card-warn' : ''"><span class="perf-label">NG</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.ng)"></span></div>
+                      <div class="perf-card" :class="perf.bulanan.data.repairQty > 0 ? 'perf-card-warn' : ''"><span class="perf-label">Repair</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.repairQty)"></span></div>
+                    </div>
+
+                    <p class="perf-group-label">Waktu Kerja</p>
+                    <div class="perf-mini-grid">
+                      <div class="perf-card" :class="perf.bulanan.data.downtimeMenit > 30 ? 'perf-card-bad' : (perf.bulanan.data.downtimeMenit > 0 ? 'perf-card-warn' : '')"><span class="perf-label">Downtime</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.downtimeMenit) + ' mnt'"></span></div>
+                      <div class="perf-card"><span class="perf-label">Dandori</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.dandoriMenit) + ' mnt'"></span></div>
+                      <div class="perf-card"><span class="perf-label">Break</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.breakMenit) + ' mnt'"></span></div>
+                      <div class="perf-card"><span class="perf-label">Jam Kerja</span><span class="perf-value" x-text="fmtNum(perf.bulanan.data.whJam) + ' jam'"></span></div>
+                    </div>
                   </div>
                   <div class="perf-chart-col">
                     <div class="perf-chart-wrap" x-show="'bulanan' !== 'harian'"><canvas id="perfChart_E-04_bulanan"></canvas></div>
@@ -731,7 +771,7 @@
                                   <td class="mono" x-text="fmtNum(row.break_menit ?? 0)"></td>
                                 </tr>
                               </template>
-                              <tr x-show="perfDayRows.length === 0"><td colspan="10" class="empty-state">Tidak ada produksi di tanggal ini.</td></tr>
+                              <tr x-show="perfDayRows.length === 0"><td colspan="10"><div class="empty-state-daily"><span class="empty-state-title">Belum ada produksi</span>Belum ada baris produksi yang masuk untuk tanggal ini.</div></td></tr>
                             </tbody>
                           </table>
                         </div>
@@ -782,23 +822,43 @@
               <div>
                 <div class="perf-top-grid">
                   <div class="perf-cards-col">
-                    <div class="perf-card perf-card-oee">
+                    <div class="perf-card perf-card-oee" :class="perfOeeStatusClass(perf.harian.data)">
                       <span class="perf-label">OEE</span>
                       <span class="perf-value perf-value-xl" x-text="fmtNum(perf.harian.data.oee) + '%'"></span>
-                      <span class="perf-oee-breakdown">
-                        A <b x-text="fmtNum(perf.harian.data.availability)"></b>% ·
-                        P <b x-text="fmtNum(perf.harian.data.performanceFactor)"></b>% ·
-                        Q <b x-text="fmtNum(perf.harian.data.quality)"></b>%
-                      </span>
+                      <div class="perf-apq-bars">
+                        <div class="perf-apq-row">
+                          <span class="perf-apq-tag">A</span>
+                          <div class="perf-apq-track"><div class="perf-apq-fill perf-apq-fill-a" :style="'width:' + perfBarWidth(perf.harian.data.availability) + '%'"></div></div>
+                          <span class="perf-apq-num" x-text="fmtNum(perf.harian.data.availability) + '%'"></span>
+                        </div>
+                        <div class="perf-apq-row">
+                          <span class="perf-apq-tag">P</span>
+                          <div class="perf-apq-track"><div class="perf-apq-fill perf-apq-fill-p" :style="'width:' + perfBarWidth(perf.harian.data.performanceFactor) + '%'"></div></div>
+                          <span class="perf-apq-num" x-text="fmtNum(perf.harian.data.performanceFactor) + '%'"></span>
+                        </div>
+                        <div class="perf-apq-row">
+                          <span class="perf-apq-tag">Q</span>
+                          <div class="perf-apq-track"><div class="perf-apq-fill perf-apq-fill-q" :style="'width:' + perfBarWidth(perf.harian.data.quality) + '%'"></div></div>
+                          <span class="perf-apq-num" x-text="fmtNum(perf.harian.data.quality) + '%'"></span>
+                        </div>
+                      </div>
                     </div>
-                    <div class="perf-card perf-card-accent"><span class="perf-label">Perjam Aktual</span><span class="perf-value" x-text="fmtNum(perf.harian.data.gsph)"></span></div>
-                    <div class="perf-card"><span class="perf-label">Repair</span><span class="perf-value" x-text="fmtNum(perf.harian.data.repairQty)"></span></div>
-                    <div class="perf-card"><span class="perf-label">Qty Produksi</span><span class="perf-value" x-text="fmtNum(perf.harian.data.stroke)"></span></div>
-                    <div class="perf-card"><span class="perf-label">NG</span><span class="perf-value" x-text="fmtNum(perf.harian.data.ng)"></span></div>
-                    <div class="perf-card"><span class="perf-label">Downtime</span><span class="perf-value" x-text="fmtNum(perf.harian.data.downtimeMenit) + ' mnt'"></span></div>
-                    <div class="perf-card"><span class="perf-label">Dandori</span><span class="perf-value" x-text="fmtNum(perf.harian.data.dandoriMenit) + ' mnt'"></span></div>
-                    <div class="perf-card"><span class="perf-label">Break</span><span class="perf-value" x-text="fmtNum(perf.harian.data.breakMenit) + ' mnt'"></span></div>
-                    <div class="perf-card"><span class="perf-label">Jam Kerja</span><span class="perf-value" x-text="fmtNum(perf.harian.data.whJam) + ' jam'"></span></div>
+
+                    <p class="perf-group-label">Produksi</p>
+                    <div class="perf-mini-grid">
+                      <div class="perf-card perf-card-accent"><span class="perf-label">Perjam Aktual</span><span class="perf-value" x-text="fmtNum(perf.harian.data.gsph)"></span></div>
+                      <div class="perf-card"><span class="perf-label">Qty Produksi</span><span class="perf-value" x-text="fmtNum(perf.harian.data.stroke)"></span></div>
+                      <div class="perf-card" :class="perf.harian.data.ng > 0 ? 'perf-card-warn' : ''"><span class="perf-label">NG</span><span class="perf-value" x-text="fmtNum(perf.harian.data.ng)"></span></div>
+                      <div class="perf-card" :class="perf.harian.data.repairQty > 0 ? 'perf-card-warn' : ''"><span class="perf-label">Repair</span><span class="perf-value" x-text="fmtNum(perf.harian.data.repairQty)"></span></div>
+                    </div>
+
+                    <p class="perf-group-label">Waktu Kerja</p>
+                    <div class="perf-mini-grid">
+                      <div class="perf-card" :class="perf.harian.data.downtimeMenit > 30 ? 'perf-card-bad' : (perf.harian.data.downtimeMenit > 0 ? 'perf-card-warn' : '')"><span class="perf-label">Downtime</span><span class="perf-value" x-text="fmtNum(perf.harian.data.downtimeMenit) + ' mnt'"></span></div>
+                      <div class="perf-card"><span class="perf-label">Dandori</span><span class="perf-value" x-text="fmtNum(perf.harian.data.dandoriMenit) + ' mnt'"></span></div>
+                      <div class="perf-card"><span class="perf-label">Break</span><span class="perf-value" x-text="fmtNum(perf.harian.data.breakMenit) + ' mnt'"></span></div>
+                      <div class="perf-card"><span class="perf-label">Jam Kerja</span><span class="perf-value" x-text="fmtNum(perf.harian.data.whJam) + ' jam'"></span></div>
+                    </div>
                   </div>
                   <div class="perf-chart-col">
                     <div class="perf-chart-wrap" x-show="'harian' !== 'harian'"><canvas id="perfChart_E-04_harian"></canvas></div>
@@ -833,7 +893,7 @@
                                   <td class="mono" x-text="fmtNum(row.break_menit ?? 0)"></td>
                                 </tr>
                               </template>
-                              <tr x-show="perfDayRows.length === 0"><td colspan="10" class="empty-state">Tidak ada produksi di tanggal ini.</td></tr>
+                              <tr x-show="perfDayRows.length === 0"><td colspan="10"><div class="empty-state-daily"><span class="empty-state-title">Belum ada produksi</span>Belum ada baris produksi yang masuk untuk tanggal ini.</div></td></tr>
                             </tbody>
                           </table>
                         </div>

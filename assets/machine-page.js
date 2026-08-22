@@ -910,6 +910,17 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.tab = "performance";
       this.$nextTick(() => { this.renderPerfChart(this.activePerfSection); this.renderPerfPie(this.activePerfSection); });
     },
+    perfOeeStatusClass(data) {
+      if (!data || !data.stroke) return "status-none";
+      const n = Number(data.oee) || 0;
+      if (n >= 75) return "status-good";
+      if (n >= 50) return "status-warn";
+      return "status-bad";
+    },
+    perfBarWidth(v) {
+      const n = Number(v) || 0;
+      return Math.max(0, Math.min(100, n));
+    },
     renderPerfChart(section) {
       const st = this.perf[section];
       if (!st.trend || st.trend.length === 0) return;

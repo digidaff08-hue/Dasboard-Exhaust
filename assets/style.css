@@ -40,6 +40,10 @@
   --series-3: #6366f1;
   --series-4: #14b8a6;
   --series-5: #64748b;
+  --warn: #b45309;
+  --warn-bg: #fef3e2;
+  --bad-bg: #fdecec;
+  --good-bg: #e9f7ef;
 }
 
 /* ---------- Tema Gelap ---------- */
@@ -74,6 +78,10 @@
   --series-3: #818cf8;
   --series-4: #2dd4bf;
   --series-5: #94a3b8;
+  --warn: #f59e0b;
+  --warn-bg: #3a2c10;
+  --bad-bg: #3a1717;
+  --good-bg: #103a21;
 }
 
 * { box-sizing: border-box; }
@@ -885,7 +893,95 @@ td.mono, .mono { font-family: var(--font-mono); }
 @media (max-width: 900px) {
   .perf-lower-grid { grid-template-columns: 1fr; }
   .perf-top-grid { grid-template-columns: 1fr; }
-  .perf-cards-col { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ---------- Performance: OEE hero + status warna + A-P-Q bars ---------- */
+.perf-cards-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.perf-mini-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.perf-group-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  margin: 6px 2px -2px;
+}
+.perf-card-oee {
+  border-top-width: 4px;
+  border-top-color: var(--border);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.perf-card-oee.status-good { border-top-color: var(--green); background: var(--good-bg); }
+.perf-card-oee.status-warn { border-top-color: var(--warn); background: var(--warn-bg); }
+.perf-card-oee.status-bad { border-top-color: var(--red); background: var(--bad-bg); }
+.perf-card-oee.status-good .perf-value-xl { color: var(--green) !important; }
+.perf-card-oee.status-warn .perf-value-xl { color: var(--warn) !important; }
+.perf-card-oee.status-bad .perf-value-xl { color: var(--red) !important; }
+
+.perf-apq-bars { display: flex; flex-direction: column; gap: 5px; margin-top: 10px; }
+.perf-apq-row { display: flex; align-items: center; gap: 7px; }
+.perf-apq-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  width: 11px;
+  flex-shrink: 0;
+}
+.perf-apq-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(148,163,184,0.25);
+  overflow: hidden;
+}
+.perf-apq-fill { height: 100%; border-radius: 3px; transition: width 0.35s ease; }
+.perf-apq-fill-a { background: var(--series-1); }
+.perf-apq-fill-p { background: var(--series-3); }
+.perf-apq-fill-q { background: var(--series-4); }
+.perf-apq-num {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+  width: 32px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.perf-card-warn {
+  border-color: var(--warn);
+  background: var(--warn-bg);
+}
+.perf-card-warn .perf-value { color: var(--warn); }
+.perf-card-bad {
+  border-color: var(--red);
+  background: var(--bad-bg);
+}
+.perf-card-bad .perf-value { color: var(--red); }
+
+.empty-state-daily {
+  text-align: center;
+  padding: 28px 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.empty-state-daily .empty-state-title {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  display: block;
+  margin-bottom: 3px;
 }
 
 /* ---------- Link angka Downtime di Riwayat ---------- */
