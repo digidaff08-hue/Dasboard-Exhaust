@@ -187,8 +187,9 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
   const WELD_LINE_COLOR = "#dc2626";
   const WELD_LINE_HOVER_COLOR = "#fb923c";
   const WELD_LINE_DRAW_COLOR = "#fbbf24";
-  const WELD_LINE_OPACITY = 0.55;       // kondisi normal -- tipis/gak mencolok
-  const WELD_LINE_HOVER_OPACITY = 1;    // pas kursor/jari nempel -- nyala jelas
+  const WELD_LINE_OPACITY_VIEW = 0;     // Mode Lihat biasa -- INVISIBLE total, cuma nongol pas di-hover
+  const WELD_LINE_OPACITY_EDIT = 0.55;  // Mode Edit Point -- tetap keliatan (tipis) biar admin bisa kelola
+  const WELD_LINE_HOVER_OPACITY = 1;    // pas kursor/jari nempel -- nyala jelas, di mode manapun
   return {
     session: null, profile: null, tab: "produksi_new", loading: true,
     errorMsg: "", successMsg: "",
@@ -2196,6 +2197,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // ---- Master Data: Point & Model 3D (admin) ----
     toggleRepairEditMode() {
       this.repairEditMode = !this.repairEditMode;
+      // Garis las tampil beda tergantung mode -- selalu keliatan pas lagi
+      // Mode Edit (biar admin bisa lihat & kelola semua Point), tapi
+      // sengaja DIBUAT INVISIBLE di Mode Lihat biasa sampai di-hover
+      // (lihat buildWeldLineMarker) -- jadi perlu gambar ulang tiap kali
+      // mode-nya ganti.
+      this.rebuildRepairMarkers();
     },
     async deleteRepairPoint(id) {
       if (!confirm("Hapus Point ini?")) return;
@@ -2614,13 +2621,14 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const curve = new THREE.CatmullRomCurve3(pushed, false, "centripetal", 0.5);
       const tubularSegments = Math.max(16, Math.min(120, pushed.length * 6));
 
-      // Garis dibikin TIPIS & agak transparan (bukan mencolok) di kondisi
-      // normal -- biar gak "berat" mendominasi tampilan part. Baru nyala
-      // lebih tebal/solid pas di-hover (lihat setRepairHover).
+      // Garis INVISIBLE total di Mode Lihat (opacity 0 -- cuma nongol pas
+      // di-hover), tapi tetap keliatan tipis di Mode Edit Point biar admin
+      // bisa lihat & kelola semua Point yang ada (lihat toggleRepairEditMode).
+      const baseOpacity = this.repairEditMode ? WELD_LINE_OPACITY_EDIT : WELD_LINE_OPACITY_VIEW;
       const visibleGeo = new THREE.TubeGeometry(curve, tubularSegments, Math.max(maxDim * 0.0022, 0.03), 6, false);
       const visibleMat = new THREE.MeshBasicMaterial({
         color: WELD_LINE_COLOR, toneMapped: false,
-        transparent: true, opacity: WELD_LINE_OPACITY, depthWrite: false,
+        transparent: true, opacity: baseOpacity, depthWrite: false,
       });
       const visibleMesh = new THREE.Mesh(visibleGeo, visibleMat);
       visibleMesh.renderOrder = 998;
@@ -2638,7 +2646,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       r.mesh.add(visibleMesh);
       r.mesh.add(hitMesh);
       r.markers.push(hitMesh);
-      r.weldLineMeshes.set(pt.id, { visible: visibleMesh, hit: hitMesh });
+      // baseOpacity disimpan biar setRepairHover tau harus "balik" ke
+      // opacity berapa pas kursor lepas dari garis ini (beda-beda tergantung
+      // Mode Lihat/Edit yang aktif waktu garis ini terakhir di-render).
+      r.weldLineMeshes.set(pt.id, { visible: visibleMesh, hit: hitMesh, baseOpacity });
     },
     rebuildRepairMarkers() {
       const r = repairThreeState; if (!r) return;
@@ -2766,14 +2777,16 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     setRepairHover(pointId) {
       const r = repairThreeState; if (!r) return;
       if (r.hoveredPointId && r.hoveredPointId !== pointId && r.weldLineMeshes.has(r.hoveredPointId)) {
-        const wl = r.weldLineMeshes.get(r.hoveredPointId).visible.material;
-        wl.color.set(WELD_LINE_COLOR); wl.opacity = WELD_LINE_OPACITY;
+        const wl = r.weldLineMeshes.get(r.hoveredPointId);
+        wl.visible.material.color.set(WELD_LINE_COLOR);
+        wl.visible.material.opacity = wl.baseOpacity;
       }
       r.hoveredPointId = pointId;
       if (r.container) r.container.style.cursor = pointId ? "pointer" : "";
       if (pointId && r.weldLineMeshes.has(pointId)) {
-        const wl = r.weldLineMeshes.get(pointId).visible.material;
-        wl.color.set(WELD_LINE_HOVER_COLOR); wl.opacity = WELD_LINE_HOVER_OPACITY;
+        const wl = r.weldLineMeshes.get(pointId);
+        wl.visible.material.color.set(WELD_LINE_HOVER_COLOR);
+        wl.visible.material.opacity = WELD_LINE_HOVER_OPACITY;
       }
     },
     // ---- Gambar garis las baru: tahan (pointerdown di permukaan kosong) -> seret -> lepas ----
