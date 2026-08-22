@@ -425,7 +425,7 @@
                     <th>Kode</th>
                     <th x-show="stationConfig.mode !== 'none'">Stasiun</th>
                     <th>Waktu Awal</th><th>Waktu Akhir</th>
-                    <th>Part Number</th><th>Qty</th><th>MP</th><th>Repair</th>
+                    <th>Part Number</th><th>Qty</th><th>MP</th><th>NG Inline</th><th>Repair</th>
                     <th>Earned</th><th>Operation</th><th>Availability</th>
                     <th>Dandori</th><th>Downtime</th><th>Break</th>
                     <th x-show="routingMax > 0">Routing</th>
@@ -442,6 +442,7 @@
                       <td x-text="detailRiwayat(row)"></td>
                       <td x-text="row._tipe === 'produksi' ? fmtNum(row.qty) : '-'"></td>
                       <td x-text="row._tipe === 'produksi' ? fmtNum(row.manpower) : '-'"></td>
+                      <td x-text="row._tipe === 'produksi' ? fmtNum(row.ngInlineQty ?? 0) : '-'"></td>
                       <td x-text="row._tipe === 'produksi' ? (row.repair ?? '-') : '-'"></td>
                       <td class="mono" x-text="earnedMenit(row) !== null ? fmtNum(earnedMenit(row)) + ' mnt' : '-'"></td>
                       <td class="mono" x-text="operationMenit(row) !== null ? fmtNum(operationMenit(row)) + ' mnt' : '-'"></td>
@@ -512,7 +513,7 @@
                     <th>Kode</th>
                     <th x-show="stationConfig.mode !== 'none'">Stasiun</th>
                     <th>Waktu Awal</th><th>Waktu Akhir</th>
-                    <th>Part Number</th><th>Qty</th><th>MP</th><th>Repair</th>
+                    <th>Part Number</th><th>Qty</th><th>MP</th><th>NG Inline</th><th>Repair</th>
                     <th>Dandori</th><th>Downtime</th><th>Break</th>
                     <th x-show="routingMax > 0">Routing</th>
                     <th>Aksi</th>
@@ -528,6 +529,7 @@
                       <td x-text="detailRiwayat(row)"></td>
                       <td x-text="row._tipe === 'produksi' ? fmtNum(row.qty) : '-'"></td>
                       <td x-text="row._tipe === 'produksi' ? fmtNum(row.manpower) : '-'"></td>
+                      <td x-text="row._tipe === 'produksi' ? fmtNum(row.ngInlineQty ?? 0) : '-'"></td>
                       <td x-text="row._tipe === 'produksi' ? (row.repair ?? '-') : '-'"></td>
                       <td class="mono" x-text="row._tipe === 'produksi' ? (fmtNum(row.dandori_menit ?? 0) + ' mnt') : '-'"></td>
                       <td class="mono">

@@ -610,7 +610,18 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     async fetchProduction() {
       const { data, error } = await supabaseClient.from("production_log").select("*").eq("mesin", machineKey).order("waktu_awal", { ascending: false }).limit(500);
       if (error) { this.flash("Gagal memuat data produksi: " + error.message, true); return; }
-      this.productionRows = data;
+      const ids = (data || []).map((r) => r.id);
+      // NG Inline dicocokkan ke baris produksi lewat production_log_id
+      // (auto-link berdasar jam kejadian -- lihat migration_ng_repair_link_produksi.sql).
+      // Baris lama (sebelum migrasi ini) belum punya link, jadi tampil 0 di sini.
+      const ngInlineRes = ids.length
+        ? await supabaseClient.from("ng_inline_log").select("production_log_id, qty").in("production_log_id", ids)
+        : { data: [] };
+      const ngInlineByRow = {};
+      (ngInlineRes.data || []).forEach((r) => {
+        ngInlineByRow[r.production_log_id] = (ngInlineByRow[r.production_log_id] || 0) + (Number(r.qty) || 0);
+      });
+      this.productionRows = (data || []).map((r) => ({ ...r, ngInlineQty: ngInlineByRow[r.id] || 0 }));
     },
     // Diklik dari angka Downtime di tabel Riwayat — loncat ke tab Downtime,
     // difilter cuma nampilin downtime yang nempel di baris produksi itu.
