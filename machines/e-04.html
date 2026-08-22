@@ -1240,7 +1240,45 @@
               <div class="repair-3d-loading" x-show="repairModelLoading">Memuat model 3D...</div>
               <p class="repair-3d-hint">Seret buat putar &middot; scroll/cubit buat zoom</p>
             </div>
-            <p class="repair-edit-hint" x-show="repairEditMode">Tahan &amp; seret di permukaan model buat gambar garis Point baru (menyusuri jalur las). Klik garis/Point yang sudah ada buat menghapusnya.</p>
+            <div class="repair-shape-switcher" x-show="repairEditMode" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0;">
+              <span style="font-size:12px;color:#64748b;">Bentuk Point:</span>
+              <button type="button" class="btn-secondary btn-sm" :class="repairDrawShape === 'freehand' ? 'btn-primary' : ''" @click="repairDrawShape = 'freehand'">✏️ Bebas</button>
+              <button type="button" class="btn-secondary btn-sm" :class="repairDrawShape === 'circle' ? 'btn-primary' : ''" @click="repairDrawShape = 'circle'">◯ Lingkaran</button>
+              <button type="button" class="btn-secondary btn-sm" :class="repairDrawShape === 'square' ? 'btn-primary' : ''" @click="repairDrawShape = 'square'">▭ Kotak</button>
+            </div>
+            <p class="repair-edit-hint" x-show="repairEditMode">
+              <template x-if="repairDrawShape === 'freehand'"><span>Tahan &amp; seret di permukaan model buat gambar garis Point baru menyusuri jalur las. Balik lagi ke titik awal buat otomatis nutup jadi 1 loop (360&deg;).</span></template>
+              <template x-if="repairDrawShape === 'circle'"><span>Tahan di titik tengah lingkaran, seret keluar buat nentuin radiusnya, lepas buat menyimpan.</span></template>
+              <template x-if="repairDrawShape === 'square'"><span>Tahan di salah satu sudut kotak, seret ke sudut seberangnya, lepas buat menyimpan.</span></template>
+              Klik garis/Point yang sudah ada buat memilihnya (bisa Geser, Perbesar/Perkecil, Edit Titik, atau Hapus lewat toolbar di bawah).
+            </p>
+
+            <!-- Toolbar aksi buat Point yang lagi dipilih (klik Point pas Mode Edit aktif) -->
+            <div class="repair-point-toolbar" x-show="repairEditMode && repairSelectedPointId" x-cloak
+                 style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0;padding:10px 12px;border:1px solid #bbf7d0;border-radius:8px;background:#f0fdf4;">
+              <span style="font-size:12px;color:#166534;font-weight:600;">
+                Point terpilih: <span x-text="selectedRepairPointObj()?.label || '(tanpa label)'"></span>
+              </span>
+              <template x-if="selectedRepairPointHasPath()">
+                <button type="button" class="btn-secondary btn-sm" :class="repairPointActionMode === 'move' ? 'btn-primary' : ''" @click="setRepairActionMode('move')">🖐️ Geser</button>
+              </template>
+              <template x-if="selectedRepairPointHasPath()">
+                <button type="button" class="btn-secondary btn-sm" @click="resizeSelectedRepairPoint(1.1)">➕ Perbesar</button>
+              </template>
+              <template x-if="selectedRepairPointHasPath()">
+                <button type="button" class="btn-secondary btn-sm" @click="resizeSelectedRepairPoint(0.9)">➖ Perkecil</button>
+              </template>
+              <template x-if="selectedRepairPointHasPath()">
+                <button type="button" class="btn-secondary btn-sm" :class="repairPointActionMode === 'reshape' ? 'btn-primary' : ''" @click="setRepairActionMode('reshape')">✏️ Edit Titik</button>
+              </template>
+              <button type="button" class="btn-danger btn-sm" @click="deleteRepairPoint(repairSelectedPointId)">🗑️ Hapus</button>
+              <button type="button" class="btn-secondary btn-sm" @click="deselectRepairPoint()">✕ Tutup</button>
+            </div>
+            <p class="repair-edit-hint" x-show="repairEditMode && repairSelectedPointId" x-cloak style="font-size:12px;color:#64748b;">
+              <template x-if="repairPointActionMode === 'move'"><span>Tahan &amp; seret di permukaan model buat menggeser seluruh Point ini ke posisi baru.</span></template>
+              <template x-if="repairPointActionMode === 'reshape'"><span>Tahan &amp; seret bola biru di garisnya buat ubah bentuk, titik per titik.</span></template>
+              <template x-if="!repairPointActionMode"><span>Pilih salah satu aksi di atas, atau klik Point lain di model buat ganti pilihan.</span></template>
+            </p>
           </div>
 
           <div class="panel">
