@@ -1873,13 +1873,66 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     resetNgForm() {
       this.ngForm = { tanggal: localDateStr(new Date()), jam: localTimeStr(new Date()), type_ng: "", pic: "", model: "", part_number: "", area_id: "", area: "", ng_proses: "", qty: "", harga: 0, ng_kategori: "", reason: "" };
       this.ngPartNoList = []; this.ngAreaOptions = [];
+      this.ngPartLocked = false; this.ngPartHint = "";
       if (this.ngFotoPreviewUrl) URL.revokeObjectURL(this.ngFotoPreviewUrl);
       this.ngFotoFile = null; this.ngFotoPreviewUrl = ""; this.ngExistingFotoUrl = "";
       this.editingNgId = null;
       if (this.$refs.ngFotoInput) this.$refs.ngFotoInput.value = "";
+      this.syncNgPartFromProduction();
+    },
+    // ================= Auto-isi Part No NG Inline dari Input Produksi =================
+    // Supaya Part No NG Inline tidak pernah beda sendiri dari yang lagi
+    // diproduksi jam segitu (lihat trigger link_ng_inline_to_produksi di
+    // migration_ng_repair_link_produksi.sql -- ini versi frontend-nya,
+    // dipanggil tiap Tanggal/Jam berubah).
+    ngPartLocked: false,
+    ngPartHint: "",
+    async syncNgPartFromProduction() {
+      const iso = tanggalJamToIso(this.ngForm.tanggal, this.ngForm.jam);
+      if (!iso) { this.ngPartLocked = false; this.ngPartHint = ""; return; }
+
+      const { data: prod, error } = await supabaseClient
+        .from("production_log")
+        .select("part_number")
+        .eq("mesin", machineKey)
+        .lte("waktu_awal", iso)
+        .gte("waktu_akhir", iso)
+        .order("waktu_awal", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error || !prod || !prod.part_number) {
+        this.ngForm.model = ""; this.ngForm.part_number = "";
+        this.ngPartLocked = false;
+        this.ngPartHint = "Tidak ada Input Produksi pada jam ini -- data tidak bisa disimpan. Cek kembali Tanggal & Jam.";
+        return;
+      }
+
+      const { data: mp } = await supabaseClient
+        .from("ng_model_parts")
+        .select("model, part_no")
+        .eq("part_no", prod.part_number)
+        .limit(1)
+        .maybeSingle();
+
+      if (!mp) {
+        this.ngForm.model = ""; this.ngForm.part_number = "";
+        this.ngPartLocked = false;
+        this.ngPartHint = `Input Produksi jam ini pakai Part No "${prod.part_number}", tapi belum terdaftar di Master NG -- data tidak bisa disimpan. Hubungi admin untuk daftarkan Part No ini dulu.`;
+        return;
+      }
+
+      if (this.ngForm.model !== mp.model) {
+        this.ngForm.model = mp.model;
+        await this.onModelChangeNg();
+      }
+      this.ngForm.part_number = mp.part_no;
+      this.ngPartLocked = true;
+      this.ngPartHint = `Otomatis dari Input Produksi jam ${this.ngForm.jam} (${mp.part_no}).`;
     },
     async editNgInline(row) {
       this.editingNgId = row.id;
+      this.ngPartLocked = false; this.ngPartHint = "";
       this.ngForm = {
         tanggal: row.tanggal, jam: row.jam || localTimeStr(new Date()), type_ng: row.type_ng, pic: row.pic, model: row.model,
         part_number: row.part_number, area_id: "", area: row.area, ng_proses: row.ng_proses,
@@ -1921,7 +1974,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const f = this.ngForm;
       const isEditing = !!this.editingNgId;
       const hasFoto = this.ngFotoFile || (isEditing && this.ngExistingFotoUrl);
-      if (!f.tanggal || !f.jam || !f.type_ng || !f.pic || !f.model || !f.part_number || !f.area_id || !f.ng_proses || !f.qty || !f.ng_kategori || !(f.reason || "").trim() || !hasFoto) {
+      if (!f.part_number) {
+        this.flash(this.ngPartHint || "Part No belum terisi -- pastikan Tanggal & Jam berada dalam jam Input Produksi.", true); return;
+      }
+      if (!f.tanggal || !f.jam || !f.type_ng || !f.pic || !f.model || !f.area_id || !f.ng_proses || !f.qty || !f.ng_kategori || !(f.reason || "").trim() || !hasFoto) {
         this.flash("Semua kolom wajib diisi, termasuk foto.", true); return;
       }
       if (!navigator.onLine) {

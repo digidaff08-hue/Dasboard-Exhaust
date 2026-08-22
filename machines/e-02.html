@@ -70,7 +70,7 @@
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn-secondary btn-sm" :class="tab==='produksi_new' ? 'btn-primary' : ''" @click="tab='produksi_new'">Input Produksi</button>
         <button class="btn-secondary btn-sm" :class="tab==='downtime' ? 'btn-primary' : ''" @click="tab='downtime'">Downtime</button>
-        <button class="btn-secondary btn-sm" :class="tab==='ng_inline' ? 'btn-primary' : ''" @click="tab='ng_inline'">NG Inline</button>
+        <button class="btn-secondary btn-sm" :class="tab==='ng_inline' ? 'btn-primary' : ''" @click="tab='ng_inline'; syncNgPartFromProduction()">NG Inline</button>
         <button class="btn-secondary btn-sm" :class="tab==='repair' ? 'btn-primary' : ''" @click="tab='repair'">Repair</button>
         <button class="btn-secondary btn-sm" :class="tab==='produksi' ? 'btn-primary' : ''" @click="tab='produksi'">Input Produksi NEW</button>
         <button class="btn-secondary btn-sm" :class="tab==='riwayat' ? 'btn-primary' : ''" @click="tab='riwayat'">Riwayat Produksi</button>
@@ -1093,8 +1093,8 @@
             <p class="panel-title">Input NG Inline</p>
             <form @submit.prevent="saveNgInline">
               <div class="form-grid">
-                <div class="field"><label>Tanggal *</label><input type="date" x-model="ngForm.tanggal"></div>
-                <div class="field"><label>Jam *</label><input type="time" x-model="ngForm.jam"></div>
+                <div class="field"><label>Tanggal *</label><input type="date" x-model="ngForm.tanggal" @change="syncNgPartFromProduction()"></div>
+                <div class="field"><label>Jam *</label><input type="time" x-model="ngForm.jam" @change="syncNgPartFromProduction()"></div>
                 <div class="field" style="grid-column: span 2;">
                   <label>Type NG *</label>
                   <div class="chip-row">
@@ -1112,17 +1112,18 @@
                 </div>
                 <div class="field">
                   <label>Model *</label>
-                  <select x-model="ngForm.model" @change="onModelChangeNg()">
-                    <option value="">-- pilih --</option>
+                  <select x-model="ngForm.model" disabled>
+                    <option value="">-- otomatis dari Input Produksi --</option>
                     <template x-for="m in ngModelList" :key="m.id"><option :value="m.model" x-text="m.model"></option></template>
                   </select>
                 </div>
                 <div class="field">
                   <label>Part No *</label>
-                  <select x-model="ngForm.part_number" :disabled="!ngForm.model">
-                    <option value="">-- pilih model dulu --</option>
+                  <select x-model="ngForm.part_number" disabled>
+                    <option value="">-- otomatis dari Input Produksi --</option>
                     <template x-for="pn in ngPartNoList" :key="pn.id"><option :value="pn.part_no" x-text="pn.part_no"></option></template>
                   </select>
+                  <p class="hint" :class="ngPartLocked ? '' : 'hint-warn'" x-show="ngPartHint" x-text="ngPartHint"></p>
                 </div>
                 <div class="field">
                   <label>Area *</label>
@@ -1158,7 +1159,7 @@
               </div>
               <div class="form-actions">
                 <button type="button" class="btn-ghost" x-show="editingNgId" @click="cancelEditNgInline()">Batal Edit</button>
-                <button type="submit" class="btn-primary" :disabled="ngSaving" x-text="ngSaving ? 'Menyimpan...' : (editingNgId ? 'Update NG Inline' : 'Simpan NG Inline')"></button>
+                <button type="submit" class="btn-primary" :disabled="ngSaving || !ngForm.part_number" x-text="ngSaving ? 'Menyimpan...' : (editingNgId ? 'Update NG Inline' : 'Simpan NG Inline')"></button>
               </div>
             </form>
           </div>
