@@ -529,12 +529,19 @@
                       <td x-text="detailRiwayat(row)"></td>
                       <td x-text="row._tipe === 'produksi' ? fmtNum(row.qty) : '-'"></td>
                       <td x-text="row._tipe === 'produksi' ? fmtNum(row.manpower) : '-'"></td>
-                      <td x-text="row._tipe === 'produksi' ? fmtNum(row.ngInlineQty ?? 0) : '-'"></td>
+                      <td>
+                        <template x-if="row._tipe === 'produksi' && (row.ngInlineQty ?? 0) > 0">
+                          <span class="stat-pill stat-pill-bad" x-text="fmtNum(row.ngInlineQty)"></span>
+                        </template>
+                        <template x-if="!(row._tipe === 'produksi' && (row.ngInlineQty ?? 0) > 0)">
+                          <span x-text="row._tipe === 'produksi' ? fmtNum(row.ngInlineQty ?? 0) : '-'"></span>
+                        </template>
+                      </td>
                       <td x-text="row._tipe === 'produksi' ? (row.repair ?? '-') : '-'"></td>
                       <td class="mono" x-text="row._tipe === 'produksi' ? (fmtNum(row.dandori_menit ?? 0) + ' mnt') : '-'"></td>
                       <td class="mono">
                         <template x-if="row._tipe === 'produksi' && (row.downtime_menit ?? 0) > 0">
-                          <span class="downtime-link" @click="viewDowntimeForProduction(row)" x-text="fmtNum(row.downtime_menit) + ' mnt'"></span>
+                          <span class="stat-pill stat-pill-warn downtime-link" @click="viewDowntimeForProduction(row)" x-text="fmtNum(row.downtime_menit) + ' mnt'"></span>
                         </template>
                         <template x-if="!(row._tipe === 'produksi' && (row.downtime_menit ?? 0) > 0)">
                           <span x-text="row._tipe === 'produksi' ? (fmtNum(row.downtime_menit ?? 0) + ' mnt') : '-'"></span>
@@ -1181,26 +1188,26 @@
                 <thead>
                   <tr>
                     <th>Tanggal</th><th>Type</th><th>Model</th><th>PIC</th><th>Part No</th><th>Area</th>
-                    <th>NG Proses</th><th>Qty</th><th>Value</th><th>Kategori</th><th>Reason</th><th>Foto</th><th>Aksi</th>
+                    <th>NG Proses</th><th class="num-col">Qty</th><th class="num-col">Value</th><th>Kategori</th><th>Reason</th><th>Foto</th><th>Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
                   <template x-for="row in ngInlineRows" :key="row.id">
                     <tr>
                       <td class="mono" x-text="row.tanggal"></td>
-                      <td><span class="badge" x-text="row.type_ng"></span></td>
+                      <td><span class="badge" :class="row.type_ng === 'NG TRIAL' ? 'badge-trial' : ''" x-text="row.type_ng"></span></td>
                       <td x-text="row.model"></td>
                       <td x-text="row.pic"></td>
                       <td x-text="row.part_number"></td>
                       <td x-text="row.area"></td>
                       <td x-text="row.ng_proses"></td>
-                      <td class="mono" x-text="row.qty"></td>
-                      <td class="mono" x-text="fmtRupiah(row.value)"></td>
-                      <td x-text="row.ng_kategori"></td>
+                      <td class="mono num-col" x-text="row.qty"></td>
+                      <td class="mono num-col" x-text="fmtRupiah(row.value)"></td>
+                      <td><span class="tag-chip" x-text="row.ng_kategori"></span></td>
                       <td x-text="row.reason"></td>
                       <td>
                         <a :href="row.foto_url" target="_blank" rel="noopener">
-                          <img :src="row.foto_url" style="width:44px;height:44px;object-fit:cover;border-radius:6px;" loading="lazy">
+                          <img :src="row.foto_url" class="table-thumb" loading="lazy">
                         </a>
                       </td>
                       <td style="white-space:nowrap;">
