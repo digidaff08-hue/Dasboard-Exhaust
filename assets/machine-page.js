@@ -172,6 +172,55 @@ function tanggalJamToIso(tanggal, jam) {
 }
 
 // =========================================================
+// Kompres foto (NG Inline dll) di browser SEBELUM upload ke Supabase
+// Storage. Foto dari kamera HP biasanya 3-8 MB -- untuk bukti NG di
+// dashboard itu jauh lebih besar dari yang dibutuhkan (bikin upload
+// lambat/gagal di sinyal pabrik yang lemah + boros kuota storage).
+// Di sini foto di-resize (sisi terpanjang maks 1280px, proporsional,
+// tidak diperbesar kalau aslinya sudah kecil) lalu disimpan ulang
+// sebagai JPEG kualitas 0.72 -- hasilnya biasanya ~100-300 KB, masih
+// jelas terbaca untuk keperluan dokumentasi NG.
+// Kalau proses kompres gagal (mis. format file aneh / browser lama),
+// foto ASLI tetap dipakai apa adanya -- jangan sampai gagal kompres
+// bikin user tidak bisa simpan NG Inline sama sekali.
+function compressImageFile(file, { maxDim = 1280, quality = 0.72 } = {}) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type || !file.type.startsWith("image/")) {
+      resolve(file); // bukan gambar (jarang terjadi, input accept="image/*") -- lewati saja
+      return;
+    }
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        if (width >= height) { height = Math.round((height * maxDim) / width); width = maxDim; }
+        else { width = Math.round((width * maxDim) / height); height = maxDim; }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width; canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) { resolve(file); return; } // gagal encode -- fallback ke file asli
+          // Kalau hasil kompres malah lebih besar dari aslinya (jarang,
+          // biasanya file kecil/sudah dikompres sebelumnya), pakai aslinya saja.
+          if (blob.size >= file.size) { resolve(file); return; }
+          const newName = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+          resolve(new File([blob], newName, { type: "image/jpeg" }));
+        },
+        "image/jpeg",
+        quality
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(file); }; // gagal load -- fallback ke file asli
+    img.src = objectUrl;
+  });
+}
+
+// =========================================================
 // Komponen utama
 // =========================================================
 function machinePage(machineKey, machineLabel, extraFields, routingMax, kategoriOptions, stationConfig) {
@@ -229,7 +278,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       "PENDEK", "CRACK", "MATI LISTRIK", "OTHER",
     ],
     ngForm: { tanggal: localDateStr(new Date()), jam: localTimeStr(new Date()), type_ng: "", pic: "", model: "", part_number: "", area_id: "", area: "", ng_proses: "", qty: "", harga: 0, ng_kategori: "", reason: "" },
-    ngFotoFile: null, ngFotoPreviewUrl: "", ngSaving: false,
+    ngFotoFile: null, ngFotoPreviewUrl: "", ngSaving: false, ngFotoCompressing: false,
     editingNgId: null, ngExistingFotoUrl: "",
 
     editingDowntimeId: null, dtForm: {},
@@ -1969,12 +2018,20 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const harga = Number(f.harga) || 0;
       return qty * harga;
     },
-    onNgFotoSelected(evt) {
-      const file = evt.target.files && evt.target.files[0];
-      if (!file) { this.ngFotoFile = null; this.ngFotoPreviewUrl = ""; return; }
-      this.ngFotoFile = file;
+    async onNgFotoSelected(evt) {
+      const rawFile = evt.target.files && evt.target.files[0];
+      if (!rawFile) { this.ngFotoFile = null; this.ngFotoPreviewUrl = ""; return; }
       if (this.ngFotoPreviewUrl) URL.revokeObjectURL(this.ngFotoPreviewUrl);
-      this.ngFotoPreviewUrl = URL.createObjectURL(file);
+      this.ngFotoCompressing = true;
+      try {
+        this.ngFotoFile = await compressImageFile(rawFile);
+      } catch (e) {
+        console.error("Gagal kompres foto NG Inline, pakai file asli:", e);
+        this.ngFotoFile = rawFile; // jangan sampai gagal kompres bikin tidak bisa upload sama sekali
+      } finally {
+        this.ngFotoCompressing = false;
+      }
+      this.ngFotoPreviewUrl = URL.createObjectURL(this.ngFotoFile);
     },
     resetNgForm() {
       this.ngForm = { tanggal: localDateStr(new Date()), jam: localTimeStr(new Date()), type_ng: "", pic: "", model: "", part_number: "", area_id: "", area: "", ng_proses: "", qty: "", harga: 0, ng_kategori: "", reason: "" };

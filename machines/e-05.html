@@ -1163,6 +1163,9 @@
                 <div class="field" style="grid-column: span 2;">
                   <label x-text="editingNgId ? 'Gambar (kosongkan kalau tidak ganti)' : 'Gambar *'"></label>
                   <input type="file" accept="image/*" capture="environment" @change="onNgFotoSelected($event)" x-ref="ngFotoInput">
+                  <template x-if="ngFotoCompressing">
+                    <p class="hint" style="margin-top:4px;">Mengompres foto...</p>
+                  </template>
                   <template x-if="ngFotoPreviewUrl">
                     <img :src="ngFotoPreviewUrl" style="max-width:140px;margin-top:8px;border-radius:8px;display:block;">
                   </template>
@@ -1176,7 +1179,7 @@
               </div>
               <div class="form-actions">
                 <button type="button" class="btn-ghost" x-show="editingNgId" @click="cancelEditNgInline()">Batal Edit</button>
-                <button type="submit" class="btn-primary" :disabled="ngSaving || !ngForm.part_number" x-text="ngSaving ? 'Menyimpan...' : (editingNgId ? 'Update NG Inline' : 'Simpan NG Inline')"></button>
+                <button type="submit" class="btn-primary" :disabled="ngSaving || ngFotoCompressing || !ngForm.part_number" x-text="ngSaving ? 'Menyimpan...' : (ngFotoCompressing ? 'Mengompres foto...' : (editingNgId ? 'Update NG Inline' : 'Simpan NG Inline'))"></button>
               </div>
             </form>
           </div>
