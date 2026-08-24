@@ -42,6 +42,7 @@ direstrukturisasi total untuk Welding (line flat, tanpa sub-stasiun).
 ├── migration_repair_v7_fix_delete.sql              # 13) Perbaiki hapus Part 3D yang sudah ada riwayat Repair-nya
 ├── migration_repair_v8_part_color.sql              # 14) Warna custom per Part 3D (file .stl tidak simpan warna)
 ├── migration_plan_produksi.sql                     # 15) Tabel Plan Harian (per part/line/shift) + Backlog + RPC actual
+├── migration_enable_realtime.sql                   # 16) Aktifkan Supabase Realtime (live update antar tab/HP)
 └── reset_welding.sql                              # Utilitas: reset total kalau setup gagal di tengah
 ```
 
@@ -178,3 +179,21 @@ sudah jalan lebih dulu, karena pakai type `machine_type` & tabel
 Screenshot **tab Console** di browser (`F12` → Console, atau Safari:
 Develop > Show Web Inspector) — itu paling cepat untuk melacak
 penyebabnya.
+
+---
+
+## Realtime (update otomatis antar tab/HP)
+Halaman line (E-02...E-07) otomatis dapat perubahan data **secara live**
+dari device/tab lain lewat Supabase Realtime — tanpa perlu reload.
+Berlaku untuk: Input Produksi, Input Produksi NEW, Downtime,
+Non-Produksi/Dandori, NG Inline, dan Repair (termasuk titik 3D-nya).
+
+**Wajib jalankan sekali** `migration_enable_realtime.sql` di Supabase SQL
+Editor supaya fitur ini aktif (kalau belum dijalankan, tabel-tabelnya
+belum terdaftar untuk kirim event realtime — form tetap jalan normal
+seperti biasa, cuma tidak ada auto-update-nya).
+
+Cara cek: buka line yang sama di 2 tab/HP berbeda, simpan data (misal
+NG Inline) di salah satunya — tab satunya harus otomatis muncul data
+barunya dalam ±1 detik tanpa perlu di-refresh.
+

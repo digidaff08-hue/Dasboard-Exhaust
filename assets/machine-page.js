@@ -304,11 +304,78 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           if (this.tab === "performance") this.fetchPerfSection(this.activePerfSection);
         });
         await this.syncNow();
+        this.initRealtime();
       } catch (err) {
         this.flash("Gagal memuat halaman: " + (err.message || err), true);
       } finally {
         this.loading = false;
       }
+    },
+
+    // =========================================================
+    // REALTIME — biar semua tab/HP yang lagi buka line yang sama otomatis
+    // ke-update begitu ADA SIAPA SAJA (device manapun) simpan/ubah/hapus
+    // data Produksi/Downtime/Non-Produksi/NG Inline/Repair, TANPA reload.
+    // Pakai Supabase Realtime (postgres_changes) -- perlu tabelnya sudah
+    // didaftarkan ke publication `supabase_realtime` (lihat
+    // migration_enable_realtime.sql, jalankan sekali di Supabase).
+    // =========================================================
+    _rtChannel: null,
+    _rtDebounceTimers: {},
+    // Kumpulkan beberapa event yang datang beruntun (mis. sync offline
+    // banyak baris sekaligus) jadi 1 kali fetch saja, biar tidak spam.
+    debouncedRealtimeFetch(key, fn, delayMs = 400) {
+      clearTimeout(this._rtDebounceTimers[key]);
+      this._rtDebounceTimers[key] = setTimeout(fn, delayMs);
+    },
+    initRealtime() {
+      if (this._rtChannel) return; // sudah jalan, jangan dobel subscribe
+      const mesinFilter = `mesin=eq.${machineKey}`;
+      const REALTIME_TABLE_FETCHERS = {
+        production_log: () => this.fetchProduction(),
+        production_log_new: () => this.fetchProduksiNew(),
+        downtime_log: () => this.fetchDowntime(),
+        dandori_log: () => this.fetchNonProduksi(),
+        ng_inline_log: () => this.fetchNgInline(),
+        repair_log: () => this.fetchRepairLog(),
+        repair_views: () => this.fetchRepairViews(),
+      };
+      let channel = supabaseClient.channel("rt_machine_" + machineKey);
+      Object.keys(REALTIME_TABLE_FETCHERS).forEach((table) => {
+        channel = channel.on(
+          "postgres_changes",
+          { event: "*", schema: "public", table, filter: mesinFilter },
+          () => {
+            this.debouncedRealtimeFetch(table, REALTIME_TABLE_FETCHERS[table]);
+            // Data berubah -> angka di tab Performance yang sudah pernah
+            // dibuka user jadi basi, refresh juga (di-debounce terpisah).
+            this.debouncedRealtimeFetch("perf_after_" + table, () => this.refreshLoadedPerf(), 800);
+          }
+        );
+      });
+      // repair_points tidak punya kolom "mesin" langsung (nempel ke
+      // view_id -> repair_views.mesin), jadi difilter manual di JS: cuma
+      // proses kalau view_id-nya memang salah satu part 3D milik line ini.
+      channel = channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "repair_points" },
+        (payload) => {
+          const viewId = (payload.new && payload.new.view_id) || (payload.old && payload.old.view_id);
+          if (!viewId) return;
+          if (!this.repairViews.some((v) => v.id === viewId)) return; // bukan part 3D milik line ini
+          this.debouncedRealtimeFetch("repair_points_" + viewId, async () => {
+            if (viewId === this.repairActiveViewId) {
+              await this.fetchRepairPoints(viewId);
+              this.rebuildRepairMarkers();
+            }
+          });
+        }
+      );
+      this._rtChannel = channel.subscribe();
+      // Tutup koneksi realtime rapi-rapi kalau tab ditutup/pindah halaman.
+      window.addEventListener("beforeunload", () => {
+        if (this._rtChannel) supabaseClient.removeChannel(this._rtChannel);
+      });
     },
 
     flash(msg, isError = false) {
