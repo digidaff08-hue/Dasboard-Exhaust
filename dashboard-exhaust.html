@@ -2279,17 +2279,22 @@ function dashboardExhaust() {
       this.refetchActiveTab();
     },
     async refetchActiveTab() {
+      // PENTING: sengaja TIDAK memanggil destroyXCharts() di sini.
+      // renderXCharts() sudah destroy+recreate tiap chart SATU-PER-SATU,
+      // tepat saat data baru siap -- jadi transisinya halus. Kalau semua
+      // chart di-destroy duluan di sini (sebelum data baru datang),
+      // panelnya sempat kosong dulu baru terisi lagi -> itu yang bikin
+      // "berkedip blank". fetchBulanan/fetchTahunan juga dipanggil dengan
+      // {silent:true} supaya skeleton "Memuat data..." tidak muncul lagi
+      // (konten lama tetap terlihat sampai data baru selesai diambil).
       if (this.activeTab === "bulanan") {
-        this.destroyBulananCharts();
-        await this.fetchBulanan();
+        await this.fetchBulanan({ silent: true });
         this.$nextTick(() => this.renderBulananCharts());
       } else if (this.activeTab === "tahunan") {
-        this.destroyTahunanCharts();
-        await this.fetchTahunan();
+        await this.fetchTahunan({ silent: true });
         this.$nextTick(() => this.renderTahunanCharts());
       } else if (this.activeTab === "kualitas") {
-        this.destroyKualitasCharts();
-        await this.fetchTahunan();
+        await this.fetchTahunan({ silent: true });
         await this.fetchQcNgInline();
         await this.fetchQcNgTrial();
         await this.fetchQcRepairDetail();
@@ -2324,9 +2329,13 @@ function dashboardExhaust() {
     //        Bulanan) -- lihat openProblemDetail(). Contoh SQL disiapkan
     //        terpisah, belum dibuat di Supabase.
     // -----------------------------------------------------------------
-    async fetchBulanan() {
+    async fetchBulanan(opts = {}) {
       if (this.bulananLoaded) return;
-      this.bulananLoading = true;
+      // silent=true dipakai oleh refresh realtime -- data tetap diambil ulang,
+      // tapi TIDAK menampilkan skeleton "Memuat data..." (yang bikin seluruh
+      // panel sempat blank/kedip karena x-if melepas-lalu-pasang ulang DOM).
+      // Konten lama tetap tampil sampai data baru siap, baru diganti halus.
+      if (!opts.silent) this.bulananLoading = true;
       try {
         const year = this.bulananYear;
         const month = this.bulananMonth; // 1-12
@@ -2473,12 +2482,12 @@ function dashboardExhaust() {
       } catch (e) {
         console.error("Gagal mengambil data Bulanan (harian):", e);
       } finally {
-        this.bulananLoading = false;
+        if (!opts.silent) this.bulananLoading = false;
       }
     },
-    async fetchTahunan() {
+    async fetchTahunan(opts = {}) {
       if (this.tahunanLoaded) return;
-      this.tahunanLoading = true;
+      if (!opts.silent) this.tahunanLoading = true;
       try {
         const now = new Date();
         // Fiscal year: April -> Maret. Tahun mulai FY dipilih dari dropdown Tahunan.
@@ -2615,7 +2624,7 @@ function dashboardExhaust() {
       } catch (e) {
         console.error("Gagal mengambil data Tahunan:", e);
       } finally {
-        this.tahunanLoading = false;
+        if (!opts.silent) this.tahunanLoading = false;
       }
     },
     // ---- Helper baru khusus redesign Tahunan (Smart Narrative) ----
