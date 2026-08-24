@@ -2214,6 +2214,89 @@ function dashboardExhaust() {
       this.loading = false;
       if (this.activeTab === "bulanan") await this.setTab("bulanan");
       if (this.activeTab === "tahunan") await this.setTab("tahunan");
+      this.initRealtime();
+    },
+    // =========================================================
+    // REALTIME -- begitu ADA SIAPA SAJA (device manapun, line manapun)
+    // simpan/ubah/hapus data Produksi/Downtime/Non-Produksi/NG Inline/
+    // Repair, dashboard ini otomatis refresh angka & tabelnya TANPA
+    // reload. Tabelnya sama seperti yang sudah didaftarkan realtime-nya
+    // untuk halaman line (lihat migration_enable_realtime.sql -- SQL-nya
+    // TIDAK perlu dijalankan ulang kalau sudah pernah, tabelnya sama).
+    //
+    // Dashboard ini isinya SEMUA hasil RPC rekap (bulanan/tahunan/kualitas),
+    // bukan baca tabel mentah langsung, jadi begitu ada perubahan, cara
+    // paling aman & benar adalah fetch ULANG rekapnya dari RPC (bukan
+    // ubah angka di JS) -- makanya di bawah ini cache "*Loaded" tab yang
+    // bersangkutan di-reset lalu tab yang SEDANG DIBUKA user di-fetch
+    // ulang otomatis. Tab lain yang tidak sedang dibuka cukup ditandai
+    // "belum loaded" -- otomatis fetch fresh nanti begitu user pindah
+    // ke tab itu (lewat setTab(), tidak perlu proses tambahan).
+    // =========================================================
+    _rtChannel: null,
+    _rtDebounceTimers: {},
+    // Kumpulkan beberapa event yang datang beruntun (mis. sync offline
+    // banyak baris sekaligus dari beberapa line) jadi 1 kali refresh
+    // saja, biar tidak spam request RPC ke Supabase.
+    debouncedRealtimeFetch(key, fn, delayMs = 600) {
+      clearTimeout(this._rtDebounceTimers[key]);
+      this._rtDebounceTimers[key] = setTimeout(fn, delayMs);
+    },
+    initRealtime() {
+      if (this._rtChannel) return; // sudah jalan, jangan dobel subscribe
+      const REALTIME_TABLES = [
+        "production_log", "production_log_new", "downtime_log",
+        "dandori_log", "ng_inline_log", "repair_log", "repair_views",
+      ];
+      let channel = supabaseClient.channel("rt_dashboard_exhaust");
+      REALTIME_TABLES.forEach((table) => {
+        channel = channel.on(
+          "postgres_changes",
+          { event: "*", schema: "public", table },
+          () => {
+            // 1 timer bersama ("refresh") supaya perubahan di beberapa
+            // tabel sekaligus (mis. Produksi + Downtime hampir bareng)
+            // tetap cuma memicu SATU kali refresh, bukan berkali-kali.
+            this.debouncedRealtimeFetch("refresh", () => this.handleRealtimeChange());
+          }
+        );
+      });
+      this._rtChannel = channel.subscribe();
+      // Tutup koneksi realtime rapi-rapi kalau tab ditutup/pindah halaman.
+      window.addEventListener("beforeunload", () => {
+        if (this._rtChannel) supabaseClient.removeChannel(this._rtChannel);
+      });
+    },
+    // Tandai semua cache tab sebagai basi, lalu refetch tab yang lagi dibuka.
+    handleRealtimeChange() {
+      this.bulananLoaded = false;
+      this.tahunanLoaded = false;
+      this.qcNgInlineLoaded = false;
+      this.qcNgTrialLoaded = false;
+      this.qcRepairDetailLoaded = false;
+      this.qcRepairPerlineModelLoaded = false;
+      this.qcStraightpassLoaded = false;
+      this.refetchActiveTab();
+    },
+    async refetchActiveTab() {
+      if (this.activeTab === "bulanan") {
+        this.destroyBulananCharts();
+        await this.fetchBulanan();
+        this.$nextTick(() => this.renderBulananCharts());
+      } else if (this.activeTab === "tahunan") {
+        this.destroyTahunanCharts();
+        await this.fetchTahunan();
+        this.$nextTick(() => this.renderTahunanCharts());
+      } else if (this.activeTab === "kualitas") {
+        this.destroyKualitasCharts();
+        await this.fetchTahunan();
+        await this.fetchQcNgInline();
+        await this.fetchQcNgTrial();
+        await this.fetchQcRepairDetail();
+        await this.fetchQcRepairPerlineModel();
+        await this.fetchQcStraightpassBreakdown();
+        this.$nextTick(() => this.renderKualitasCharts());
+      }
     },
     // -----------------------------------------------------------------
     // Ambil data Bulanan (HARIAN, tanggal 1-31) dari Supabase.
