@@ -230,6 +230,22 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
   // dibungkus Proxy reaktif Alpine -> error "read-only ... proxy".
   let repairThreeState = null;
   const repairGeometryCache = new Map(); // view.id -> { object: THREE.Mesh|THREE.Group, box: THREE.Box3 } (biar ganti part gak fetch ulang file 3D-nya)
+  // Warna garis las (Point bentuk jalur/path) -- merah normal, oranye
+  // saat digambar (drag berlangsung), oranye-terang saat kursor lagi
+  // nempel/hover di garisnya (lihat buildWeldLineMarker & setRepairHover).
+  const WELD_LINE_COLOR = "#dc2626";
+  const WELD_LINE_HOVER_COLOR = "#fb923c";
+  const WELD_LINE_DRAW_COLOR = "#fbbf24";
+  const WELD_LINE_OPACITY_VIEW = 0;     // Mode Lihat biasa -- INVISIBLE total, cuma nongol pas di-hover
+  const WELD_LINE_OPACITY_EDIT = 0.55;  // Mode Edit Point -- tetap keliatan (tipis) biar admin bisa kelola
+  const WELD_LINE_HOVER_OPACITY = 1;    // pas kursor/jari nempel -- nyala jelas, di mode manapun
+  // Point yang lagi DIPILIH (buat Geser/Ukuran/Edit Titik) -- warna hijau,
+  // selalu nyala jelas, beda dari merah biasa & oranye hover, biar keliatan
+  // jelas Point mana yang lagi diedit (lihat selectRepairPoint & buildWeldLineMarker).
+  const WELD_LINE_SELECTED_COLOR = "#16a34a";
+  const WELD_LINE_OPACITY_SELECTED = 0.95;
+  const VERTEX_HANDLE_COLOR = "#2563eb"; // bola kecil biru -- handle buat geser 1 titik jalur (Edit Titik)
+  const BBOX_HANDLE_COLOR = "#f97316"; // kotak kecil oranye -- handle Ukuran gaya Excel/PowerPoint (sudut & tengah sisi)
   return {
     session: null, profile: null, tab: "produksi_new", loading: true,
     errorMsg: "", successMsg: "",
@@ -296,8 +312,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     repairModalOpen: false, repairModalPoint: null, repairSaving: false,
     editingRepairId: null,
     // Mode admin buat naruh titik baru di Master Data
-    repairEditMode: false, repairNewViewLabel: "", repairNewViewFile: null, repairViewUploading: false,
+    repairEditMode: false, repairDrawShape: "freehand", repairNewViewLabel: "", repairNewViewFile: null, repairViewUploading: false,
     repairNewViewColor: "#9aa4ad",
+    // Point yang lagi dipilih buat di-edit (Geser/Ukuran/Edit Titik), dan
+    // sub-mode aksi yang lagi aktif buat Point itu (lihat selectRepairPoint,
+    // setRepairActionMode, dan toolbar di HTML: repair-point-toolbar).
+    repairSelectedPointId: null, repairPointActionMode: null, // null | 'move' | 'reshape'
     // State viewer 3D (Three.js) -- diisi runtime, bukan reactive data biasa
     repairModelLoading: false,
 
@@ -2340,12 +2360,22 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // ---- Master Data: Point & Model 3D (admin) ----
     toggleRepairEditMode() {
       this.repairEditMode = !this.repairEditMode;
+      // Keluar dari Mode Edit -> batalkan pilihan Point & sub-mode Geser/
+      // Edit Titik yang mungkin masih aktif, biar gak "nyangkut".
+      if (!this.repairEditMode) { this.repairSelectedPointId = null; this.repairPointActionMode = null; }
+      // Garis las tampil beda tergantung mode -- selalu keliatan pas lagi
+      // Mode Edit (biar admin bisa lihat & kelola semua Point), tapi
+      // sengaja DIBUAT INVISIBLE di Mode Lihat biasa sampai di-hover
+      // (lihat buildWeldLineMarker) -- jadi perlu gambar ulang tiap kali
+      // mode-nya ganti.
+      this.rebuildRepairMarkers();
     },
     async deleteRepairPoint(id) {
       if (!confirm("Hapus Point ini?")) return;
       const { error } = await supabaseClient.from("repair_points").delete().eq("id", id);
       if (error) { this.flash("Gagal hapus Point: " + error.message, true); return; }
       this.repairPoints = this.repairPoints.filter((p) => p.id !== id);
+      if (this.repairSelectedPointId === id) { this.repairSelectedPointId = null; this.repairPointActionMode = null; }
       this.rebuildRepairMarkers();
     },
     onRepairNewViewFileChange(ev) {
@@ -2580,6 +2610,25 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           THREE, scene, camera, renderer, controls, mesh,
           raycaster: new THREE.Raycaster(), pointer: new THREE.Vector2(),
           markers: [], container, currentViewId: view.id, animId: null, paused: false,
+          // --- state buat gambar garis las (drag-trace) & hover highlight ---
+          weldLineMeshes: new Map(), // pointId -> { visible: Mesh, hit: Mesh }
+          hoveredPointId: null,
+          drawing: false, drawMode: null, drawPath: [], drawNormals: [], previewMesh: null,
+          drawCenter: null, drawCenterNormal: null, drawCurrent: null, // buat mode Lingkaran/Kotak
+          centerLocal: null, // titik tengah bbox part (lokal) -- di-update tiap rebuildRepairMarkers()
+          lastClientX: 0, lastClientY: 0,
+          // --- state buat Geser (move) & Edit Titik (reshape per-vertex) Point yang lagi dipilih ---
+          vertexHandles: [], // bola biru (Edit Titik) ATAU kotak oranye (Ukuran) -- cuma salah satu yang aktif sekaligus
+          moveDragging: false, moveStartLocal: null, moveOrigPoints: null, moveClosed: false, moveNormalRef: null,
+          vertexDragging: false, vertexDragPointId: null, vertexDragIndex: null, vertexHandleCount: 0,
+          vertexDragBasePoints: null, vertexDragNormalRef: null, vertexDragPlaneCenter: null,
+          // --- state buat kotak seleksi Ukuran gaya Excel/PowerPoint (lihat buildBBoxHandles) ---
+          bboxInfo: null, // snapshot bbox (centroid/basis u,v/rentang a,b) dari render TERAKHIR -- buat nge-klik handle
+          resizeDragging: false, resizeHandleName: null, resizeOrigPoints: null, resizeClosed: false, resizeBBox: null,
+          // Preview LIVE selagi geser/edit titik lagi berlangsung (belum tersimpan ke server) --
+          // dipakai rebuildRepairMarkers/buildWeldLineMarker buat gambar posisi sementara.
+          dragPreviewPointId: null, dragPreviewPoints: null, dragPreviewClosed: false,
+          maxDim: 1, // di-update tiap rebuildRepairMarkers() -- dipakai buat ukuran preview garis pas drawing
           // Disimpan supaya bisa dipakai reset kamera tiap kali tab Repair
           // dibuka lagi -- lihat resetRepairCameraView() & resumeRepair3D().
           // PENTING: TrackballControls (beda dari OrbitControls) ikut
@@ -2661,13 +2710,26 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (r.animId) cancelAnimationFrame(r.animId);
       if (r.resizeObserver) r.resizeObserver.disconnect();
       if (r.controls) r.controls.dispose();
-      (r.markers || []).forEach((m) => { m.material.map && m.material.map.dispose(); m.material.dispose(); });
+      this.clearRepairDrawPreview();
+      (r.markers || []).forEach((m) => this.disposeRepairObject(m));
+      if (r.weldLineMeshes) r.weldLineMeshes.forEach((wl) => this.disposeRepairObject(wl.visible));
+      (r.vertexHandles || []).forEach((m) => this.disposeRepairObject(m));
       // Mesh/Group (termasuk material-nya) SENGAJA tidak di-dispose di sini
       // -- disimpan utuh di repairGeometryCache biar bisa dipakai lagi
       // instan pas user balik ke part ini (lihat loadRepairModel). Cuma
       // dibuang beneran kalau part-nya dihapus (lihat deleteRepairView).
       if (r.renderer) { r.renderer.dispose(); r.renderer.domElement.remove(); }
       repairThreeState = null;
+    },
+    // Helper buang geometry+material 1 objek repair (sprite bola LAMA
+    // ataupun Mesh tube garis las BARU) -- dipakai di teardown & rebuild.
+    disposeRepairObject(obj) {
+      if (!obj) return;
+      if (obj.geometry) obj.geometry.dispose();
+      if (obj.material) {
+        if (obj.material.map) obj.material.map.dispose();
+        obj.material.dispose();
+      }
     },
     makeRepairMarkerSprite(THREE, label) {
       // Bola kecil bergradasi (bukan garis+lingkaran) -- sengaja dibikin
@@ -2712,17 +2774,101 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // digeser ke titik tertentu kayak desain garis/pin sebelumnya.
       sprite.center.set(0.5, 0.5);
       sprite.userData.aspect = 1;
+      sprite.userData.isRepairAux = true;
       sprite.renderOrder = 999;
       return sprite;
+    },
+    // Bikin garis las (tube 3D tipis) buat Point yang punya "path" (jalur
+    // hasil drag-trace) -- 1 mesh TIPIS buat tampilan (warna merah), + 1
+    // mesh LEBIH GEMUK yang di-invisible-kan (cuma buat target klik/hover,
+    // biar gampang kena walau jarinya agak meleset dari garis persis).
+    // Terima 1 path RAW (bisa array bare [{x,y,z},...] = format LAMA/garis
+    // terbuka, ATAU object {points:[...], closed:true} = format BARU buat
+    // garis TERTUTUP/loop -- lingkaran, kotak, atau garis bebas yang balik
+    // nyambung ke titik awal). Selalu dikembalikan bentuk seragam supaya
+    // kode lain (render, dsb) gak perlu mikirin dua format sekaligus.
+    normalizeRepairPath(path) {
+      if (!path) return null;
+      if (Array.isArray(path)) return path.length ? { points: path, closed: false } : null;
+      if (path && Array.isArray(path.points)) return { points: path.points, closed: !!path.closed };
+      return null;
+    },
+    buildWeldLineMarker(THREE, r, pt, maxDim, centerLocal, norm) {
+      let normal = null;
+      if (pt.nx != null && pt.ny != null && pt.nz != null) {
+        normal = new THREE.Vector3(pt.nx, pt.ny, pt.nz);
+        if (normal.lengthSq() < 1e-8) normal = null; else normal.normalize();
+      }
+      // Kalau Point ini lagi di-Geser/di-Edit Titik (belum di-save), pakai
+      // jalur PREVIEW sementara (lihat startMoveDrag/extendMoveDrag dkk),
+      // bukan jalur asli dari server -- biar keliatan bergerak live.
+      const isDragPreview = r.dragPreviewPointId === pt.id && r.dragPreviewPoints;
+      const points = isDragPreview ? r.dragPreviewPoints : norm.points;
+      const offsetDist = maxDim * 0.006;
+      // dorong tiap titik jalur keluar dikit dari permukaan (searah normal)
+      // biar gak z-fighting/kedip nempel persis di kulit model.
+      const pushed = points.map((p) => {
+        let n = normal;
+        if (!n) {
+          n = new THREE.Vector3(p.x - centerLocal.x, p.y - centerLocal.y, p.z - centerLocal.z);
+          if (n.lengthSq() < 1e-8) n.set(0, 0, 1); else n.normalize();
+        }
+        return new THREE.Vector3(p.x + n.x * offsetDist, p.y + n.y * offsetDist, p.z + n.z * offsetDist);
+      });
+      const closed = isDragPreview ? r.dragPreviewClosed : norm.closed;
+      const curve = new THREE.CatmullRomCurve3(pushed, closed, "centripetal", 0.5);
+      const tubularSegments = Math.max(16, Math.min(160, pushed.length * 6));
+
+      // Point yang lagi DIPILIH (buat toolbar Geser/Ukuran/Edit Titik) selalu
+      // tampil hijau & jelas, apapun Mode Lihat/Edit-nya. Selain itu: garis
+      // INVISIBLE total di Mode Lihat (opacity 0 -- cuma nongol pas di-hover),
+      // tapi tetap keliatan tipis di Mode Edit Point biar admin bisa lihat &
+      // kelola semua Point yang ada (lihat toggleRepairEditMode).
+      const isSelected = this.repairSelectedPointId === pt.id;
+      const baseOpacity = isSelected ? WELD_LINE_OPACITY_SELECTED : (this.repairEditMode ? WELD_LINE_OPACITY_EDIT : WELD_LINE_OPACITY_VIEW);
+      const lineColor = isSelected ? WELD_LINE_SELECTED_COLOR : WELD_LINE_COLOR;
+      const visibleGeo = new THREE.TubeGeometry(curve, tubularSegments, Math.max(maxDim * 0.0022, 0.03), 6, closed);
+      const visibleMat = new THREE.MeshBasicMaterial({
+        color: lineColor, toneMapped: false,
+        transparent: true, opacity: baseOpacity, depthWrite: false,
+      });
+      const visibleMesh = new THREE.Mesh(visibleGeo, visibleMat);
+      visibleMesh.renderOrder = 998;
+      visibleMesh.userData.isRepairAux = true;
+
+      // Tube "hit zone" -- LEBIH GEMUK dari yang keliatan, invisible (tidak
+      // dirender) tapi TETAP kena raycast (raycaster three.js tidak
+      // memfilter berdasar .visible) -- ini yang bikin area klik/hover
+      // nyaman dipencet walau garis visualnya sendiri tipis.
+      const hitGeo = new THREE.TubeGeometry(curve, tubularSegments, Math.max(maxDim * 0.022, 0.15), 6, closed);
+      const hitMesh = new THREE.Mesh(hitGeo, new THREE.MeshBasicMaterial({ visible: false }));
+      hitMesh.userData.pointId = pt.id;
+      hitMesh.userData.isRepairAux = true;
+
+      r.mesh.add(visibleMesh);
+      r.mesh.add(hitMesh);
+      r.markers.push(hitMesh);
+      // baseOpacity disimpan biar setRepairHover tau harus "balik" ke
+      // opacity berapa pas kursor lepas dari garis ini (beda-beda tergantung
+      // Mode Lihat/Edit yang aktif waktu garis ini terakhir di-render).
+      r.weldLineMeshes.set(pt.id, { visible: visibleMesh, hit: hitMesh, baseOpacity });
     },
     rebuildRepairMarkers() {
       const r = repairThreeState; if (!r) return;
       const THREE = r.THREE;
-      (r.markers || []).forEach((m) => { r.mesh.remove(m); m.material.map && m.material.map.dispose(); m.material.dispose(); });
+      (r.markers || []).forEach((m) => { r.mesh.remove(m); this.disposeRepairObject(m); });
+      if (r.weldLineMeshes) {
+        r.weldLineMeshes.forEach((wl) => { r.mesh.remove(wl.visible); this.disposeRepairObject(wl.visible); });
+      }
+      (r.vertexHandles || []).forEach((m) => { r.mesh.remove(m); this.disposeRepairObject(m); });
       r.markers = [];
+      r.weldLineMeshes = new Map();
+      r.vertexHandles = [];
+      r.hoveredPointId = null;
       const bbox = new THREE.Box3().setFromObject(r.mesh);
       const size = new THREE.Vector3(); bbox.getSize(size);
       const maxDim = Math.max(size.x, size.y, size.z) || 1;
+      r.maxDim = maxDim; // dipakai lagi pas gambar garis baru (live preview)
       const spriteScale = maxDim * 0.05; // dikecilin dikit lagi dari 0.066
       // dorong marker sedikit keluar dari permukaan (searah normal) biar
       // tidak "z-fighting" (kedip) pas persis nempel permukaan, tapi tetap
@@ -2730,11 +2876,21 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const offsetDist = maxDim * 0.018;
       // titik tengah bbox dalam koordinat LOKAL (sama ruang dgn titik point) --
       // dipakai sebagai cadangan arah normal buat Point lama yang belum
-      // punya nx/ny/nz tersimpan.
+      // punya nx/ny/nz tersimpan, DAN buat nentuin arah "keluar" awal pas
+      // mulai gambar Lingkaran/Kotak (lihat approxRepairNormal).
       const centerWorld = new THREE.Vector3(); bbox.getCenter(centerWorld);
       const centerLocal = r.mesh.worldToLocal(centerWorld.clone());
+      r.centerLocal = centerLocal;
 
       this.repairPoints.forEach((pt) => {
+        const norm = this.normalizeRepairPath(pt.path);
+        const minPts = norm && norm.closed ? 3 : 2;
+        if (norm && norm.points.length >= minPts) {
+          // --- Point BARU: garis las (jalur bebas, lingkaran, atau kotak) ---
+          this.buildWeldLineMarker(THREE, r, pt, maxDim, centerLocal, norm);
+          return;
+        }
+        // --- Point LAMA: bola merah tunggal (sebelum fitur garis las) ---
         const sprite = this.makeRepairMarkerSprite(THREE, pt.label);
         sprite.scale.set(spriteScale, spriteScale * sprite.userData.aspect, 1);
         let normal;
@@ -2755,11 +2911,224 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         r.mesh.add(sprite); // anak dari mesh -> otomatis ikut transform centering
         r.markers.push(sprite);
       });
+
+      // ---- Handle "Edit Titik" (bola kecil biru) -- cuma muncul buat Point
+      // yang lagi DIPILIH & sub-mode "reshape" aktif (lihat setRepairActionMode).
+      // Jumlahnya SENGAJA DIBATASI (maks ~10) biar gak numpuk & gampang
+      // dipencet -- geser satu bola, titik-titik SEKITARNYA di jalur asli
+      // ikut ketarik halus (lihat extendVertexDrag), jadi garis tetap mulus
+      // walau handle-nya dikit.
+      if (this.repairPointActionMode === "reshape" && this.repairSelectedPointId) {
+        const selPt = this.repairPoints.find((p) => p.id === this.repairSelectedPointId);
+        const selNorm = selPt ? this.normalizeRepairPath(selPt.path) : null;
+        if (selPt && selNorm) {
+          const isPreview = r.dragPreviewPointId === selPt.id && r.dragPreviewPoints;
+          const vpts = isPreview ? r.dragPreviewPoints : selNorm.points;
+          const n = vpts.length;
+          const targetHandles = Math.min(n, 10);
+          const handleIndices = [];
+          for (let i = 0; i < targetHandles; i++) {
+            const idx = targetHandles > 1 ? Math.round((i * (n - 1)) / (targetHandles - 1)) : 0;
+            if (!handleIndices.includes(idx)) handleIndices.push(idx);
+          }
+          r.vertexHandleCount = handleIndices.length;
+          const handleRadius = Math.max(maxDim * 0.016, 0.16);
+          handleIndices.forEach((idx) => {
+            const p = vpts[idx];
+            let hn;
+            if (selPt.nx != null && selPt.ny != null && selPt.nz != null) {
+              hn = new THREE.Vector3(selPt.nx, selPt.ny, selPt.nz);
+              if (hn.lengthSq() < 1e-8) hn = null; else hn.normalize();
+            }
+            if (!hn) {
+              hn = new THREE.Vector3(p.x - centerLocal.x, p.y - centerLocal.y, p.z - centerLocal.z);
+              if (hn.lengthSq() < 1e-8) hn.set(0, 0, 1); else hn.normalize();
+            }
+            const geo = new THREE.SphereGeometry(handleRadius, 14, 12);
+            const mat = new THREE.MeshBasicMaterial({ color: VERTEX_HANDLE_COLOR, toneMapped: false, depthTest: false });
+            const handle = new THREE.Mesh(geo, mat);
+            handle.position.set(p.x + hn.x * offsetDist * 2.6, p.y + hn.y * offsetDist * 2.6, p.z + hn.z * offsetDist * 2.6);
+            handle.userData.isRepairAux = true;
+            handle.userData.isVertexHandle = true;
+            handle.userData.pointId = selPt.id;
+            handle.userData.vertexIndex = idx;
+            handle.renderOrder = 1000;
+            r.mesh.add(handle);
+            r.vertexHandles.push(handle);
+          });
+        }
+      }
+
+      // ---- Kotak seleksi ala Excel/PowerPoint (8 handle: 4 sudut + 4 tengah
+      // sisi) -- muncul OTOMATIS begitu Point (bentuk jalur) dipilih, selama
+      // BUKAN lagi sub-mode "Edit Titik". Seret sudut/sisi = Ukuran, seret
+      // badan garisnya sendiri = Geser (lihat buildBBoxHandles di bawah &
+      // startResizeDrag/startMoveDrag).
+      if (this.repairPointActionMode !== "reshape" && this.repairSelectedPointId) {
+        const selPt = this.repairPoints.find((p) => p.id === this.repairSelectedPointId);
+        const selNorm = selPt ? this.normalizeRepairPath(selPt.path) : null;
+        if (selPt && selNorm) this.buildBBoxHandles(THREE, r, selPt, selNorm, maxDim, centerLocal, offsetDist);
+      }
+    },
+    // Kotak seleksi gaya Excel/PowerPoint: hitung bbox 2D (a,b) di bidang
+    // singgung (tangent plane) shape-nya, lalu taruh 8 handle di sudut &
+    // tengah sisi kotak itu. Basis (u,v,normal) & rentang a/b disimpan di
+    // r.bboxInfo supaya bisa dipakai lagi pas mulai drag (startResizeDrag).
+    buildBBoxHandles(THREE, r, pt, norm, maxDim, centerLocal, offsetDist) {
+      const isPreview = r.dragPreviewPointId === pt.id && r.dragPreviewPoints;
+      const pts = isPreview ? r.dragPreviewPoints : norm.points;
+      let normal;
+      if (pt.nx != null && pt.ny != null && pt.nz != null) {
+        normal = new THREE.Vector3(pt.nx, pt.ny, pt.nz);
+        if (normal.lengthSq() < 1e-8) normal = null; else normal.normalize();
+      }
+      const centroid = pts.reduce((acc, p) => acc.add(new THREE.Vector3(p.x, p.y, p.z)), new THREE.Vector3()).divideScalar(pts.length);
+      if (!normal) {
+        normal = centroid.clone().sub(centerLocal);
+        if (normal.lengthSq() < 1e-8) normal.set(0, 0, 1); else normal.normalize();
+      }
+      const { u, v } = this.repairTangentBasis(THREE, normal);
+      let aMin = Infinity, aMax = -Infinity, bMin = Infinity, bMax = -Infinity;
+      pts.forEach((p) => {
+        const rel = new THREE.Vector3(p.x, p.y, p.z).sub(centroid);
+        const a = rel.dot(u), b = rel.dot(v);
+        if (a < aMin) aMin = a; if (a > aMax) aMax = a;
+        if (b < bMin) bMin = b; if (b > bMax) bMax = b;
+      });
+      // Kasih sedikit "napas" biar handle gak nempel persis di garisnya.
+      const pad = Math.max((aMax - aMin) * 0.08, (bMax - bMin) * 0.08, maxDim * 0.01);
+      aMin -= pad; aMax += pad; bMin -= pad; bMax += pad;
+      const aMid = (aMin + aMax) / 2, bMid = (bMin + bMax) / 2;
+      r.bboxInfo = { centroid, u, v, normal, aMin, aMax, bMin, bMax, aMid, bMid };
+      const defs = [
+        { name: "nw", a: aMin, b: bMax, corner: true },
+        { name: "ne", a: aMax, b: bMax, corner: true },
+        { name: "se", a: aMax, b: bMin, corner: true },
+        { name: "sw", a: aMin, b: bMin, corner: true },
+        { name: "n", a: aMid, b: bMax, corner: false },
+        { name: "s", a: aMid, b: bMin, corner: false },
+        { name: "e", a: aMax, b: bMid, corner: false },
+        { name: "w", a: aMin, b: bMid, corner: false },
+      ];
+      const handleSize = Math.max(maxDim * 0.022, 0.22);
+      defs.forEach((d) => {
+        const pos3D = centroid.clone().add(u.clone().multiplyScalar(d.a)).add(v.clone().multiplyScalar(d.b));
+        const posOut = pos3D.clone().add(normal.clone().multiplyScalar(offsetDist * 3.2));
+        const geo = d.corner
+          ? new THREE.BoxGeometry(handleSize, handleSize, Math.max(handleSize * 0.35, 0.03))
+          : new THREE.BoxGeometry(handleSize * 0.75, handleSize * 0.75, Math.max(handleSize * 0.3, 0.03));
+        // depthTest: false -- handle SELALU tampil di atas body model, gak
+        // akan "ketelen"/ketutupan permukaan part walau posisinya pas-pasan
+        // deket kulit model (ini yang bikin kotaknya sempat keliatan hilang).
+        const mat = new THREE.MeshBasicMaterial({ color: BBOX_HANDLE_COLOR, toneMapped: false, depthTest: false });
+        const handle = new THREE.Mesh(geo, mat);
+        handle.position.copy(posOut);
+        handle.lookAt(posOut.clone().add(normal));
+        handle.userData.isRepairAux = true;
+        handle.userData.isBBoxHandle = true;
+        handle.userData.pointId = pt.id;
+        handle.userData.handleName = d.name;
+        handle.renderOrder = 1000;
+        r.mesh.add(handle);
+        r.vertexHandles.push(handle);
+      });
+    },
+    // Raycast KHUSUS permukaan model polos (mesh asli-nya doang) --
+    // sengaja MEMBUANG semua objek tambahan (sprite bola lama, tube garis
+    // las, hit-zone, preview) lewat flag userData.isRepairAux, supaya pas
+    // lagi gambar garis baru kursor gak "kesangkut" nabrak garis lain yang
+    // sudah ada duluan.
+    raycastRepairSurface(ev, container) {
+      const r = repairThreeState; if (!r) return null;
+      const rect = container.getBoundingClientRect();
+      r.pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+      r.pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+      r.raycaster.setFromCamera(r.pointer, r.camera);
+      const hits = r.raycaster.intersectObject(r.mesh, true)
+        .filter((h) => !h.object.isSprite && !(h.object.userData && h.object.userData.isRepairAux));
+      if (!hits.length) return null;
+      const closest = hits[0];
+      return {
+        local: r.mesh.worldToLocal(closest.point.clone()),
+        normal: closest.face ? closest.face.normal.clone() : null,
+      };
+    },
+    // Raycast KHUSUS Point yang sudah ada (garis las + bola lama) -- dipakai
+    // buat deteksi hover & buat cek "pointerdown ini kena Point yang sudah
+    // ada apa kena permukaan kosong" (lihat attachRepair3DEvents).
+    raycastRepairMarkers(ev, container) {
+      const r = repairThreeState; if (!r) return null;
+      const rect = container.getBoundingClientRect();
+      r.pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+      r.pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+      r.raycaster.setFromCamera(r.pointer, r.camera);
+      const hits = r.raycaster.intersectObjects(r.markers, false);
+      return hits.length ? hits[0] : null;
+    },
+    // Raycast KHUSUS handle tambahan di atas Point yang lagi dipilih --
+    // bisa kena bola biru (Edit Titik, userData.isVertexHandle) ATAU kotak
+    // oranye (Ukuran ala Excel/PowerPoint, userData.isBBoxHandle), tergantung
+    // sub-mode mana yang lagi aktif waktu di-render (lihat rebuildRepairMarkers).
+    raycastRepairVertexHandles(ev, container) {
+      const r = repairThreeState; if (!r || !r.vertexHandles || !r.vertexHandles.length) return null;
+      const rect = container.getBoundingClientRect();
+      r.pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+      r.pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+      r.raycaster.setFromCamera(r.pointer, r.camera);
+      const hits = r.raycaster.intersectObjects(r.vertexHandles, false);
+      return hits.length ? hits[0] : null;
     },
     attachRepair3DEvents(container) {
       let downX = 0, downY = 0, downTime = 0;
-      const onDown = (ev) => { downX = ev.clientX; downY = ev.clientY; downTime = Date.now(); };
+      const onDown = (ev) => {
+        downX = ev.clientX; downY = ev.clientY; downTime = Date.now();
+        if (!this.repairEditMode) return;
+        const r = repairThreeState;
+        // Sub-mode "Edit Titik" aktif & kena bola handle -> mulai geser
+        // TITIK ITU SAJA (lihat startVertexDrag), jangan mulai apa-apa lagi.
+        if (this.repairPointActionMode === "reshape" && this.repairSelectedPointId) {
+          const vHit = this.raycastRepairVertexHandles(ev, container);
+          if (vHit && vHit.object.userData.isVertexHandle) { this.startVertexDrag(vHit); return; }
+        }
+        // Ada Point terpilih & BUKAN sub-mode Edit Titik -> kotak seleksi
+        // ala Excel/PowerPoint aktif: kena handle sudut/sisi = Ukuran,
+        // kena badan garis Point itu sendiri = Geser.
+        if (this.repairPointActionMode !== "reshape" && this.repairSelectedPointId) {
+          const bHit = this.raycastRepairVertexHandles(ev, container);
+          if (bHit && bHit.object.userData.isBBoxHandle) { this.startResizeDrag(bHit); return; }
+          const markerHit = this.raycastRepairMarkers(ev, container);
+          if (markerHit && markerHit.object.userData.pointId === this.repairSelectedPointId) {
+            this.startMoveDrag(ev, container);
+            return;
+          }
+        }
+        // Kena Point yang SUDAH ADA (garis/bola) -> jangan mulai gambar,
+        // biar onUp yang proses (pilih Point / buka popup, lihat handleRepair3DClick).
+        if (this.raycastRepairMarkers(ev, container)) return;
+        // Kena permukaan model KOSONG -> mulai gambar Point baru, bentuknya
+        // ngikut tombol "Bentuk Point" yang lagi aktif (Bebas/Lingkaran/Kotak).
+        const surfaceHit = this.raycastRepairSurface(ev, container);
+        if (!surfaceHit) return;
+        this.startRepairDraw(this.repairDrawShape, surfaceHit, ev);
+      };
+      const onMove = (ev) => {
+        this.handleRepair3DHover(ev, container);
+        const r = repairThreeState;
+        if (r && r.drawing) { this.extendRepairDraw(ev, container); return; }
+        if (r && r.moveDragging) { this.extendMoveDrag(ev, container); return; }
+        if (r && r.vertexDragging) { this.extendVertexDrag(ev, container); return; }
+        if (r && r.resizeDragging) { this.extendResizeDrag(ev, container); return; }
+      };
       const onUp = (ev) => {
+        const r = repairThreeState;
+        if (r && r.drawing) {
+          if (r.drawMode === "freehand") this.finishRepairDraw();
+          else this.finishRepairShapeDraw();
+          return;
+        }
+        if (r && r.moveDragging) { this.finishMoveDrag(); return; }
+        if (r && r.vertexDragging) { this.finishVertexDrag(); return; }
+        if (r && r.resizeDragging) { this.finishResizeDrag(); return; }
         const dx = ev.clientX - downX, dy = ev.clientY - downY;
         const moved = Math.sqrt(dx * dx + dy * dy);
         // Gerakan kecil & cepat = klik beneran. Gerakan besar/lama = drag putar model, abaikan.
@@ -2767,52 +3136,599 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         this.handleRepair3DClick(ev, container);
       };
       container.addEventListener("pointerdown", onDown);
+      container.addEventListener("pointermove", onMove);
       container.addEventListener("pointerup", onUp);
+      container.addEventListener("pointerleave", onUp); // jaga2 kursor kabur keluar kolom pas lagi drag
     },
-    handleRepair3DClick(ev, container) {
+    // ---- Hover: garis las nyala tipis pas kursor deket/nempel (Mode Edit ATAU Mode Lihat) ----
+    handleRepair3DHover(ev, container) {
+      const r = repairThreeState; if (!r || r.drawing) return;
+      const hit = this.raycastRepairMarkers(ev, container);
+      const hoverId = hit && hit.object.userData && hit.object.userData.pointId ? hit.object.userData.pointId : null;
+      if (hoverId !== r.hoveredPointId) this.setRepairHover(hoverId);
+    },
+    setRepairHover(pointId) {
       const r = repairThreeState; if (!r) return;
+      // Point yang lagi DIPILIH (toolbar Geser/Ukuran/Edit Titik) selalu
+      // tampil hijau tetap -- hover TIDAK menimpa warnanya, biar jelas
+      // Point mana yang lagi diedit walau kursor lewat di atasnya.
+      if (r.hoveredPointId && r.hoveredPointId !== pointId && r.hoveredPointId !== this.repairSelectedPointId && r.weldLineMeshes.has(r.hoveredPointId)) {
+        const wl = r.weldLineMeshes.get(r.hoveredPointId);
+        wl.visible.material.color.set(WELD_LINE_COLOR);
+        wl.visible.material.opacity = wl.baseOpacity;
+      }
+      r.hoveredPointId = pointId;
+      if (r.container) r.container.style.cursor = pointId ? "pointer" : "";
+      if (pointId && pointId !== this.repairSelectedPointId && r.weldLineMeshes.has(pointId)) {
+        const wl = r.weldLineMeshes.get(pointId);
+        wl.visible.material.color.set(WELD_LINE_HOVER_COLOR);
+        wl.visible.material.opacity = WELD_LINE_HOVER_OPACITY;
+      }
+    },
+    // Cadangan arah "keluar" (normal) kalau raycast pas mulai gambar
+    // kebetulan gak dapet face normal -- pakai arah dari titik tengah part
+    // ke titik yang diklik (sama seperti fallback normal buat bola lama).
+    approxRepairNormal(r, localPoint) {
+      const THREE = r.THREE;
+      const n = new THREE.Vector3(localPoint.x - r.centerLocal.x, localPoint.y - r.centerLocal.y, localPoint.z - r.centerLocal.z);
+      return n.lengthSq() < 1e-8 ? new THREE.Vector3(0, 0, 1) : n.normalize();
+    },
+    // Basis 2 arah (u,v) yang saling tegak lurus & tegak lurus normal --
+    // "bidang datar" tempat Lingkaran/Kotak digambar sebelum di-tempel ke
+    // kontur permukaan model (lihat snapRepairToSurface).
+    repairTangentBasis(THREE, normal) {
+      const n = normal.clone().normalize();
+      const arbitrary = Math.abs(n.x) < 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
+      const u = new THREE.Vector3().crossVectors(arbitrary, n).normalize();
+      const v = new THREE.Vector3().crossVectors(n, u).normalize();
+      return { u, v };
+    },
+    // Tembakin 1 titik "melayang" (hasil hitungan Lingkaran/Kotak di bidang
+    // datar) lurus ke arah permukaan model, biar nempel ngikut kontur asli
+    // part (bukan cuma bidang datar doang) -- kalau meleset (di luar tepi
+    // part), titik mentahnya dipakai apa adanya.
+    snapRepairToSurface(r, localPoint, normal) {
+      const THREE = r.THREE;
+      const away = Math.max((r.maxDim || 1) * 0.6, 1);
+      const originLocal = localPoint.clone().add(normal.clone().multiplyScalar(away));
+      const originWorld = r.mesh.localToWorld(originLocal);
+      const dirWorld = normal.clone().negate().transformDirection(r.mesh.matrixWorld).normalize();
+      r.raycaster.set(originWorld, dirWorld);
+      const hits = r.raycaster.intersectObject(r.mesh, true)
+        .filter((h) => !h.object.isSprite && !(h.object.userData && h.object.userData.isRepairAux));
+      if (!hits.length) return localPoint.clone();
+      return r.mesh.worldToLocal(hits[0].point.clone());
+    },
+    // Proyeksi kursor ke "bidang datar" tangent (dipakai pas drag Lingkaran/
+    // Kotak sempat keluar dari tepi part -- biar radius/ukurannya tetap
+    // ngikutin gerakan tangan walau sesaat gak kena permukaan model).
+    projectRepairToTangentPlane(r, center, normal, ev, container) {
+      const THREE = r.THREE;
       const rect = container.getBoundingClientRect();
       r.pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
       r.pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
       r.raycaster.setFromCamera(r.pointer, r.camera);
-
-      // Raycast gabungan (model + semua marker) lalu ambil yang PALING DEKAT
-      // ke kamera -- ini otomatis bikin Point yang ketutup badan model (lagi
-      // di sisi belakang) tidak ke-klik, sama seperti secara visual tertutup.
-      // r.mesh di-test SECARA REKURSIF (bukan cuma dirinya sendiri) supaya
-      // .3mf (isinya banyak potongan mesh di dalam 1 Group) ikut kena test
-      // juga, bukan cuma .stl (yang memang cuma 1 potongan doang).
-      const meshHits = r.raycaster.intersectObject(r.mesh, true).filter((h) => !h.object.isSprite);
-      const markerHits = r.raycaster.intersectObjects(r.markers, false);
-      const hits = [...meshHits, ...markerHits].sort((a, b) => a.distance - b.distance);
-      if (hits.length === 0) return;
-      const closest = hits[0];
-
-      if (closest.object.userData && closest.object.userData.pointId) {
-        const point = this.repairPoints.find((p) => p.id === closest.object.userData.pointId);
-        if (!point) return;
-        if (this.repairEditMode) this.deleteRepairPoint(point.id);
-        else this.openRepairPoint(point);
-        return;
-      }
-      // Kena permukaan model -> tambah Point baru (cuma di Mode Edit)
-      if (!this.repairEditMode) return;
-      const localPoint = r.mesh.worldToLocal(closest.point.clone());
-      const normal = closest.face ? closest.face.normal.clone() : null;
-      this.addRepairPoint3D(localPoint, normal);
+      const centerWorld = r.mesh.localToWorld(center.clone());
+      const normalWorld = normal.clone().transformDirection(r.mesh.matrixWorld).normalize();
+      const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normalWorld, centerWorld);
+      const hitWorld = new THREE.Vector3();
+      const ok = r.raycaster.ray.intersectPlane(plane, hitWorld);
+      return ok ? r.mesh.worldToLocal(hitWorld) : center.clone();
     },
-    async addRepairPoint3D(localPoint, normal) {
+    // Bikin titik-titik Lingkaran (di bidang tangent titik tengah), tiap
+    // titik ditempel ke permukaan model (lihat snapRepairToSurface).
+    generateRepairCirclePoints(r, center, normal, radius, segments) {
+      const THREE = r.THREE;
+      const { u, v } = this.repairTangentBasis(THREE, normal);
+      const pts = [];
+      for (let i = 0; i < segments; i++) {
+        const angle = (i / segments) * Math.PI * 2;
+        const flat = center.clone()
+          .add(u.clone().multiplyScalar(radius * Math.cos(angle)))
+          .add(v.clone().multiplyScalar(radius * Math.sin(angle)));
+        pts.push(this.snapRepairToSurface(r, flat, normal));
+      }
+      return pts;
+    },
+    // Bikin titik-titik Kotak (4 sisi, tiap sisi dibagi beberapa segmen biar
+    // ngikut lengkung permukaan) -- "center" = sudut tempat mulai nahan,
+    // "current" = sudut seberang tempat dilepas.
+    generateRepairSquarePoints(r, center, normal, current, segmentsPerEdge) {
+      const THREE = r.THREE;
+      const { u, v } = this.repairTangentBasis(THREE, normal);
+      const rel = current.clone().sub(center);
+      const du = rel.dot(u), dv = rel.dot(v);
+      const corners2D = [[0, 0], [du, 0], [du, dv], [0, dv]];
+      const pts = [];
+      for (let c = 0; c < 4; c++) {
+        const [x0, y0] = corners2D[c];
+        const [x1, y1] = corners2D[(c + 1) % 4];
+        for (let s = 0; s < segmentsPerEdge; s++) {
+          const t = s / segmentsPerEdge;
+          const x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t;
+          const flat = center.clone().add(u.clone().multiplyScalar(x)).add(v.clone().multiplyScalar(y));
+          pts.push(this.snapRepairToSurface(r, flat, normal));
+        }
+      }
+      return pts;
+    },
+    // ---- Mulai gambar Point baru (tahan/pointerdown di permukaan kosong) ----
+    // shape: "freehand" (garis bebas, lihat extendFreehandDraw) atau
+    // "circle"/"square" (lihat extendRepairShapeDraw).
+    startRepairDraw(shape, surfaceHit, ev) {
+      const r = repairThreeState; if (!r) return;
+      r.controls.enabled = false; // matiin putar-model sementara, drag = gambar Point
+      r.drawing = true;
+      r.drawMode = shape;
+      if (shape === "freehand") {
+        r.drawPath = [surfaceHit.local.clone()];
+        r.drawNormals = [surfaceHit.normal ? surfaceHit.normal.clone() : null];
+      } else {
+        r.drawCenter = surfaceHit.local.clone();
+        r.drawCenterNormal = surfaceHit.normal ? surfaceHit.normal.clone() : this.approxRepairNormal(r, surfaceHit.local);
+        r.drawCurrent = surfaceHit.local.clone();
+      }
+      r.lastClientX = ev.clientX; r.lastClientY = ev.clientY;
+    },
+    // Router: selama masih diseret, arahkan ke handler yang sesuai bentuknya.
+    extendRepairDraw(ev, container) {
+      const r = repairThreeState; if (!r || !r.drawing) return;
+      if (r.drawMode === "freehand") this.extendFreehandDraw(ev, container);
+      else this.extendRepairShapeDraw(ev, container);
+    },
+    extendFreehandDraw(ev, container) {
+      const r = repairThreeState; if (!r || !r.drawing) return;
+      const dx = ev.clientX - r.lastClientX, dy = ev.clientY - r.lastClientY;
+      // Throttle sampel berdasar jarak di layar (bukan tiap event) biar
+      // jalurnya gak numpuk ribuan titik cuma dari getar tangan kecil.
+      // Digedein dari 4 -> 10px: makin jarang sampel mentah = makin gak
+      // gampang keiket getar tangan, dasar buat garis yang lebih mulus.
+      if (Math.sqrt(dx * dx + dy * dy) < 10) return;
+      const hit = this.raycastRepairSurface(ev, container);
+      if (!hit) return; // sempat meleset dari permukaan model -> lewati sampel ini, terusin nunggu gerakan berikutnya
+      r.drawPath.push(hit.local.clone());
+      r.drawNormals.push(hit.normal ? hit.normal.clone() : null);
+      r.lastClientX = ev.clientX; r.lastClientY = ev.clientY;
+      this.updateRepairDrawPreview();
+    },
+    extendRepairShapeDraw(ev, container) {
+      const r = repairThreeState; if (!r || !r.drawing) return;
+      const dx = ev.clientX - r.lastClientX, dy = ev.clientY - r.lastClientY;
+      if (Math.sqrt(dx * dx + dy * dy) < 4) return; // update lebih rapat drpd freehand, biar ukurannya kerasa responsif
+      const hit = this.raycastRepairSurface(ev, container);
+      // Kalau kursor sesaat keluar dari tepi part, tetep update pakai
+      // proyeksi ke bidang datar -- biar ukurannya tetap ngikutin tangan.
+      r.drawCurrent = hit ? hit.local.clone() : this.projectRepairToTangentPlane(r, r.drawCenter, r.drawCenterNormal, ev, container);
+      r.lastClientX = ev.clientX; r.lastClientY = ev.clientY;
+      this.updateRepairShapePreview();
+    },
+    async finishRepairDraw() {
+      const r = repairThreeState; if (!r) return;
+      r.controls.enabled = true;
+      r.drawing = false; r.drawMode = null;
+      const rawPath = r.drawPath || [];
+      const rawNormals = r.drawNormals || [];
+      this.clearRepairDrawPreview();
+      r.drawPath = []; r.drawNormals = [];
+      // Cuma nge-tap doang (gak beneran diseret) -> diabaikan, bukan Point baru.
+      if (rawPath.length < 2) return;
+      // Deteksi "loop 360 derajat": kalau titik akhir balik deket ke titik
+      // awal (nutup sendiri), otomatis disambung jadi 1 GARIS TERTUTUP,
+      // bukan garis dengan ujung nganggur.
+      const closeThreshold = Math.max((r.maxDim || 1) * 0.035, 0.4);
+      let workingPath = rawPath;
+      const isClosed = rawPath.length > 5 && rawPath[0].distanceTo(rawPath[rawPath.length - 1]) < closeThreshold;
+      if (isClosed) {
+        // buang buntut titik yang numpuk deket titik awal (bekas nutup loop)
+        // biar gak ada gerombolan titik ganda pas nyambung.
+        while (workingPath.length > 5 && workingPath[workingPath.length - 1].distanceTo(workingPath[0]) < closeThreshold) {
+          workingPath = workingPath.slice(0, -1);
+        }
+      }
+      const smoothed = this.smoothRepairPath(workingPath, isClosed);
+      const avgNormal = this.averageRepairNormal(rawNormals);
+      await this.addRepairPointPath(smoothed, avgNormal, isClosed);
+    },
+    async finishRepairShapeDraw() {
+      const r = repairThreeState; if (!r) return;
+      r.controls.enabled = true;
+      r.drawing = false;
+      const mode = r.drawMode;
+      const center = r.drawCenter, normal = r.drawCenterNormal, current = r.drawCurrent;
+      r.drawMode = null; r.drawCenter = null; r.drawCurrent = null; r.drawCenterNormal = null;
+      this.clearRepairDrawPreview();
+      if (!center || !current) return;
+      const minSize = (r.maxDim || 1) * 0.01;
+      let pts = null;
+      if (mode === "circle") {
+        const radius = center.distanceTo(current);
+        if (radius < minSize) return; // cuma nge-tap doang, radiusnya kegantung -> diabaikan
+        pts = this.generateRepairCirclePoints(r, center, normal, radius, 40);
+      } else if (mode === "square") {
+        if (center.distanceTo(current) < minSize) return;
+        pts = this.generateRepairSquarePoints(r, center, normal, current, 8);
+      }
+      if (!pts || pts.length < 3) return;
+      const points = pts.map((p) => ({ x: p.x, y: p.y, z: p.z }));
+      await this.addRepairPointPath(points, normal, true);
+    },
+    // Rata-rata bertetangga (moving average) -- "membaurkan" tiap titik
+    // dengan titik-titik di sekitarnya, jadi getar/patahan kecil dari
+    // tangan hilang, TANPA mengubah bentuk/arah umum garis. Beda dari
+    // Catmull-Rom (yang WAJIB lewat persis tiap titik mentah, jadi tetap
+    // ikut kasar kalau titiknya sendiri kasar) -- ini pass duluan SEBELUM
+    // dibikin kurva, baik buat preview (live) maupun hasil akhir.
+    // windowRadius lebih besar = lebih halus tapi garis makin "dipotong sudutnya".
+    smoothRawDrawPoints(rawPath, windowRadius) {
+      const THREE = repairThreeState.THREE;
+      const n = rawPath.length;
+      if (n <= 2) return rawPath.map((p) => p.clone());
+      const out = [];
+      for (let i = 0; i < n; i++) {
+        const lo = Math.max(0, i - windowRadius);
+        const hi = Math.min(n - 1, i + windowRadius);
+        const sum = new THREE.Vector3();
+        for (let j = lo; j <= hi; j++) sum.add(rawPath[j]);
+        sum.divideScalar(hi - lo + 1);
+        out.push(sum);
+      }
+      // Ujung awal & akhir dijaga TETAP PERSIS di titik user mulai/lepas
+      // jari -- biar garis gak "kepotong pendek" dari titik yang dimaksud.
+      out[0] = rawPath[0].clone();
+      out[n - 1] = rawPath[n - 1].clone();
+      return out;
+    },
+    // Preview LIVE selagi Bebas lagi diseret (warna kuning) -- biar user
+    // lihat langsung jalur yang lagi digambar (SUDAH dihaluskan) sebelum dilepas.
+    updateRepairDrawPreview() {
+      const r = repairThreeState; if (!r || !r.drawPath || r.drawPath.length < 2) return;
+      const THREE = r.THREE;
+      this.clearRepairDrawPreview();
+      const smoothed = this.smoothRawDrawPoints(r.drawPath, 2);
+      const curve = new THREE.CatmullRomCurve3(smoothed, false, "centripetal", 0.5);
+      const segs = Math.max(8, Math.min(100, r.drawPath.length * 4));
+      const radius = Math.max((r.maxDim || 1) * 0.0055, 0.05);
+      const geo = new THREE.TubeGeometry(curve, segs, radius, 6, false);
+      const mat = new THREE.MeshBasicMaterial({ color: WELD_LINE_DRAW_COLOR, toneMapped: false, transparent: true, opacity: 0.92 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.userData.isRepairAux = true;
+      mesh.renderOrder = 1000;
+      r.mesh.add(mesh);
+      r.previewMesh = mesh;
+    },
+    // Preview LIVE selagi Lingkaran/Kotak lagi diseret (warna kuning, SELALU
+    // tertutup/loop) -- update tiap gerakan biar ukurannya kerasa langsung.
+    updateRepairShapePreview() {
+      const r = repairThreeState; if (!r || !r.drawCenter || !r.drawCurrent) return;
+      const THREE = r.THREE;
+      this.clearRepairDrawPreview();
+      let pts = null;
+      if (r.drawMode === "circle") {
+        const radius = r.drawCenter.distanceTo(r.drawCurrent);
+        if (radius < 1e-4) return;
+        pts = this.generateRepairCirclePoints(r, r.drawCenter, r.drawCenterNormal, radius, 28);
+      } else if (r.drawMode === "square") {
+        pts = this.generateRepairSquarePoints(r, r.drawCenter, r.drawCenterNormal, r.drawCurrent, 6);
+      }
+      if (!pts || pts.length < 3) return;
+      const curve = new THREE.CatmullRomCurve3(pts, true, "centripetal", 0.5);
+      const segs = Math.max(24, pts.length * 3);
+      const radius = Math.max((r.maxDim || 1) * 0.0055, 0.05);
+      const geo = new THREE.TubeGeometry(curve, segs, radius, 6, true);
+      const mat = new THREE.MeshBasicMaterial({ color: WELD_LINE_DRAW_COLOR, toneMapped: false, transparent: true, opacity: 0.92 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.userData.isRepairAux = true;
+      mesh.renderOrder = 1000;
+      r.mesh.add(mesh);
+      r.previewMesh = mesh;
+    },
+    clearRepairDrawPreview() {
+      const r = repairThreeState; if (!r || !r.previewMesh) return;
+      r.mesh.remove(r.previewMesh);
+      this.disposeRepairObject(r.previewMesh);
+      r.previewMesh = null;
+    },
+    // Haluskan jalur mentah hasil drag Bebas (kadang zigzag kasar ngikutin
+    // getar tangan) buat hasil AKHIR yang disimpan -- 2 tahap: (1) rata-
+    // ratakan tetangga (buang getar kasar), (2) alurkan lewat kurva &
+    // resample ke jumlah titik yang rapi. "closed" true kalau ini loop
+    // hasil deteksi 360 derajat (lihat finishRepairDraw).
+    smoothRepairPath(rawPath, closed) {
+      const THREE = repairThreeState.THREE;
+      if (rawPath.length < 3) return rawPath.map((p) => ({ x: p.x, y: p.y, z: p.z }));
+      const eased = this.smoothRawDrawPoints(rawPath, 3);
+      const curve = new THREE.CatmullRomCurve3(eased, !!closed, "centripetal", 0.5);
+      const n = Math.max(closed ? 14 : 6, Math.min(48, rawPath.length));
+      return curve.getSpacedPoints(n).map((p) => ({ x: p.x, y: p.y, z: p.z }));
+    },
+    averageRepairNormal(normals) {
+      const THREE = repairThreeState.THREE;
+      const valid = normals.filter(Boolean);
+      if (!valid.length) return null;
+      const sum = valid.reduce((acc, n) => acc.add(n), new THREE.Vector3());
+      return sum.lengthSq() > 1e-8 ? sum.normalize() : null;
+    },
+    handleRepair3DClick(ev, container) {
+      // Klik biasa (bukan drag-gambar) cuma berlaku buat Point yang SUDAH
+      // ADA -- buka popup (Mode Lihat) atau PILIH Point itu buat toolbar
+      // Geser/Ukuran/Edit Titik/Hapus (Mode Edit, lihat selectRepairPoint).
+      // Nambah Point baru sekarang HARUS lewat drag-menyusuri (lihat
+      // startRepairDraw dkk), bukan lagi dari klik tunggal di permukaan kosong.
+      const hit = this.raycastRepairMarkers(ev, container);
+      if (!hit || !hit.object.userData || !hit.object.userData.pointId) return;
+      const point = this.repairPoints.find((p) => p.id === hit.object.userData.pointId);
+      if (!point) return;
+      if (this.repairEditMode) this.selectRepairPoint(point.id);
+      else this.openRepairPoint(point);
+    },
+    // ---- Pilih/batal-pilih Point buat toolbar Ukuran(otomatis)/Edit Titik/Hapus ----
+    selectRepairPoint(id) {
+      this.repairSelectedPointId = id;
+      this.repairPointActionMode = null; // selalu mulai dari sub-mode netral (kotak seleksi) tiap pilih Point baru
+      this.rebuildRepairMarkers();
+    },
+    deselectRepairPoint() {
+      this.repairSelectedPointId = null;
+      this.repairPointActionMode = null;
+      this.rebuildRepairMarkers();
+    },
+    // Point object yang lagi dipilih (dipakai toolbar HTML) -- null kalau gak ada.
+    selectedRepairPointObj() {
+      return this.repairPoints.find((p) => p.id === this.repairSelectedPointId) || null;
+    },
+    // Kotak seleksi (Geser+Ukuran) & Edit Titik cuma masuk akal buat Point
+    // BENTUK JALUR (garis las/lingkaran/kotak). Point LAMA (bola tunggal,
+    // belum punya path) cuma bisa Digeser (drag langsung) & Dihapus.
+    selectedRepairPointHasPath() {
+      const p = this.selectedRepairPointObj();
+      return !!(p && this.normalizeRepairPath(p.path));
+    },
+    // Klik tombol "Edit Titik" di toolbar -- klik lagi buat matiin (balik ke
+    // kotak seleksi Geser/Ukuran biasa).
+    setRepairActionMode(mode) {
+      if (!this.selectedRepairPointHasPath()) return;
+      this.repairPointActionMode = this.repairPointActionMode === mode ? null : mode;
+      this.rebuildRepairMarkers();
+    },
+    // ---- Geser: seret BADAN garis/bentuknya sendiri (gaya Excel/PowerPoint --
+    // klik & tahan di atas shape yang lagi dipilih, lalu seret). Bentuknya
+    // digeser sebagai lapisan DATAR yang "mengambang" di atas part -- GAK
+    // perlu nembak/ikut kontur permukaan model tiap gerakan, biar gesernya
+    // selalu pasti ngikutin tangan walau kursor sempat keluar dari model. ----
+    startMoveDrag(ev, container) {
+      const r = repairThreeState; if (!r) return;
+      const pt = this.selectedRepairPointObj(); if (!pt) return;
+      const THREE = r.THREE;
+      const norm = this.normalizeRepairPath(pt.path);
+      let startLocal;
+      if (norm) {
+        startLocal = norm.points.reduce((acc, p) => acc.add(new THREE.Vector3(p.x, p.y, p.z)), new THREE.Vector3()).divideScalar(norm.points.length);
+      } else {
+        startLocal = new THREE.Vector3(pt.x || 0, pt.y || 0, pt.z || 0);
+      }
+      r.controls.enabled = false;
+      r.moveDragging = true;
+      r.moveStartLocal = startLocal;
+      r.moveNormalRef = pt.nx != null ? new THREE.Vector3(pt.nx, pt.ny, pt.nz).normalize() : this.approxRepairNormal(r, startLocal);
+      if (norm) {
+        r.moveOrigPoints = norm.points.map((p) => ({ x: p.x, y: p.y, z: p.z }));
+        r.moveClosed = norm.closed;
+      } else {
+        r.moveOrigPoints = [{ x: pt.x || 0, y: pt.y || 0, z: pt.z || 0 }];
+        r.moveClosed = false;
+      }
+      r.dragPreviewPointId = pt.id;
+      r.dragPreviewPoints = r.moveOrigPoints;
+      r.dragPreviewClosed = r.moveClosed;
+    },
+    extendMoveDrag(ev, container) {
+      const r = repairThreeState; if (!r || !r.moveDragging) return;
+      // Selalu proyeksi ke bidang datar (tangent plane) di posisi & arah
+      // normal AWAL Point ini -- TIDAK nembak ke permukaan model, jadi
+      // gerakannya konsisten & gak keteteran walau kursor lewat di luar
+      // siluet part.
+      const newLocal = this.projectRepairToTangentPlane(r, r.moveStartLocal, r.moveNormalRef, ev, container);
+      const delta = newLocal.clone().sub(r.moveStartLocal);
+      const moved = r.moveOrigPoints.map((p) => ({ x: p.x + delta.x, y: p.y + delta.y, z: p.z + delta.z }));
+      r.dragPreviewPoints = moved;
+      this.rebuildRepairMarkers();
+    },
+    async finishMoveDrag() {
+      const r = repairThreeState; if (!r || !r.moveDragging) return;
+      r.controls.enabled = true;
+      r.moveDragging = false;
+      const points = r.dragPreviewPoints;
+      const closed = r.dragPreviewClosed;
+      r.dragPreviewPointId = null; r.dragPreviewPoints = null;
+      const pointId = this.repairSelectedPointId;
+      r.moveStartLocal = null; r.moveOrigPoints = null; r.moveNormalRef = null;
+      if (!points || !pointId) { this.rebuildRepairMarkers(); return; }
+      await this.saveRepairPointGeometry(pointId, points, closed);
+      this.flash("Point berhasil digeser.");
+    },
+    // ---- Ukuran: seret salah satu dari 8 handle kotak seleksi (gaya Excel/
+    // PowerPoint) -- sudut = 2 arah sekaligus, tengah sisi = 1 arah saja,
+    // sisi/sudut SEBERANGNYA jadi jangkar yang diam. ----
+    startResizeDrag(bHit) {
+      const r = repairThreeState; if (!r || !r.bboxInfo) return;
+      const pt = this.selectedRepairPointObj(); if (!pt) return;
+      const norm = this.normalizeRepairPath(pt.path); if (!norm) return;
+      r.controls.enabled = false;
+      r.resizeDragging = true;
+      r.resizeHandleName = bHit.object.userData.handleName;
+      r.resizeOrigPoints = norm.points.map((p) => ({ x: p.x, y: p.y, z: p.z }));
+      r.resizeClosed = norm.closed;
+      r.resizeBBox = { ...r.bboxInfo }; // snapshot bbox SAAT MULAI drag, jangan berubah lagi selama diseret
+      r.dragPreviewPointId = pt.id;
+      r.dragPreviewPoints = r.resizeOrigPoints;
+      r.dragPreviewClosed = r.resizeClosed;
+    },
+    extendResizeDrag(ev, container) {
+      const r = repairThreeState; if (!r || !r.resizeDragging) return;
+      const box = r.resizeBBox; if (!box) return;
+      const THREE = r.THREE;
+      // Sama seperti Geser -- selalu di bidang datar (tangent plane) bbox-nya
+      // sendiri, TIDAK nembak permukaan model, biar Ukuran selalu ngikutin
+      // tangan dengan pasti, apapun posisi kursor relatif ke part-nya.
+      const localHit = this.projectRepairToTangentPlane(r, box.centroid, box.normal, ev, container);
+      const rel = localHit.clone().sub(box.centroid);
+      const a2 = rel.dot(box.u), b2 = rel.dot(box.v);
+      // Definisi tiap handle: titik ASLI-nya sendiri (origA/origB) & titik
+      // JANGKAR di seberangnya yang harus diam (anchorA/anchorB). Handle
+      // sisi (n/s/e/w) cuma bebas gerak di 1 sumbu (freeA atau freeB saja).
+      const table = {
+        nw: { origA: box.aMin, origB: box.bMax, anchorA: box.aMax, anchorB: box.bMin, freeA: true, freeB: true },
+        ne: { origA: box.aMax, origB: box.bMax, anchorA: box.aMin, anchorB: box.bMin, freeA: true, freeB: true },
+        se: { origA: box.aMax, origB: box.bMin, anchorA: box.aMin, anchorB: box.bMax, freeA: true, freeB: true },
+        sw: { origA: box.aMin, origB: box.bMin, anchorA: box.aMax, anchorB: box.bMax, freeA: true, freeB: true },
+        n: { origA: box.aMid, origB: box.bMax, anchorA: null, anchorB: box.bMin, freeA: false, freeB: true },
+        s: { origA: box.aMid, origB: box.bMin, anchorA: null, anchorB: box.bMax, freeA: false, freeB: true },
+        e: { origA: box.aMax, origB: box.bMid, anchorA: box.aMin, anchorB: null, freeA: true, freeB: false },
+        w: { origA: box.aMin, origB: box.bMid, anchorA: box.aMax, anchorB: null, freeA: true, freeB: false },
+      };
+      const cfg = table[r.resizeHandleName]; if (!cfg) return;
+      const MIN_SCALE = 0.05; // cegah shape "kebalik"/nyaris hilang kalau diseret kelewatan
+      let scaleA = 1, scaleB = 1;
+      if (cfg.freeA) {
+        const span = cfg.origA - cfg.anchorA;
+        scaleA = Math.abs(span) > 1e-6 ? (a2 - cfg.anchorA) / span : 1;
+        if (Math.abs(scaleA) < MIN_SCALE) scaleA = scaleA < 0 ? -MIN_SCALE : MIN_SCALE;
+      }
+      if (cfg.freeB) {
+        const span = cfg.origB - cfg.anchorB;
+        scaleB = Math.abs(span) > 1e-6 ? (b2 - cfg.anchorB) / span : 1;
+        if (Math.abs(scaleB) < MIN_SCALE) scaleB = scaleB < 0 ? -MIN_SCALE : MIN_SCALE;
+      }
+      // Titik hasil resize dihitung LANGSUNG di bidang datar bbox (gak
+      // ditembak ulang ke permukaan model) -- bentuknya jadi lapisan datar
+      // yang membesar/mengecil apa adanya, gak perlu ngikut kontur part.
+      const result = r.resizeOrigPoints.map((p) => {
+        const relP = new THREE.Vector3(p.x, p.y, p.z).sub(box.centroid);
+        const a = relP.dot(box.u), b = relP.dot(box.v);
+        const newA = cfg.freeA ? cfg.anchorA + (a - cfg.anchorA) * scaleA : a;
+        const newB = cfg.freeB ? cfg.anchorB + (b - cfg.anchorB) * scaleB : b;
+        const pos = box.centroid.clone().add(box.u.clone().multiplyScalar(newA)).add(box.v.clone().multiplyScalar(newB));
+        return { x: pos.x, y: pos.y, z: pos.z };
+      });
+      r.dragPreviewPoints = result;
+      this.rebuildRepairMarkers();
+    },
+    async finishResizeDrag() {
+      const r = repairThreeState; if (!r || !r.resizeDragging) return;
+      r.controls.enabled = true;
+      r.resizeDragging = false;
+      const points = r.dragPreviewPoints;
+      const closed = r.dragPreviewClosed;
+      const pointId = this.repairSelectedPointId;
+      r.dragPreviewPointId = null; r.dragPreviewPoints = null;
+      r.resizeHandleName = null; r.resizeOrigPoints = null; r.resizeBBox = null;
+      if (!points || !pointId) { this.rebuildRepairMarkers(); return; }
+      await this.saveRepairPointGeometry(pointId, points, closed);
+      this.flash("Ukuran Point berhasil diubah.");
+    },
+    // ---- Edit Titik: geser 1 titik jalur (bola biru) -- titik-titik lain
+    // di SEKITARNYA ikut ketarik halus (falloff), biar garis gak patah tajam. ----
+    startVertexDrag(vHit) {
+      const r = repairThreeState; if (!r) return;
+      const pt = this.selectedRepairPointObj(); if (!pt) return;
+      const norm = this.normalizeRepairPath(pt.path); if (!norm) return;
+      const THREE = r.THREE;
+      r.controls.enabled = false;
+      r.vertexDragging = true;
+      r.vertexDragPointId = pt.id;
+      r.vertexDragIndex = vHit.object.userData.vertexIndex;
+      r.vertexDragBasePoints = norm.points.map((p) => ({ x: p.x, y: p.y, z: p.z }));
+      // Bidang datar acuan buat drag titik ini -- lewat titik yang diseret,
+      // searah normal keseluruhan Point-nya (bukan nembak permukaan model).
+      r.vertexDragNormalRef = pt.nx != null ? new THREE.Vector3(pt.nx, pt.ny, pt.nz).normalize() : this.approxRepairNormal(r, new THREE.Vector3(r.vertexDragBasePoints[r.vertexDragIndex].x, r.vertexDragBasePoints[r.vertexDragIndex].y, r.vertexDragBasePoints[r.vertexDragIndex].z));
+      r.vertexDragPlaneCenter = new THREE.Vector3(r.vertexDragBasePoints[r.vertexDragIndex].x, r.vertexDragBasePoints[r.vertexDragIndex].y, r.vertexDragBasePoints[r.vertexDragIndex].z);
+      r.dragPreviewPointId = pt.id;
+      r.dragPreviewPoints = r.vertexDragBasePoints;
+      r.dragPreviewClosed = norm.closed;
+    },
+    extendVertexDrag(ev, container) {
+      const r = repairThreeState; if (!r || !r.vertexDragging) return;
+      // Sama seperti Geser/Ukuran -- proyeksi ke bidang datar, GAK nembak
+      // permukaan model, biar gesernya selalu pasti ngikutin tangan.
+      const target = this.projectRepairToTangentPlane(r, r.vertexDragPlaneCenter, r.vertexDragNormalRef, ev, container);
+      const THREE = r.THREE;
+      const idx = r.vertexDragIndex;
+      const base = r.vertexDragBasePoints;
+      const n = base.length;
+      const closed = r.dragPreviewClosed;
+      const delta = { x: target.x - base[idx].x, y: target.y - base[idx].y, z: target.z - base[idx].z };
+      // Radius pengaruh ("falloff") sepanjang jalur -- makin jauh index-nya
+      // dari titik yang diseret, makin kecil pengaruhnya, sampai akhirnya 0.
+      // Dihitung dari jarak rata-rata antar-handle biar konsisten walau
+      // jumlah handle beda-beda (lihat r.vertexHandleCount).
+      const falloffRadius = Math.max(2, Math.round(n / Math.max(1, r.vertexHandleCount)) * 1.4);
+      const result = base.map((p, j) => {
+        let d = Math.abs(j - idx);
+        if (closed) d = Math.min(d, n - d);
+        if (d > falloffRadius) return { x: p.x, y: p.y, z: p.z };
+        const t = d / falloffRadius;
+        const w = Math.cos((t * Math.PI) / 2); // 1 pas di titik yg diseret, 0 di ujung radius, mulus di antaranya
+        return { x: p.x + delta.x * w, y: p.y + delta.y * w, z: p.z + delta.z * w };
+      });
+      r.dragPreviewPoints = result;
+      this.rebuildRepairMarkers();
+    },
+    async finishVertexDrag() {
+      const r = repairThreeState; if (!r || !r.vertexDragging) return;
+      r.controls.enabled = true;
+      r.vertexDragging = false;
+      const points = r.dragPreviewPoints;
+      const closed = r.dragPreviewClosed;
+      const pointId = r.vertexDragPointId;
+      r.dragPreviewPointId = null; r.dragPreviewPoints = null;
+      r.vertexDragPointId = null; r.vertexDragIndex = null; r.vertexDragBasePoints = null;
+      r.vertexDragNormalRef = null; r.vertexDragPlaneCenter = null;
+      if (!points || !pointId) { this.rebuildRepairMarkers(); return; }
+      await this.saveRepairPointGeometry(pointId, points, closed);
+      this.flash("Bentuk garis Point berhasil diubah.");
+    },
+    // ---- Simpan geometri baru (dipakai bareng oleh Geser, Ukuran, & Edit Titik) ----
+    async saveRepairPointGeometry(pointId, points, closed) {
+      const r = repairThreeState; if (!r) return;
+      const THREE = r.THREE;
+      const mid = points[Math.floor(points.length / 2)];
+      const normals = points.map((p) => this.approxRepairNormal(r, new THREE.Vector3(p.x, p.y, p.z)));
+      const avgNormal = this.averageRepairNormal(normals);
+      const payload = { x: mid.x, y: mid.y, z: mid.z };
+      // Point lama (bola tunggal, cuma 1 titik) sengaja TIDAK dikasih kolom
+      // path -- biar tetap "bola merah" seperti semula, cuma posisinya yang
+      // pindah (lihat cabang render di rebuildRepairMarkers).
+      if (points.length > 1) payload.path = closed ? { points, closed: true } : points;
+      if (avgNormal) { payload.nx = avgNormal.x; payload.ny = avgNormal.y; payload.nz = avgNormal.z; }
+      const { data, error } = await supabaseClient.from("repair_points").update(payload).eq("id", pointId).select().single();
+      if (error) { this.flash("Gagal update Point: " + error.message, true); this.rebuildRepairMarkers(); return; }
+      this.repairPoints = this.repairPoints.map((p) => (p.id === data.id ? data : p));
+      this.rebuildRepairMarkers();
+    },
+    // pathPoints: array {x,y,z} sederhana menyusuri jalur/bentuknya.
+    // isClosed: true buat loop tertutup (lingkaran, kotak, atau garis bebas
+    // yang balik nyambung ke titik awal) -- disimpan format {points, closed}
+    // di kolom "path" (jsonb), beda dari format lama (array bare) yang
+    // artinya garis TERBUKA (lihat normalizeRepairPath).
+    async addRepairPointPath(pathPoints, avgNormal, isClosed) {
       if (!this.repairActiveViewId) return;
+      if (!pathPoints || pathPoints.length < 2) return;
       const label = prompt("Label Point ini (boleh kosong):", "") || null;
-      const payload = { view_id: this.repairActiveViewId, x: localPoint.x, y: localPoint.y, z: localPoint.z, label };
-      if (normal) { payload.nx = normal.x; payload.ny = normal.y; payload.nz = normal.z; }
+      const mid = pathPoints[Math.floor(pathPoints.length / 2)];
+      const payload = {
+        view_id: this.repairActiveViewId,
+        x: mid.x, y: mid.y, z: mid.z,
+        label,
+        path: isClosed ? { points: pathPoints, closed: true } : pathPoints,
+      };
+      if (avgNormal) { payload.nx = avgNormal.x; payload.ny = avgNormal.y; payload.nz = avgNormal.z; }
       const { data, error } = await supabaseClient.from("repair_points")
         .insert(payload)
         .select().single();
       if (error) { this.flash("Gagal tambah Point: " + error.message, true); return; }
       this.repairPoints.push(data);
       this.rebuildRepairMarkers();
-      this.flash("Point ditambahkan.");
+      this.flash(isClosed ? "Point (garis tertutup) ditambahkan." : "Point (garis las) ditambahkan.");
     },
 
     logout,
