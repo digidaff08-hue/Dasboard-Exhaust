@@ -2074,8 +2074,13 @@ function dashboardExhaust() {
         const monthStart = new Date(this.qcYear, this.qcMonth - 1, 1);
         const monthEnd = new Date(this.qcYear, this.qcMonth, 1);
         const [perlineRes, permodelRes] = await Promise.all([
-          supabaseClient.rpc("dashboard_qc_repair_perline", { p_start: localDateStr(monthStart), p_end: localDateStr(monthEnd) }),
-          supabaseClient.rpc("dashboard_qc_repair_permodel", { p_start: localDateStr(monthStart), p_end: localDateStr(monthEnd) }),
+          // p_start/p_end sekarang timestamptz (ISO string), BUKAN date
+          // string lagi -- karena dashboard_qc_repair_perline/permodel
+          // sudah baca dari production_log.repair (timestamptz waktu_awal),
+          // sama seperti dashboard_qc_produksi_perline/permodel di bawah.
+          // Lihat migration_straightpass_repair_source.sql.
+          supabaseClient.rpc("dashboard_qc_repair_perline", { p_start: monthStart.toISOString(), p_end: monthEnd.toISOString() }),
+          supabaseClient.rpc("dashboard_qc_repair_permodel", { p_start: monthStart.toISOString(), p_end: monthEnd.toISOString() }),
         ]);
         if (perlineRes.error) { console.error("dashboard_qc_repair_perline:", perlineRes.error); return; }
         if (permodelRes.error) { console.error("dashboard_qc_repair_permodel:", permodelRes.error); return; }
@@ -2102,7 +2107,7 @@ function dashboardExhaust() {
           supabaseClient.rpc("dashboard_qc_produksi_perline", { p_start: monthStart.toISOString(), p_end: monthEnd.toISOString() }),
           supabaseClient.rpc("dashboard_qc_produksi_permodel", { p_start: monthStart.toISOString(), p_end: monthEnd.toISOString() }),
           supabaseClient.rpc("dashboard_qc_produksi_daily", { p_start: monthStart.toISOString(), p_end: monthEnd.toISOString() }),
-          supabaseClient.rpc("dashboard_qc_repair_daily", { p_start: localDateStr(monthStart), p_end: localDateStr(monthEnd) }),
+          supabaseClient.rpc("dashboard_qc_repair_daily", { p_start: monthStart.toISOString(), p_end: monthEnd.toISOString() }),
         ]);
         if (perlineRes.error) { console.error("dashboard_qc_produksi_perline:", perlineRes.error); return; }
         if (permodelRes.error) { console.error("dashboard_qc_produksi_permodel:", permodelRes.error); return; }
@@ -2193,7 +2198,7 @@ function dashboardExhaust() {
       productivity: { value: 0, actual: [], target: 100 },
       availability: { value: 0, actual: [], target: 100 },
       ngInline: { qty: 0, value: 0, qtyByMonth: [], valueByMonth: [] },
-      straightpass: { value: 0, actual: [], qty: [], target: 100 },
+      straightpass: { value: 0, actual: [], qty: [], repairQty: [], target: 100 },
       downtimeExhaust: { labels: [], values: [] },
       downtimeSupporting: { labels: [], plan: [], act: [] },
       downtimeLine: { labels: [], plan: [], act: [] },
@@ -2508,7 +2513,7 @@ function dashboardExhaust() {
           // yang BARU: (Stroke - Qty Repair) / Stroke * 100. NG (ngRes di
           // atas) TIDAK dipakai lagi di rumus ini -- ngRes tetap dipakai
           // hanya untuk kartu "NG Inline" yang terpisah (tidak diubah).
-          supabaseClient.rpc("dashboard_qc_repair_month", { p_start: localDateStr(prevFyStart), p_end: localDateStr(fyEnd) }),
+          supabaseClient.rpc("dashboard_qc_repair_month", { p_start: prevFyStart.toISOString(), p_end: fyEnd.toISOString() }),
         ]);
         // Downtime Terbesar: ikut 1 tahun fiskal yang dipilih (bukan bulan berjalan)
         const topRes = await Promise.all(MACHINES.map((m) =>
@@ -2553,6 +2558,14 @@ function dashboardExhaust() {
         const straightpassQty = fyMonths.map((d) => {
           const row = findRow(prodRows, d);
           return row ? Number(row.stroke) : null;
+        });
+        // Qty Repair per bulan (BUKAN stroke) -- dipakai buat bar chart
+        // utama Straight Pass, disamakan gaya sama chart Perline/Model:
+        // bar Qty Repair (kiri) + garis % Straightpass (kanan) + garis
+        // Target putus-putus.
+        const straightpassRepairQty = fyMonths.map((d) => {
+          const repairRow = findRow(repairMonthRows, d);
+          return repairRow ? Number(repairRow.qty) || 0 : null;
         });
 
         // Bulan berjalan (bulan terakhir yang ada datanya)
@@ -2607,7 +2620,7 @@ function dashboardExhaust() {
             qtyByMonth: [null, null, ...fyMonths.map((d) => { const r = findRow(ngRows, d); return r ? Number(r.qty) : null; })],
             valueByMonth: [null, null, ...fyMonths.map((d) => { const r = findRow(ngRows, d); return r ? Number(r.value) : null; })],
           },
-          straightpass: { value: straightpassValue, actual: [null, null, ...straightpassActual], qty: [null, null, ...straightpassQty], target: 100 },
+          straightpass: { value: straightpassValue, actual: [null, null, ...straightpassActual], qty: [null, null, ...straightpassQty], repairQty: [null, null, ...straightpassRepairQty], target: 100 },
           downtimeExhaust: { labels: dtExhaustLabels, values: dtExhaustValues },
           downtimeSupporting,
           downtimeLine,
@@ -3442,7 +3455,7 @@ function dashboardExhaust() {
       safe(() => sparkline("dxySparkStraightpass", b.straightpass.actual, "#14B8A6"), "spark-straightpass");
 
       // --- Grafik utama KPI (bar gradient + target garis putus-putus merah) ---
-      const kpiBig = (canvasId, labels, actual, target, hex) => {
+      const kpiBig = (canvasId, labels, actual, target, hex, labelPos = "above") => {
         destroy(canvasId);
         const canvas = document.getElementById(canvasId);
         if (!canvas) return;
@@ -3460,7 +3473,42 @@ function dashboardExhaust() {
             plugins: { legend: legend(true), tooltip: tooltip() },
             scales: baseScales(),
           },
-          plugins: [barValueLabels((v) => fmtNum(v))],
+          plugins: [barValueLabels((v) => fmtNum(v), 0, labelPos)],
+        });
+      };
+      // Chart utama "🎯 Straight Pass" -- disamakan gaya sama chart
+      // Straightpass Perline/Model: bar "Qty Repair" (kiri) + garis hijau
+      // "% Straightpass" (kanan) + garis merah putus-putus "Target".
+      // Label bar di DASAR batang & label garis % pakai anti-tumpuk
+      // (lineValueLabels sudah skip label yang bertabrakan) -- sama
+      // persis mekanismenya dengan chart Perline/Model di tab Kontrol
+      // Kualitas (qcRepairStraightpassBar).
+      const bigStraightpassDual = (canvasId, labels, repairQty, pctActual, target, hex) => {
+        destroy(canvasId);
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const qty = repairQty || labels.map(() => null);
+        const pct = pctActual || labels.map(() => null);
+        this.tahunanCharts[canvasId] = new Chart(canvas, {
+          data: {
+            labels,
+            datasets: [
+              { type: "bar", label: "Qty Repair", data: qty, backgroundColor: barBg(canvas, hex, qty.length), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7, borderSkipped: false },
+              { type: "line", label: "% Straightpass", data: pct, borderColor: "#22C55E", backgroundColor: "#22C55E", yAxisID: "y1", pointRadius: 3, tension: 0.3, spanGaps: true },
+              { type: "line", label: "Target", data: labels.map(() => target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0, yAxisID: "y1" },
+            ],
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false, animation: noAnim,
+            layout: { padding: { top: 28 } },
+            plugins: { legend: legend(true), tooltip: tooltip() },
+            scales: {
+              x: { ticks: { color: "#000000", font: { size: 9 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
+              y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+              y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => v + "%" }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, suggestedMax: 100 },
+            },
+          },
+          plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabels((v) => (v === null ? "" : v + "%"), 1)],
         });
       };
       // Catatan: dua kolom pertama di b.monthLabels adalah ringkasan
@@ -3470,7 +3518,7 @@ function dashboardExhaust() {
       // data asli di this.tahunan tidak diubah.
       safe(() => kpiBig("dxyBigProductivity", b.monthLabels.slice(2), b.productivity.actual.slice(2), b.productivity.target, "#2563EB"), "big-productivity");
       safe(() => kpiBig("dxyBigAvailability", b.monthLabels.slice(2), b.availability.actual.slice(2), b.availability.target, "#10B981"), "big-availability");
-      safe(() => kpiBig("dxyBigStraightpass", b.monthLabels.slice(2), b.straightpass.actual.slice(2), b.straightpass.target, "#14B8A6"), "big-straightpass");
+      safe(() => bigStraightpassDual("dxyBigStraightpass", b.monthLabels.slice(2), b.straightpass.repairQty.slice(2), b.straightpass.actual.slice(2), b.straightpass.target, "#14B8A6"), "big-straightpass");
 
       // --- NG Inline dual axis: Qty (bar oranye) + Value (area hitam tipis) ---
       safe(() => {
@@ -3761,29 +3809,39 @@ function dashboardExhaust() {
         });
       }, "qcNgTrialMonth");
 
-      // --- Month · Straightpass: sama dengan grafik "Straight Pass" di tab
-      // Tahunan (bar gradient + garis target putus-putus) ---
+      // --- Month · Straightpass: disamakan gaya sama chart Straightpass
+      // Perline/Model -- bar "Qty Repair" (kiri) + garis hijau
+      // "% Straightpass" (kanan) + garis merah putus-putus "Target".
+      // Label bar di DASAR batang & label garis % pakai anti-tumpuk
+      // (lineValueLabels sudah skip label yang bertabrakan), sama persis
+      // mekanismenya dengan qcRepairStraightpassBar (Perline/Model).
       safe(() => {
         destroy("qcStraightpassMonth");
         const canvas = document.getElementById("qcStraightpassMonth");
         if (!canvas) return;
         const labels = b.monthLabels.slice(2);
+        const repairQty = (b.straightpass.repairQty || []).slice(2);
         const actual = b.straightpass.actual.slice(2);
         this.qcCharts.qcStraightpassMonth = new Chart(canvas, {
           data: {
             labels,
             datasets: [
-              { type: "bar", label: "Actual", data: actual, backgroundColor: barBg(canvas, "#14B8A6", actual.length), borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7, borderSkipped: false },
-              { type: "line", label: "Target", data: labels.map(() => b.straightpass.target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0 },
+              { type: "bar", label: "Qty Repair", data: repairQty, backgroundColor: barBg(canvas, "#14B8A6", repairQty.length), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7, borderSkipped: false },
+              { type: "line", label: "% Straightpass", data: actual, borderColor: "#22C55E", backgroundColor: "#22C55E", yAxisID: "y1", pointRadius: 3, tension: 0.3, spanGaps: true },
+              { type: "line", label: "Target", data: labels.map(() => b.straightpass.target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0, yAxisID: "y1" },
             ],
           },
           options: {
             responsive: true, maintainAspectRatio: false, animation: noAnim,
             layout: { padding: { top: 28 } },
             plugins: { legend: legend(true), tooltip: tooltip() },
-            scales: baseScales(),
+            scales: {
+              x: { ticks: { color: "#000000", font: { size: 9 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
+              y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+              y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => v + "%" }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, suggestedMax: 100 },
+            },
           },
-          plugins: [barValueLabels((v) => fmtNum(v), 0)],
+          plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabels((v) => (v === null ? "" : v + "%"), 1)],
         });
       }, "qcStraightpassMonth");
 
@@ -3849,7 +3907,7 @@ function dashboardExhaust() {
                 y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => v + "%" }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, suggestedMax: 100 },
               },
             },
-            plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0), lineValueLabels((v) => (v === null ? "" : v + "%"), 1)],
+            plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabels((v) => (v === null ? "" : v + "%"), 1)],
           });
         }, canvasId);
       };
@@ -3928,7 +3986,7 @@ function dashboardExhaust() {
               },
             },
             plugins: [
-              barValueLabels((v) => fmtNum(v), 0, isMoney ? "base" : "above"),
+              barValueLabels((v) => fmtNum(v), 0, opts.barLabelPos || (isMoney ? "base" : "above")),
               ...(lineIsPercent ? [lineValueLabels((v) => v + "%", 1)] : []),
               ...(isMoney ? [lineValueLabels((v) => fmtNum(Math.round(v / 1000)), 1)] : []),
             ],
@@ -3937,7 +3995,7 @@ function dashboardExhaust() {
       };
       qcDualAxisDaily("qcNgInlineDaily", "#F97316", "#8B5CF6", "Qty", "Value", false, ngi.dailyQty, ngi.dailyValue, { isMoney: true });
       qcDualAxisDaily("qcNgTrialDaily", "#06B6D4", "#8B5CF6", "Qty", "Value", false, ngt.dailyQty, ngt.dailyValue, { isMoney: true });
-      qcDualAxisDaily("qcStraightpassDaily", "#EF4444", "#22C55E", "Qty Repair", "% Straightpass", true, this.qcStraightpass.dailyRepairQty, this.qcStraightpass.dailyPercent);
+      qcDualAxisDaily("qcStraightpassDaily", "#EF4444", "#22C55E", "Qty Repair", "% Straightpass", true, this.qcStraightpass.dailyRepairQty, this.qcStraightpass.dailyPercent, { barLabelPos: "base" });
     },
     logout,
   };
