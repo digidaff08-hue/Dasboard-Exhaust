@@ -183,6 +183,12 @@
 .dxy-span-8 { grid-column: span 8; }
 .dxy-span-12 { grid-column: span 12; }
 .dxy-chart-box { position: relative; flex: 1; min-height: 185px !important; max-height: 185px; }
+/* Legend Chart.js (position:"bottom") nempel persis di tepi bawah kanvas --
+   supaya kelihatan mepet ke garis bawah kartu (bukan ngambang di tengah),
+   padding-bawah kartu yang isinya chart dipersempit di sini. Tidak
+   menyentuh kartu tabel (Rekap NG Inline/Trial/Repair, dst) karena itu
+   tidak punya .dxy-chart-box di dalamnya. */
+.dxy-panel:has(> .dxy-chart-box) { padding-bottom: 2px !important; }
 .dxy-chart-box.tall { min-height: 165px !important; max-height: 165px; }
 
 /* ---- Tabel Downtime Terbesar (redesign total) ---- */
@@ -2198,7 +2204,7 @@ function dashboardExhaust() {
       productivity: { value: 0, actual: [], target: 100 },
       availability: { value: 0, actual: [], target: 100 },
       ngInline: { qty: 0, value: 0, qtyByMonth: [], valueByMonth: [] },
-      straightpass: { value: 0, actual: [], qty: [], repairQty: [], target: 100 },
+      straightpass: { value: 0, actual: [], qty: [], repairQty: [], target: 95 },
       downtimeExhaust: { labels: [], values: [] },
       downtimeSupporting: { labels: [], plan: [], act: [] },
       downtimeLine: { labels: [], plan: [], act: [] },
@@ -2620,7 +2626,7 @@ function dashboardExhaust() {
             qtyByMonth: [null, null, ...fyMonths.map((d) => { const r = findRow(ngRows, d); return r ? Number(r.qty) : null; })],
             valueByMonth: [null, null, ...fyMonths.map((d) => { const r = findRow(ngRows, d); return r ? Number(r.value) : null; })],
           },
-          straightpass: { value: straightpassValue, actual: [null, null, ...straightpassActual], qty: [null, null, ...straightpassQty], repairQty: [null, null, ...straightpassRepairQty], target: 100 },
+          straightpass: { value: straightpassValue, actual: [null, null, ...straightpassActual], qty: [null, null, ...straightpassQty], repairQty: [null, null, ...straightpassRepairQty], target: 95 },
           downtimeExhaust: { labels: dtExhaustLabels, values: dtExhaustValues },
           downtimeSupporting,
           downtimeLine,
@@ -3034,7 +3040,7 @@ function dashboardExhaust() {
         x: { ticks: { color: "#000000", font: { size: 9 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
         y: { ticks: { color: "#000000", font: { size: 9 }, maxTicksLimit: 5 }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, ...opts },
       });
-      const legend = (show) => ({ display: show, position: "bottom", labels: { color: "#000000", boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 9 }, padding: 8 } });
+      const legend = (show) => ({ display: show, position: "bottom", labels: { color: "#000000", boxWidth: 5, boxHeight: 5, usePointStyle: true, pointStyle: "circle", font: { size: 7.5 }, padding: 3 } });
       const tooltip = () => ({ backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"), borderColor: cssVar("--border"), borderWidth: 1, padding: 8, cornerRadius: 8 });
 
       const grad = (canvas, hex, alphaTop = 0.85, alphaBottom = 0.05) => {
@@ -3274,7 +3280,7 @@ function dashboardExhaust() {
         x: { ticks: { color: "#000000", font: { size: 9 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
         y: { ticks: { color: "#000000", font: { size: 9 }, maxTicksLimit: 5 }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
       });
-      const legend = (show) => ({ display: show, position: "bottom", labels: { color: "#000000", boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 9 }, padding: 6 } });
+      const legend = (show) => ({ display: show, position: "bottom", labels: { color: "#000000", boxWidth: 5, boxHeight: 5, usePointStyle: true, pointStyle: "circle", font: { size: 7.5 }, padding: 3 } });
       const tooltip = () => ({ backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"), borderColor: cssVar("--border"), borderWidth: 1, padding: 10, cornerRadius: 8, displayColors: true, usePointStyle: true });
 
       const grad = (canvas, hex, alphaTop = 0.85, alphaBottom = 0.05) => {
@@ -3646,7 +3652,7 @@ function dashboardExhaust() {
         x: { ticks: { color: "#000000", font: { size: 9 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
         y: { ticks: { color: "#000000", font: { size: 9 }, maxTicksLimit: 5 }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
       });
-      const legend = (show) => ({ display: show, position: "bottom", labels: { color: "#000000", boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 9 }, padding: 6 } });
+      const legend = (show) => ({ display: show, position: "bottom", labels: { color: "#000000", boxWidth: 5, boxHeight: 5, usePointStyle: true, pointStyle: "circle", font: { size: 7.5 }, padding: 3 } });
       const tooltip = () => ({ backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"), borderColor: cssVar("--border"), borderWidth: 1, padding: 10, cornerRadius: 8, displayColors: true, usePointStyle: true });
       const grad = (canvas, hex, alphaTop = 0.85, alphaBottom = 0.05) => {
         const ctx = canvas.getContext("2d");
@@ -3776,9 +3782,11 @@ function dashboardExhaust() {
         });
       }, "qcNgInlineMonth");
 
-      // --- Month · NG Trial: STRUKTUR/STYLE sama persis dengan NG Inline
-      // (Qty bar oranye + Value garis ungu, dual axis) -- sekarang sudah
-      // pakai data asli dari fetchQcNgTrial() (p_type_ng = 'NG TRIAL'). ---
+      // --- Month · NG Trial: STRUKTUR sama persis dengan NG Inline (dual
+      // axis), tapi warna bar pakai cyan -- disamakan dengan chart NG Trial
+      // lain (Perline/Model/Daily) supaya seragam 1 kolom. Value tetap garis
+      // biru (sama semua kolom NG). Data asli dari fetchQcNgTrial()
+      // (p_type_ng = 'NG TRIAL'). ---
       safe(() => {
         destroy("qcNgTrialMonth");
         const canvas = document.getElementById("qcNgTrialMonth");
@@ -3791,7 +3799,7 @@ function dashboardExhaust() {
           data: {
             labels,
             datasets: [
-              { type: "bar", label: "Qty", data: trialQty, backgroundColor: barBg(canvas, "#F97316", trialQty.length), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
+              { type: "bar", label: "Qty", data: trialQty, backgroundColor: barBg(canvas, "#06B6D4", trialQty.length), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
               { type: "line", label: "Value", data: trialValue, borderColor: "#1D4ED8", backgroundColor: "rgba(29,78,216,0.1)", borderWidth: 1.5, fill: true, yAxisID: "y1", pointRadius: 1, tension: 0.3 },
             ],
           },
@@ -3826,8 +3834,8 @@ function dashboardExhaust() {
           data: {
             labels,
             datasets: [
-              { type: "bar", label: "Qty Repair", data: repairQty, backgroundColor: barBg(canvas, "#14B8A6", repairQty.length), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7, borderSkipped: false },
-              { type: "line", label: "% Straightpass", data: actual, borderColor: "#22C55E", backgroundColor: "#22C55E", yAxisID: "y1", pointRadius: 3, tension: 0.3, spanGaps: true },
+              { type: "bar", label: "Qty Repair", data: repairQty, backgroundColor: barBg(canvas, "#EF4444", repairQty.length), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
+              { type: "line", label: "% Straightpass", data: actual, borderColor: "#22C55E", backgroundColor: "#22C55E", borderWidth: 1.5, yAxisID: "y1", pointRadius: 3, tension: 0.3, spanGaps: true },
               { type: "line", label: "Target", data: labels.map(() => b.straightpass.target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0, yAxisID: "y1" },
             ],
           },
@@ -3884,7 +3892,7 @@ function dashboardExhaust() {
               labels: categories,
               datasets: [
                 { type: "bar", label: "Qty Repair", data: qty, backgroundColor: barBg(canvas, "#EF4444", qty.length), yAxisID: "y", borderRadius: 6, barPercentage: 0.6, categoryPercentage: 0.7 },
-                { type: "line", label: "% Straightpass", data: pct, borderColor: "#22C55E", backgroundColor: "#22C55E", yAxisID: "y1", pointRadius: 3, tension: 0.3, spanGaps: true },
+                { type: "line", label: "% Straightpass", data: pct, borderColor: "#22C55E", backgroundColor: "#22C55E", borderWidth: 1.5, yAxisID: "y1", pointRadius: 3, tension: 0.3, spanGaps: true },
               ],
             },
             options: {
@@ -3972,7 +3980,7 @@ function dashboardExhaust() {
               labels: QC_DAYS,
               datasets: [
                 { type: "bar", label: barLabel, data: barData, backgroundColor: barBg(canvas, hexBar, QC_DAYS.length), yAxisID: "y", borderRadius: 4, barPercentage: 0.6, categoryPercentage: 0.75 },
-                { type: "line", label: lineLabel, data: lineData, borderColor: isMoney ? "#1D4ED8" : hexLine, backgroundColor: isMoney ? "rgba(29,78,216,0.1)" : hexLine, borderWidth: isMoney ? 1.5 : undefined, fill: isMoney, yAxisID: "y1", pointRadius: isMoney ? 1 : 2, tension: 0.3, spanGaps: true },
+                { type: "line", label: lineLabel, data: lineData, borderColor: isMoney ? "#1D4ED8" : hexLine, backgroundColor: isMoney ? "rgba(29,78,216,0.1)" : hexLine, borderWidth: 1.5, fill: isMoney, yAxisID: "y1", pointRadius: isMoney ? 1 : 2, tension: 0.3, spanGaps: true },
               ],
             },
             options: {
