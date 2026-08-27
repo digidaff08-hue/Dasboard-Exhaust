@@ -2783,9 +2783,29 @@ function dashboardExhaust() {
     },
     // Dipanggil saat dropdown Bulan/Tahun di tab Bulanan berubah
     async onBulananPeriodChange() {
-      this.destroyBulananCharts();
+      // TIDAK panggil destroyBulananCharts() di sini -- kalau dipanggil
+      // sebelum await fetchBulanan() selesai, semua chart langsung
+      // dihancurkan seketika (canvas blank), lalu ada jeda nunggu response
+      // Supabase, baru chart baru dibuat -- itu yang bikin "kedip"/blank
+      // terlihat. renderBulananCharts() sendiri SUDAH punya mekanisme
+      // destroy per-chart tepat sebelum chart baru dibuat (lihat const
+      // destroy = (id) => {...} di dalamnya), jadi tidak ada jeda blank.
+      // Ini persis pola onQcPeriodChange() di tab Kontrol Kualitas, yang
+      // juga tidak pernah panggil destroyKualitasCharts() saat ganti
+      // periode -- destroy cuma perlu terjadi saat PINDAH TAB (lihat
+      // setTab()), bukan saat ganti Bulan/Tahun/Line di tab yang sama.
       this.bulananLoaded = false; // paksa fetch ulang periode baru
-      this.bulananLoading = true;
+      // TIDAK set bulananLoading = true di sini -- kalau di-set, Alpine
+      // akan membongkar total <template x-if="!bulananLoading"> (skeleton
+      // "Memuat data bulanan..." tampil, seluruh dashboard+chart lama
+      // di-unmount), lalu mounting ulang dari nol begitu fetch selesai --
+      // itu yang bikin efek "kedip seperti reload" saat ganti Bulan/Tahun.
+      // Pola dashboard Kontrol Kualitas (onQcPeriodChange) tidak pernah
+      // menyentuh flag loading yang membungkus template-nya sama sekali,
+      // makanya transisinya mulus. Di sini kita samakan: dashboard tetap
+      // ter-mount, fetchBulanan({silent:true}) cuma ganti data di balik
+      // layar, lalu renderBulananCharts() destroy+redraw chart dengan
+      // data baru tanpa DOM lain ikut hilang.
       // Balik ke mode "sebulan" tiap kali Bulan/Tahun diganti (persis pola
       // onQcPeriodChange di tab Kontrol Kualitas). Field tanggal cuma diisi
       // diam-diam ke hari ini (kalau bulan berjalan) atau tanggal 1 bulan
@@ -2798,7 +2818,7 @@ function dashboardExhaust() {
         this.bulananDate = localDateStr(new Date(this.bulananYear, this.bulananMonth - 1, 1));
       }
       this.bulananDowntimeUseDate = false;
-      await this.fetchBulanan();
+      await this.fetchBulanan({ silent: true });
       this.qcColFilters = { ...this.qcColFilters, bulananDowntime: {}, bulananTopProblem: {} };
       this.$nextTick(() => this.renderBulananCharts());
     },
@@ -2809,10 +2829,16 @@ function dashboardExhaust() {
     // Productivity/Availability/Downtime Harian/Supporting/Line/Weekly/
     // tabel Downtime Line/Downtime Terbesar semuanya ikut ke-filter.
     async onBulananLineFilterChange() {
-      this.destroyBulananCharts();
+      // TIDAK panggil destroyBulananCharts() di sini -- sama alasannya
+      // dengan onBulananPeriodChange() di atas: destroy per-chart sudah
+      // ditangani otomatis di dalam renderBulananCharts() tepat sebelum
+      // chart baru dibuat, jadi tidak ada jeda blank sambil nunggu
+      // fetchBulanan() selesai.
       this.bulananLoaded = false; // paksa fetch ulang dengan line baru
-      this.bulananLoading = true;
-      await this.fetchBulanan();
+      // Sama seperti onBulananPeriodChange() -- TIDAK set bulananLoading
+      // = true di sini supaya template dashboard tidak di-unmount/mount
+      // ulang (efek "kedip seperti reload") saat ganti Line.
+      await this.fetchBulanan({ silent: true });
       this.qcColFilters = { ...this.qcColFilters, bulananDowntime: {}, bulananTopProblem: {} };
       this.$nextTick(() => this.renderBulananCharts());
     },
