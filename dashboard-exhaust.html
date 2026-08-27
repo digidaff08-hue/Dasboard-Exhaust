@@ -720,7 +720,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
               </div>
               <div class="dxy-field">
                 <label>Line</label>
-                <select class="dxy-select" x-model="dxyLineFilter" @change="$nextTick(() => renderBulananCharts())">
+                <select class="dxy-select" x-model="dxyLineFilter" @change="onBulananLineFilterChange()">
                   <option value="ALL">Semua Line</option>
                   <template x-for="m in MACHINES_REF" :key="'bl-'+m.key"><option :value="m.key" x-text="m.key"></option></template>
                 </select>
@@ -1472,6 +1472,13 @@ function dashboardExhaust() {
     // ---------------------------------------------------------------
     bulananLoading: true,
     bulananLoaded: false,
+    // Line (dxyLineFilter) yang dipakai waktu fetchBulanan() terakhir
+    // sukses -- dxyLineFilter dipakai BERSAMA oleh tab Tahunan & Bulanan,
+    // jadi kalau user ganti Line di tab Tahunan lalu pindah ke tab
+    // Bulanan, bulananLoaded=true tidak cukup jadi penanda "data masih
+    // relevan" -- perlu dicek juga line-nya sama atau tidak (lihat
+    // fetchBulanan()).
+    _bulananLoadedLine: null,
     // Periode yang lagi dipilih di tab Bulanan (bulan + tahun berjalan default)
     bulananMonth: new Date().getMonth() + 1,
     bulananYear: new Date().getFullYear(),
@@ -2341,7 +2348,7 @@ function dashboardExhaust() {
     //        terpisah, belum dibuat di Supabase.
     // -----------------------------------------------------------------
     async fetchBulanan(opts = {}) {
-      if (this.bulananLoaded) return;
+      if (this.bulananLoaded && this._bulananLoadedLine === this.dxyLineFilter) return;
       // silent=true dipakai oleh refresh realtime -- data tetap diambil ulang,
       // tapi TIDAK menampilkan skeleton "Memuat data..." (yang bikin seluruh
       // panel sempat blank/kedip karena x-if melepas-lalu-pasang ulang DOM).
@@ -2355,12 +2362,21 @@ function dashboardExhaust() {
         const nHari = daysInMonth(year, month);
         const dayLabels = Array.from({ length: nHari }, (_, i) => String(i + 1));
 
+        // Line yang lagi dipilih di dropdown LINE (dxyLineFilter) --
+        // "ALL" = semua line digabung (perilaku lama), selain itu =
+        // filter cuma 1 line itu saja. mesinFilter dikirim ke RPC yang
+        // support p_mesin (Productivity/Availability/Downtime Harian,
+        // Downtime Supporting, Downtime Terbesar sebulan). Untuk chart
+        // "Downtime Line" (donut) & "Weekly" -- datanya TETAP semua
+        // line, cuma line terpilih di-highlight di renderBulananCharts().
+        const mesinFilter = this.dxyLineFilter !== "ALL" ? this.dxyLineFilter : null;
+
         const [prodRes, picRes, lineRes, weeklyRes, topProblemSummaryRes] = await Promise.all([
-          supabaseClient.rpc("dashboard_harian_produksi", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString() }),
-          supabaseClient.rpc("dashboard_harian_downtime_by_pic", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString() }),
+          supabaseClient.rpc("dashboard_harian_produksi", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_mesin: mesinFilter }),
+          supabaseClient.rpc("dashboard_harian_downtime_by_pic", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_mesin: mesinFilter }),
           supabaseClient.rpc("dashboard_harian_downtime_by_line", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString() }),
           supabaseClient.rpc("dashboard_bulanan_weekly", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString() }),
-          supabaseClient.rpc("dashboard_bulanan_top_problems_summary", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_limit: 10 }),
+          supabaseClient.rpc("dashboard_bulanan_top_problems_summary", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_limit: 10, p_mesin: mesinFilter }),
         ]);
         const prodRows = prodRes.data || [];
         const dayKeyStr = (day) => localDateStr(new Date(year, month - 1, day));
@@ -2490,6 +2506,7 @@ function dashboardExhaust() {
           downtimeTerbesarBulan,
         };
         this.bulananLoaded = true;
+        this._bulananLoadedLine = this.dxyLineFilter;
       } catch (e) {
         console.error("Gagal mengambil data Bulanan (harian):", e);
       } finally {
@@ -2785,6 +2802,20 @@ function dashboardExhaust() {
       this.qcColFilters = { ...this.qcColFilters, bulananDowntime: {}, bulananTopProblem: {} };
       this.$nextTick(() => this.renderBulananCharts());
     },
+    // Dipanggil saat dropdown LINE di tab Bulanan berubah (E-02..E-07
+    // atau "Semua Line"). Beda dengan Tahunan (yang filternya cukup di
+    // JS/client-side tanpa refetch) -- di Bulanan datanya memang perlu
+    // diambil ulang dari Supabase dengan p_mesin sesuai pilihan, supaya
+    // Productivity/Availability/Downtime Harian/Supporting/Line/Weekly/
+    // tabel Downtime Line/Downtime Terbesar semuanya ikut ke-filter.
+    async onBulananLineFilterChange() {
+      this.destroyBulananCharts();
+      this.bulananLoaded = false; // paksa fetch ulang dengan line baru
+      this.bulananLoading = true;
+      await this.fetchBulanan();
+      this.qcColFilters = { ...this.qcColFilters, bulananDowntime: {}, bulananTopProblem: {} };
+      this.$nextTick(() => this.renderBulananCharts());
+    },
     // Ambil SEMUA Downtime per line untuk rentang [start, end) tertentu --
     // dipakai untuk satu tanggal spesifik (tabel ini selalu per-tanggal,
     // tidak pernah agregat sebulan).
@@ -2796,10 +2827,14 @@ function dashboardExhaust() {
     // menjumlahkan tanpa batas). p_limit dinaikkan jadi angka besar supaya
     // efektif mengambil SEMUA baris di tanggal itu, bukan cuma top 5.
     async fetchDowntimeTerbesarFor(start, end) {
-      const topRes = await Promise.all(MACHINES.map((m) =>
+      // Cuma loop ke line yang lagi dipilih di dropdown LINE (dxyLineFilter).
+      // "ALL" -> tetap ke 6 line seperti biasa; selain itu -> 1 line saja
+      // (lebih hemat request, dan otomatis ke-filter).
+      const activeMachines = this.dxyLineFilter === "ALL" ? MACHINES : MACHINES.filter((m) => m.key === this.dxyLineFilter);
+      const topRes = await Promise.all(activeMachines.map((m) =>
         supabaseClient.rpc("dashboard_harian_top_problems", { p_mesin: m.key, p_start: start.toISOString(), p_end: end.toISOString(), p_limit: 1000 })
       ));
-      return MACHINES.map((m, idx) => {
+      return activeMachines.map((m, idx) => {
         const rows = ((topRes[idx] && topRes[idx].data) || []).map((r) => ({
           pic: r.pic || "",
           problem: r.problem || "",
@@ -3149,6 +3184,7 @@ function dashboardExhaust() {
           meta.data.forEach((point, i) => {
             const { x, y } = point.getProps(["x", "y"], true);
             const hex = colorFn(i);
+            if (!hex) return; // null = titik lagi dipudarkan, skip glow-nya
             const glowR = 7;
             ctx.save();
             const g = ctx.createRadialGradient(x, y, 0, x, y, glowR);
@@ -3224,7 +3260,14 @@ function dashboardExhaust() {
       safe(() => donut("dxbDowntimeSupporting", b.downtimeSupporting.labels, b.downtimeSupporting.act, (pic) => this.dxyPicColor(pic)), "downtimeSupporting");
       safe(() => {
         const lineColors = ["#2563EB", "#10B981", "#F97316", "#8B5CF6", "#EF4444", "#14B8A6"];
-        donut("dxbDowntimeLine", b.downtimeLine.labels, b.downtimeLine.act, (_l, i) => lineColors[i % lineColors.length]);
+        // Line yang lagi dipilih (dxyLineFilter) di-highlight full warna;
+        // line lain dipudarkan (alpha 40) -- sama pola dengan tab Tahunan.
+        // Kalau "ALL", semua tampil full warna seperti biasa.
+        donut("dxbDowntimeLine", b.downtimeLine.labels, b.downtimeLine.act, (label, i) => {
+          const base = lineColors[i % lineColors.length];
+          if (this.dxyLineFilter !== "ALL" && label !== this.dxyLineFilter) return base + "40";
+          return base;
+        });
       }, "downtimeLine");
       // (colorFn di atas untuk Line dipanggil dgn (label, index) -- Array.map
       // sudah otomatis mengoper index sbg argumen ke-2, jadi aman dipakai.)
@@ -3238,8 +3281,12 @@ function dashboardExhaust() {
           if (!canvas) return;
           const labels = w.labels;
           const values = w.values;
-          // Titik biru untuk tiap line
-          const pointColors = w.labels.map(() => "#2563EB");
+          // Titik biru untuk tiap line -- kalau ada Line terpilih
+          // (dxyLineFilter != ALL), titik line itu di-highlight (warna
+          // penuh + lebih besar), titik line lain dipudarkan (alpha 40).
+          const isHighlighted = (lbl) => this.dxyLineFilter === "ALL" || lbl === this.dxyLineFilter;
+          const pointColors = w.labels.map((lbl) => (isHighlighted(lbl) ? "#2563EB" : "#2563EB40"));
+          const pointRadii = w.labels.map((lbl) => (this.dxyLineFilter !== "ALL" && lbl === this.dxyLineFilter ? 5 : 3));
           this.bulananCharts[canvasId] = new Chart(canvas, {
             type: "line",
             data: {
@@ -3251,7 +3298,7 @@ function dashboardExhaust() {
                 borderColor: "#2563EB",
                 borderWidth: 1.5,
                 tension: 0.45, // kurva lebih halus
-                pointRadius: 3,
+                pointRadius: pointRadii,
                 pointHoverRadius: 4,
                 pointBackgroundColor: pointColors,
                 pointBorderColor: cssVar("--panel") || "#fff",
@@ -3264,7 +3311,7 @@ function dashboardExhaust() {
               plugins: { legend: legend(false), tooltip: tooltip() },
               scales: baseScales(),
             },
-            plugins: [glowPoints((i) => pointColors[i]), areaValueLabels((v) => fmtNum(v))],
+            plugins: [glowPoints((i) => (isHighlighted(labels[i]) ? "#2563EB" : null)), areaValueLabels((v) => fmtNum(v))],
           });
         }, "week" + (idx + 1));
       });
