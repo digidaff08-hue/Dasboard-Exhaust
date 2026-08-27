@@ -3709,6 +3709,11 @@ function dashboardExhaust() {
 
       // Sama seperti barValueLabels, tapi buat dataset garis (line) --
       // dipakai buat nampilin angka di atas tiap titik, misal "% Straightpass".
+      // Selalu digambar DI ATAS titik/garisnya -- tidak pernah dibalik ke
+      // bawah. Jarak aman ke judul sumbu ("Qty"/"Value" di axisUnitLabels)
+      // sudah dijaga lewat kombinasi: axisUnitLabels digeser tinggi ke atas
+      // + sumbu diberi headroom ("grace") di atas nilai data tertinggi --
+      // jadi titik data jarang mepet betul ke puncak chart.
       const lineValueLabels = (formatter, datasetIndex = 1) => ({
         id: "dxyQcLineValueLabels_" + datasetIndex + "_" + Math.random(),
         afterDatasetsDraw(chart) {
@@ -3727,6 +3732,7 @@ function dashboardExhaust() {
           ctx.textAlign = "center";
           ctx.textBaseline = "bottom";
           ctx.fillStyle = textColor;
+          const bottomSafe = chartArea ? chartArea.bottom - 18 : Infinity;
           // Hindari tabrakan: kalau bounding-box label ini masih tumpang
           // tindih dengan label terakhir yang berhasil digambar, lewati
           // (skip) -- daripada dipaksa gambar & saling menimpa jadi tidak
@@ -3739,15 +3745,48 @@ function dashboardExhaust() {
             if (Number.isNaN(val)) return;
             const label = formatter(val);
             const { x, y } = point.getProps(["x", "y"], true);
-            // Jarak aman minimum dari dasar chart -- supaya label garis
-            // tidak ketimpa label angka batang (Qty) yang digambar dekat
-            // sumbu-x (lihat barValueLabels pos "base").
-            const labelY = chartArea ? Math.min(y - 6, chartArea.bottom - 18) : y - 6;
+            const labelY = Math.min(y - 6, bottomSafe);
             const halfW = ctx.measureText(label).width / 2 + 2;
             if (x - halfW < lastRightEdge) return; // akan tabrakan, lewati
             ctx.fillText(label, x, labelY);
             lastRightEdge = x + halfW;
           });
+          ctx.restore();
+        },
+      });
+
+      // Label kecil ("Qty" / "Value" / "%") nempel di ATAS deretan angka
+      // sumbu vertikal primary (kiri) & secondary (kanan) -- BUKAN judul
+      // sumbu Chart.js bawaan (yang dirotasi 90° & makan lebar chart-area),
+      // tapi teks kecil di pojok atas kiri/kanan area chart, PERSIS di atas
+      // angka teratas kolom sumbunya masing-masing (chartArea.top adalah
+      // batas atas area angka, jadi label ini nempel tepat di atasnya).
+      const axisUnitLabels = (primaryText, secondaryText) => ({
+        id: "dxyQcAxisUnitLabels_" + Math.random(),
+        afterDraw(chart) {
+          const { ctx, chartArea, scales } = chart;
+          if (!chartArea) return;
+          ctx.save();
+          ctx.font = "bold 8.5px Inter, sans-serif";
+          ctx.fillStyle = "#000000";
+          ctx.strokeStyle = "#000000";
+          // Karakter "%" secara bentuk glyph memang lebih tipis dibanding
+          // huruf ("Qty"/"Value") walau font-weight-nya sama persis --
+          // stroke tipis ini menebalkan tinta semua karakter secara merata
+          // (termasuk simbol), supaya hitamnya terlihat senada/konsisten.
+          ctx.lineWidth = 0.6;
+          ctx.textBaseline = "bottom";
+          const labelY = chartArea.top - 14;
+          if (primaryText && scales.y) {
+            ctx.textAlign = "left";
+            ctx.strokeText(primaryText, scales.y.left, labelY);
+            ctx.fillText(primaryText, scales.y.left, labelY);
+          }
+          if (secondaryText && scales.y1) {
+            ctx.textAlign = "right";
+            ctx.strokeText(secondaryText, scales.y1.right, labelY);
+            ctx.fillText(secondaryText, scales.y1.right, labelY);
+          }
           ctx.restore();
         },
       });
@@ -3770,15 +3809,15 @@ function dashboardExhaust() {
           },
           options: {
             responsive: true, maintainAspectRatio: false, animation: noAnim,
-            layout: { padding: { top: 28 } },
+            layout: { padding: { top: 38 } },
             plugins: { legend: legend(true), tooltip: tooltip() },
             scales: {
               x: baseScales().x,
-              y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
-              y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => fmtNum(Math.round(v / 1000)) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+              y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, grace: "12%" },
+              y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => fmtNum(Math.round(v / 1000)) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, grace: "12%" },
             },
           },
-          plugins: [barValueLabels((v) => fmtNum(v), 0, "base"), lineValueLabels((v) => fmtNum(Math.round(v / 1000)), 1)],
+          plugins: [barValueLabels((v) => fmtNum(v), 0, "base"), lineValueLabels((v) => fmtNum(Math.round(v / 1000)), 1), axisUnitLabels("Qty", "Value")],
         });
       }, "qcNgInlineMonth");
 
@@ -3805,15 +3844,15 @@ function dashboardExhaust() {
           },
           options: {
             responsive: true, maintainAspectRatio: false, animation: noAnim,
-            layout: { padding: { top: 28 } },
+            layout: { padding: { top: 38 } },
             plugins: { legend: legend(true), tooltip: tooltip() },
             scales: {
               x: baseScales().x,
-              y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
-              y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => fmtNum(Math.round(v / 1000)) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+              y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, grace: "12%" },
+              y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => fmtNum(Math.round(v / 1000)) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, grace: "12%" },
             },
           },
-          plugins: [barValueLabels((v) => fmtNum(v), 0, "base"), lineValueLabels((v) => fmtNum(Math.round(v / 1000)), 1)],
+          plugins: [barValueLabels((v) => fmtNum(v), 0, "base"), lineValueLabels((v) => fmtNum(Math.round(v / 1000)), 1), axisUnitLabels("Qty", "Value")],
         });
       }, "qcNgTrialMonth");
 
@@ -3841,15 +3880,15 @@ function dashboardExhaust() {
           },
           options: {
             responsive: true, maintainAspectRatio: false, animation: noAnim,
-            layout: { padding: { top: 28 } },
+            layout: { padding: { top: 38 } },
             plugins: { legend: legend(true), tooltip: tooltip() },
             scales: {
               x: { ticks: { color: "#000000", font: { size: 9 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
-              y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
-              y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => v + "%" }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, suggestedMax: 100 },
+              y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, grace: "12%" },
+              y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => v + "%" }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, suggestedMax: 100, grace: "8%" },
             },
           },
-          plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabels((v) => (v === null ? "" : v + "%"), 1)],
+          plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabels((v) => (v === null ? "" : v + "%"), 1), axisUnitLabels("Qty", "%")],
         });
       }, "qcStraightpassMonth");
 
@@ -3870,7 +3909,7 @@ function dashboardExhaust() {
             },
             options: {
               responsive: true, maintainAspectRatio: false, animation: noAnim,
-              layout: { padding: { top: 22 } },
+              layout: { padding: { top: 32 } },
               plugins: { legend: legend(false), tooltip: tooltip() },
               scales: baseScales(),
             },
@@ -3897,7 +3936,7 @@ function dashboardExhaust() {
             },
             options: {
               responsive: true, maintainAspectRatio: false, animation: noAnim,
-              layout: { padding: { top: 28 } },
+              layout: { padding: { top: 38 } },
               plugins: { legend: legend(true), tooltip: tooltip() },
               scales: {
                 // Font sumbu X dikecilkan khusus di chart ini (bukan pakai
@@ -3911,11 +3950,11 @@ function dashboardExhaust() {
                 // teks judul itu makan lebar chart-area, mengecilkan ruang
                 // horizontal yang tersisa buat kategori. Info kategori mana
                 // punya-siapa sudah cukup jelas dari warna + legend di bawah.
-                y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
-                y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => v + "%" }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, suggestedMax: 100 },
+                y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, grace: "12%" },
+                y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => v + "%" }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, suggestedMax: 100, grace: "8%" },
               },
             },
-            plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabels((v) => (v === null ? "" : v + "%"), 1)],
+            plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabels((v) => (v === null ? "" : v + "%"), 1), axisUnitLabels("Qty", "%")],
           });
         }, canvasId);
       };
@@ -3938,15 +3977,15 @@ function dashboardExhaust() {
             },
             options: {
               responsive: true, maintainAspectRatio: false, animation: noAnim,
-              layout: { padding: { top: 28 } },
+              layout: { padding: { top: 38 } },
               plugins: { legend: legend(true), tooltip: tooltip() },
               scales: {
                 x: { ticks: { color: "#000000", font: { size: 8 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
-                y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
-                y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => fmtNum(Math.round(v / 1000)) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
+                y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, grace: "12%" },
+                y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => fmtNum(Math.round(v / 1000)) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, grace: "12%" },
               },
             },
-            plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabels((v) => (v === null ? "" : fmtNum(Math.round(v / 1000))), 1)],
+            plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabels((v) => (v === null ? "" : fmtNum(Math.round(v / 1000))), 1), axisUnitLabels("Qty", "Value")],
           });
         }, canvasId);
       };
@@ -3985,18 +4024,19 @@ function dashboardExhaust() {
             },
             options: {
               responsive: true, maintainAspectRatio: false, animation: noAnim,
-              layout: { padding: { top: 22 } },
+              layout: { padding: { top: 32 } },
               plugins: { legend: legend(true), tooltip: tooltip() },
               scales: {
                 x: { ticks: { color: "#000000", font: { size: 8 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
-                y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
-                y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => (lineIsPercent ? v + "%" : isMoney ? fmtNum(Math.round(v / 1000)) : v) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, ...(lineIsPercent ? { max: 100 } : {}) },
+                y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, grace: "12%" },
+                y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => (lineIsPercent ? v + "%" : isMoney ? fmtNum(Math.round(v / 1000)) : v) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, grace: lineIsPercent ? "8%" : "12%", ...(lineIsPercent ? { suggestedMax: 100 } : {}) },
               },
             },
             plugins: [
               barValueLabels((v) => fmtNum(v), 0, opts.barLabelPos || (isMoney ? "base" : "above")),
               ...(lineIsPercent ? [lineValueLabels((v) => v + "%", 1)] : []),
               ...(isMoney ? [lineValueLabels((v) => fmtNum(Math.round(v / 1000)), 1)] : []),
+              axisUnitLabels("Qty", lineIsPercent ? "%" : "Value"),
             ],
           });
         }, canvasId);
