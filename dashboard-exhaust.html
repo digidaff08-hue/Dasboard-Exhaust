@@ -229,6 +229,39 @@
   height: 246px !important;
   overflow: hidden;
 }
+/* ---- 3 tabel "Terbesar" di bottom tab Tahunan (Downtime / NG Inline /
+   Repair) -- KHUSUS bagian ini, TIDAK menyentuh tabel Bulanan/Kualitas.
+   Default SELALU 12 baris -- kalau data kurang dari 12, sisanya baris
+   KOSONG POLOS (tidak ada teks "-"/"No Problem" apa pun, lihat template
+   HTML-nya). Tinggi kotak dikunci PAS untuk 12 baris (header + 12 x
+   tinggi baris), TANPA scroll selama baris <= 12. Kalau data asli > 12
+   baris, baris TIDAK dipotong -- overflow:auto otomatis memunculkan
+   scroll DI DALAM kotak yang ukurannya tetap sama (kotak tidak ikut
+   membesar). Selector 3-class ini sengaja dibuat lebih spesifik
+   daripada rule ".dxy-table-panel-sm .dxy-table-scroll" manapun
+   (termasuk breakpoint layar besar), jadi selalu menang. */
+.dxy-panel.dxy-table-panel-sm.dxy-tahunan-terbesar-panel {
+  min-height: 356px !important;
+  max-height: 356px !important;
+  height: 356px !important;
+  overflow: hidden;
+}
+.dxy-panel.dxy-table-panel-sm.dxy-tahunan-terbesar-panel .dxy-table-scroll {
+  height: 310px !important;
+  max-height: 310px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  scrollbar-width: thin;
+  scrollbar-color: #94A3B8 transparent;
+}
+/* Font sel data di 3 tabel ini SERAGAM 8px -- dulu .dxy-pic-chip (11px)
+   & .dxy-minute-badge (11.5px) override lebih besar daripada teks polos
+   lainnya (8px, dari rule "table.qc-detail-table tbody td" di atas),
+   jadi kelihatan besar-kecil tidak rata dalam 1 tabel yang sama. */
+.dxy-tahunan-terbesar-panel .dxy-pic-chip,
+.dxy-tahunan-terbesar-panel .dxy-minute-badge {
+  font-size: 8px !important;
+}
 /* ---- Toggle "Tanggal" / "Sebulan" di header panel Rekap (Kontrol Kualitas) ---- */
 .qc-rekap-mode { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
 .qc-rekap-mode .dxy-input { min-height: 24px; padding: 3px 6px; font-size: 10.5px; }
@@ -720,7 +753,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
               </div>
               <div class="dxy-field">
                 <label>Line</label>
-                <select class="dxy-select" x-model="dxyLineFilter" @change="onBulananLineFilterChange()">
+                <select class="dxy-select" x-model="dxyLineFilterBulanan" @change="onBulananLineFilterChange()">
                   <option value="ALL">Semua Line</option>
                   <template x-for="m in MACHINES_REF" :key="'bl-'+m.key"><option :value="m.key" x-text="m.key"></option></template>
                 </select>
@@ -886,7 +919,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
               </div>
               <div class="dxy-field">
                 <label>Line</label>
-                <select class="dxy-select" x-model="dxyLineFilter" @change="$nextTick(() => renderTahunanCharts())">
+                <select class="dxy-select" x-model="dxyLineFilter" @change="dxyRebuildTahunanSeries(); computeTahunanInsights(); $nextTick(() => renderTahunanCharts())">
                   <option value="ALL">Semua Line</option>
                   <template x-for="m in MACHINES_REF" :key="m.key"><option :value="m.key" x-text="m.key"></option></template>
                 </select>
@@ -929,7 +962,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
 
             <!-- ===== Baris 5: Tabel Terbesar (Downtime / NG Inline / Repair) — sejajar 3 kolom ===== -->
             <div class="dxy-chart-grid">
-            <div class="dxy-panel dxy-span-4 dxy-table-panel-sm">
+            <div class="dxy-panel dxy-span-4 dxy-table-panel-sm dxy-tahunan-terbesar-panel">
               <div class="dxy-panel-head">
                 <div class="qc-panel-title-group">
                   <span class="dxy-panel-title">🏆 Downtime Terbesar</span>
@@ -956,15 +989,14 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                           <template x-if="row.pic">
                             <span class="dxy-pic-chip"><span x-text="row.pic"></span></span>
                           </template>
-                          <template x-if="!row.pic"><span class="dxy-empty-cell">-</span></template>
                         </td>
                         <td :title="row.problem">
                           <span x-show="row.problem" x-text="row.problem"></span>
-                          <span class="dxy-empty-cell" x-show="!row.problem">No Problem</span>
                         </td>
                         <td style="text-align:right">
-                          <span x-show="row.value !== ''" class="dxy-minute-badge" :style="dxyMinuteBadgeStyle(row.value)" x-text="row.value"></span>
-                          <span x-show="row.value === ''" class="dxy-empty-cell">-</span>
+                          <template x-if="row.value !== ''">
+                            <span x-text="row.value"></span>
+                          </template>
                         </td>
                       </tr>
                     </template>
@@ -977,7 +1009,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
             </div>
 
             <!-- ===== Tabel NG Inline Terbesar (struktur sama seperti Downtime Terbesar) ===== -->
-            <div class="dxy-panel dxy-span-4 dxy-table-panel-sm">
+            <div class="dxy-panel dxy-span-4 dxy-table-panel-sm dxy-tahunan-terbesar-panel">
               <div class="dxy-panel-head">
                 <div class="qc-panel-title-group">
                   <span class="dxy-panel-title">⚠️ NG Inline Terbesar</span>
@@ -996,7 +1028,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                     </tr>
                   </thead>
                   <tbody>
-                    <template x-for="(row, i) in dxyFilteredNgTerbesar()" :key="row.mesin + '-' + i">
+                    <template x-for="(row, i) in dxyFilteredNgTerbesar()" :key="row.kategori + '-' + i">
                       <tr>
                         <td :title="row.kategori">
                           <template x-if="row.kategori">
@@ -1007,7 +1039,9 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                           <span x-show="row.qty !== ''" x-text="row.qty"></span>
                         </td>
                         <td style="text-align:right">
-                          <span x-show="row.value !== ''" class="dxy-minute-badge" :style="dxyMinuteBadgeStyle(row.value)" x-text="fmtRibuan(row.value)"></span>
+                          <template x-if="row.value !== ''">
+                            <span x-text="fmtRibuan(row.value)"></span>
+                          </template>
                         </td>
                       </tr>
                     </template>
@@ -1020,7 +1054,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
             </div>
 
             <!-- ===== Tabel Repair Terbesar (struktur sama, tanpa kolom Menit) ===== -->
-            <div class="dxy-panel dxy-span-4 dxy-table-panel-sm">
+            <div class="dxy-panel dxy-span-4 dxy-table-panel-sm dxy-tahunan-terbesar-panel">
               <div class="dxy-panel-head">
                 <div class="qc-panel-title-group">
                   <span class="dxy-panel-title">🔧 Repair Terbesar</span>
@@ -1038,7 +1072,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                     </tr>
                   </thead>
                   <tbody>
-                    <template x-for="(row, i) in dxyFilteredRepairTerbesar()" :key="row.mesin + '-' + i">
+                    <template x-for="(row, i) in dxyFilteredRepairTerbesar()" :key="row.kategori + '-' + i">
                       <tr>
                         <td :title="row.kategori">
                           <template x-if="row.kategori">
@@ -1398,6 +1432,20 @@ function cssVar(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
+// Default hover/tooltip GLOBAL untuk semua chart Chart.js di dashboard ini.
+// Tooltip HARUS muncul cuma kalau kursor tepat di atas batang atau tepat di
+// garis/titik (intersect: true) -- ini perilaku standar/umum, bukan "muncul
+// begitu kursor ada di kolom yang sama". Supaya titik garis yang radius
+// visualnya kecil (1-3px) tetap gampang "kena" walau kursor tidak persis
+// 100% di pixel titiknya, area sentuh (hitRadius) diperbesar -- ini TIDAK
+// mengubah tampilan visual titik (radius gambar tetap sama persis seperti
+// yang sudah di-set tiap chart), cuma memperbesar area tak-kasat-mata yang
+// dianggap "menyentuh" titik itu.
+if (typeof Chart !== "undefined") {
+  Chart.defaults.interaction = { mode: "nearest", intersect: true };
+  Chart.defaults.elements.point.hitRadius = 8;
+}
+
 function dashboardExhaust() {
   return {
     session: null, profile: null, mobileNavOpen: false, sidebarCollapsed: true,
@@ -1472,12 +1520,12 @@ function dashboardExhaust() {
     // ---------------------------------------------------------------
     bulananLoading: true,
     bulananLoaded: false,
-    // Line (dxyLineFilter) yang dipakai waktu fetchBulanan() terakhir
-    // sukses -- dxyLineFilter dipakai BERSAMA oleh tab Tahunan & Bulanan,
-    // jadi kalau user ganti Line di tab Tahunan lalu pindah ke tab
-    // Bulanan, bulananLoaded=true tidak cukup jadi penanda "data masih
-    // relevan" -- perlu dicek juga line-nya sama atau tidak (lihat
-    // fetchBulanan()).
+    // Line (dxyLineFilterBulanan) yang dipakai waktu fetchBulanan()
+    // terakhir sukses -- disimpan supaya bulananLoaded=true tidak cukup
+    // jadi penanda "data masih relevan" kalau user ganti Line di dropdown
+    // Bulanan (lihat fetchBulanan()). dxyLineFilterBulanan TERPISAH dari
+    // dxyLineFilter (punya tab Tahunan) -- ganti Line di 1 tab TIDAK
+    // mempengaruhi Line di tab satunya.
     _bulananLoadedLine: null,
     // Periode yang lagi dipilih di tab Bulanan (bulan + tahun berjalan default)
     bulananMonth: new Date().getMonth() + 1,
@@ -2222,7 +2270,16 @@ function dashboardExhaust() {
     tahunanCharts: {},
     qcCharts: {},
     tahunanInsights: [],
+    // dxyLineFilter: KHUSUS tab Tahunan (dropdown Line di baris filter
+    // Tahunan, dipakai dxyRebuildTahunanSeries/chart-chart Tahunan/3
+    // tabel Terbesar Tahunan).
     dxyLineFilter: "ALL",
+    // dxyLineFilterBulanan: KHUSUS tab Bulanan (dropdown Line di baris
+    // filter Bulanan) -- SENGAJA dipisah dari dxyLineFilter di atas
+    // supaya ganti Line di 1 tab TIDAK ikut mengubah Line di tab
+    // satunya. Dulu keduanya pakai 1 variabel yang sama (dxyLineFilter),
+    // makanya kelihatan "nge-link".
+    dxyLineFilterBulanan: "ALL",
     MACHINES_REF: MACHINES,
     async init() {
       this.session = await requireAuth();
@@ -2348,7 +2405,7 @@ function dashboardExhaust() {
     //        terpisah, belum dibuat di Supabase.
     // -----------------------------------------------------------------
     async fetchBulanan(opts = {}) {
-      if (this.bulananLoaded && this._bulananLoadedLine === this.dxyLineFilter) return;
+      if (this.bulananLoaded && this._bulananLoadedLine === this.dxyLineFilterBulanan) return;
       // silent=true dipakai oleh refresh realtime -- data tetap diambil ulang,
       // tapi TIDAK menampilkan skeleton "Memuat data..." (yang bikin seluruh
       // panel sempat blank/kedip karena x-if melepas-lalu-pasang ulang DOM).
@@ -2362,14 +2419,15 @@ function dashboardExhaust() {
         const nHari = daysInMonth(year, month);
         const dayLabels = Array.from({ length: nHari }, (_, i) => String(i + 1));
 
-        // Line yang lagi dipilih di dropdown LINE (dxyLineFilter) --
+        // Line yang lagi dipilih di dropdown LINE tab Bulanan
+        // (dxyLineFilterBulanan -- terpisah dari dxyLineFilter Tahunan) --
         // "ALL" = semua line digabung (perilaku lama), selain itu =
         // filter cuma 1 line itu saja. mesinFilter dikirim ke RPC yang
         // support p_mesin (Productivity/Availability/Downtime Harian,
         // Downtime Supporting, Downtime Terbesar sebulan). Untuk chart
         // "Downtime Line" (donut) & "Weekly" -- datanya TETAP semua
         // line, cuma line terpilih di-highlight di renderBulananCharts().
-        const mesinFilter = this.dxyLineFilter !== "ALL" ? this.dxyLineFilter : null;
+        const mesinFilter = this.dxyLineFilterBulanan !== "ALL" ? this.dxyLineFilterBulanan : null;
 
         const [prodRes, picRes, lineRes, weeklyRes, topProblemSummaryRes] = await Promise.all([
           supabaseClient.rpc("dashboard_harian_produksi", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_mesin: mesinFilter }),
@@ -2506,7 +2564,7 @@ function dashboardExhaust() {
           downtimeTerbesarBulan,
         };
         this.bulananLoaded = true;
-        this._bulananLoadedLine = this.dxyLineFilter;
+        this._bulananLoadedLine = this.dxyLineFilterBulanan;
       } catch (e) {
         console.error("Gagal mengambil data Bulanan (harian):", e);
       } finally {
@@ -2526,11 +2584,13 @@ function dashboardExhaust() {
         const bulanIni = new Date(now.getFullYear(), now.getMonth(), 1);
         const bulanDepan = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-        const [prodRes, ngRes, picRes, lineRes, repairMonthRes] = await Promise.all([
+        const [prodRes, ngRes, planByPicRes, lineRes, repairMonthRes] = await Promise.all([
           supabaseClient.rpc("dashboard_bulanan_produksi", { p_start: prevFyStart.toISOString(), p_end: fyEnd.toISOString() }),
           supabaseClient.rpc("dashboard_bulanan_ng_inline", { p_start: prevFyStart.toISOString(), p_end: fyEnd.toISOString() }),
-          // Downtime Supporting & Line: total 1 tahun fiskal PENUH sesuai dropdown Tahun
-          supabaseClient.rpc("dashboard_bulanan_downtime_by_pic", { p_start: fyStart.toISOString(), p_end: fyEnd.toISOString() }),
+          // Downtime Supporting: Plan/Target TETAP total pabrik (tidak ada
+          // target per-Line di database) -- lihat dashboard_tahunan_downtime_plan_by_pic.
+          // Actual-nya diambil terpisah per-Line di bawah (downtimeActPerLineRes).
+          supabaseClient.rpc("dashboard_tahunan_downtime_plan_by_pic", { p_start: fyStart.toISOString(), p_end: fyEnd.toISOString() }),
           supabaseClient.rpc("dashboard_bulanan_downtime_by_line", { p_start: fyStart.toISOString(), p_end: fyEnd.toISOString() }),
           // Qty Repair per bulan (semua line) -- dipakai rumus % Straightpass
           // yang BARU: (Stroke - Qty Repair) / Stroke * 100. NG (ngRes di
@@ -2542,86 +2602,35 @@ function dashboardExhaust() {
         const topRes = await Promise.all(MACHINES.map((m) =>
           supabaseClient.rpc("dashboard_bulanan_top_problems", { p_mesin: m.key, p_start: fyStart.toISOString(), p_end: fyEnd.toISOString(), p_limit: 5 })
         ));
+        // NG Inline Terbesar & Repair Terbesar per Line: sama polanya seperti
+        // topRes di atas (1 RPC per Line), supaya hasilnya bisa langsung
+        // difilter per-Line di client (dxyLineFilter) tanpa refetch --
+        // lihat dxyNgFlatTahunan()/dxyRepairFlatTahunan(). NG Inline pakai
+        // type_ng "NG PRODUKSI" (sama seperti kartu NG Inline lain).
+        const ngTopRes = await Promise.all(MACHINES.map((m) =>
+          supabaseClient.rpc("dashboard_tahunan_ng_kategori_perline", { p_type_ng: "NG PRODUKSI", p_mesin: m.key, p_start: fyStart.toISOString(), p_end: fyEnd.toISOString(), p_limit: 5 })
+        ));
+        const repairTopRes = await Promise.all(MACHINES.map((m) =>
+          supabaseClient.rpc("dashboard_tahunan_repair_kategori_perline", { p_mesin: m.key, p_start: fyStart.toISOString(), p_end: fyEnd.toISOString(), p_limit: 5 })
+        ));
+        // Downtime Supporting (Actual) per Line -- pola sama seperti topRes:
+        // 1 RPC per Line, supaya chart Downtime Supporting bisa ikut Line
+        // yang dipilih tanpa refetch (lihat dxyRebuildTahunanSeries()).
+        const downtimeActPerLineRes = await Promise.all(MACHINES.map((m) =>
+          supabaseClient.rpc("dashboard_tahunan_downtime_act_by_pic_perline", { p_mesin: m.key, p_start: fyStart.toISOString(), p_end: fyEnd.toISOString() })
+        ));
 
-        const prodRows = prodRes.data || [];
-        const ngRows = ngRes.data || [];
-        const repairMonthRows = repairMonthRes.data || [];
-        const monthKeyStr = (d) => localDateStr(d);
-
-        // 12 bulan FY berjalan (Apr..Mar)
-        const fyMonths = [];
-        for (let i = 0; i < 12; i++) fyMonths.push(new Date(fyStartYear, 3 + i, 1));
-        const monthLabelId = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
-
-        const findRow = (rows, d) => rows.find((r) => r.bulan === monthKeyStr(d));
-        const sumInRange = (rows, start, end, field) =>
-          rows.filter((r) => { const rd = new Date(r.bulan + "T00:00:00"); return rd >= start && rd < end; })
-              .reduce((a, r) => a + (Number(r[field]) || 0), 0);
-
-        // Productivity & Availability & Straightpass per bulan (FY berjalan)
-        const productivityActual = fyMonths.map((d) => {
-          const row = findRow(prodRows, d);
-          if (!row || !row.wh_menit) return null;
-          return Number(((row.target_std_menit / row.wh_menit) * 100).toFixed(1));
-        });
-        const availabilityActual = fyMonths.map((d) => {
-          const row = findRow(prodRows, d);
-          if (!row || !row.wh_menit) return null;
-          return Number((((row.wh_menit - row.downtime_menit) / row.wh_menit) * 100).toFixed(1));
-        });
-        // % Straightpass = (Stroke - Qty Repair) / Stroke * 100 -- rumus
-        // BARU, NG tidak dipakai lagi di sini sama sekali.
-        const straightpassActual = fyMonths.map((d) => {
-          const row = findRow(prodRows, d);
-          const repairRow = findRow(repairMonthRows, d);
-          if (!row || !row.stroke) return null;
-          const repairQty = repairRow ? Number(repairRow.qty) || 0 : 0;
-          return Number((((row.stroke - repairQty) / row.stroke) * 100).toFixed(1));
-        });
-        const straightpassQty = fyMonths.map((d) => {
-          const row = findRow(prodRows, d);
-          return row ? Number(row.stroke) : null;
-        });
-        // Qty Repair per bulan (BUKAN stroke) -- dipakai buat bar chart
-        // utama Straight Pass, disamakan gaya sama chart Perline/Model:
-        // bar Qty Repair (kiri) + garis % Straightpass (kanan) + garis
-        // Target putus-putus.
-        const straightpassRepairQty = fyMonths.map((d) => {
-          const repairRow = findRow(repairMonthRows, d);
-          return repairRow ? Number(repairRow.qty) || 0 : null;
-        });
-
-        // Bulan berjalan (bulan terakhir yang ada datanya)
-        const lastRow = [...prodRows].reverse().find((r) => r.wh_menit > 0) || null;
-        const lastNgRow = ngRows.length ? ngRows[ngRows.length - 1] : null;
-        const lastRepairMonthRow = repairMonthRows.length ? repairMonthRows[repairMonthRows.length - 1] : null;
-        const productivityValue = lastRow ? Number(((lastRow.target_std_menit / lastRow.wh_menit) * 100).toFixed(1)) : 0;
-        const availabilityValue = lastRow ? Number((((lastRow.wh_menit - lastRow.downtime_menit) / lastRow.wh_menit) * 100).toFixed(1)) : 0;
-        const straightpassValue = lastRow && lastRow.stroke
-          ? Number((((lastRow.stroke - (lastRepairMonthRow ? Number(lastRepairMonthRow.qty) || 0 : 0)) / lastRow.stroke) * 100).toFixed(1))
-          : 0;
-
-        // Downtime Exhaust: FY-1, FY, lalu 12 bulan Apr..Mar
-        const dtExhaustLabels = ["FY " + fyStartYear, "FY " + (fyStartYear + 1), ...fyMonths.map((d) => monthLabelId[d.getMonth()])];
-        const dtExhaustValues = [
-          Math.round(sumInRange(prodRows, prevFyStart, fyStart, "downtime_menit")),
-          Math.round(sumInRange(prodRows, fyStart, fyEnd, "downtime_menit")),
-          ...fyMonths.map((d) => { const r = findRow(prodRows, d); return r ? Math.round(Number(r.downtime_menit)) : 0; }),
-        ];
-
-        // Downtime Supporting / Line (total FY berjalan: April s/d bulan ini)
-        const picRows = picRes.data || [];
-        const lineRows = lineRes.data || [];
-        const PIC_ORDER = ["PE", "MESIN", "QC", "PC-SUPP", "PROD", "PRESS"];
-        const downtimeSupporting = {
-          labels: PIC_ORDER,
-          plan: PIC_ORDER.map((p) => { const r = picRows.find((x) => x.pic === p); return r ? Math.round(Number(r.plan_menit)) : 0; }),
-          act: PIC_ORDER.map((p) => { const r = picRows.find((x) => x.pic === p); return r ? Math.round(Number(r.act_menit)) : 0; }),
-        };
-        const downtimeLine = {
-          labels: MACHINES.map((m) => m.key),
-          plan: MACHINES.map((m) => { const r = lineRows.find((x) => x.mesin === m.key); return r ? Math.round(Number(r.plan_menit)) : 0; }),
-          act: MACHINES.map((m) => { const r = lineRows.find((x) => x.mesin === m.key); return r ? Math.round(Number(r.act_menit)) : 0; }),
+        // Simpan semua data MENTAH (per bulan+mesin, atau per-line) supaya
+        // bisa dihitung ulang tiap kali dxyLineFilter berubah TANPA refetch
+        // ke Supabase -- lihat dxyRebuildTahunanSeries().
+        this.tahunanRaw = {
+          prodRows: prodRes.data || [],
+          ngRows: ngRes.data || [],
+          repairMonthRows: repairMonthRes.data || [],
+          planByPic: planByPicRes.data || [],
+          actByPicPerLine: MACHINES.map((m, idx) => ({ mesin: m.key, rows: (downtimeActPerLineRes[idx] && downtimeActPerLineRes[idx].data) || [] })),
+          lineRows: lineRes.data || [],
+          fyStartYear, fyStart, fyEnd, prevFyStart,
         };
 
         // Downtime Terbesar per line -- selalu tampilkan 5 baris ke bawah,
@@ -2634,27 +2643,34 @@ function dashboardExhaust() {
         });
 
         this.tahunan = {
-          monthLabels: dtExhaustLabels,
-          productivity: { value: productivityValue, actual: [null, null, ...productivityActual], target: 100 },
-          availability: { value: availabilityValue, actual: [null, null, ...availabilityActual], target: 100 },
-          ngInline: {
-            qty: lastNgRow ? Number(lastNgRow.qty) : 0,
-            value: lastNgRow ? Number(lastNgRow.value) : 0,
-            qtyByMonth: [null, null, ...fyMonths.map((d) => { const r = findRow(ngRows, d); return r ? Number(r.qty) : null; })],
-            valueByMonth: [null, null, ...fyMonths.map((d) => { const r = findRow(ngRows, d); return r ? Number(r.value) : null; })],
-          },
-          straightpass: { value: straightpassValue, actual: [null, null, ...straightpassActual], qty: [null, null, ...straightpassQty], repairQty: [null, null, ...straightpassRepairQty], target: 95 },
-          downtimeExhaust: { labels: dtExhaustLabels, values: dtExhaustValues },
-          downtimeSupporting,
-          downtimeLine,
           downtimeTerbesar,
-          // TODO: sambungkan ke RPC/tabel Supabase yang sesuai begitu sudah
-          // ditentukan (lihat catatan di fetchTahunan). Struktur per-baris:
+          // NG Inline Terbesar per Line -- dari dashboard_tahunan_ng_kategori_perline
+          // (ng_inline_log, type_ng = "NG PRODUKSI"). Struktur per-baris:
           // { mesin, rows: [{ kategori, qty, value }], rowsPadded }
-          ngInlineTerbesar: MACHINES.map((m) => ({ mesin: m.key, rows: [], rowsPadded: Array(5).fill({ kategori: "", qty: "", value: "" }) })),
-          // Struktur per-baris: { mesin, rows: [{ kategori, qty }], rowsPadded }
-          repairTerbesar: MACHINES.map((m) => ({ mesin: m.key, rows: [], rowsPadded: Array(5).fill({ kategori: "", qty: "" }) })),
+          ngInlineTerbesar: MACHINES.map((m, idx) => {
+            const rows = ((ngTopRes[idx] && ngTopRes[idx].data) || []).map((r) => ({
+              kategori: r.ng_kategori, qty: Math.round(Number(r.qty)) || 0, value: Math.round(Number(r.value)) || 0,
+            }));
+            const rowsPadded = [...rows];
+            while (rowsPadded.length < 5) rowsPadded.push({ kategori: "", qty: "", value: "" });
+            return { mesin: m.key, rows, rowsPadded };
+          }),
+          // Repair Terbesar per Line -- dari dashboard_tahunan_repair_kategori_perline
+          // (repair_log). Struktur per-baris: { mesin, rows: [{ kategori, qty }], rowsPadded }
+          repairTerbesar: MACHINES.map((m, idx) => {
+            const rows = ((repairTopRes[idx] && repairTopRes[idx].data) || []).map((r) => ({
+              kategori: r.kategori_repair, qty: Math.round(Number(r.qty)) || 0,
+            }));
+            const rowsPadded = [...rows];
+            while (rowsPadded.length < 5) rowsPadded.push({ kategori: "", qty: "" });
+            return { mesin: m.key, rows, rowsPadded };
+          }),
         };
+        // Hitung Productivity/Availability/Straightpass/NG Inline/Downtime
+        // Exhaust/Supporting/Line dari data mentah (this.tahunanRaw) sesuai
+        // dxyLineFilter yang aktif sekarang. Fungsi ini yang dipanggil ULANG
+        // (tanpa refetch) tiap kali dropdown Line di tab Tahunan diganti.
+        this.dxyRebuildTahunanSeries();
         this.tahunanLoaded = true;
         this.computeTahunanInsights();
       } catch (e) {
@@ -2662,6 +2678,146 @@ function dashboardExhaust() {
       } finally {
         if (!opts.silent) this.tahunanLoading = false;
       }
+    },
+    // Hitung ulang semua series chart Tahunan (Productivity, Availability,
+    // Straightpass, NG Inline total, Downtime Exhaust/Supporting/Line) dari
+    // data mentah this.tahunanRaw, sesuai Line yang lagi difilter
+    // (dxyLineFilter). Dipanggil sekali di akhir fetchTahunan(), dan
+    // dipanggil ULANG tiap kali dropdown Line berubah -- tanpa refetch ke
+    // Supabase, konsisten dengan gaya filter Tahunan yang sudah ada.
+    dxyRebuildTahunanSeries() {
+      const raw = this.tahunanRaw;
+      if (!raw) return;
+      const lineFilter = this.dxyLineFilter;
+      const { fyStartYear, fyStart, fyEnd, prevFyStart } = raw;
+
+      // Gabungkan rows-per-(bulan,mesin) jadi rows-per-bulan sesuai Line
+      // yang dipilih. "ALL" -> dijumlah semua Line. Line tertentu -> ambil
+      // baris Line itu saja. Generic: semua field numerik ikut dijumlah.
+      const collapseByLine = (rows) => {
+        const map = new Map();
+        for (const r of rows) {
+          if (lineFilter !== "ALL" && r.mesin !== lineFilter) continue;
+          if (!map.has(r.bulan)) map.set(r.bulan, { bulan: r.bulan });
+          const acc = map.get(r.bulan);
+          for (const k of Object.keys(r)) {
+            if (k === "bulan" || k === "mesin") continue;
+            acc[k] = (acc[k] || 0) + (Number(r[k]) || 0);
+          }
+        }
+        return Array.from(map.values());
+      };
+
+      const prodRows = collapseByLine(raw.prodRows);
+      const ngRows = collapseByLine(raw.ngRows);
+      const repairMonthRows = collapseByLine(raw.repairMonthRows);
+      const monthKeyStr = (d) => localDateStr(d);
+
+      // 12 bulan FY berjalan (Apr..Mar)
+      const fyMonths = [];
+      for (let i = 0; i < 12; i++) fyMonths.push(new Date(fyStartYear, 3 + i, 1));
+      const monthLabelId = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+
+      const findRow = (rows, d) => rows.find((r) => r.bulan === monthKeyStr(d));
+      const sumInRange = (rows, start, end, field) =>
+        rows.filter((r) => { const rd = new Date(r.bulan + "T00:00:00"); return rd >= start && rd < end; })
+            .reduce((a, r) => a + (Number(r[field]) || 0), 0);
+
+      // Productivity & Availability & Straightpass per bulan (FY berjalan)
+      const productivityActual = fyMonths.map((d) => {
+        const row = findRow(prodRows, d);
+        if (!row || !row.wh_menit) return null;
+        return Number(((row.target_std_menit / row.wh_menit) * 100).toFixed(1));
+      });
+      const availabilityActual = fyMonths.map((d) => {
+        const row = findRow(prodRows, d);
+        if (!row || !row.wh_menit) return null;
+        return Number((((row.wh_menit - row.downtime_menit) / row.wh_menit) * 100).toFixed(1));
+      });
+      // % Straightpass = (Stroke - Qty Repair) / Stroke * 100 -- rumus
+      // BARU, NG tidak dipakai lagi di sini sama sekali.
+      const straightpassActual = fyMonths.map((d) => {
+        const row = findRow(prodRows, d);
+        const repairRow = findRow(repairMonthRows, d);
+        if (!row || !row.stroke) return null;
+        const repairQty = repairRow ? Number(repairRow.qty) || 0 : 0;
+        return Number((((row.stroke - repairQty) / row.stroke) * 100).toFixed(1));
+      });
+      const straightpassQty = fyMonths.map((d) => {
+        const row = findRow(prodRows, d);
+        return row ? Number(row.stroke) : null;
+      });
+      // Qty Repair per bulan (BUKAN stroke) -- dipakai buat bar chart
+      // utama Straight Pass, disamakan gaya sama chart Perline/Model:
+      // bar Qty Repair (kiri) + garis % Straightpass (kanan) + garis
+      // Target putus-putus.
+      const straightpassRepairQty = fyMonths.map((d) => {
+        const repairRow = findRow(repairMonthRows, d);
+        return repairRow ? Number(repairRow.qty) || 0 : null;
+      });
+
+      // Bulan berjalan (bulan terakhir yang ada datanya)
+      const lastRow = [...prodRows].reverse().find((r) => r.wh_menit > 0) || null;
+      const lastNgRow = ngRows.length ? ngRows[ngRows.length - 1] : null;
+      const lastRepairMonthRow = repairMonthRows.length ? repairMonthRows[repairMonthRows.length - 1] : null;
+      const productivityValue = lastRow ? Number(((lastRow.target_std_menit / lastRow.wh_menit) * 100).toFixed(1)) : 0;
+      const availabilityValue = lastRow ? Number((((lastRow.wh_menit - lastRow.downtime_menit) / lastRow.wh_menit) * 100).toFixed(1)) : 0;
+      const straightpassValue = lastRow && lastRow.stroke
+        ? Number((((lastRow.stroke - (lastRepairMonthRow ? Number(lastRepairMonthRow.qty) || 0 : 0)) / lastRow.stroke) * 100).toFixed(1))
+        : 0;
+
+      // Downtime Exhaust: FY-1, FY, lalu 12 bulan Apr..Mar
+      const dtExhaustLabels = ["FY " + fyStartYear, "FY " + (fyStartYear + 1), ...fyMonths.map((d) => monthLabelId[d.getMonth()])];
+      const dtExhaustValues = [
+        Math.round(sumInRange(prodRows, prevFyStart, fyStart, "downtime_menit")),
+        Math.round(sumInRange(prodRows, fyStart, fyEnd, "downtime_menit")),
+        ...fyMonths.map((d) => { const r = findRow(prodRows, d); return r ? Math.round(Number(r.downtime_menit)) : 0; }),
+      ];
+
+      // Downtime Supporting (by PIC): Plan/Target TETAP total pabrik (tidak
+      // ikut filter Line, karena tidak ada target per-Line di database).
+      // Actual dijumlah dari Line yang lagi dipilih saja (atau semua Line
+      // kalau dxyLineFilter === "ALL").
+      const PIC_ORDER = ["PE", "MESIN", "QC", "PC-SUPP", "PROD", "PRESS"];
+      const actRowsForFilter = lineFilter === "ALL"
+        ? raw.actByPicPerLine.flatMap((x) => x.rows)
+        : ((raw.actByPicPerLine.find((x) => x.mesin === lineFilter) || { rows: [] }).rows);
+      const actByPic = new Map();
+      for (const r of actRowsForFilter) actByPic.set(r.pic, (actByPic.get(r.pic) || 0) + (Number(r.act_menit) || 0));
+      const downtimeSupporting = {
+        labels: PIC_ORDER,
+        plan: PIC_ORDER.map((p) => { const r = raw.planByPic.find((x) => x.pic === p); return r ? Math.round(Number(r.plan_menit)) : 0; }),
+        act: PIC_ORDER.map((p) => Math.round(actByPic.get(p) || 0)),
+      };
+
+      // Downtime Line: sudah per-Line dari sononya (dashboard_bulanan_downtime_by_line).
+      // Datanya TETAP semua Line (tidak dipotong) -- kalau 1 Line dipilih,
+      // Line itu di-highlight full warna & Line lain di-dim (lihat logic
+      // highlight di renderTahunanCharts -> dxyDowntimeLine), PERSIS pola
+      // yang sama seperti tab Bulanan.
+      const lineKeys = MACHINES.map((m) => m.key);
+      const downtimeLine = {
+        labels: lineKeys,
+        plan: lineKeys.map((k) => { const r = raw.lineRows.find((x) => x.mesin === k); return r ? Math.round(Number(r.plan_menit)) : 0; }),
+        act: lineKeys.map((k) => { const r = raw.lineRows.find((x) => x.mesin === k); return r ? Math.round(Number(r.act_menit)) : 0; }),
+      };
+
+      this.tahunan = {
+        ...this.tahunan,
+        monthLabels: dtExhaustLabels,
+        productivity: { value: productivityValue, actual: [null, null, ...productivityActual], target: 100 },
+        availability: { value: availabilityValue, actual: [null, null, ...availabilityActual], target: 100 },
+        ngInline: {
+          qty: lastNgRow ? Number(lastNgRow.qty) : 0,
+          value: lastNgRow ? Number(lastNgRow.value) : 0,
+          qtyByMonth: [null, null, ...fyMonths.map((d) => { const r = findRow(ngRows, d); return r ? Number(r.qty) : null; })],
+          valueByMonth: [null, null, ...fyMonths.map((d) => { const r = findRow(ngRows, d); return r ? Number(r.value) : null; })],
+        },
+        straightpass: { value: straightpassValue, actual: [null, null, ...straightpassActual], qty: [null, null, ...straightpassQty], repairQty: [null, null, ...straightpassRepairQty], target: 95 },
+        downtimeExhaust: { labels: dtExhaustLabels, values: dtExhaustValues },
+        downtimeSupporting,
+        downtimeLine,
+      };
     },
     // ---- Helper baru khusus redesign Tahunan (Smart Narrative) ----
     // Semua fungsi di bawah ini murni presentasi: membaca this.tahunan yang
@@ -2853,10 +3009,11 @@ function dashboardExhaust() {
     // menjumlahkan tanpa batas). p_limit dinaikkan jadi angka besar supaya
     // efektif mengambil SEMUA baris di tanggal itu, bukan cuma top 5.
     async fetchDowntimeTerbesarFor(start, end) {
-      // Cuma loop ke line yang lagi dipilih di dropdown LINE (dxyLineFilter).
-      // "ALL" -> tetap ke 6 line seperti biasa; selain itu -> 1 line saja
-      // (lebih hemat request, dan otomatis ke-filter).
-      const activeMachines = this.dxyLineFilter === "ALL" ? MACHINES : MACHINES.filter((m) => m.key === this.dxyLineFilter);
+      // Cuma loop ke line yang lagi dipilih di dropdown LINE tab Bulanan
+      // (dxyLineFilterBulanan). "ALL" -> tetap ke 6 line seperti biasa;
+      // selain itu -> 1 line saja (lebih hemat request, dan otomatis
+      // ke-filter). Fungsi ini cuma dipanggil dari alur Bulanan.
+      const activeMachines = this.dxyLineFilterBulanan === "ALL" ? MACHINES : MACHINES.filter((m) => m.key === this.dxyLineFilterBulanan);
       const topRes = await Promise.all(activeMachines.map((m) =>
         supabaseClient.rpc("dashboard_harian_top_problems", { p_mesin: m.key, p_start: start.toISOString(), p_end: end.toISOString(), p_limit: 1000 })
       ));
@@ -2955,49 +3112,75 @@ function dashboardExhaust() {
       return flat;
     },
     dxyNgFlatTahunan() {
-      let flat = [];
+      // Kalau 1 Line dipilih: tabel ini tidak punya kolom Line, jadi
+      // langsung pakai top-5 kategori milik Line itu apa adanya.
+      if (this.dxyLineFilter !== "ALL") {
+        const line = (this.tahunan.ngInlineTerbesar || []).find((x) => x.mesin === this.dxyLineFilter);
+        const real = ((line && line.rows) || []).filter((r) => r.kategori || r.qty !== "");
+        return real.map((r) => ({ kategori: r.kategori, qty: r.qty, value: r.value }));
+      }
+      // "Semua Line": tabel ini TIDAK punya kolom Line, jadi kategori yang
+      // sama dari Line berbeda (mis. "BOLONG" muncul di top-5 beberapa
+      // Line) harus DIGABUNG (qty & value dijumlah), bukan ditumpuk mentah
+      // sebagai baris terpisah -- kalau tidak, "BOLONG" bisa muncul 5x
+      // berturut-turut dan kelihatan seolah 5 kategori berbeda.
+      const merged = new Map();
       (this.tahunan.ngInlineTerbesar || []).forEach((line) => {
         const real = (line.rows || []).filter((r) => r.kategori || r.qty !== "");
-        if (real.length === 0) {
-          flat.push({ mesin: line.mesin, kategori: "", qty: "", value: "" });
-        } else {
-          real.forEach((r) => flat.push({ mesin: line.mesin, kategori: r.kategori, qty: r.qty, value: r.value }));
-        }
+        real.forEach((r) => {
+          const key = r.kategori;
+          const acc = merged.get(key) || { kategori: key, qty: 0, value: 0 };
+          acc.qty += Number(r.qty) || 0;
+          acc.value += Number(r.value) || 0;
+          merged.set(key, acc);
+        });
       });
-      if (this.dxyLineFilter !== "ALL") flat = flat.filter((r) => r.mesin === this.dxyLineFilter);
-      return flat;
+      return Array.from(merged.values());
     },
     dxyRepairFlatTahunan() {
-      let flat = [];
+      // Kalau 1 Line dipilih: tabel ini tidak punya kolom Line, jadi
+      // langsung pakai top-5 kategori milik Line itu apa adanya.
+      if (this.dxyLineFilter !== "ALL") {
+        const line = (this.tahunan.repairTerbesar || []).find((x) => x.mesin === this.dxyLineFilter);
+        const real = ((line && line.rows) || []).filter((r) => r.kategori || r.qty !== "");
+        return real.map((r) => ({ kategori: r.kategori, qty: r.qty }));
+      }
+      // "Semua Line": gabungkan kategori yang sama dari Line berbeda
+      // (qty dijumlah) -- lihat penjelasan sama seperti dxyNgFlatTahunan().
+      const merged = new Map();
       (this.tahunan.repairTerbesar || []).forEach((line) => {
         const real = (line.rows || []).filter((r) => r.kategori || r.qty !== "");
-        if (real.length === 0) {
-          flat.push({ mesin: line.mesin, kategori: "", qty: "" });
-        } else {
-          real.forEach((r) => flat.push({ mesin: line.mesin, kategori: r.kategori, qty: r.qty }));
-        }
+        real.forEach((r) => {
+          const key = r.kategori;
+          const acc = merged.get(key) || { kategori: key, qty: 0 };
+          acc.qty += Number(r.qty) || 0;
+          merged.set(key, acc);
+        });
       });
-      if (this.dxyLineFilter !== "ALL") flat = flat.filter((r) => r.mesin === this.dxyLineFilter);
-      return flat;
+      return Array.from(merged.values());
     },
     dxyFilteredTerbesar() {
       const flat = this.qcApplyColFilters("tahunanDowntime", this.dxyDowntimeFlatTahunan());
       flat.sort((a, c) => (Number(c.value) || 0) - (Number(a.value) || 0));
-      return this.dxyPadMin(flat, { mesin: "", pic: "", problem: "", value: "" });
+      // Default SELALU 12 baris (kotak dikunci pas 12 baris via CSS
+      // .dxy-tahunan-terbesar-panel) -- kalau data asli < 12, sisanya
+      // diisi baris kosong placeholder "-". Kalau data asli > 12, baris
+      // TIDAK dipotong, tabel yang scroll (kotaknya tetap diam).
+      return this.dxyPadMin(flat, { mesin: "", pic: "", problem: "", value: "" }, 12);
     },
     // ---- NG Inline Terbesar: struktur sama seperti dxyFilteredTerbesar,
     // tapi field-nya kategori/qty/value (bukan pic/problem/value) ----
     dxyFilteredNgTerbesar() {
       const flat = this.qcApplyColFilters("tahunanNg", this.dxyNgFlatTahunan());
       flat.sort((a, c) => (Number(c.value) || 0) - (Number(a.value) || 0));
-      return this.dxyPadMin(flat, { mesin: "", kategori: "", qty: "", value: "" });
+      return this.dxyPadMin(flat, { mesin: "", kategori: "", qty: "", value: "" }, 12);
     },
     // ---- Repair Terbesar: sama seperti di atas, tapi tanpa kolom value
     // (menit dihapus) -- urutan berdasarkan qty terbesar ----
     dxyFilteredRepairTerbesar() {
       const flat = this.qcApplyColFilters("tahunanRepair", this.dxyRepairFlatTahunan());
       flat.sort((a, c) => (Number(c.qty) || 0) - (Number(a.qty) || 0));
-      return this.dxyPadMin(flat, { mesin: "", kategori: "", qty: "" });
+      return this.dxyPadMin(flat, { mesin: "", kategori: "", qty: "" }, 12);
     },
     dxyExportCsv() {
       const b = this.tahunan;
@@ -3278,6 +3461,7 @@ function dashboardExhaust() {
           data: { labels, datasets: [{ data: values, backgroundColor: labels.map(colorFn), borderWidth: 2, borderColor: cssVar("--panel") }] },
           options: {
             responsive: true, maintainAspectRatio: false, animation: noAnim, cutout: "58%",
+            interaction: { mode: "nearest", intersect: true },
             plugins: { legend: legend(true), tooltip: tooltip() },
           },
           plugins: [donutLeaderLabels((v) => fmtNum(v))],
@@ -3286,12 +3470,14 @@ function dashboardExhaust() {
       safe(() => donut("dxbDowntimeSupporting", b.downtimeSupporting.labels, b.downtimeSupporting.act, (pic) => this.dxyPicColor(pic)), "downtimeSupporting");
       safe(() => {
         const lineColors = ["#2563EB", "#10B981", "#F97316", "#8B5CF6", "#EF4444", "#14B8A6"];
-        // Line yang lagi dipilih (dxyLineFilter) di-highlight full warna;
-        // line lain dipudarkan (alpha 40) -- sama pola dengan tab Tahunan.
-        // Kalau "ALL", semua tampil full warna seperti biasa.
+        // Line yang lagi dipilih (dxyLineFilterBulanan) di-highlight full
+        // warna; line lain dipudarkan (alpha 40) -- sama pola dengan tab
+        // Tahunan, tapi variabel filter-nya sengaja terpisah (KHUSUS
+        // Bulanan) supaya tidak ikut berubah waktu Line di tab Tahunan
+        // diganti. Kalau "ALL", semua tampil full warna seperti biasa.
         donut("dxbDowntimeLine", b.downtimeLine.labels, b.downtimeLine.act, (label, i) => {
           const base = lineColors[i % lineColors.length];
-          if (this.dxyLineFilter !== "ALL" && label !== this.dxyLineFilter) return base + "40";
+          if (this.dxyLineFilterBulanan !== "ALL" && label !== this.dxyLineFilterBulanan) return base + "40";
           return base;
         });
       }, "downtimeLine");
@@ -3308,11 +3494,12 @@ function dashboardExhaust() {
           const labels = w.labels;
           const values = w.values;
           // Titik biru untuk tiap line -- kalau ada Line terpilih
-          // (dxyLineFilter != ALL), titik line itu di-highlight (warna
-          // penuh + lebih besar), titik line lain dipudarkan (alpha 40).
-          const isHighlighted = (lbl) => this.dxyLineFilter === "ALL" || lbl === this.dxyLineFilter;
+          // (dxyLineFilterBulanan != ALL), titik line itu di-highlight
+          // (warna penuh + lebih besar), titik line lain dipudarkan
+          // (alpha 40).
+          const isHighlighted = (lbl) => this.dxyLineFilterBulanan === "ALL" || lbl === this.dxyLineFilterBulanan;
           const pointColors = w.labels.map((lbl) => (isHighlighted(lbl) ? "#2563EB" : "#2563EB40"));
-          const pointRadii = w.labels.map((lbl) => (this.dxyLineFilter !== "ALL" && lbl === this.dxyLineFilter ? 5 : 3));
+          const pointRadii = w.labels.map((lbl) => (this.dxyLineFilterBulanan !== "ALL" && lbl === this.dxyLineFilterBulanan ? 5 : 3));
           this.bulananCharts[canvasId] = new Chart(canvas, {
             type: "line",
             data: {
@@ -3441,6 +3628,14 @@ function dashboardExhaust() {
 
           const rowsUp = [];   // batas kanan label terakhir per baris, untuk batang positif (menumpuk ke atas)
           const rowsDown = []; // idem untuk batang negatif (menumpuk ke bawah)
+          // KHUSUS mode "base": dulu SEMUA label langsung digambar pas di
+          // base-4 tanpa cek tabrakan sama sekali -- kalau beberapa batang
+          // berdekatan sama-sama punya angka lebar (mis. "4,987.1"), label-
+          // labelnya numpuk horizontal jadi 1 tulisan tidak terbaca. Sekarang
+          // pakai mekanisme stacking yang SAMA seperti mode "above": kalau
+          // label ini akan tabrakan sama label sebelumnya, naikkan ke baris
+          // berikutnya (menjauh dari sumbu-x), bukan dipaksa di baris yang sama.
+          const rowsBase = [];
           meta.data.forEach((bar, i) => {
             const raw = dataset.data[i];
             if (raw === null || raw === undefined) return;
@@ -3450,11 +3645,11 @@ function dashboardExhaust() {
             const label = formatter(val);
             const halfW = ctx.measureText(label).width / 2 + 4;
             if (pos === "base") {
-              // Label selalu digambar di DASAR batang (dekat garis sumbu-x),
-              // dipakai supaya tidak tabrakan sama label garis Value yang
-              // digambar di atas chart (lihat lineValueLabels).
+              let row = 0;
+              while (row < rowsBase.length && x - halfW < rowsBase[row]) row++;
+              rowsBase[row] = x + halfW;
               ctx.textBaseline = "bottom";
-              ctx.fillText(label, x, base - 4);
+              ctx.fillText(label, x, base - 4 - row * rowStep);
               return;
             }
             const isUp = y <= base;
@@ -3508,6 +3703,53 @@ function dashboardExhaust() {
         },
       });
 
+      // Varian lineValueLabels TAPI TIDAK PERNAH skip label (semua angka
+      // selalu ditampilkan, tidak boleh ada yang hilang gara-gara
+      // mekanisme anti-tabrakan). Supaya tidak saling tumpuk, tinggi
+      // label diselang-seling (zig-zag) antara baris genap & ganjil --
+      // dipakai di chart Straight Pass (% Straightpass) & NG Inline (Value).
+      const lineValueLabelsAll = (formatter, datasetIndex = 1) => ({
+        id: "dxyLineValueLabelsAll_" + datasetIndex + "_" + Math.random(),
+        afterDatasetsDraw(chart) {
+          const { ctx, chartArea } = chart;
+          const meta = chart.getDatasetMeta(datasetIndex);
+          const dataset = chart.data.datasets[datasetIndex];
+          if (!meta || !dataset || meta.type !== "line" || !meta.data) return;
+          const textColor = "#000000";
+          const n = meta.data.length;
+          const slotWidth = chartArea && n ? chartArea.width / n : 30;
+          const fontSize = slotWidth < 18 ? 6 : slotWidth < 24 ? 7 : slotWidth < 34 ? 8 : slotWidth < 46 ? 9 : 10;
+          ctx.save();
+          ctx.font = `700 ${fontSize}px Inter, sans-serif`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "bottom";
+          ctx.fillStyle = textColor;
+          const topSafe = chartArea ? chartArea.top + fontSize + 2 : -Infinity;
+          // bottomSafe: jarak aman minimum dari dasar chart-area -- supaya
+          // label garis (mis. "Value") tidak ketimpa/menimpa label angka
+          // batang "Qty" yang digambar dekat sumbu-x (barValueLabels pos
+          // "base"). Tanpa ini, kalau titik garis kebetulan turun dekat
+          // sumbu-x (nilainya kecil di skala sumbu-Y1 sendiri), labelnya
+          // numpuk persis di zona yang sama dengan label batang.
+          const bottomSafe = chartArea ? chartArea.bottom - 20 : Infinity;
+          meta.data.forEach((point, i) => {
+            const raw = dataset.data[i];
+            if (raw === null || raw === undefined) return;
+            const val = Number(raw);
+            if (Number.isNaN(val)) return;
+            const label = formatter(val);
+            const { x, y } = point.getProps(["x", "y"], true);
+            // Zig-zag: baris genap sedikit lebih dekat titik, baris ganjil
+            // digeser lebih tinggi -- supaya 2 label bersebelahan tidak
+            // saling menimpa walau titiknya rapat.
+            const lift = i % 2 === 0 ? 6 : fontSize + 10;
+            const labelY = Math.min(Math.max(y - lift, topSafe), bottomSafe);
+            ctx.fillText(label, x, labelY);
+          });
+          ctx.restore();
+        },
+      });
+
       // --- Sparkline mini (di kartu KPI) ---
       const sparkline = (canvasId, data, hex) => {
         destroy(canvasId);
@@ -3534,7 +3776,11 @@ function dashboardExhaust() {
       safe(() => sparkline("dxySparkStraightpass", b.straightpass.actual, "#14B8A6"), "spark-straightpass");
 
       // --- Grafik utama KPI (bar gradient + target garis putus-putus merah) ---
-      const kpiBig = (canvasId, labels, actual, target, hex, labelPos = "above") => {
+      // maxY (opsional): override sumbu-Y supaya ada ruang kosong di atas
+      // bar/target buat label angka -- dipakai khusus chart Availability
+      // (di-set 120) supaya label "100%" di bar/garis Target tidak
+      // mepet/kepotong di puncak chart-area.
+      const kpiBig = (canvasId, labels, actual, target, hex, labelPos = "above", maxY = null) => {
         destroy(canvasId);
         const canvas = document.getElementById(canvasId);
         if (!canvas) return;
@@ -3550,7 +3796,7 @@ function dashboardExhaust() {
             responsive: true, maintainAspectRatio: false, animation: noAnim,
             layout: { padding: { top: 34 } },
             plugins: { legend: legend(true), tooltip: tooltip() },
-            scales: baseScales(),
+            scales: maxY === null ? baseScales() : { ...baseScales(), y: { ...baseScales().y, max: maxY } },
           },
           plugins: [barValueLabels((v) => fmtNum(v), 0, labelPos)],
         });
@@ -3558,10 +3804,10 @@ function dashboardExhaust() {
       // Chart utama "🎯 Straight Pass" -- disamakan gaya sama chart
       // Straightpass Perline/Model: bar "Qty Repair" (kiri) + garis hijau
       // "% Straightpass" (kanan) + garis merah putus-putus "Target".
-      // Label bar di DASAR batang & label garis % pakai anti-tumpuk
-      // (lineValueLabels sudah skip label yang bertabrakan) -- sama
-      // persis mekanismenya dengan chart Perline/Model di tab Kontrol
-      // Kualitas (qcRepairStraightpassBar).
+      // Konfigurasi (termasuk axis "grace" & plugin label) SAMA PERSIS
+      // dengan qcRepairStraightpassBar (Perline/Model) di tab Kontrol
+      // Kualitas -- termasuk lineValueLabels versi ASLI (anti-tabrakan
+      // dengan skip), BUKAN versi custom lain.
       const bigStraightpassDual = (canvasId, labels, repairQty, pctActual, target, hex) => {
         destroy(canvasId);
         const canvas = document.getElementById(canvasId);
@@ -3573,21 +3819,21 @@ function dashboardExhaust() {
             labels,
             datasets: [
               { type: "bar", label: "Qty Repair", data: qty, backgroundColor: barBg(canvas, hex, qty.length), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7, borderSkipped: false },
-              { type: "line", label: "% Straightpass", data: pct, borderColor: "#22C55E", backgroundColor: "#22C55E", yAxisID: "y1", pointRadius: 3, tension: 0.3, spanGaps: true },
+              { type: "line", label: "% Straightpass", data: pct, borderColor: "#22C55E", backgroundColor: "#22C55E", yAxisID: "y1", borderWidth: 1.5, pointRadius: 3, tension: 0.3, spanGaps: true },
               { type: "line", label: "Target", data: labels.map(() => target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0, yAxisID: "y1" },
             ],
           },
           options: {
             responsive: true, maintainAspectRatio: false, animation: noAnim,
-            layout: { padding: { top: 28 } },
+            layout: { padding: { top: 38 } },
             plugins: { legend: legend(true), tooltip: tooltip() },
             scales: {
               x: { ticks: { color: "#000000", font: { size: 9 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
-              y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
-              y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => v + "%" }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, suggestedMax: 100 },
+              y: { position: "left", ticks: { color: "#000000", font: { size: 9 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, grace: "12%" },
+              y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => v + "%" }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, suggestedMax: 100, grace: "8%" },
             },
           },
-          plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabels((v) => (v === null ? "" : v + "%"), 1)],
+          plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabelsAll((v) => (v === null ? "" : v + "%"), 1)],
         });
       };
       // Catatan: dua kolom pertama di b.monthLabels adalah ringkasan
@@ -3596,7 +3842,7 @@ function dashboardExhaust() {
       // cukup tampilkan 12 bulan (Apr..Mar). Ini murni di layer render,
       // data asli di this.tahunan tidak diubah.
       safe(() => kpiBig("dxyBigProductivity", b.monthLabels.slice(2), b.productivity.actual.slice(2), b.productivity.target, "#2563EB"), "big-productivity");
-      safe(() => kpiBig("dxyBigAvailability", b.monthLabels.slice(2), b.availability.actual.slice(2), b.availability.target, "#10B981"), "big-availability");
+      safe(() => kpiBig("dxyBigAvailability", b.monthLabels.slice(2), b.availability.actual.slice(2), b.availability.target, "#10B981", "above", 120), "big-availability");
       safe(() => bigStraightpassDual("dxyBigStraightpass", b.monthLabels.slice(2), b.straightpass.repairQty.slice(2), b.straightpass.actual.slice(2), b.straightpass.target, "#14B8A6"), "big-straightpass");
 
       // --- NG Inline dual axis: Qty (bar oranye) + Value (area hitam tipis) ---
@@ -3622,11 +3868,12 @@ function dashboardExhaust() {
               y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => fmtNum(Math.round(v / 1000)) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
             },
           },
-          plugins: [barValueLabels((v) => fmtNum(v), 0, "base"), lineValueLabels((v) => fmtNum(Math.round(v / 1000)), 1)],
+          plugins: [barValueLabels((v) => fmtNum(v), 0, "base"), lineValueLabelsAll((v) => fmtNum(Math.round(v / 1000)), 1)],
         });
       }, "ngInline");
 
-      // --- Downtime Exhaust: bar gradient + tren + marker puncak + rata-rata ---
+      // --- Downtime Exhaust: bar gradient saja (Tren/Rata-rata/Puncak dihapus
+      // sesuai permintaan -- tidak perlu hitung avg/peak lagi) ---
       safe(() => {
         destroy("dxyDowntimeExhaust");
         const canvas = document.getElementById("dxyDowntimeExhaust");
@@ -3637,18 +3884,11 @@ function dashboardExhaust() {
         // menampilkan 12 bulan (Apr..Mar).
         const vals = b.downtimeExhaust.values.slice(2);
         const labels = b.downtimeExhaust.labels.slice(2);
-        const validMonthly = vals.filter((v) => v !== null && v !== undefined && !Number.isNaN(v));
-        const avg = validMonthly.length ? validMonthly.reduce((a, c) => a + c, 0) / validMonthly.length : 0;
-        const peakIdx = validMonthly.length ? vals.indexOf(Math.max(...validMonthly)) : -1;
-        const peakPoints = vals.map((v, i) => (i === peakIdx ? v : null));
         this.tahunanCharts.dxyDowntimeExhaust = new Chart(canvas, {
           data: {
             labels: labels,
             datasets: [
               { type: "bar", label: "Downtime (menit)", data: vals, backgroundColor: barBg(canvas, "#F97316", vals.length), borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
-              { type: "line", label: "Tren", data: vals, borderColor: "#EF4444", pointRadius: 0, tension: 0.35, borderWidth: 2 },
-              { type: "line", label: "Rata-rata", data: vals.map(() => avg), borderColor: cssVar("--muted"), borderDash: [4, 4], borderWidth: 1.5, pointRadius: 0, tension: 0 },
-              { type: "line", label: "Puncak", data: peakPoints, borderColor: "#EF4444", backgroundColor: "#EF4444", pointRadius: 6, pointStyle: "rectRot", showLine: false, spanGaps: false },
             ],
           },
           options: { responsive: true, maintainAspectRatio: false, animation: noAnim, layout: { padding: { top: 34 } }, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
@@ -3672,6 +3912,7 @@ function dashboardExhaust() {
             responsive: true, maintainAspectRatio: false, animation: noAnim,
             layout: { padding: { left: 8, right: 8, top: 8, bottom: 8 } },
             cutout: "62%",
+            interaction: { mode: "nearest", intersect: true },
             plugins: { legend: legend(true), tooltip: tooltip() },
           },
           plugins: [donutLeaderLabels((v) => fmtNum(v))],
@@ -3703,6 +3944,7 @@ function dashboardExhaust() {
             responsive: true, maintainAspectRatio: false, animation: noAnim,
             layout: { padding: { left: 8, right: 8, top: 8, bottom: 8 } },
             cutout: "62%",
+            interaction: { mode: "nearest", intersect: true },
             plugins: { legend: legend(true), tooltip: tooltip() },
           },
           plugins: [donutLeaderLabels((v) => fmtNum(v))],
@@ -3828,6 +4070,51 @@ function dashboardExhaust() {
         },
       });
 
+      // Varian lineValueLabels TAPI TIDAK PERNAH skip label -- dipakai
+      // khusus buat chart "% Straightpass" (Perline/Model) supaya SEMUA
+      // model/line selalu tampil angkanya, walaupun kategorinya banyak dan
+      // ada dua label yang berdekatan. Bedanya dengan versi skip di atas:
+      // di sini kalau 2 label bakal tabrakan horizontal, label kedua
+      // digeser naik (zig-zag antara baris genap & ganjil) alih-alih
+      // dihilangkan. bottomSafe tetap dijaga supaya tidak numpuk dengan
+      // label batang "Qty Repair" (barValueLabels pos "base") di dekat
+      // sumbu-x.
+      const lineValueLabelsAll = (formatter, datasetIndex = 1) => ({
+        id: "dxyQcLineValueLabelsAll_" + datasetIndex + "_" + Math.random(),
+        afterDatasetsDraw(chart) {
+          const { ctx, chartArea } = chart;
+          const meta = chart.getDatasetMeta(datasetIndex);
+          const dataset = chart.data.datasets[datasetIndex];
+          if (!meta || !dataset || meta.type !== "line" || !meta.data) return;
+          const textColor = "#000000";
+          const n = meta.data.length;
+          const slotWidth = chartArea && n ? chartArea.width / n : 30;
+          const fontSize = slotWidth < 18 ? 6 : slotWidth < 24 ? 7 : slotWidth < 34 ? 8 : slotWidth < 46 ? 9 : 10;
+          ctx.save();
+          ctx.font = `700 ${fontSize}px Inter, sans-serif`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "bottom";
+          ctx.fillStyle = textColor;
+          const topSafe = chartArea ? chartArea.top + fontSize + 2 : -Infinity;
+          const bottomSafe = chartArea ? chartArea.bottom - 20 : Infinity;
+          meta.data.forEach((point, i) => {
+            const raw = dataset.data[i];
+            if (raw === null || raw === undefined) return;
+            const val = Number(raw);
+            if (Number.isNaN(val)) return;
+            const label = formatter(val);
+            const { x, y } = point.getProps(["x", "y"], true);
+            // Zig-zag: baris genap sedikit lebih dekat titik, baris ganjil
+            // digeser lebih tinggi -- supaya 2 label bersebelahan tidak
+            // saling menimpa walau titiknya rapat.
+            const lift = i % 2 === 0 ? 6 : fontSize + 10;
+            const labelY = Math.min(Math.max(y - lift, topSafe), bottomSafe);
+            ctx.fillText(label, x, labelY);
+          });
+          ctx.restore();
+        },
+      });
+
       // Label kecil ("Qty" / "Value" / "%") nempel di ATAS deretan angka
       // sumbu vertikal primary (kiri) & secondary (kanan) -- BUKAN judul
       // sumbu Chart.js bawaan (yang dirotasi 90° & makan lebar chart-area),
@@ -3890,7 +4177,7 @@ function dashboardExhaust() {
               y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => fmtNum(Math.round(v / 1000)) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, grace: "12%" },
             },
           },
-          plugins: [barValueLabels((v) => fmtNum(v), 0, "base"), lineValueLabels((v) => fmtNum(Math.round(v / 1000)), 1), axisUnitLabels("Qty", "Value")],
+          plugins: [barValueLabels((v) => fmtNum(v), 0, "base"), lineValueLabelsAll((v) => fmtNum(Math.round(v / 1000)), 1), axisUnitLabels("Qty", "Value")],
         });
       }, "qcNgInlineMonth");
 
@@ -3925,7 +4212,7 @@ function dashboardExhaust() {
               y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => fmtNum(Math.round(v / 1000)) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, grace: "12%" },
             },
           },
-          plugins: [barValueLabels((v) => fmtNum(v), 0, "base"), lineValueLabels((v) => fmtNum(Math.round(v / 1000)), 1), axisUnitLabels("Qty", "Value")],
+          plugins: [barValueLabels((v) => fmtNum(v), 0, "base"), lineValueLabelsAll((v) => fmtNum(Math.round(v / 1000)), 1), axisUnitLabels("Qty", "Value")],
         });
       }, "qcNgTrialMonth");
 
@@ -3961,7 +4248,7 @@ function dashboardExhaust() {
               y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => v + "%" }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, suggestedMax: 100, grace: "8%" },
             },
           },
-          plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabels((v) => (v === null ? "" : v + "%"), 1), axisUnitLabels("Qty", "%")],
+          plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabelsAll((v) => (v === null ? "" : v + "%"), 1), axisUnitLabels("Qty", "%")],
         });
       }, "qcStraightpassMonth");
 
@@ -4027,7 +4314,7 @@ function dashboardExhaust() {
                 y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => v + "%" }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, suggestedMax: 100, grace: "8%" },
               },
             },
-            plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabels((v) => (v === null ? "" : v + "%"), 1), axisUnitLabels("Qty", "%")],
+            plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabelsAll((v) => (v === null ? "" : v + "%"), 1), axisUnitLabels("Qty", "%")],
           });
         }, canvasId);
       };
@@ -4058,7 +4345,7 @@ function dashboardExhaust() {
                 y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => fmtNum(Math.round(v / 1000)) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, grace: "12%" },
               },
             },
-            plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabels((v) => (v === null ? "" : fmtNum(Math.round(v / 1000))), 1), axisUnitLabels("Qty", "Value")],
+            plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabelsAll((v) => (v === null ? "" : fmtNum(Math.round(v / 1000))), 1), axisUnitLabels("Qty", "Value")],
           });
         }, canvasId);
       };
@@ -4107,8 +4394,8 @@ function dashboardExhaust() {
             },
             plugins: [
               barValueLabels((v) => fmtNum(v), 0, opts.barLabelPos || (isMoney ? "base" : "above")),
-              ...(lineIsPercent ? [lineValueLabels((v) => v + "%", 1)] : []),
-              ...(isMoney ? [lineValueLabels((v) => fmtNum(Math.round(v / 1000)), 1)] : []),
+              ...(lineIsPercent ? [lineValueLabelsAll((v) => v + "%", 1)] : []),
+              ...(isMoney ? [lineValueLabelsAll((v) => fmtNum(Math.round(v / 1000)), 1)] : []),
               axisUnitLabels("Qty", lineIsPercent ? "%" : "Value"),
             ],
           });
