@@ -716,6 +716,50 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
 .dash-subtab-nav { margin: 0 !important; padding: 0 !important; }
 .dash-subtab-nav button { margin: 0 !important; }
 .dxy-fill { margin-top: 0 !important; padding-top: 0 !important; }
+
+/* ---- Kontrol Attendance: kartu ringkas (Total/Hadir/Cuti/Absen/O.T +
+   Shift 1/2). Namespace .dxy-attn supaya tidak menyentuh style tab lain.
+   Masih placeholder (angka 0) -- belum ada fetch/RPC. ---- */
+.dxy-attn-card {
+  background: var(--dxy-card);
+  border: 1px solid var(--dxy-border);
+  border-radius: 18px;
+  padding: 18px 20px;
+  box-shadow: var(--dxy-shadow);
+  max-width: 440px;
+}
+.dxy-attn-card-fill { max-width: 100%; height: 100%; box-sizing: border-box; }
+.dxy-attn-trend-box { min-height: 100% !important; max-height: none !important; height: 100%; }
+.dxy-attn-head { display: flex; align-items: center; gap: 12px; padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--dxy-border); }
+.dxy-attn-icon { width: 48px; height: 48px; border-radius: 12px; background: #EDE9FE; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+[data-theme="dark"] .dxy-attn-icon { background: #3b2f63; }
+.dxy-attn-title { font-size: 19px; font-weight: 800; letter-spacing: -.01em; color: var(--dxy-text); line-height: 1.1; }
+.dxy-attn-subtitle { font-size: 10.5px; font-weight: 600; letter-spacing: .06em; color: var(--dxy-muted); font-family: "IBM Plex Mono", monospace; text-transform: uppercase; margin-top: 2px; }
+.dxy-attn-rate-label { font-size: 13px; color: var(--dxy-muted); margin-bottom: 4px; }
+.dxy-attn-rate-value { font-size: 40px; font-weight: 800; color: var(--dxy-text); line-height: 1; letter-spacing: -.02em; margin-bottom: 12px; }
+.dxy-attn-progress-track { height: 6px; border-radius: 4px; background: var(--dxy-border); overflow: hidden; margin-bottom: 18px; }
+.dxy-attn-progress-fill { height: 100%; background: var(--dxy-blue); border-radius: 4px; transition: width 300ms ease; }
+.dxy-attn-stat-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 12px; }
+.dxy-attn-stat { border: 1px solid var(--dxy-border); border-radius: 12px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; background: var(--dxy-card); }
+.dxy-attn-stat.is-active { border-color: var(--dxy-green); background: rgba(16,185,129,.06); }
+.dxy-attn-stat-icon { font-size: 16px; }
+.dxy-attn-stat-label { font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--dxy-muted); font-family: "IBM Plex Mono", monospace; }
+.dxy-attn-stat-value { font-size: 20px; font-weight: 800; color: var(--dxy-text); line-height: 1; }
+.dxy-attn-stat-value.green { color: var(--dxy-green); }
+.dxy-attn-stat-unit { font-size: 9.5px; color: var(--dxy-muted); font-family: "IBM Plex Mono", monospace; }
+.dxy-attn-shift-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.dxy-attn-shift-box { border: 1px solid var(--dxy-border); border-radius: 12px; padding: 16px 10px; text-align: center; background: var(--dxy-card); }
+.dxy-attn-shift-value { font-size: 26px; font-weight: 800; color: var(--dxy-purple); line-height: 1; margin-bottom: 6px; }
+.dxy-attn-shift-label { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--dxy-muted); font-family: "IBM Plex Mono", monospace; }
+.dxy-attn-jenis-badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.dxy-attn-jenis-badge.cuti  { background: rgba(20,184,166,.12); color: var(--dxy-teal); }
+.dxy-attn-jenis-badge.izin  { background: rgba(249,115,22,.12); color: var(--dxy-orange); }
+.dxy-attn-jenis-badge.sakit { background: rgba(239,68,68,.12);  color: var(--dxy-red); }
+.dxy-attn-leave-empty { padding: 24px 10px; text-align: center; font-size: 12px; color: var(--dxy-muted); }
+@media (max-width: 640px) {
+  .dxy-attn-card { max-width: 100%; }
+  .dxy-attn-stat-row { grid-template-columns: repeat(3, 1fr); }
+}
 </style>
 <script>
   (function () {
@@ -781,6 +825,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
       <button class="btn-secondary btn-sm" :class="activeTab==='tahunan' ? 'btn-primary' : ''" @click="setTab('tahunan')">Tahunan</button>
       <button class="btn-secondary btn-sm" :class="activeTab==='bulanan' ? 'btn-primary' : ''" @click="setTab('bulanan')">Kontrol Downtime</button>
       <button class="btn-secondary btn-sm" :class="activeTab==='kualitas' ? 'btn-primary' : ''" @click="setTab('kualitas')">Kontrol Kualitas</button>
+      <button class="btn-secondary btn-sm" :class="activeTab==='attendance' ? 'btn-primary' : ''" @click="setTab('attendance')">Kontrol Attendance</button>
     </div>
 
     <!-- ===== TAB: BULANAN (harian, tanggal 1-31) ===== -->
@@ -1390,6 +1435,140 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
         </div>
       </div>
     </template>
+
+    <!-- ===== TAB: KONTROL ATTENDANCE (placeholder angka 0, belum ada fetch/RPC) ===== -->
+    <template x-if="activeTab === 'attendance'">
+      <div class="dxy-fill">
+        <div class="dxy">
+
+          <!-- ===== Baris 1: Filter bar (Bulan/Tahun) ===== -->
+          <div class="dxy-filterbar">
+            <div class="dxy-field">
+              <label>Bulan</label>
+              <select class="dxy-select" x-model.number="attendanceMonth" @change="onAttendancePeriodChange()">
+                <template x-for="(nm, i) in BULAN_LABELS" :key="'atm-'+i">
+                  <option :value="i+1" x-text="nm"></option>
+                </template>
+              </select>
+            </div>
+            <div class="dxy-field">
+              <label>Tahun</label>
+              <select class="dxy-select" x-model.number="attendanceYear" @change="onAttendancePeriodChange()">
+                <template x-for="y in tahunanYearOptions" :key="'aty-'+y"><option :value="y" x-text="y"></option></template>
+              </select>
+            </div>
+            <div class="dxy-spacer"></div>
+          </div>
+
+          <!-- ===== Baris 2: Kartu ringkas Attendance (kiri) + Trend Kehadiran Harian (kanan), sejajar ===== -->
+          <div class="dxy-chart-grid">
+            <div class="dxy-span-4">
+              <div class="dxy-attn-card dxy-attn-card-fill">
+                <div class="dxy-attn-head">
+                  <div class="dxy-attn-icon">👥</div>
+                  <div>
+                    <div class="dxy-attn-title">ATTENDANCE</div>
+                    <div class="dxy-attn-subtitle">MORAL</div>
+                  </div>
+                </div>
+
+                <div class="dxy-attn-rate-label">Tingkat Kehadiran</div>
+                <div class="dxy-attn-rate-value" x-text="attendance.rate + '%'"></div>
+                <div class="dxy-attn-progress-track">
+                  <div class="dxy-attn-progress-fill" :style="'width:' + attendance.rate + '%'"></div>
+                </div>
+
+                <div class="dxy-attn-stat-row">
+                  <div class="dxy-attn-stat">
+                    <span class="dxy-attn-stat-icon">👥</span>
+                    <span class="dxy-attn-stat-label">Total</span>
+                    <span class="dxy-attn-stat-value" x-text="attendance.total"></span>
+                    <span class="dxy-attn-stat-unit">Orang</span>
+                  </div>
+                  <div class="dxy-attn-stat is-active">
+                    <span class="dxy-attn-stat-icon">🚶</span>
+                    <span class="dxy-attn-stat-label">Hadir</span>
+                    <span class="dxy-attn-stat-value green" x-text="attendance.hadir"></span>
+                    <span class="dxy-attn-stat-unit">Orang</span>
+                  </div>
+                  <div class="dxy-attn-stat">
+                    <span class="dxy-attn-stat-icon">🌴</span>
+                    <span class="dxy-attn-stat-label">Cuti</span>
+                    <span class="dxy-attn-stat-value" x-text="attendance.cuti"></span>
+                    <span class="dxy-attn-stat-unit">Orang</span>
+                  </div>
+                  <div class="dxy-attn-stat">
+                    <span class="dxy-attn-stat-icon">🚫</span>
+                    <span class="dxy-attn-stat-label">Absen</span>
+                    <span class="dxy-attn-stat-value" x-text="attendance.absen"></span>
+                    <span class="dxy-attn-stat-unit">Orang</span>
+                  </div>
+                  <div class="dxy-attn-stat">
+                    <span class="dxy-attn-stat-icon">⏰</span>
+                    <span class="dxy-attn-stat-label">O.T</span>
+                    <span class="dxy-attn-stat-value" x-text="attendance.ot"></span>
+                    <span class="dxy-attn-stat-unit">Jam</span>
+                  </div>
+                </div>
+
+                <div class="dxy-attn-shift-row">
+                  <div class="dxy-attn-shift-box">
+                    <div class="dxy-attn-shift-value" x-text="attendance.shift1"></div>
+                    <div class="dxy-attn-shift-label">Hadir Shift 1</div>
+                  </div>
+                  <div class="dxy-attn-shift-box">
+                    <div class="dxy-attn-shift-value" x-text="attendance.shift2"></div>
+                    <div class="dxy-attn-shift-label">Hadir Shift 2</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="dxy-panel dxy-span-8">
+              <div class="dxy-panel-head">
+                <span class="dxy-panel-title">📈 Trend Kehadiran Harian</span>
+                <span class="dxy-panel-sub" style="font-weight:700; color:var(--dxy-text);" x-text="'Rata-rata ' + fmtNum(attendance.rate) + '%'"></span>
+              </div>
+              <div class="dxy-chart-box tall dxy-attn-trend-box"><canvas id="dxaTrendKehadiran"></canvas></div>
+            </div>
+          </div>
+
+          <!-- ===== Baris 3: Cuti/Izin/Sakit Hari Ini (full-width) ===== -->
+          <div class="dxy-chart-grid">
+            <div class="dxy-panel dxy-span-12 dxy-table-panel-sm">
+              <div class="dxy-panel-head">
+                <span class="dxy-panel-title">🤒 Cuti / Izin / Sakit Hari Ini</span>
+                <span class="dxy-panel-sub" style="font-weight:700; color:var(--dxy-text);" x-text="attendance.todayLeave.length + ' orang'"></span>
+              </div>
+              <div class="dxy-table-scroll">
+                <table class="dxy-table qc-detail-table" x-show="attendance.todayLeave.length">
+                  <thead>
+                    <tr>
+                      <th>Nama</th>
+                      <th style="width:56px">Line</th>
+                      <th style="width:60px">Jenis</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="(row, i) in attendance.todayLeave" :key="'attn-leave-'+i">
+                      <tr>
+                        <td x-text="row.nama"></td>
+                        <td style="text-align:center" x-text="row.line"></td>
+                        <td style="text-align:center">
+                          <span class="dxy-attn-jenis-badge" :class="row.jenis.toLowerCase()" x-text="row.jenis"></span>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+                <div class="dxy-attn-leave-empty" x-show="!attendance.todayLeave.length">Tidak ada yang Cuti/Izin/Sakit hari ini.</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </template>
   </main>
 
   <!-- Dropdown filter per-kolom (Rekap NG Inline / NG Trial / Repair) --
@@ -1521,7 +1700,7 @@ function dashboardExhaust() {
   return {
     session: null, profile: null, mobileNavOpen: false, sidebarCollapsed: true,
     loading: true,
-    activeTab: "bulanan", // bulanan | tahunan | kualitas
+    activeTab: "bulanan", // bulanan | tahunan | kualitas | attendance
     theme: localStorage.getItem("theme_v1") || "light",
     fmtNum,
     isLeaderOrAdmin() { return this.profile && ["admin", "leader"].includes(this.profile.role); },
@@ -1543,10 +1722,17 @@ function dashboardExhaust() {
         delete this.qcCharts[id];
       });
     },
+    destroyAttendanceCharts() {
+      Object.keys(this.attendanceCharts).forEach((id) => {
+        try { this.attendanceCharts[id].destroy(); } catch (e) { /* noop */ }
+        delete this.attendanceCharts[id];
+      });
+    },
     async setTab(tab) {
       if (this.activeTab === "bulanan" && tab !== "bulanan") this.destroyBulananCharts();
       if (this.activeTab === "tahunan" && tab !== "tahunan") this.destroyTahunanCharts();
       if (this.activeTab === "kualitas" && tab !== "kualitas") this.destroyKualitasCharts();
+      if (this.activeTab === "attendance" && tab !== "attendance") this.destroyAttendanceCharts();
       this.activeTab = tab;
       if (tab === "bulanan") {
         await this.fetchBulanan();
@@ -1566,6 +1752,12 @@ function dashboardExhaust() {
         await this.fetchQcLineModelMap();
         this.$nextTick(() => this.renderKualitasCharts());
       }
+      if (tab === "attendance") {
+        // Belum ada fetchAttendance() -- data masih placeholder nol
+        // (lihat this.attendance di data()). Chart tetap dirender supaya
+        // layout & sumbu sudah siap begitu data asli tersambung nanti.
+        this.$nextTick(() => this.renderAttendanceCharts());
+      }
     },
     async onTahunanYearChange() {
       this.destroyTahunanCharts();
@@ -1580,6 +1772,7 @@ function dashboardExhaust() {
       document.documentElement.setAttribute("data-theme", this.theme);
       if (this.activeTab === "bulanan") this.$nextTick(() => this.renderBulananCharts());
       if (this.activeTab === "tahunan") this.$nextTick(() => this.renderTahunanCharts());
+      if (this.activeTab === "attendance") this.$nextTick(() => this.renderAttendanceCharts());
     },
     // ---------------------------------------------------------------
     // DATA DUMMY "Bulanan" -- sementara statis, tinggal diganti hasil
@@ -1602,6 +1795,19 @@ function dashboardExhaust() {
     // Periode yang lagi dipilih di tab Bulanan (bulan + tahun berjalan default)
     bulananMonth: new Date().getMonth() + 1,
     bulananYear: new Date().getFullYear(),
+    // Periode yang lagi dipilih di tab Kontrol Attendance (belum ada
+    // fetch/RPC -- masih placeholder angka 0, lihat onAttendancePeriodChange()).
+    attendanceMonth: new Date().getMonth() + 1,
+    attendanceYear: new Date().getFullYear(),
+    attendance: {
+      rate: 0, total: 0, hadir: 0, cuti: 0, absen: 0, ot: 0, shift1: 0, shift2: 0,
+      // Trend kehadiran harian (tanggal 1-31) -- masih placeholder nol
+      // semua, belum ada fetch/RPC (lihat catatan di onAttendancePeriodChange()).
+      dailyTrend: { hadir: Array.from({ length: 31 }, () => 0), persen: Array.from({ length: 31 }, () => 0) },
+      // Daftar orang yang Cuti/Izin/Sakit HARI INI -- placeholder kosong.
+      // Bentuk tiap baris nanti: { nama, line, jenis: 'Cuti'|'Izin'|'Sakit' }.
+      todayLeave: [],
+    },
     qcMonth: new Date().getMonth() + 1,
     qcYear: new Date().getFullYear(),
     // Filter Line (picker) KHUSUS tab Kontrol Kualitas -- "ALL" = tampilkan
@@ -2456,6 +2662,7 @@ function dashboardExhaust() {
     },
     tahunanCharts: {},
     qcCharts: {},
+    attendanceCharts: {},
     tahunanInsights: [],
     // dxyLineFilter: KHUSUS tab Tahunan (dropdown Line di baris filter
     // Tahunan, dipakai dxyRebuildTahunanSeries/chart-chart Tahunan/3
@@ -3125,6 +3332,13 @@ function dashboardExhaust() {
     },
     closeProblemDetail() {
       this.dxyProblemDetail = { open: false, loading: false, problem: "", rows: [] };
+    },
+    // Dipanggil saat dropdown Bulan/Tahun di tab Kontrol Attendance berubah.
+    // Belum ada fetch/RPC ke Supabase -- tab ini masih placeholder (angka
+    // tetap 0), jadi fungsi ini sekarang cuma "tempat kaitan" untuk nanti.
+    async onAttendancePeriodChange() {
+      // TODO: fetchAttendance() begitu RPC/tabel attendance sudah siap.
+      this.$nextTick(() => this.renderAttendanceCharts());
     },
     // Dipanggil saat dropdown Bulan/Tahun di tab Bulanan berubah
     async onBulananPeriodChange() {
@@ -4803,6 +5017,47 @@ function dashboardExhaust() {
       qcDualAxisDaily("qcNgInlineDaily", "#F97316", "#8B5CF6", "Qty", "Value", false, ngi.dailyQty, ngi.dailyValue, { isMoney: true });
       qcDualAxisDaily("qcNgTrialDaily", "#06B6D4", "#8B5CF6", "Qty", "Value", false, ngt.dailyQty, ngt.dailyValue, { isMoney: true });
       qcDualAxisDaily("qcStraightpassDaily", "#EF4444", "#22C55E", "Qty Repair", "% Straightpass", true, this.qcStraightpass.dailyRepairQty, this.qcStraightpass.dailyPercent, { barLabelPos: "base" });
+    },
+    // Chart Trend Kehadiran Harian (tanggal 1-31) di tab Kontrol Attendance.
+    // Dual-axis: bar "Hadir" (qty, kiri) + garis "% Kehadiran" (kanan).
+    // Masih pakai data placeholder nol (this.attendance.dailyTrend) --
+    // begitu fetchAttendance() ada, tinggal isi array hadir/persen-nya,
+    // struktur chart & sumbu di bawah ini TIDAK perlu diubah.
+    renderAttendanceCharts() {
+      if (typeof Chart === "undefined") return;
+      const a = this.attendance;
+      const destroy = (id) => { if (this.attendanceCharts[id]) { this.attendanceCharts[id].destroy(); delete this.attendanceCharts[id]; } };
+      const safe = (fn, label) => { try { fn(); } catch (e) { console.error("Gagal render chart Attendance:", label, e); } };
+      const noAnim = { duration: 0 };
+      const legend = (show) => ({ display: show, position: "bottom", labels: { color: "#000000", boxWidth: 5, boxHeight: 5, usePointStyle: true, pointStyle: "circle", font: { size: 7.5 }, padding: 3 } });
+      const tooltip = () => ({ backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"), borderColor: cssVar("--border"), borderWidth: 1, padding: 8, cornerRadius: 8 });
+      const barBg = (hex, len) => Array.from({ length: len }, () => hex);
+      const AT_DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1));
+
+      safe(() => {
+        destroy("dxaTrendKehadiran");
+        const canvas = document.getElementById("dxaTrendKehadiran");
+        if (!canvas) return;
+        this.attendanceCharts.dxaTrendKehadiran = new Chart(canvas, {
+          data: {
+            labels: AT_DAYS,
+            datasets: [
+              { order: 2, type: "bar", label: "Hadir", data: a.dailyTrend.hadir, backgroundColor: barBg("#2563EB", AT_DAYS.length), yAxisID: "y", borderRadius: 3, barPercentage: 0.6, categoryPercentage: 0.75 },
+              { order: 1, type: "line", label: "% Kehadiran", data: a.dailyTrend.persen, borderColor: "#10B981", backgroundColor: "#10B981", borderWidth: 1.5, fill: false, yAxisID: "y1", pointRadius: 2, tension: 0.3, spanGaps: true },
+            ],
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false, animation: noAnim,
+            layout: { padding: { top: 8 } },
+            plugins: { legend: legend(true), tooltip: tooltip() },
+            scales: {
+              x: { ticks: { color: "#000000", font: { size: 8 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
+              y: { position: "left", min: 0, suggestedMax: Math.max(10, a.total || 0), ticks: { color: "#000000", font: { size: 9 }, precision: 0 }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") } },
+              y1: { position: "right", min: 0, max: 100, ticks: { color: "#000000", font: { size: 9 }, stepSize: 20, callback: (v) => v + "%" }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
+            },
+          },
+        });
+      }, "trendKehadiran");
     },
     logout,
   };
