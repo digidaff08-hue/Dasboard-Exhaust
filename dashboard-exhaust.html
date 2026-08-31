@@ -291,7 +291,6 @@
   border-radius: 8px;
   background: var(--dxy-card);
   overflow: hidden;
-  cursor: pointer;
 }
 .qc-date-wrap input[type="date"] {
   border: none !important;
@@ -307,15 +306,12 @@
   color: var(--dxy-text);
   font-size: 10.5px;
   font-weight: 600;
-  /* SEBELUMNYA pointer-events:none (klik "numpang lewat" ke <input> di
-     bawahnya) -- diganti jadi bisa diklik LANGSUNG, karena rupanya klik
-     yang cuma "lewat" begitu tidak selalu dianggap browser sebagai user-
-     gesture yang sah buat memicu showPicker() pada elemen di bawahnya.
-     Klik di label ini sekarang langsung manggil showPicker() sendiri
-     (lihat atribut @click di HTML-nya, dengan .stop supaya tidak dobel
-     ke-trigger lewat wrapper). */
-  pointer-events: auto;
-  cursor: pointer;
+  /* Klik-langsung-buka-kalender sempat dicoba (showPicker() di label ini)
+     tapi ternyata browser tetap tidak mau buka popup-nya kecuali klik
+     persis di ikon kalender asli -- jadi dikembalikan ke pointer-events:
+     none (klik "numpang lewat" ke <input> di bawahnya, minimal tetap
+     fokus normal ke field-nya). */
+  pointer-events: none;
   white-space: nowrap;
   overflow: hidden;
 }
@@ -878,9 +874,9 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                   </span>
                 </div>
                 <div class="qc-rekap-mode">
-                  <div class="qc-date-wrap" @click="try { $refs.bulananDateInput.focus(); $refs.bulananDateInput.showPicker && $refs.bulananDateInput.showPicker(); } catch (e) {}">
-                    <input type="date" x-ref="bulananDateInput" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !bulananDowntimeUseDate }" x-model="bulananDate" :min="bulananDateMin()" :max="bulananDateMax()" @change="bulananDowntimeUseDate = true; onBulananDowntimeDateChange()">
-                    <span class="qc-date-month-label" x-show="!bulananDowntimeUseDate" x-text="bulananMonthLabel" @click.stop="try { $refs.bulananDateInput.focus(); $refs.bulananDateInput.showPicker && $refs.bulananDateInput.showPicker(); } catch (e) {}"></span>
+                  <div class="qc-date-wrap">
+                    <input type="date" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !bulananDowntimeUseDate }" x-model="bulananDate" :min="bulananDateMin()" :max="bulananDateMax()" @change="bulananDowntimeUseDate = true; onBulananDowntimeDateChange()">
+                    <span class="qc-date-month-label" x-show="!bulananDowntimeUseDate" x-text="bulananMonthLabel"></span>
                   </div>
                   <button type="button" class="qc-rekap-clear-btn" title="Kembali ke tampilan sebulan" x-show="bulananDowntimeUseDate" @click="bulananDowntimeUseDate = false; onBulananDowntimeDateChange()">✕</button>
                 </div>
@@ -1228,9 +1224,9 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                     </span>
                   </div>
                   <div class="qc-rekap-mode">
-                    <div class="qc-date-wrap" @click="try { $refs.qcNgInlineDateInput.focus(); $refs.qcNgInlineDateInput.showPicker && $refs.qcNgInlineDateInput.showPicker(); } catch (e) {}">
-                      <input type="date" x-ref="qcNgInlineDateInput" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !qcNgInlineUseDate }" x-model="qcNgInlineDetailDate" @change="qcNgInlineUseDate = true; fetchQcNgInlineDetail()">
-                      <span class="qc-date-month-label" x-show="!qcNgInlineUseDate" x-text="qcMonthShortLabel" @click.stop="try { $refs.qcNgInlineDateInput.focus(); $refs.qcNgInlineDateInput.showPicker && $refs.qcNgInlineDateInput.showPicker(); } catch (e) {}"></span>
+                    <div class="qc-date-wrap">
+                      <input type="date" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !qcNgInlineUseDate }" x-model="qcNgInlineDetailDate" @change="qcNgInlineUseDate = true; fetchQcNgInlineDetail()">
+                      <span class="qc-date-month-label" x-show="!qcNgInlineUseDate" x-text="qcMonthShortLabel"></span>
                     </div>
                     <button type="button" class="qc-rekap-clear-btn" title="Kembali ke tampilan sebulan" x-show="qcNgInlineUseDate" @click="qcNgInlineUseDate = false; fetchQcNgInlineDetail()">✕</button>
                   </div>
@@ -1293,9 +1289,9 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                     </span>
                   </div>
                   <div class="qc-rekap-mode">
-                    <div class="qc-date-wrap" @click="try { $refs.qcNgTrialDateInput.focus(); $refs.qcNgTrialDateInput.showPicker && $refs.qcNgTrialDateInput.showPicker(); } catch (e) {}">
-                      <input type="date" x-ref="qcNgTrialDateInput" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !qcNgTrialUseDate }" x-model="qcNgTrialDetailDate" @change="qcNgTrialUseDate = true; fetchQcNgTrialDetail()">
-                      <span class="qc-date-month-label" x-show="!qcNgTrialUseDate" x-text="qcMonthShortLabel" @click.stop="try { $refs.qcNgTrialDateInput.focus(); $refs.qcNgTrialDateInput.showPicker && $refs.qcNgTrialDateInput.showPicker(); } catch (e) {}"></span>
+                    <div class="qc-date-wrap">
+                      <input type="date" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !qcNgTrialUseDate }" x-model="qcNgTrialDetailDate" @change="qcNgTrialUseDate = true; fetchQcNgTrialDetail()">
+                      <span class="qc-date-month-label" x-show="!qcNgTrialUseDate" x-text="qcMonthShortLabel"></span>
                     </div>
                     <button type="button" class="qc-rekap-clear-btn" title="Kembali ke tampilan sebulan" x-show="qcNgTrialUseDate" @click="qcNgTrialUseDate = false; fetchQcNgTrialDetail()">✕</button>
                   </div>
@@ -1357,9 +1353,9 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                     </span>
                   </div>
                   <div class="qc-rekap-mode">
-                    <div class="qc-date-wrap" @click="try { $refs.qcRepairDateInput.focus(); $refs.qcRepairDateInput.showPicker && $refs.qcRepairDateInput.showPicker(); } catch (e) {}">
-                      <input type="date" x-ref="qcRepairDateInput" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !qcRepairUseDate }" x-model="qcRepairDetailDate" @change="qcRepairUseDate = true; qcRepairDetailLoaded = false; fetchQcRepairDetail()">
-                      <span class="qc-date-month-label" x-show="!qcRepairUseDate" x-text="qcMonthShortLabel" @click.stop="try { $refs.qcRepairDateInput.focus(); $refs.qcRepairDateInput.showPicker && $refs.qcRepairDateInput.showPicker(); } catch (e) {}"></span>
+                    <div class="qc-date-wrap">
+                      <input type="date" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !qcRepairUseDate }" x-model="qcRepairDetailDate" @change="qcRepairUseDate = true; qcRepairDetailLoaded = false; fetchQcRepairDetail()">
+                      <span class="qc-date-month-label" x-show="!qcRepairUseDate" x-text="qcMonthShortLabel"></span>
                     </div>
                     <button type="button" class="qc-rekap-clear-btn" title="Kembali ke tampilan sebulan" x-show="qcRepairUseDate" @click="qcRepairUseDate = false; qcRepairDetailLoaded = false; fetchQcRepairDetail()">✕</button>
                   </div>
