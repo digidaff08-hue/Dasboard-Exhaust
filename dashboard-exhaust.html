@@ -3492,7 +3492,55 @@ function dashboardExhaust() {
         g.addColorStop(1, toRgba(alphaBottom));
         return g;
       };
-      const barBg = (canvas, hex, len) => { const full = grad(canvas, hex); return Array.from({ length: len }, () => full); };
+      // Bar SOLID (tanpa gradasi) -- gradasi dihapus atas permintaan.
+      const barBg = (canvas, hex, len) => Array.from({ length: len }, () => hex);
+
+      // Bevel inset "relaxed" tapi lebih tegas: kontras bayangan kuat,
+      // blur kecil. Menggantikan efek gradasi lama supaya batang tetap
+      // terlihat bervolume walau warnanya solid rata.
+      const barBevelInset = (datasetIndex = 0) => ({
+        id: "dxbBarBevelInset_" + datasetIndex + "_" + Math.random(),
+        // afterDatasetsDraw (bukan afterDatasetDraw) -- dijalankan SETELAH
+        // semua dataset (termasuk garis/line) selesai digambar, supaya
+        // bevel selalu jadi lapisan PALING ATAS dan tidak pernah ketutupan.
+        afterDatasetsDraw(chart) {
+          const meta = chart.getDatasetMeta(datasetIndex);
+          if (!meta || meta.type !== "bar" || !meta.data) return;
+          const { ctx } = chart;
+          meta.data.forEach((bar) => {
+            const { x, y, base, width } = bar.getProps(["x", "y", "base", "width"], true);
+            const top = Math.min(y, base), bottom = Math.max(y, base), h = bottom - top;
+            if (!width || h <= 0) return;
+            const left = x - width / 2;
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(left, top, width, h);
+            ctx.clip();
+            ctx.beginPath();
+            ctx.rect(left - 30, top - 30, width + 60, h + 60);
+            ctx.rect(left, top, width, h);
+            ctx.closePath();
+            ctx.fillStyle = "rgba(0,0,0,0.001)";
+            // Sisi atas & kiri: bayangan gelap tegas, blur kecil (kesan "masuk")
+            ctx.shadowColor = "rgba(0,0,0,0.92)";
+            ctx.shadowBlur = 2;
+            ctx.shadowOffsetX = 3;
+            ctx.shadowOffsetY = 7;
+            ctx.fill("evenodd");
+            ctx.shadowOffsetX = 0;
+            ctx.fill("evenodd");
+            // Sisi bawah & kanan: highlight terang tegas, blur kecil (kesan bevel)
+            ctx.shadowColor = "rgba(255,255,255,0.85)";
+            ctx.shadowOffsetX = -3;
+            ctx.shadowOffsetY = -7;
+            ctx.shadowBlur = 2;
+            ctx.fill("evenodd");
+            ctx.shadowOffsetX = 0;
+            ctx.fill("evenodd");
+            ctx.restore();
+          });
+        },
+      });
 
       // Label angka di dalam tiap segmen doughnut (dipakai Supporting & Line)
       const donutLeaderLabels = (formatter) => ({
@@ -3610,8 +3658,8 @@ function dashboardExhaust() {
           data: {
             labels,
             datasets: [
-              { type: "bar", label: "Actual", data: actual, backgroundColor: barBg(canvas, hex, actual.length), borderRadius: 6, barPercentage: 0.65, categoryPercentage: 0.75, borderSkipped: false },
-              { type: "line", label: "Target", data: labels.map(() => target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0 },
+              { order: 2, type: "bar", label: "Actual", data: actual, backgroundColor: barBg(canvas, hex, actual.length), borderRadius: 0, barPercentage: 0.65, categoryPercentage: 0.75, borderSkipped: false },
+              { order: 1, type: "line", label: "Target", data: labels.map(() => target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0 },
             ],
           },
           options: {
@@ -3620,7 +3668,7 @@ function dashboardExhaust() {
             plugins: { legend: legend(true), tooltip: tooltip() },
             scales: baseScales({ suggestedMax: 100, ticks: { callback: (v) => v + "%", color: "#000000", font: { size: 9 }, maxTicksLimit: 5 } }),
           },
-          plugins: [barValueLabels((v) => v + "%", 0, labelScale)],
+          plugins: [barValueLabels((v) => v + "%", 0, labelScale), barBevelInset(0)],
         });
       };
       safe(() => kpiBigPct("dxbProductivity", b.dayLabels, b.productivity.actual, b.productivity.target, "#0EA5E9"), "productivity");
@@ -3635,11 +3683,11 @@ function dashboardExhaust() {
           data: {
             labels: b.downtimeHarian.labels,
             datasets: [
-              { type: "bar", label: "Downtime", data: b.downtimeHarian.values, backgroundColor: barBg(canvas, "#F97316", b.downtimeHarian.values.length), borderRadius: 4, barPercentage: 0.6, categoryPercentage: 0.75 },
+              { order: 2, type: "bar", label: "Downtime", data: b.downtimeHarian.values, backgroundColor: barBg(canvas, "#F97316", b.downtimeHarian.values.length), borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75 },
             ],
           },
           options: { responsive: true, maintainAspectRatio: false, animation: noAnim, layout: { padding: { top: 20 } }, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
-          plugins: [barValueLabels((v) => fmtNum(v))],
+          plugins: [barValueLabels((v) => fmtNum(v)), barBevelInset(0)],
         });
       }, "downtimeHarian");
 
@@ -3749,12 +3797,57 @@ function dashboardExhaust() {
         return g;
       };
 
-      // Gradient bar seragam (fitur highlight per-bulan sudah dihapus atas
-      // permintaan; kolom Bulan tidak lagi ada di filter bar).
-      const barBg = (canvas, hex, len) => {
-        const full = grad(canvas, hex);
-        return Array.from({ length: len }, () => full);
-      };
+      // Bar SOLID (tanpa gradasi) -- gradasi dihapus atas permintaan.
+      // (fitur highlight per-bulan sudah dihapus atas permintaan; kolom
+      // Bulan tidak lagi ada di filter bar).
+      const barBg = (canvas, hex, len) => Array.from({ length: len }, () => hex);
+
+      // Bevel inset "relaxed" tapi lebih tegas: kontras bayangan kuat,
+      // blur kecil. Menggantikan efek gradasi lama supaya batang tetap
+      // terlihat bervolume walau warnanya solid rata.
+      const barBevelInset = (datasetIndex = 0) => ({
+        id: "dxyBigBarBevelInset_" + datasetIndex + "_" + Math.random(),
+        // afterDatasetsDraw (bukan afterDatasetDraw) -- dijalankan SETELAH
+        // semua dataset (termasuk garis/line) selesai digambar, supaya
+        // bevel selalu jadi lapisan PALING ATAS dan tidak pernah ketutupan.
+        afterDatasetsDraw(chart) {
+          const meta = chart.getDatasetMeta(datasetIndex);
+          if (!meta || meta.type !== "bar" || !meta.data) return;
+          const { ctx } = chart;
+          meta.data.forEach((bar) => {
+            const { x, y, base, width } = bar.getProps(["x", "y", "base", "width"], true);
+            const top = Math.min(y, base), bottom = Math.max(y, base), h = bottom - top;
+            if (!width || h <= 0) return;
+            const left = x - width / 2;
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(left, top, width, h);
+            ctx.clip();
+            ctx.beginPath();
+            ctx.rect(left - 30, top - 30, width + 60, h + 60);
+            ctx.rect(left, top, width, h);
+            ctx.closePath();
+            ctx.fillStyle = "rgba(0,0,0,0.001)";
+            // Sisi atas & kiri: bayangan gelap tegas, blur kecil (kesan "masuk")
+            ctx.shadowColor = "rgba(0,0,0,0.92)";
+            ctx.shadowBlur = 2;
+            ctx.shadowOffsetX = 3;
+            ctx.shadowOffsetY = 7;
+            ctx.fill("evenodd");
+            ctx.shadowOffsetX = 0;
+            ctx.fill("evenodd");
+            // Sisi bawah & kanan: highlight terang tegas, blur kecil (kesan bevel)
+            ctx.shadowColor = "rgba(255,255,255,0.85)";
+            ctx.shadowOffsetX = -3;
+            ctx.shadowOffsetY = -7;
+            ctx.shadowBlur = 2;
+            ctx.fill("evenodd");
+            ctx.shadowOffsetX = 0;
+            ctx.fill("evenodd");
+            ctx.restore();
+          });
+        },
+      });
 
       // --- Plugin: label angka DI DALAM tiap segmen donut (tanpa leader line) ---
       // (untuk Downtime Supporting & Line)
@@ -3980,8 +4073,8 @@ function dashboardExhaust() {
           data: {
             labels,
             datasets: [
-              { type: "bar", label: "Actual", data: actual, backgroundColor: barBg(canvas, hex, actual.length), borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7, borderSkipped: false },
-              { type: "line", label: "Target", data: labels.map(() => target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0 },
+              { order: 2, type: "bar", label: "Actual", data: actual, backgroundColor: barBg(canvas, hex, actual.length), borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7, borderSkipped: false },
+              { order: 1, type: "line", label: "Target", data: labels.map(() => target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0 },
             ],
           },
           options: {
@@ -3990,7 +4083,7 @@ function dashboardExhaust() {
             plugins: { legend: legend(true), tooltip: tooltip() },
             scales: maxY === null ? baseScales() : { ...baseScales(), y: { ...baseScales().y, max: maxY } },
           },
-          plugins: [barValueLabels((v) => fmtNum(v), 0, labelPos)],
+          plugins: [barValueLabels((v) => fmtNum(v), 0, labelPos), barBevelInset(0)],
         });
       };
       // Chart utama "🎯 Straight Pass" -- disamakan gaya sama chart
@@ -4010,9 +4103,9 @@ function dashboardExhaust() {
           data: {
             labels,
             datasets: [
-              { type: "bar", label: "Qty Repair", data: qty, backgroundColor: barBg(canvas, hex, qty.length), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7, borderSkipped: false },
-              { type: "line", label: "% Straightpass", data: pct, borderColor: "#22C55E", backgroundColor: "#22C55E", yAxisID: "y1", borderWidth: 1.5, pointRadius: 3, tension: 0.3, spanGaps: true },
-              { type: "line", label: "Target", data: labels.map(() => target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0, yAxisID: "y1" },
+              { order: 2, type: "bar", label: "Qty Repair", data: qty, backgroundColor: barBg(canvas, hex, qty.length), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7, borderSkipped: false },
+              { order: 1, type: "line", label: "% Straightpass", data: pct, borderColor: "#22C55E", backgroundColor: "#22C55E", yAxisID: "y1", borderWidth: 1.5, pointRadius: 3, tension: 0.3, spanGaps: true },
+              { order: 1, type: "line", label: "Target", data: labels.map(() => target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0, yAxisID: "y1" },
             ],
           },
           options: {
@@ -4025,7 +4118,7 @@ function dashboardExhaust() {
               y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => v + "%" }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, suggestedMax: 100, grace: "8%" },
             },
           },
-          plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabelsAll((v) => (v === null ? "" : v + "%"), 1)],
+          plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabelsAll((v) => (v === null ? "" : v + "%"), 1), barBevelInset(0)],
         });
       };
       // Catatan: dua kolom pertama di b.monthLabels adalah ringkasan
@@ -4046,8 +4139,8 @@ function dashboardExhaust() {
           data: {
             labels: b.monthLabels.slice(2),
             datasets: [
-              { type: "bar", label: "Qty", data: b.ngInline.qtyByMonth.slice(2), backgroundColor: barBg(canvas, "#F97316", b.ngInline.qtyByMonth.length - 2), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
-              { type: "line", label: "Value", data: b.ngInline.valueByMonth.slice(2), borderColor: "#1D4ED8", backgroundColor: "rgba(29,78,216,0.1)", borderWidth: 1.5, fill: true, yAxisID: "y1", pointRadius: 1, tension: 0.3 },
+              { order: 2, type: "bar", label: "Qty", data: b.ngInline.qtyByMonth.slice(2), backgroundColor: barBg(canvas, "#F97316", b.ngInline.qtyByMonth.length - 2), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
+              { order: 1, type: "line", label: "Value", data: b.ngInline.valueByMonth.slice(2), borderColor: "#1D4ED8", backgroundColor: "rgba(29,78,216,0.1)", borderWidth: 1.5, fill: true, yAxisID: "y1", pointRadius: 1, tension: 0.3 },
             ],
           },
           options: {
@@ -4060,7 +4153,7 @@ function dashboardExhaust() {
               y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => fmtNum(Math.round(v / 1000)) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
             },
           },
-          plugins: [barValueLabels((v) => fmtNum(v), 0, "base"), lineValueLabelsAll((v) => fmtNum(Math.round(v / 1000)), 1)],
+          plugins: [barValueLabels((v) => fmtNum(v), 0, "base"), lineValueLabelsAll((v) => fmtNum(Math.round(v / 1000)), 1), barBevelInset(0)],
         });
       }, "ngInline");
 
@@ -4080,11 +4173,11 @@ function dashboardExhaust() {
           data: {
             labels: labels,
             datasets: [
-              { type: "bar", label: "Downtime (menit)", data: vals, backgroundColor: barBg(canvas, "#F97316", vals.length), borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
+              { order: 2, type: "bar", label: "Downtime (menit)", data: vals, backgroundColor: barBg(canvas, "#F97316", vals.length), borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
             ],
           },
           options: { responsive: true, maintainAspectRatio: false, animation: noAnim, layout: { padding: { top: 34 } }, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
-          plugins: [barValueLabels((v) => fmtNum(v), 0)],
+          plugins: [barValueLabels((v) => fmtNum(v), 0), barBevelInset(0)],
         });
       }, "downtimeExhaust");
 
@@ -4174,22 +4267,68 @@ function dashboardExhaust() {
         g.addColorStop(1, toRgba(alphaBottom));
         return g;
       };
-      const barBg = (canvas, hex, len) => {
-        const full = grad(canvas, hex);
-        return Array.from({ length: len }, () => full);
-      };
+      // Bar SOLID (tanpa gradasi) -- gradasi dihapus atas permintaan.
+      const barBg = (canvas, hex, len) => Array.from({ length: len }, () => hex);
       // Varian barBg KHUSUS chart *Perline -- warna batang line yang lagi
       // dipilih (qcLineFilter) tetap solid/penuh, batang line lainnya
-      // dipudarkan (alpha rendah). Kalau qcLineFilter === "ALL" (atau tidak
-      // diisi), semua batang tetap solid seperti biasa (perilaku lama,
-      // tidak berubah). Datanya SENDIRI tidak difilter/disembunyikan --
-      // cuma warnanya, sesuai permintaan "di-highlight saja".
+      // dipudarkan (alpha rendah, warna FLAT tanpa gradasi). Kalau
+      // qcLineFilter === "ALL" (atau tidak diisi), semua batang tetap
+      // solid seperti biasa (perilaku lama, tidak berubah). Datanya
+      // SENDIRI tidak difilter/disembunyikan -- cuma warnanya, sesuai
+      // permintaan "di-highlight saja".
       const barBgHighlight = (canvas, hex, categories, highlightKey) => {
         return categories.map((cat) => {
           const isDimmed = highlightKey && highlightKey !== "ALL" && cat !== highlightKey;
-          return isDimmed ? grad(canvas, hex, 0.22, 0.02) : grad(canvas, hex, 0.85, 0.05);
+          return isDimmed ? hex + "38" : hex;
         });
       };
+
+      // Bevel inset "relaxed" tapi lebih tegas: kontras bayangan kuat,
+      // blur kecil. Menggantikan efek gradasi lama supaya batang tetap
+      // terlihat bervolume walau warnanya solid rata.
+      const barBevelInset = (datasetIndex = 0) => ({
+        id: "dxyQcBarBevelInset_" + datasetIndex + "_" + Math.random(),
+        // afterDatasetsDraw (bukan afterDatasetDraw) -- dijalankan SETELAH
+        // semua dataset (termasuk garis/line) selesai digambar, supaya
+        // bevel selalu jadi lapisan PALING ATAS dan tidak pernah ketutupan.
+        afterDatasetsDraw(chart) {
+          const meta = chart.getDatasetMeta(datasetIndex);
+          if (!meta || meta.type !== "bar" || !meta.data) return;
+          const { ctx } = chart;
+          meta.data.forEach((bar) => {
+            const { x, y, base, width } = bar.getProps(["x", "y", "base", "width"], true);
+            const top = Math.min(y, base), bottom = Math.max(y, base), h = bottom - top;
+            if (!width || h <= 0) return;
+            const left = x - width / 2;
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(left, top, width, h);
+            ctx.clip();
+            ctx.beginPath();
+            ctx.rect(left - 30, top - 30, width + 60, h + 60);
+            ctx.rect(left, top, width, h);
+            ctx.closePath();
+            ctx.fillStyle = "rgba(0,0,0,0.001)";
+            // Sisi atas & kiri: bayangan gelap tegas, blur kecil (kesan "masuk")
+            ctx.shadowColor = "rgba(0,0,0,0.92)";
+            ctx.shadowBlur = 2;
+            ctx.shadowOffsetX = 3;
+            ctx.shadowOffsetY = 7;
+            ctx.fill("evenodd");
+            ctx.shadowOffsetX = 0;
+            ctx.fill("evenodd");
+            // Sisi bawah & kanan: highlight terang tegas, blur kecil (kesan bevel)
+            ctx.shadowColor = "rgba(255,255,255,0.85)";
+            ctx.shadowOffsetX = -3;
+            ctx.shadowOffsetY = -7;
+            ctx.shadowBlur = 2;
+            ctx.fill("evenodd");
+            ctx.shadowOffsetX = 0;
+            ctx.fill("evenodd");
+            ctx.restore();
+          });
+        },
+      });
       const barValueLabels = (formatter, datasetIndex = 0, pos = "above") => ({
         id: "dxyQcBarValueLabels_" + datasetIndex + "_" + Math.random(),
         afterDatasetsDraw(chart) {
@@ -4373,8 +4512,8 @@ function dashboardExhaust() {
           data: {
             labels: ngi.monthLabels,
             datasets: [
-              { type: "bar", label: "Qty", data: monthQty, backgroundColor: barBg(canvas, "#F97316", monthQty.length), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
-              { type: "line", label: "Value", data: monthValue, borderColor: "#1D4ED8", backgroundColor: "rgba(29,78,216,0.1)", borderWidth: 1.5, fill: true, yAxisID: "y1", pointRadius: 1, tension: 0.3 },
+              { order: 2, type: "bar", label: "Qty", data: monthQty, backgroundColor: barBg(canvas, "#F97316", monthQty.length), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
+              { order: 1, type: "line", label: "Value", data: monthValue, borderColor: "#1D4ED8", backgroundColor: "rgba(29,78,216,0.1)", borderWidth: 1.5, fill: true, yAxisID: "y1", pointRadius: 1, tension: 0.3 },
             ],
           },
           options: {
@@ -4387,7 +4526,7 @@ function dashboardExhaust() {
               y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => fmtNum(Math.round(v / 1000)) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, grace: "12%" },
             },
           },
-          plugins: [barValueLabels((v) => fmtNum(v), 0, "base"), lineValueLabelsAll((v) => fmtNum(Math.round(v / 1000)), 1), axisUnitLabels("Qty", "Value")],
+          plugins: [barValueLabels((v) => fmtNum(v), 0, "base"), lineValueLabelsAll((v) => fmtNum(Math.round(v / 1000)), 1), axisUnitLabels("Qty", "Value"), barBevelInset(0)],
         });
       }, "qcNgInlineMonth");
 
@@ -4410,8 +4549,8 @@ function dashboardExhaust() {
           data: {
             labels,
             datasets: [
-              { type: "bar", label: "Qty", data: trialQty, backgroundColor: barBg(canvas, "#06B6D4", trialQty.length), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
-              { type: "line", label: "Value", data: trialValue, borderColor: "#1D4ED8", backgroundColor: "rgba(29,78,216,0.1)", borderWidth: 1.5, fill: true, yAxisID: "y1", pointRadius: 1, tension: 0.3 },
+              { order: 2, type: "bar", label: "Qty", data: trialQty, backgroundColor: barBg(canvas, "#06B6D4", trialQty.length), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
+              { order: 1, type: "line", label: "Value", data: trialValue, borderColor: "#1D4ED8", backgroundColor: "rgba(29,78,216,0.1)", borderWidth: 1.5, fill: true, yAxisID: "y1", pointRadius: 1, tension: 0.3 },
             ],
           },
           options: {
@@ -4424,7 +4563,7 @@ function dashboardExhaust() {
               y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => fmtNum(Math.round(v / 1000)) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, grace: "12%" },
             },
           },
-          plugins: [barValueLabels((v) => fmtNum(v), 0, "base"), lineValueLabelsAll((v) => fmtNum(Math.round(v / 1000)), 1), axisUnitLabels("Qty", "Value")],
+          plugins: [barValueLabels((v) => fmtNum(v), 0, "base"), lineValueLabelsAll((v) => fmtNum(Math.round(v / 1000)), 1), axisUnitLabels("Qty", "Value"), barBevelInset(0)],
         });
       }, "qcNgTrialMonth");
 
@@ -4451,9 +4590,9 @@ function dashboardExhaust() {
           data: {
             labels,
             datasets: [
-              { type: "bar", label: "Qty Repair", data: repairQty, backgroundColor: barBg(canvas, "#EF4444", repairQty.length), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
-              { type: "line", label: "% Straightpass", data: actual, borderColor: "#22C55E", backgroundColor: "#22C55E", borderWidth: 1.5, yAxisID: "y1", pointRadius: 3, tension: 0.3, spanGaps: true },
-              { type: "line", label: "Target", data: labels.map(() => b.straightpass.target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0, yAxisID: "y1" },
+              { order: 2, type: "bar", label: "Qty Repair", data: repairQty, backgroundColor: barBg(canvas, "#EF4444", repairQty.length), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
+              { order: 1, type: "line", label: "% Straightpass", data: actual, borderColor: "#22C55E", backgroundColor: "#22C55E", borderWidth: 1.5, yAxisID: "y1", pointRadius: 3, tension: 0.3, spanGaps: true },
+              { order: 1, type: "line", label: "Target", data: labels.map(() => b.straightpass.target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0, yAxisID: "y1" },
             ],
           },
           options: {
@@ -4466,7 +4605,7 @@ function dashboardExhaust() {
               y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => v + "%" }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, suggestedMax: 100, grace: "8%" },
             },
           },
-          plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabelsAll((v) => (v === null ? "" : v + "%"), 1), axisUnitLabels("Qty", "%")],
+          plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabelsAll((v) => (v === null ? "" : v + "%"), 1), axisUnitLabels("Qty", "%"), barBevelInset(0)],
         });
       }, "qcStraightpassMonth");
 
@@ -4483,7 +4622,7 @@ function dashboardExhaust() {
             type: "bar",
             data: {
               labels: categories,
-              datasets: [{ label: "Qty", data: values, backgroundColor: barBg(canvas, hex, categories.length), borderRadius: 6, barPercentage: 0.6, categoryPercentage: 0.7 }],
+              datasets: [{ label: "Qty", data: values, backgroundColor: barBg(canvas, hex, categories.length), borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 }],
             },
             options: {
               responsive: true, maintainAspectRatio: false, animation: noAnim,
@@ -4491,7 +4630,7 @@ function dashboardExhaust() {
               plugins: { legend: legend(false), tooltip: tooltip() },
               scales: baseScales(),
             },
-            plugins: [barValueLabels((v) => fmtNum(v), 0)],
+            plugins: [barValueLabels((v) => fmtNum(v), 0), barBevelInset(0)],
           });
         }, canvasId);
       };
@@ -4508,8 +4647,8 @@ function dashboardExhaust() {
             data: {
               labels: categories,
               datasets: [
-                { type: "bar", label: "Qty Repair", data: qty, backgroundColor: barBgHighlight(canvas, "#EF4444", categories, highlightKey), yAxisID: "y", borderRadius: 6, barPercentage: 0.6, categoryPercentage: 0.7 },
-                { type: "line", label: "% Straightpass", data: pct, borderColor: "#22C55E", backgroundColor: "#22C55E", borderWidth: 1.5, yAxisID: "y1", pointRadius: 3, tension: 0.3, spanGaps: true },
+                { order: 2, type: "bar", label: "Qty Repair", data: qty, backgroundColor: barBgHighlight(canvas, "#EF4444", categories, highlightKey), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
+                { order: 1, type: "line", label: "% Straightpass", data: pct, borderColor: "#22C55E", backgroundColor: "#22C55E", borderWidth: 1.5, yAxisID: "y1", pointRadius: 3, tension: 0.3, spanGaps: true },
               ],
             },
             options: {
@@ -4532,7 +4671,7 @@ function dashboardExhaust() {
                 y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => v + "%" }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, suggestedMax: 100, grace: "8%" },
               },
             },
-            plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabelsAll((v) => (v === null ? "" : v + "%"), 1), axisUnitLabels("Qty", "%")],
+            plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabelsAll((v) => (v === null ? "" : v + "%"), 1), axisUnitLabels("Qty", "%"), barBevelInset(0)],
           });
         }, canvasId);
       };
@@ -4549,8 +4688,8 @@ function dashboardExhaust() {
             data: {
               labels: categories,
               datasets: [
-                { type: "bar", label: "Qty", data: qty, backgroundColor: barBgHighlight(canvas, hexBar, categories, highlightKey), yAxisID: "y", borderRadius: 6, barPercentage: 0.6, categoryPercentage: 0.7 },
-                { type: "line", label: "Value", data: value, borderColor: "#1D4ED8", backgroundColor: "rgba(29,78,216,0.1)", borderWidth: 1.5, fill: true, yAxisID: "y1", pointRadius: 1, tension: 0.3, spanGaps: true },
+                { order: 2, type: "bar", label: "Qty", data: qty, backgroundColor: barBgHighlight(canvas, hexBar, categories, highlightKey), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
+                { order: 1, type: "line", label: "Value", data: value, borderColor: "#1D4ED8", backgroundColor: "rgba(29,78,216,0.1)", borderWidth: 1.5, fill: true, yAxisID: "y1", pointRadius: 1, tension: 0.3, spanGaps: true },
               ],
             },
             options: {
@@ -4563,7 +4702,7 @@ function dashboardExhaust() {
                 y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => fmtNum(Math.round(v / 1000)) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, grace: "12%" },
               },
             },
-            plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabelsAll((v) => (v === null ? "" : fmtNum(Math.round(v / 1000))), 1), axisUnitLabels("Qty", "Value")],
+            plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabelsAll((v) => (v === null ? "" : fmtNum(Math.round(v / 1000))), 1), axisUnitLabels("Qty", "Value"), barBevelInset(0)],
           });
         }, canvasId);
       };
@@ -4637,8 +4776,8 @@ function dashboardExhaust() {
             data: {
               labels: QC_DAYS,
               datasets: [
-                { type: "bar", label: barLabel, data: barData, backgroundColor: barBg(canvas, hexBar, QC_DAYS.length), yAxisID: "y", borderRadius: 4, barPercentage: 0.6, categoryPercentage: 0.75 },
-                { type: "line", label: lineLabel, data: lineData, borderColor: isMoney ? "#1D4ED8" : hexLine, backgroundColor: isMoney ? "rgba(29,78,216,0.1)" : hexLine, borderWidth: 1.5, fill: isMoney, yAxisID: "y1", pointRadius: isMoney ? 1 : 2, tension: 0.3, spanGaps: true },
+                { order: 2, type: "bar", label: barLabel, data: barData, backgroundColor: barBg(canvas, hexBar, QC_DAYS.length), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75 },
+                { order: 1, type: "line", label: lineLabel, data: lineData, borderColor: isMoney ? "#1D4ED8" : hexLine, backgroundColor: isMoney ? "rgba(29,78,216,0.1)" : hexLine, borderWidth: 1.5, fill: isMoney, yAxisID: "y1", pointRadius: isMoney ? 1 : 2, tension: 0.3, spanGaps: true },
               ],
             },
             options: {
@@ -4656,6 +4795,7 @@ function dashboardExhaust() {
               ...(lineIsPercent ? [lineValueLabelsAll((v) => v + "%", 1)] : []),
               ...(isMoney ? [lineValueLabelsAll((v) => fmtNum(Math.round(v / 1000)), 1)] : []),
               axisUnitLabels("Qty", lineIsPercent ? "%" : "Value"),
+              barBevelInset(0),
             ],
           });
         }, canvasId);
