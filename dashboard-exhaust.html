@@ -276,7 +276,28 @@
    ruang ~22px di kanan supaya ikon kalender bawaan browser tetap kelihatan
    & tetap bisa diklik (overlay pointer-events:none, klik tembus ke input
    di bawahnya, jadi kalender tetap kebuka walau overlay sedang tampil). */
-.qc-date-wrap { position: relative; display: inline-block; }
+/* ---- Diganti jadi SATU bingkai tunggal di WRAPPER (bukan lagi border
+   terpisah di label vs border bawaan si <input>) -- pendekatan lama rawan
+   ada garis yang kepotong/tertimpa/tidak presisi nyambung, apalagi saat
+   browser di-zoom. Sekarang: wrapper yang gambar SATU border+radius utuh,
+   input di dalamnya dibikin transparan tanpa border sendiri (border:none),
+   background overlay ikut background wrapper -- jadi mustahil ada 2 garis
+   yang beradu/numpuk lagi, di zoom level berapa pun. ---- */
+.qc-date-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--dxy-border);
+  border-radius: 8px;
+  background: var(--dxy-card);
+  overflow: hidden;
+  cursor: pointer;
+}
+.qc-date-wrap input[type="date"] {
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
 .qc-date-month-label {
   position: absolute;
   left: 0; top: 0; bottom: 0; right: 22px;
@@ -286,10 +307,56 @@
   color: var(--dxy-text);
   font-size: 10.5px;
   font-weight: 600;
-  border-radius: 6px 0 0 6px;
-  pointer-events: none;
+  /* SEBELUMNYA pointer-events:none (klik "numpang lewat" ke <input> di
+     bawahnya) -- diganti jadi bisa diklik LANGSUNG, karena rupanya klik
+     yang cuma "lewat" begitu tidak selalu dianggap browser sebagai user-
+     gesture yang sah buat memicu showPicker() pada elemen di bawahnya.
+     Klik di label ini sekarang langsung manggil showPicker() sendiri
+     (lihat atribut @click di HTML-nya, dengan .stop supaya tidak dobel
+     ke-trigger lewat wrapper). */
+  pointer-events: auto;
+  cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
+}
+/* Ikon kalender bawaan browser (bagian ~22px kanan yang sengaja disisakan
+   di atas) tadinya kelihatan "nempel"/tidak nyambung sama pil overlay di
+   sebelah kirinya -- beda radius (6 vs 8), beda warna ikon tiap tema, dan
+   ada "kotak putih" bawaan browser di sekeliling ikon yang kontras dengan
+   background field. Diperhalus di sini: color-scheme disamakan sama tema
+   dashboard (biar ikon & popup kalender ikut gelap saat dark mode, bukan
+   selalu putih), ikon dibuat transparan+redup lalu nyala pas di-hover,
+   dan alignment-nya dirapikan supaya menyatu jadi 1 pil utuh. */
+.qc-rekap-mode input[type="date"] { color-scheme: light; }
+[data-theme="dark"] .qc-rekap-mode input[type="date"] { color-scheme: dark; }
+.qc-rekap-mode input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0.55;
+  cursor: pointer;
+  padding: 3px;
+  margin-right: 1px;
+  border-radius: 5px;
+  background-color: transparent;
+  transition: opacity 150ms ease, background-color 150ms ease;
+}
+.qc-rekap-mode input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  background-color: var(--dxy-border);
+}
+/* Outline fokus BAWAAN browser dimatikan khusus di sini -- karena outline
+   digambar DI LUAR/DI ATAS semua elemen (termasuk overlay label kita),
+   jadi kelihatan seperti "garis hitam" aneh yang nongol pas field diklik/
+   fokus. Diganti highlight lebih halus (border + glow tipis) yang senada
+   sama warna dashboard, bukan dihilangkan total (supaya tetap ada tanda
+   fokus buat aksesibilitas). */
+.qc-rekap-mode input[type="date"]:focus {
+  outline: none;
+}
+/* Highlight fokus digambar di WRAPPER (bukan di si <input>, yang sekarang
+   sudah tanpa border sendiri) lewat :focus-within -- supaya nyala nya
+   ngikutin bentuk 1 pil utuh, bukan cuma sebagian dalemnya. */
+.qc-date-wrap:focus-within {
+  border-color: #38BDF8;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
 }
 /* Tombol kecil "✕" -- muncul cuma saat tanggal terisi, dipakai untuk
    mengosongkan tanggal lagi supaya balik otomatis ke tampilan sebulan. */
@@ -716,7 +783,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
     <!-- Switch Tahunan / Bulanan / Kontrol Kualitas -->
     <div class="dash-subtab-nav" style="display:flex; gap:8px; flex-wrap:wrap;">
       <button class="btn-secondary btn-sm" :class="activeTab==='tahunan' ? 'btn-primary' : ''" @click="setTab('tahunan')">Tahunan</button>
-      <button class="btn-secondary btn-sm" :class="activeTab==='bulanan' ? 'btn-primary' : ''" @click="setTab('bulanan')">Bulanan</button>
+      <button class="btn-secondary btn-sm" :class="activeTab==='bulanan' ? 'btn-primary' : ''" @click="setTab('bulanan')">Kontrol Downtime</button>
       <button class="btn-secondary btn-sm" :class="activeTab==='kualitas' ? 'btn-primary' : ''" @click="setTab('kualitas')">Kontrol Kualitas</button>
     </div>
 
@@ -811,9 +878,9 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                   </span>
                 </div>
                 <div class="qc-rekap-mode">
-                  <div class="qc-date-wrap">
-                    <input type="date" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !bulananDowntimeUseDate }" x-model="bulananDate" :min="bulananDateMin()" :max="bulananDateMax()" @change="bulananDowntimeUseDate = true; onBulananDowntimeDateChange()">
-                    <span class="qc-date-month-label" x-show="!bulananDowntimeUseDate" x-text="bulananMonthLabel"></span>
+                  <div class="qc-date-wrap" @click="try { $refs.bulananDateInput.focus(); $refs.bulananDateInput.showPicker && $refs.bulananDateInput.showPicker(); } catch (e) {}">
+                    <input type="date" x-ref="bulananDateInput" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !bulananDowntimeUseDate }" x-model="bulananDate" :min="bulananDateMin()" :max="bulananDateMax()" @change="bulananDowntimeUseDate = true; onBulananDowntimeDateChange()">
+                    <span class="qc-date-month-label" x-show="!bulananDowntimeUseDate" x-text="bulananMonthLabel" @click.stop="try { $refs.bulananDateInput.focus(); $refs.bulananDateInput.showPicker && $refs.bulananDateInput.showPicker(); } catch (e) {}"></span>
                   </div>
                   <button type="button" class="qc-rekap-clear-btn" title="Kembali ke tampilan sebulan" x-show="bulananDowntimeUseDate" @click="bulananDowntimeUseDate = false; onBulananDowntimeDateChange()">✕</button>
                 </div>
@@ -1117,6 +1184,14 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                 <template x-for="y in tahunanYearOptions" :key="'qy-'+y"><option :value="y" x-text="y"></option></template>
               </select>
             </div>
+            <div class="dxy-field">
+              <label>Line</label>
+              <select class="dxy-select" x-model="qcLineFilter" @change="$nextTick(() => renderKualitasCharts())">
+                <option value="ALL">Semua Line</option>
+                <template x-for="m in MACHINES_REF" :key="'ql-'+m.key"><option :value="m.key" x-text="m.key"></option></template>
+              </select>
+            </div>
+            <div class="dxy-spacer"></div>
           </div>
 
           <div class="dxy-qc-grid">
@@ -1153,9 +1228,9 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                     </span>
                   </div>
                   <div class="qc-rekap-mode">
-                    <div class="qc-date-wrap">
-                      <input type="date" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !qcNgInlineUseDate }" x-model="qcNgInlineDetailDate" @change="qcNgInlineUseDate = true; fetchQcNgInlineDetail()">
-                      <span class="qc-date-month-label" x-show="!qcNgInlineUseDate" x-text="qcMonthShortLabel"></span>
+                    <div class="qc-date-wrap" @click="try { $refs.qcNgInlineDateInput.focus(); $refs.qcNgInlineDateInput.showPicker && $refs.qcNgInlineDateInput.showPicker(); } catch (e) {}">
+                      <input type="date" x-ref="qcNgInlineDateInput" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !qcNgInlineUseDate }" x-model="qcNgInlineDetailDate" @change="qcNgInlineUseDate = true; fetchQcNgInlineDetail()">
+                      <span class="qc-date-month-label" x-show="!qcNgInlineUseDate" x-text="qcMonthShortLabel" @click.stop="try { $refs.qcNgInlineDateInput.focus(); $refs.qcNgInlineDateInput.showPicker && $refs.qcNgInlineDateInput.showPicker(); } catch (e) {}"></span>
                     </div>
                     <button type="button" class="qc-rekap-clear-btn" title="Kembali ke tampilan sebulan" x-show="qcNgInlineUseDate" @click="qcNgInlineUseDate = false; fetchQcNgInlineDetail()">✕</button>
                   </div>
@@ -1218,9 +1293,9 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                     </span>
                   </div>
                   <div class="qc-rekap-mode">
-                    <div class="qc-date-wrap">
-                      <input type="date" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !qcNgTrialUseDate }" x-model="qcNgTrialDetailDate" @change="qcNgTrialUseDate = true; fetchQcNgTrialDetail()">
-                      <span class="qc-date-month-label" x-show="!qcNgTrialUseDate" x-text="qcMonthShortLabel"></span>
+                    <div class="qc-date-wrap" @click="try { $refs.qcNgTrialDateInput.focus(); $refs.qcNgTrialDateInput.showPicker && $refs.qcNgTrialDateInput.showPicker(); } catch (e) {}">
+                      <input type="date" x-ref="qcNgTrialDateInput" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !qcNgTrialUseDate }" x-model="qcNgTrialDetailDate" @change="qcNgTrialUseDate = true; fetchQcNgTrialDetail()">
+                      <span class="qc-date-month-label" x-show="!qcNgTrialUseDate" x-text="qcMonthShortLabel" @click.stop="try { $refs.qcNgTrialDateInput.focus(); $refs.qcNgTrialDateInput.showPicker && $refs.qcNgTrialDateInput.showPicker(); } catch (e) {}"></span>
                     </div>
                     <button type="button" class="qc-rekap-clear-btn" title="Kembali ke tampilan sebulan" x-show="qcNgTrialUseDate" @click="qcNgTrialUseDate = false; fetchQcNgTrialDetail()">✕</button>
                   </div>
@@ -1282,9 +1357,9 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                     </span>
                   </div>
                   <div class="qc-rekap-mode">
-                    <div class="qc-date-wrap">
-                      <input type="date" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !qcRepairUseDate }" x-model="qcRepairDetailDate" @change="qcRepairUseDate = true; qcRepairDetailLoaded = false; fetchQcRepairDetail()">
-                      <span class="qc-date-month-label" x-show="!qcRepairUseDate" x-text="qcMonthShortLabel"></span>
+                    <div class="qc-date-wrap" @click="try { $refs.qcRepairDateInput.focus(); $refs.qcRepairDateInput.showPicker && $refs.qcRepairDateInput.showPicker(); } catch (e) {}">
+                      <input type="date" x-ref="qcRepairDateInput" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !qcRepairUseDate }" x-model="qcRepairDetailDate" @change="qcRepairUseDate = true; qcRepairDetailLoaded = false; fetchQcRepairDetail()">
+                      <span class="qc-date-month-label" x-show="!qcRepairUseDate" x-text="qcMonthShortLabel" @click.stop="try { $refs.qcRepairDateInput.focus(); $refs.qcRepairDateInput.showPicker && $refs.qcRepairDateInput.showPicker(); } catch (e) {}"></span>
                     </div>
                     <button type="button" class="qc-rekap-clear-btn" title="Kembali ke tampilan sebulan" x-show="qcRepairUseDate" @click="qcRepairUseDate = false; qcRepairDetailLoaded = false; fetchQcRepairDetail()">✕</button>
                   </div>
@@ -1492,6 +1567,7 @@ function dashboardExhaust() {
         await this.fetchQcRepairDetail();
         await this.fetchQcRepairPerlineModel();
         await this.fetchQcStraightpassBreakdown();
+        await this.fetchQcLineModelMap();
         this.$nextTick(() => this.renderKualitasCharts());
       }
     },
@@ -1532,6 +1608,16 @@ function dashboardExhaust() {
     bulananYear: new Date().getFullYear(),
     qcMonth: new Date().getMonth() + 1,
     qcYear: new Date().getFullYear(),
+    // Filter Line (picker) KHUSUS tab Kontrol Kualitas -- "ALL" = tampilkan
+    // semua line (perilaku lama, tidak berubah). Kalau diganti ke salah
+    // satu line: chart *Perline (NG Inline/NG Trial/Straightpass) tetap
+    // menampilkan SEMUA line, cuma line yang dipilih di-highlight (line
+    // lain dipudarkan) -- datanya TIDAK difilter/dihilangkan. Sedangkan
+    // chart *Model (NG Inline/NG Trial/Straightpass) beneran DISARING:
+    // cuma model yang ada di line itu yang ditampilkan. Lihat
+    // fetchQcLineModelMap() & renderKualitasCharts() untuk detail
+    // mekanismenya, termasuk catatan keterbatasan data Straightpass Model.
+    qcLineFilter: "ALL",
     // Filter tanggal untuk tabel "Downtime Terbesar per Line" -- tabel ini
     // SELALU per-tanggal (default hari ini, bisa diganti lewat date picker).
     bulananDate: localDateStr(new Date()),
@@ -1809,6 +1895,18 @@ function dashboardExhaust() {
     // kartu Straightpass utama (lihat fetchTahunan()).
     qcStraightpassLoaded: false,
     qcStraightpass: { perlineActual: [], permodelActual: [], dailyRepairQty: [], dailyPercent: [] },
+    // Peta Line -> Model (qty/value per kombinasi line+model, SELALU untuk
+    // 1 bulan penuh yang lagi dipilih qcMonth/qcYear -- TIDAK ikut toggle
+    // tanggal/sebulan punya panel Rekap manapun). Dipakai khusus buat fitur
+    // picker Line di chart *Model (lihat qcLineFilter). Struktur:
+    // { ngInline: { "E-02": { "YR9": {qty,value}, ... }, ... }, ngTrial: {...}, repair: {...} }
+    qcLineModelMap: { ngInline: {}, ngTrial: {}, repair: {} },
+    // Peta Line -> tren 12 bulan (qty/value per bulan FY Apr..Mar, per
+    // line) -- dipakai chart "Month" (paling atas tiap kolom) supaya ikut
+    // berubah kalau Line picker diganti. Struktur:
+    // { ngInline: { "E-02": { qtyByMonth: [12], valueByMonth: [12] }, ... }, ngTrial: {...}, repair: {...} }
+    qcLineMonthMap: { ngInline: {}, ngTrial: {}, repair: {} },
+    qcLineModelMapLoaded: false,
     get qcRekapMonthLabel() {
       const bulanId = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
       return bulanId[this.qcMonth - 1] + " " + this.qcYear;
@@ -1856,9 +1954,11 @@ function dashboardExhaust() {
       this.qcRepairDetailLoaded = false;
       this.qcRepairPerlineModelLoaded = false;
       this.qcStraightpassLoaded = false;
+      this.qcLineModelMapLoaded = false;
       this.fetchQcNgInline().then(() => this.$nextTick(() => this.renderKualitasCharts()));
       this.fetchQcNgTrial().then(() => this.$nextTick(() => this.renderKualitasCharts()));
       this.fetchQcRepairDetail();
+      this.fetchQcLineModelMap().then(() => this.$nextTick(() => this.renderKualitasCharts()));
       // fetchQcStraightpassBreakdown() butuh this.qcRepair.perlineQty/
       // permodelQty (Qty Repair) sudah terisi lebih dulu -- makanya
       // di-chain setelah fetchQcRepairPerlineModel() selesai, bukan
@@ -2233,6 +2333,97 @@ function dashboardExhaust() {
         console.error("Gagal memuat breakdown Straightpass:", e);
       }
     },
+    // Peta Line -> Model (qty & value per kombinasi line+model, bulan yang
+    // lagi dipilih) DAN Peta Line -> tren 12 bulan (buat chart "Month" di
+    // paling atas tiap kolom), sekaligus dalam SATU fetch -- keduanya
+    // dihitung dari baris mentah yang SAMA (RPC detail_range, rentang 1
+    // TAHUN FISKAL PENUH Apr..Mar, bukan cuma 1 bulan) supaya cukup 1x
+    // request tapi bisa melayani 2 kebutuhan (breakdown bulan berjalan +
+    // tren 12 bulan). SENGAJA terpisah dari qcNgInline.detailRows/
+    // qcNgTrial.detailRows/qcRepair.detailRows punya masing-masing panel
+    // Rekap, karena baris-baris itu bisa ke-toggle jadi 1 tanggal saja
+    // (qcNgInlineUseDate dkk), sedangkan peta di sini harus selalu
+    // representasi bulan/tahun penuh, sama seperti data Perline/Model/
+    // Month yang lain.
+    //
+    // Catatan keterbatasan (Straightpass Model & Straightpass Month):
+    // repair.qty di peta ini AKURAT per line+model/per line+bulan (dari
+    // repair_log asli), tapi dashboard TIDAK punya data "stroke" per
+    // kombinasi line+model ataupun per line+bulan (RPC produksi yang ada
+    // cuma per-line ATAU per-model/bulan, tidak silang keduanya) -- jadi
+    // kalau Line difilter, chart Straightpass Model/Month cuma bisa
+    // MENYARING model/bar Qty Repair yang tampil, sementara angka %-nya
+    // tetap dari data gabungan semua line, bukan murni line itu saja.
+    // Sudah dikonfirmasi ke user dan diterima sebagai batasan.
+    async fetchQcLineModelMap() {
+      if (this.qcLineModelMapLoaded) return;
+      try {
+        const fyStartYear = this.qcYear;
+        const fyStart = new Date(fyStartYear, 3, 1);
+        const fyEnd = new Date(fyStartYear + 1, 3, 1);
+        const [ngInlineRes, ngTrialRes, repairRes] = await Promise.all([
+          supabaseClient.rpc("dashboard_qc_ng_detail_range", { p_type_ng: "NG PRODUKSI", p_start: localDateStr(fyStart), p_end: localDateStr(fyEnd) }),
+          supabaseClient.rpc("dashboard_qc_ng_detail_range", { p_type_ng: "NG TRIAL", p_start: localDateStr(fyStart), p_end: localDateStr(fyEnd) }),
+          supabaseClient.rpc("dashboard_qc_repair_detail_range", { p_start: localDateStr(fyStart), p_end: localDateStr(fyEnd) }),
+        ]);
+        if (ngInlineRes.error) console.error("dashboard_qc_ng_detail_range (NG PRODUKSI, line-model map):", ngInlineRes.error);
+        if (ngTrialRes.error) console.error("dashboard_qc_ng_detail_range (NG TRIAL, line-model map):", ngTrialRes.error);
+        if (repairRes.error) console.error("dashboard_qc_repair_detail_range (line-model map):", repairRes.error);
+
+        // Index bulan-FY (0 = April fyStartYear .. 11 = Maret fyStartYear+1)
+        // dari string tanggal "YYYY-MM-DD" -- dibaca lewat slice (BUKAN lewat
+        // `new Date(...)`) supaya tidak kena pergeseran zona waktu browser,
+        // sama seperti pola yang sudah dipakai di tempat lain (mis. mapping
+        // detailRows tanggal.slice(8,10)+"/"+tanggal.slice(5,7)).
+        const fyIndexOf = (tgl) => {
+          const y = parseInt((tgl || "").slice(0, 4), 10);
+          const m = parseInt((tgl || "").slice(5, 7), 10);
+          if (!y || !m) return -1;
+          return (y - fyStartYear) * 12 + (m - 4);
+        };
+        const curYearStr = String(this.qcYear);
+        const curMonthStr = String(this.qcMonth).padStart(2, "0");
+        const isCurrentMonth = (tgl) => (tgl || "").slice(0, 4) === curYearStr && (tgl || "").slice(5, 7) === curMonthStr;
+
+        // Dari baris mentah 1-tahun-fiskal, turunkan 2 peta sekaligus:
+        // modelMap = { line: { model: {qty,value} } } TAPI cuma baris bulan
+        // yang lagi dipilih (qcMonth/qcYear); monthMap = { line: { qtyByMonth:[12], valueByMonth:[12] } }
+        // dari SEMUA 12 bulan.
+        const build = (rows, hasValue) => {
+          const modelMap = {};
+          const monthMap = {};
+          (rows || []).forEach((r) => {
+            const line = r.mesin || "";
+            if (!line) return;
+            const model = r.model || "";
+            const qty = Number(r.qty) || 0;
+            const value = hasValue ? Number(r.value) || 0 : 0;
+            const idx = fyIndexOf(r.tanggal);
+            if (idx >= 0 && idx < 12) {
+              if (!monthMap[line]) monthMap[line] = { qtyByMonth: Array(12).fill(0), valueByMonth: Array(12).fill(0) };
+              monthMap[line].qtyByMonth[idx] += qty;
+              if (hasValue) monthMap[line].valueByMonth[idx] += value;
+            }
+            if (model && isCurrentMonth(r.tanggal)) {
+              if (!modelMap[line]) modelMap[line] = {};
+              if (!modelMap[line][model]) modelMap[line][model] = { qty: 0, value: 0 };
+              modelMap[line][model].qty += qty;
+              if (hasValue) modelMap[line][model].value += value;
+            }
+          });
+          return { modelMap, monthMap };
+        };
+        const ngiBuilt = build(ngInlineRes.data, true);
+        const ngtBuilt = build(ngTrialRes.data, true);
+        const repBuilt = build(repairRes.data, false);
+
+        this.qcLineModelMap = { ngInline: ngiBuilt.modelMap, ngTrial: ngtBuilt.modelMap, repair: repBuilt.modelMap };
+        this.qcLineMonthMap = { ngInline: ngiBuilt.monthMap, ngTrial: ngtBuilt.monthMap, repair: repBuilt.monthMap };
+        this.qcLineModelMapLoaded = true;
+      } catch (e) {
+        console.error("Gagal memuat peta Line-Model (Kontrol Kualitas):", e);
+      }
+    },
     // ---------------------------------------------------------------
     // Data "Bulanan" (harian, tanggal 1-31) -- diisi dari fetchBulanan()
     // lewat RPC Supabase baru (lihat migration_dashboard_bulanan_harian.sql).
@@ -2351,6 +2542,7 @@ function dashboardExhaust() {
       this.qcRepairDetailLoaded = false;
       this.qcRepairPerlineModelLoaded = false;
       this.qcStraightpassLoaded = false;
+      this.qcLineModelMapLoaded = false;
       this.refetchActiveTab();
     },
     async refetchActiveTab() {
@@ -2375,6 +2567,7 @@ function dashboardExhaust() {
         await this.fetchQcRepairDetail();
         await this.fetchQcRepairPerlineModel();
         await this.fetchQcStraightpassBreakdown();
+        await this.fetchQcLineModelMap();
         this.$nextTick(() => this.renderKualitasCharts());
       }
     },
@@ -3083,15 +3276,18 @@ function dashboardExhaust() {
     // 5 baris). Kalau data asli lebih dari 8, semua tetap ditampilkan
     // dan scroll otomatis muncul dari .qc-rekap-scroll.
     qcNgInlineRows() {
-      const filtered = this.qcApplyColFilters("ngInline", this.qcNgInline.detailRows);
+      const base = this.qcLineFilter === "ALL" ? this.qcNgInline.detailRows : (this.qcNgInline.detailRows || []).filter((r) => r.line === this.qcLineFilter);
+      const filtered = this.qcApplyColFilters("ngInline", base);
       return this.dxyPadMin(filtered, { tanggal: "", model: "", line: "", partNo: "", area: "", ngProses: "", qty: "", ngKategori: "", value: "" }, 8);
     },
     qcNgTrialRows() {
-      const filtered = this.qcApplyColFilters("ngTrial", this.qcNgTrial.detailRows);
+      const base = this.qcLineFilter === "ALL" ? this.qcNgTrial.detailRows : (this.qcNgTrial.detailRows || []).filter((r) => r.line === this.qcLineFilter);
+      const filtered = this.qcApplyColFilters("ngTrial", base);
       return this.dxyPadMin(filtered, { tanggal: "", model: "", line: "", partNo: "", area: "", ngProses: "", qty: "", ngKategori: "", value: "" }, 8);
     },
     qcRepairRows() {
-      const filtered = this.qcApplyColFilters("repair", this.qcRepair.detailRows);
+      const base = this.qcLineFilter === "ALL" ? this.qcRepair.detailRows : (this.qcRepair.detailRows || []).filter((r) => r.line === this.qcLineFilter);
+      const filtered = this.qcApplyColFilters("repair", base);
       return this.dxyPadMin(filtered, { tanggal: "", model: "", line: "", partNo: "", qty: "", area: "", point: "", repairKategori: "" }, 8);
     },
     // ---- Data mentah (rata, sudah kena filter Line dari dropdown atas,
@@ -3986,6 +4182,18 @@ function dashboardExhaust() {
         const full = grad(canvas, hex);
         return Array.from({ length: len }, () => full);
       };
+      // Varian barBg KHUSUS chart *Perline -- warna batang line yang lagi
+      // dipilih (qcLineFilter) tetap solid/penuh, batang line lainnya
+      // dipudarkan (alpha rendah). Kalau qcLineFilter === "ALL" (atau tidak
+      // diisi), semua batang tetap solid seperti biasa (perilaku lama,
+      // tidak berubah). Datanya SENDIRI tidak difilter/disembunyikan --
+      // cuma warnanya, sesuai permintaan "di-highlight saja".
+      const barBgHighlight = (canvas, hex, categories, highlightKey) => {
+        return categories.map((cat) => {
+          const isDimmed = highlightKey && highlightKey !== "ALL" && cat !== highlightKey;
+          return isDimmed ? grad(canvas, hex, 0.22, 0.02) : grad(canvas, hex, 0.85, 0.05);
+        });
+      };
       const barValueLabels = (formatter, datasetIndex = 0, pos = "above") => ({
         id: "dxyQcBarValueLabels_" + datasetIndex + "_" + Math.random(),
         afterDatasetsDraw(chart) {
@@ -4153,18 +4361,24 @@ function dashboardExhaust() {
 
       // --- Month · NG Inline: sekarang pakai data ASLI dari RPC
       // dashboard_qc_ng_month (type_ng = 'NG PRODUKSI'), bukan lagi
-      // numpang data gabungan dari tab Tahunan. ---
+      // numpang data gabungan dari tab Tahunan. Kalau Line picker != ALL,
+      // dialihkan ke tren 12-bulan KHUSUS line itu (this.qcLineMonthMap),
+      // supaya chart teratas ini ikut berubah sesuai line yang dipilih. ---
       safe(() => {
         destroy("qcNgInlineMonth");
         const canvas = document.getElementById("qcNgInlineMonth");
         if (!canvas) return;
         const ngi = this.qcNgInline;
+        const lineFilterMonth = this.qcLineFilter || "ALL";
+        const ngiMonthForLine = lineFilterMonth === "ALL" ? null : this.qcLineMonthMap.ngInline[lineFilterMonth];
+        const monthQty = ngiMonthForLine ? ngiMonthForLine.qtyByMonth : ngi.qtyByMonth;
+        const monthValue = ngiMonthForLine ? ngiMonthForLine.valueByMonth : ngi.valueByMonth;
         this.qcCharts.qcNgInlineMonth = new Chart(canvas, {
           data: {
             labels: ngi.monthLabels,
             datasets: [
-              { type: "bar", label: "Qty", data: ngi.qtyByMonth, backgroundColor: barBg(canvas, "#F97316", ngi.qtyByMonth.length), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
-              { type: "line", label: "Value", data: ngi.valueByMonth, borderColor: "#1D4ED8", backgroundColor: "rgba(29,78,216,0.1)", borderWidth: 1.5, fill: true, yAxisID: "y1", pointRadius: 1, tension: 0.3 },
+              { type: "bar", label: "Qty", data: monthQty, backgroundColor: barBg(canvas, "#F97316", monthQty.length), yAxisID: "y", borderRadius: 8, barPercentage: 0.6, categoryPercentage: 0.7 },
+              { type: "line", label: "Value", data: monthValue, borderColor: "#1D4ED8", backgroundColor: "rgba(29,78,216,0.1)", borderWidth: 1.5, fill: true, yAxisID: "y1", pointRadius: 1, tension: 0.3 },
             ],
           },
           options: {
@@ -4192,8 +4406,10 @@ function dashboardExhaust() {
         if (!canvas) return;
         const ngt = this.qcNgTrial;
         const labels = b.monthLabels.slice(2);
-        const trialQty = ngt.qtyByMonth && ngt.qtyByMonth.length ? ngt.qtyByMonth : labels.map(() => null);
-        const trialValue = ngt.valueByMonth && ngt.valueByMonth.length ? ngt.valueByMonth : labels.map(() => null);
+        const lineFilterTrialMonth = this.qcLineFilter || "ALL";
+        const ngtMonthForLine = lineFilterTrialMonth === "ALL" ? null : this.qcLineMonthMap.ngTrial[lineFilterTrialMonth];
+        const trialQty = ngtMonthForLine ? ngtMonthForLine.qtyByMonth : (ngt.qtyByMonth && ngt.qtyByMonth.length ? ngt.qtyByMonth : labels.map(() => null));
+        const trialValue = ngtMonthForLine ? ngtMonthForLine.valueByMonth : (ngt.valueByMonth && ngt.valueByMonth.length ? ngt.valueByMonth : labels.map(() => null));
         this.qcCharts.qcNgTrialMonth = new Chart(canvas, {
           data: {
             labels,
@@ -4222,12 +4438,18 @@ function dashboardExhaust() {
       // Label bar di DASAR batang & label garis % pakai anti-tumpuk
       // (lineValueLabels sudah skip label yang bertabrakan), sama persis
       // mekanismenya dengan qcRepairStraightpassBar (Perline/Model).
+      // Kalau Line picker != ALL: bar "Qty Repair" dialihkan ke data akurat
+      // per-line (this.qcLineMonthMap.repair) -- tapi garis "% Straightpass"
+      // TETAP data gabungan semua line (keterbatasan data stroke per-line,
+      // lihat catatan di fetchQcLineModelMap()).
       safe(() => {
         destroy("qcStraightpassMonth");
         const canvas = document.getElementById("qcStraightpassMonth");
         if (!canvas) return;
         const labels = b.monthLabels.slice(2);
-        const repairQty = (b.straightpass.repairQty || []).slice(2);
+        const lineFilterSpMonth = this.qcLineFilter || "ALL";
+        const repairMonthForLine = lineFilterSpMonth === "ALL" ? null : this.qcLineMonthMap.repair[lineFilterSpMonth];
+        const repairQty = repairMonthForLine ? repairMonthForLine.qtyByMonth : (b.straightpass.repairQty || []).slice(2);
         const actual = b.straightpass.actual.slice(2);
         this.qcCharts.qcStraightpassMonth = new Chart(canvas, {
           data: {
@@ -4279,7 +4501,7 @@ function dashboardExhaust() {
       };
       // Dual-axis: bar "Qty Repair" (kiri) + garis "% Straightpass" (kanan,
       // 0-100) -- dipakai di chart Straightpass Perline & Model.
-      const qcRepairStraightpassBar = (canvasId, categories, qtyData, pctData) => {
+      const qcRepairStraightpassBar = (canvasId, categories, qtyData, pctData, highlightKey = null) => {
         safe(() => {
           destroy(canvasId);
           const canvas = document.getElementById(canvasId);
@@ -4290,7 +4512,7 @@ function dashboardExhaust() {
             data: {
               labels: categories,
               datasets: [
-                { type: "bar", label: "Qty Repair", data: qty, backgroundColor: barBg(canvas, "#EF4444", qty.length), yAxisID: "y", borderRadius: 6, barPercentage: 0.6, categoryPercentage: 0.7 },
+                { type: "bar", label: "Qty Repair", data: qty, backgroundColor: barBgHighlight(canvas, "#EF4444", categories, highlightKey), yAxisID: "y", borderRadius: 6, barPercentage: 0.6, categoryPercentage: 0.7 },
                 { type: "line", label: "% Straightpass", data: pct, borderColor: "#22C55E", backgroundColor: "#22C55E", borderWidth: 1.5, yAxisID: "y1", pointRadius: 3, tension: 0.3, spanGaps: true },
               ],
             },
@@ -4320,7 +4542,7 @@ function dashboardExhaust() {
       };
       // Dual-axis: bar "Qty" (kiri) + garis area "Value" (kanan, Rp/1000)
       // -- dipakai di chart NG Inline/Trial Perline & Model.
-      const qcQtyValueBar = (canvasId, categories, hexBar, qtyData, valueData) => {
+      const qcQtyValueBar = (canvasId, categories, hexBar, qtyData, valueData, highlightKey = null) => {
         safe(() => {
           destroy(canvasId);
           const canvas = document.getElementById(canvasId);
@@ -4331,7 +4553,7 @@ function dashboardExhaust() {
             data: {
               labels: categories,
               datasets: [
-                { type: "bar", label: "Qty", data: qty, backgroundColor: barBg(canvas, hexBar, qty.length), yAxisID: "y", borderRadius: 6, barPercentage: 0.6, categoryPercentage: 0.7 },
+                { type: "bar", label: "Qty", data: qty, backgroundColor: barBgHighlight(canvas, hexBar, categories, highlightKey), yAxisID: "y", borderRadius: 6, barPercentage: 0.6, categoryPercentage: 0.7 },
                 { type: "line", label: "Value", data: value, borderColor: "#1D4ED8", backgroundColor: "rgba(29,78,216,0.1)", borderWidth: 1.5, fill: true, yAxisID: "y1", pointRadius: 1, tension: 0.3, spanGaps: true },
               ],
             },
@@ -4351,12 +4573,53 @@ function dashboardExhaust() {
       };
       const ngi = this.qcNgInline;
       const ngt = this.qcNgTrial;
-      qcQtyValueBar("qcNgInlinePerline", QC_LINES, "#F97316", ngi.perlineQty, ngi.perlineValue);
-      qcQtyValueBar("qcNgInlineModel", QC_MODELS, "#F97316", ngi.permodelQty, ngi.permodelValue);
-      qcQtyValueBar("qcNgTrialPerline", QC_LINES, "#06B6D4", ngt.perlineQty, ngt.perlineValue);
-      qcQtyValueBar("qcNgTrialModel", QC_MODELS, "#06B6D4", ngt.permodelQty, ngt.permodelValue);
-      qcRepairStraightpassBar("qcStraightpassPerline", QC_LINES, this.qcRepair.perlineQty, this.qcStraightpass.perlineActual);
-      qcRepairStraightpassBar("qcStraightpassModel", QC_MODELS, this.qcRepair.permodelQty, this.qcStraightpass.permodelActual);
+      const lineFilter = this.qcLineFilter || "ALL";
+
+      // Susun ulang data chart *Model supaya cuma menampilkan model yang
+      // BENERAN ada di line yang dipilih (lineFilter), pakai this.qcLineModelMap
+      // (SELALU representasi 1 bulan penuh, lihat fetchQcLineModelMap()).
+      // Kalau lineFilter "ALL", balikin data asli apa adanya (perilaku lama).
+      const modelDataForLine = (mapKey, allQty, allValue) => {
+        if (lineFilter === "ALL") return { categories: QC_MODELS, qty: allQty, value: allValue };
+        const rowsForLine = (this.qcLineModelMap[mapKey] || {})[lineFilter] || {};
+        const categories = QC_MODELS.filter((m) => rowsForLine[m]);
+        if (categories.length === 0) return { categories: QC_MODELS, qty: allQty.map(() => 0), value: (allValue || []).map(() => 0) };
+        const qty = categories.map((m) => rowsForLine[m].qty || 0);
+        const value = categories.map((m) => rowsForLine[m].value || 0);
+        return { categories, qty, value };
+      };
+      const ngiModel = modelDataForLine("ngInline", ngi.permodelQty, ngi.permodelValue);
+      const ngtModel = modelDataForLine("ngTrial", ngt.permodelQty, ngt.permodelValue);
+
+      // Straightpass Model: cuma SARING daftar model berdasarkan data Repair
+      // per-line (akurat, dari repair_log asli) -- Qty Repair yang ditampilkan
+      // pun jadi akurat per-line. Tapi %-nya TETAP dari data gabungan semua
+      // line (this.qcStraightpass.permodelActual), karena dashboard belum
+      // punya data stroke per kombinasi line+model (lihat catatan di
+      // fetchQcLineModelMap()). Ini sudah dikonfirmasi & diterima sebagai
+      // batasan sementara.
+      let straightpassModelCategories = QC_MODELS;
+      let straightpassModelQty = this.qcRepair.permodelQty;
+      let straightpassModelPct = this.qcStraightpass.permodelActual;
+      if (lineFilter !== "ALL") {
+        const repairRowsForLine = (this.qcLineModelMap.repair || {})[lineFilter] || {};
+        const modelsInLine = QC_MODELS.filter((m) => repairRowsForLine[m]);
+        if (modelsInLine.length > 0) {
+          straightpassModelCategories = modelsInLine;
+          straightpassModelQty = modelsInLine.map((m) => repairRowsForLine[m].qty || 0);
+          straightpassModelPct = modelsInLine.map((m) => {
+            const idx = QC_MODELS.indexOf(m);
+            return idx === -1 ? null : this.qcStraightpass.permodelActual[idx];
+          });
+        }
+      }
+
+      qcQtyValueBar("qcNgInlinePerline", QC_LINES, "#F97316", ngi.perlineQty, ngi.perlineValue, lineFilter);
+      qcQtyValueBar("qcNgInlineModel", ngiModel.categories, "#F97316", ngiModel.qty, ngiModel.value);
+      qcQtyValueBar("qcNgTrialPerline", QC_LINES, "#06B6D4", ngt.perlineQty, ngt.perlineValue, lineFilter);
+      qcQtyValueBar("qcNgTrialModel", ngtModel.categories, "#06B6D4", ngtModel.qty, ngtModel.value);
+      qcRepairStraightpassBar("qcStraightpassPerline", QC_LINES, this.qcRepair.perlineQty, this.qcStraightpass.perlineActual, lineFilter);
+      qcRepairStraightpassBar("qcStraightpassModel", straightpassModelCategories, straightpassModelQty, straightpassModelPct);
 
       // --- Daily: tanggal 1-31, dual axis. NG Inline & NG Trial pakai
       // Qty (bar) + Value (garis); Straightpass pakai Qty (bar) + % (garis).
