@@ -4152,13 +4152,15 @@ function dashboardExhaust() {
           if (!canvas) return;
           const labels = w.labels;
           const values = w.values;
-          // Titik biru untuk tiap line -- kalau ada Line terpilih
+          // Titik untuk tiap line -- kalau ADA Line terpilih
           // (dxyLineFilterBulanan != ALL), titik line itu di-highlight
-          // (warna penuh + lebih besar), titik line lain dipudarkan
-          // (alpha 40).
+          // pakai warna BEDA (oranye, bukan biru bawaan) + lebih besar,
+          // titik line lain dipudarkan (alpha 40, tetap biru).
+          const HIGHLIGHT_COLOR = "#F97316";
           const isHighlighted = (lbl) => this.dxyLineFilterBulanan === "ALL" || lbl === this.dxyLineFilterBulanan;
-          const pointColors = w.labels.map((lbl) => (isHighlighted(lbl) ? "#2563EB" : "#2563EB40"));
-          const pointRadii = w.labels.map((lbl) => (this.dxyLineFilterBulanan !== "ALL" && lbl === this.dxyLineFilterBulanan ? 5 : 3));
+          const isPicked = (lbl) => this.dxyLineFilterBulanan !== "ALL" && lbl === this.dxyLineFilterBulanan;
+          const pointColors = w.labels.map((lbl) => (isPicked(lbl) ? HIGHLIGHT_COLOR : (isHighlighted(lbl) ? "#2563EB" : "#2563EB40")));
+          const pointRadii = w.labels.map((lbl) => (isPicked(lbl) ? 5 : 2.5));
           this.bulananCharts[canvasId] = new Chart(canvas, {
             type: "line",
             data: {
@@ -4168,7 +4170,7 @@ function dashboardExhaust() {
                 fill: true,
                 backgroundColor: grad(canvas, "#2563EB", 0.30, 0.02), // area transparan
                 borderColor: "#2563EB",
-                borderWidth: 1.5,
+                borderWidth: 1, // dikecilkan (sebelumnya 1.5)
                 tension: 0.45, // kurva lebih halus
                 pointRadius: pointRadii,
                 pointHoverRadius: 4,
@@ -4183,7 +4185,7 @@ function dashboardExhaust() {
               plugins: { legend: legend(false), tooltip: tooltip() },
               scales: baseScales(),
             },
-            plugins: [glowPoints((i) => (isHighlighted(labels[i]) ? "#2563EB" : null)), areaValueLabels((v) => fmtNum(v))],
+            plugins: [glowPoints((i) => (isPicked(labels[i]) ? HIGHLIGHT_COLOR : (isHighlighted(labels[i]) ? "#2563EB" : null))), areaValueLabels((v) => fmtNum(v))],
           });
         }, "week" + (idx + 1));
       });
