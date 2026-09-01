@@ -179,6 +179,8 @@
 .dxy-panel-sub { font-size: 10.5px; color: var(--dxy-muted); }
 .dxy-span-3 { grid-column: span 3; }
 .dxy-span-4 { grid-column: span 4; }
+.dxy-span-5 { grid-column: span 5; }
+.dxy-span-2 { grid-column: span 2; }
 .dxy-span-6 { grid-column: span 6; }
 .dxy-span-8 { grid-column: span 8; }
 .dxy-span-12 { grid-column: span 12; }
@@ -707,7 +709,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
   .dxy-span-8 { grid-column: span 8; }
 }
 @media (max-width: 1024px) {
-  .dxy-span-6, .dxy-span-4, .dxy-span-3, .dxy-span-8 { grid-column: span 12; }
+  .dxy-span-6, .dxy-span-4, .dxy-span-3, .dxy-span-8, .dxy-span-2, .dxy-span-5 { grid-column: span 12; }
   .dxy-filterbar { gap: 8px; }
 }
 @media (max-width: 640px) {
@@ -911,17 +913,25 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
               </div>
             </div>
 
-            <!-- ===== Baris 3: Downtime harian 1-31 + Supporting (PIC) + Line ===== -->
+            <!-- ===== Baris 3: Downtime Exhaust (FY, seperti di tab Tahunan) +
+                 Downtime harian 1-31 + Supporting (PIC) + Line -- 4 chart
+                 sejajar (span 4/4/2/2). Supporting & Line dikecilkan (dari
+                 span-3 jadi span-2) dan Harian sedikit dikecilkan (dari
+                 span-6 jadi span-4) supaya Downtime Exhaust muat masuk. ===== -->
             <div class="dxy-chart-grid">
-              <div class="dxy-panel dxy-span-6">
+              <div class="dxy-panel dxy-span-3">
+                <div class="dxy-panel-head"><span class="dxy-panel-title">⏱ Downtime Exhaust</span></div>
+                <div class="dxy-chart-box tall"><canvas id="dxbDowntimeExhaust"></canvas></div>
+              </div>
+              <div class="dxy-panel dxy-span-5">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">⏱ Downtime Harian</span><span class="dxy-panel-sub" style="font-weight:700; color:var(--dxy-text);" x-text="'Total ' + fmtNum(bulanan.downtimeHarian.total) + ' menit'"></span></div>
                 <div class="dxy-chart-box tall"><canvas id="dxbDowntimeHarian"></canvas></div>
               </div>
-              <div class="dxy-panel dxy-span-3">
+              <div class="dxy-panel dxy-span-2">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">🧑‍🔧 Downtime Supporting</span></div>
                 <div class="dxy-chart-box tall"><canvas id="dxbDowntimeSupporting"></canvas></div>
               </div>
-              <div class="dxy-panel dxy-span-3">
+              <div class="dxy-panel dxy-span-2">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">🏭 Downtime Line</span></div>
                 <div class="dxy-chart-box tall"><canvas id="dxbDowntimeLine"></canvas></div>
               </div>
@@ -2767,6 +2777,7 @@ function dashboardExhaust() {
       productivity: { value: 0, actual: [], target: 100, avg: 0 },   // % per hari
       availability: { value: 0, actual: [], target: 100, avg: 0 },   // % per hari
       downtimeHarian: { labels: [], values: [], total: 0 },             // menit per hari 1-31
+      downtimeExhaust: { labels: [], values: [] },                      // menit per bulan (FY Apr-Mar), ikut filter Line Bulanan
       downtimeSupporting: { labels: [], act: [] },             // per PIC: PE, MESIN, QC, PC-SUPP, PROD, PRESS
       downtimeLine: { labels: [], act: [] },                   // per line: E-02..E-07
       weekly: [],                  // 5 entri: { labels: [E-02..E-07], values: [...] }
@@ -2956,12 +2967,23 @@ function dashboardExhaust() {
         // line, cuma line terpilih di-highlight di renderBulananCharts().
         const mesinFilter = this.dxyLineFilterBulanan !== "ALL" ? this.dxyLineFilterBulanan : null;
 
-        const [prodRes, picRes, lineRes, weeklyRes, topProblemSummaryRes] = await Promise.all([
+        // Range FY (Apr..Mar) yang MEMUAT bulan/tahun yang lagi dipilih di
+        // tab Bulanan -- dipakai KHUSUS buat chart "Downtime Exhaust" (12
+        // bulan), supaya bisa ikut filter Line (mesinFilter) yang sama
+        // dengan chart-chart lain di tab ini. SENGAJA fetch terpisah dari
+        // tab Tahunan (bukan pakai this.tahunan.downtimeExhaust) karena
+        // filter Line-nya beda variabel (dxyLineFilterBulanan).
+        const fyStartYear = month >= 4 ? year : year - 1;
+        const fyStart = new Date(fyStartYear, 3, 1);
+        const fyEnd = new Date(fyStartYear + 1, 3, 1);
+
+        const [prodRes, picRes, lineRes, weeklyRes, topProblemSummaryRes, dtExhaustRes] = await Promise.all([
           supabaseClient.rpc("dashboard_harian_produksi", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_mesin: mesinFilter }),
           supabaseClient.rpc("dashboard_harian_downtime_by_pic", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_mesin: mesinFilter }),
           supabaseClient.rpc("dashboard_harian_downtime_by_line", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString() }),
           supabaseClient.rpc("dashboard_bulanan_weekly", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString() }),
           supabaseClient.rpc("dashboard_bulanan_top_problems_summary", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_limit: 10, p_mesin: mesinFilter }),
+          supabaseClient.rpc("dashboard_harian_produksi", { p_start: fyStart.toISOString(), p_end: fyEnd.toISOString(), p_mesin: mesinFilter }),
         ]);
         const prodRows = prodRes.data || [];
         const dayKeyStr = (day) => localDateStr(new Date(year, month - 1, day));
@@ -3079,11 +3101,34 @@ function dashboardExhaust() {
         const availabilityAvg = avgOf(availabilityActual);
         const downtimeHarianTotal = downtimeHarianValues.reduce((a, b) => a + b, 0);
 
+        // Downtime Exhaust (12 bulan FY Apr..Mar) -- data & filter Line-nya
+        // TERPISAH dari tab Tahunan, sengaja fetch ulang di sini (dtExhaustRes)
+        // supaya ikut mesinFilter (dxyLineFilterBulanan), sama seperti
+        // chart-chart lain di tab ini. Dipakai RPC HARIAN (dashboard_harian_
+        // produksi) -- BUKAN dashboard_bulanan_produksi -- karena RPC bulanan
+        // tidak mendukung parameter p_mesin (filter per-Line). Baris-baris
+        // harian se-FY dijumlahkan sendiri per bulan di sini.
+        const dtExhaustRows = (dtExhaustRes && dtExhaustRes.data) || [];
+        const monthLabelId = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+        const fyMonths = [];
+        for (let i = 0; i < 12; i++) fyMonths.push(new Date(fyStartYear, 3 + i, 1));
+        const downtimeExhaust = {
+          labels: fyMonths.map((d) => monthLabelId[d.getMonth()]),
+          values: fyMonths.map((d) => {
+            const y = d.getFullYear(), m = d.getMonth();
+            const sum = dtExhaustRows
+              .filter((r) => { const rd = new Date(r.tanggal + "T00:00:00"); return rd.getFullYear() === y && rd.getMonth() === m; })
+              .reduce((a, r) => a + (Number(r.downtime_menit) || 0), 0);
+            return Math.round(sum);
+          }),
+        };
+
         this.bulanan = {
           dayLabels,
           productivity: { value: productivityValue, actual: productivityActual, target: 100, avg: productivityAvg },
           availability: { value: availabilityValue, actual: availabilityActual, target: 100, avg: availabilityAvg },
           downtimeHarian: { labels: dayLabels, values: downtimeHarianValues, total: downtimeHarianTotal },
+          downtimeExhaust,
           downtimeSupporting,
           downtimeLine,
           weekly,
@@ -4024,6 +4069,29 @@ function dashboardExhaust() {
       };
       safe(() => kpiBigPct("dxbProductivity", b.dayLabels, b.productivity.actual, b.productivity.target, "#0EA5E9"), "productivity");
       safe(() => kpiBigPct("dxbAvailability", b.dayLabels, b.availability.actual, b.availability.target, "#10B981", 0.8), "availability");
+
+      // --- Downtime Exhaust (FY, 12 bulan Apr..Mar) -- gaya sama persis
+      // seperti chart "Downtime Exhaust" di tab Tahunan, TAPI datanya
+      // di-fetch & difilter SENDIRI (lihat fetchBulanan() -> dtExhaustRes)
+      // supaya ikut Line yang dipilih di tab ini (dxyLineFilterBulanan),
+      // sama seperti Downtime Harian/Supporting/Line di sebelahnya. ---
+      safe(() => {
+        destroy("dxbDowntimeExhaust");
+        const canvas = document.getElementById("dxbDowntimeExhaust");
+        if (!canvas) return;
+        const vals = b.downtimeExhaust.values;
+        const labels = b.downtimeExhaust.labels;
+        this.bulananCharts.dxbDowntimeExhaust = new Chart(canvas, {
+          data: {
+            labels: labels,
+            datasets: [
+              { order: 2, type: "bar", label: "Downtime (menit)", data: vals, backgroundColor: barBg(canvas, "#F97316", vals.length), borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
+            ],
+          },
+          options: { responsive: true, maintainAspectRatio: false, animation: noAnim, layout: { padding: { top: 20 } }, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
+          plugins: [barValueLabels((v) => fmtNum(v)), barBevelInset(0)],
+        });
+      }, "downtimeExhaust");
 
       // --- Downtime harian 1-31: bar + garis tren ---
       safe(() => {
