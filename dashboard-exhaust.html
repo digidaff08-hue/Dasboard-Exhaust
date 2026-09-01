@@ -675,6 +675,15 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
   .dxy-table-panel-sm .dxy-table-scroll { max-height: 30vh !important; }
   .dxy-fill { display: flex; flex-direction: column; min-height: calc(100vh - 120px); }
   .dxy-fill > .dxy { display: flex; flex-direction: column; flex: 1; }
+  /* Baris 4 kolom Izin/Sakit/Cuti/Mangkir di tab Kontrol Attendance:
+     mekar mengisi SISA tinggi halaman (bukan cuma tinggi pendek lalu
+     nyisain lahan kosong di bawahnya). Pembungkus kartu (.dxy-panel)
+     ikut ditarik penuh, dan area scroll tabel di dalamnya (.dxy-attn-
+     leave-scroll) yang menyerap sisa ruang itu (pakai flex, bukan
+     max-height tetap). */
+  .dxy-attn-leave-row { flex: 1; align-items: stretch; }
+  .dxy-attn-leave-row .dxy-panel { height: 100%; }
+  .dxy-attn-leave-row .dxy-attn-leave-scroll { flex: 1; max-height: none !important; }
 }
 
 /* ---- Skeleton loading ---- */
@@ -721,15 +730,24 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
    Shift 1/2). Namespace .dxy-attn supaya tidak menyentuh style tab lain.
    Masih placeholder (angka 0) -- belum ada fetch/RPC. ---- */
 .dxy-attn-card {
-  background: var(--dxy-card);
-  border: 1px solid var(--dxy-border);
+  background: #F1F9FE;
+  border: 1px solid #7DD3FC;
+  border-top: 4px solid #0EA5E9;
   border-radius: 18px;
   padding: 18px 20px;
-  box-shadow: var(--dxy-shadow);
+  box-shadow: 0 1px 3px rgba(14,165,233,.12), 0 8px 24px -12px rgba(14,165,233,.28);
   max-width: 440px;
 }
+[data-theme="dark"] .dxy-attn-card { background: #14273A; border-color: #0284C7; border-top-color: #38BDF8; }
 .dxy-attn-card-fill { max-width: 100%; height: 100%; box-sizing: border-box; }
-.dxy-attn-trend-box { min-height: 100% !important; max-height: none !important; height: 100%; }
+/* FIX: sebelumnya pakai height:100% di sini -- di kombinasi dengan Chart.js
+   responsive resize observer, itu bikin infinite-grow loop (tinggi canvas
+   terus membesar tanpa henti tiap resize). Pakai tinggi TETAP supaya
+   Chart.js punya basis ukuran yang pasti, tidak ada feedback loop. */
+.dxy-panel .dxy-chart-box.dxy-attn-trend-box { min-height: 400px !important; max-height: 400px !important; height: 400px !important; }
+@media (max-width: 1024px) {
+  .dxy-panel .dxy-chart-box.dxy-attn-trend-box { min-height: 260px !important; max-height: 260px !important; height: 260px !important; }
+}
 .dxy-attn-head { display: flex; align-items: center; gap: 12px; padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--dxy-border); }
 .dxy-attn-icon { width: 48px; height: 48px; border-radius: 12px; background: #EDE9FE; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
 [data-theme="dark"] .dxy-attn-icon { background: #3b2f63; }
@@ -740,22 +758,34 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
 .dxy-attn-progress-track { height: 6px; border-radius: 4px; background: var(--dxy-border); overflow: hidden; margin-bottom: 18px; }
 .dxy-attn-progress-fill { height: 100%; background: var(--dxy-blue); border-radius: 4px; transition: width 300ms ease; }
 .dxy-attn-stat-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 12px; }
-.dxy-attn-stat { border: 1px solid var(--dxy-border); border-radius: 12px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; background: var(--dxy-card); }
-.dxy-attn-stat.is-active { border-color: var(--dxy-green); background: rgba(16,185,129,.06); }
+.dxy-attn-stat { border: 1px solid #BAE6FD; border-radius: 12px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; background: #E0F2FE; }
+.dxy-attn-stat.is-active { border-color: var(--dxy-green); background: rgba(16,185,129,.10); }
+[data-theme="dark"] .dxy-attn-stat { background: #0C4A6E; border-color: #0369A1; }
+[data-theme="dark"] .dxy-attn-stat.is-active { background: rgba(16,185,129,.14); }
 .dxy-attn-stat-icon { font-size: 16px; }
 .dxy-attn-stat-label { font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--dxy-muted); font-family: "IBM Plex Mono", monospace; }
 .dxy-attn-stat-value { font-size: 20px; font-weight: 800; color: var(--dxy-text); line-height: 1; }
 .dxy-attn-stat-value.green { color: var(--dxy-green); }
 .dxy-attn-stat-unit { font-size: 9.5px; color: var(--dxy-muted); font-family: "IBM Plex Mono", monospace; }
 .dxy-attn-shift-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-.dxy-attn-shift-box { border: 1px solid var(--dxy-border); border-radius: 12px; padding: 16px 10px; text-align: center; background: var(--dxy-card); }
+.dxy-attn-shift-box { border: 1px solid #BAE6FD; border-radius: 12px; padding: 16px 10px; text-align: center; background: #E0F2FE; }
+[data-theme="dark"] .dxy-attn-shift-box { background: #0C4A6E; border-color: #0369A1; }
 .dxy-attn-shift-value { font-size: 26px; font-weight: 800; color: var(--dxy-purple); line-height: 1; margin-bottom: 6px; }
 .dxy-attn-shift-label { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--dxy-muted); font-family: "IBM Plex Mono", monospace; }
 .dxy-attn-jenis-badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 10px; font-weight: 700; white-space: nowrap; }
 .dxy-attn-jenis-badge.cuti  { background: rgba(20,184,166,.12); color: var(--dxy-teal); }
 .dxy-attn-jenis-badge.izin  { background: rgba(249,115,22,.12); color: var(--dxy-orange); }
 .dxy-attn-jenis-badge.sakit { background: rgba(239,68,68,.12);  color: var(--dxy-red); }
-.dxy-attn-leave-empty { padding: 24px 10px; text-align: center; font-size: 12px; color: var(--dxy-muted); }
+.dxy-attn-leave-empty { padding: 18px 10px !important; text-align: center; font-size: 11px; color: var(--dxy-muted); white-space: normal !important; border-bottom: none !important; }
+.dxy-attn-leave-footer { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--dxy-border); text-align: right; font-size: 10.5px; color: var(--dxy-muted); flex-shrink: 0; }
+.dxy-attn-leave-footer b { color: var(--dxy-text); font-size: 12px; }
+/* Panel Cuti/Izin/Sakit: TIDAK dipaksa min-height apa pun -- tinggi kotak
+   selalu ngikutin isi tabel (header + baris yang ada). Kalau baris
+   sedikit, kotaknya ikut pendek, tidak nyisain ruang kosong nganggur. */
+.dxy-attn-leave-panel { min-height: 0; }
+.dxy-attn-leave-scroll { max-height: 260px !important; }
+.dxy-attn-leave-scroll table.dxy-table { table-layout: auto; }
+.dxy-attn-leave-row th { text-align: center !important; }
 @media (max-width: 640px) {
   .dxy-attn-card { max-width: 100%; }
   .dxy-attn-stat-row { grid-template-columns: repeat(3, 1fr); }
@@ -1533,36 +1563,127 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
             </div>
           </div>
 
-          <!-- ===== Baris 3: Cuti/Izin/Sakit Hari Ini (full-width) ===== -->
-          <div class="dxy-chart-grid">
-            <div class="dxy-panel dxy-span-12 dxy-table-panel-sm">
+          <!-- ===== Date picker untuk Izin/Sakit/Cuti/Mangkir -- default HARI INI ===== -->
+          <div class="dxy-filterbar">
+            <div class="dxy-field">
+              <label>Tanggal</label>
+              <input type="date" class="dxy-select" x-model="attendanceDate" @change="onAttendanceDateChange()">
+            </div>
+            <div class="dxy-spacer"></div>
+          </div>
+
+          <!-- ===== Baris 3: 4 kolom sejajar -- Izin / Sakit / Cuti / Mangkir.
+               Masing-masing tabel terpisah dengan struktur kolomnya sendiri.
+               Tingginya menyesuaikan otomatis (grid stretch) supaya ke-4
+               kotak selalu sama tinggi, ngisi sisa ruang yang ada. ===== -->
+          <div class="dxy-chart-grid dxy-attn-leave-row">
+            <div class="dxy-panel dxy-span-3 dxy-table-panel-sm dxy-attn-leave-panel">
               <div class="dxy-panel-head">
-                <span class="dxy-panel-title">🤒 Cuti / Izin / Sakit Hari Ini</span>
-                <span class="dxy-panel-sub" style="font-weight:700; color:var(--dxy-text);" x-text="attendance.todayLeave.length + ' orang'"></span>
+                <span class="dxy-panel-title">📄 Izin</span>
               </div>
-              <div class="dxy-table-scroll">
-                <table class="dxy-table qc-detail-table" x-show="attendance.todayLeave.length">
+              <div class="dxy-table-scroll dxy-attn-leave-scroll">
+                <table class="dxy-table">
                   <thead>
-                    <tr>
-                      <th>Nama</th>
-                      <th style="width:56px">Line</th>
-                      <th style="width:60px">Jenis</th>
-                    </tr>
+                    <tr><th>NIK</th><th>Nama</th><th>Tanggal</th><th>Alasan</th></tr>
                   </thead>
                   <tbody>
-                    <template x-for="(row, i) in attendance.todayLeave" :key="'attn-leave-'+i">
+                    <template x-if="!attendance.izinList.length">
+                      <tr><td colspan="4" class="dxy-attn-leave-empty">Tidak ada data Izin.</td></tr>
+                    </template>
+                    <template x-for="(row, i) in attendance.izinList" :key="'izin-'+i">
                       <tr>
+                        <td x-text="row.nik"></td>
                         <td x-text="row.nama"></td>
-                        <td style="text-align:center" x-text="row.line"></td>
-                        <td style="text-align:center">
-                          <span class="dxy-attn-jenis-badge" :class="row.jenis.toLowerCase()" x-text="row.jenis"></span>
-                        </td>
+                        <td style="text-align:center" x-text="row.tanggal"></td>
+                        <td x-text="row.alasan"></td>
                       </tr>
                     </template>
                   </tbody>
                 </table>
-                <div class="dxy-attn-leave-empty" x-show="!attendance.todayLeave.length">Tidak ada yang Cuti/Izin/Sakit hari ini.</div>
               </div>
+              <div class="dxy-attn-leave-footer">Total: <b x-text="attendance.izinList.length"></b> orang</div>
+            </div>
+
+            <div class="dxy-panel dxy-span-3 dxy-table-panel-sm dxy-attn-leave-panel">
+              <div class="dxy-panel-head">
+                <span class="dxy-panel-title">🤒 Sakit</span>
+              </div>
+              <div class="dxy-table-scroll dxy-attn-leave-scroll">
+                <table class="dxy-table">
+                  <thead>
+                    <tr><th>NIK</th><th>Nama</th><th>Tanggal</th><th>Alasan</th></tr>
+                  </thead>
+                  <tbody>
+                    <template x-if="!attendance.sakitList.length">
+                      <tr><td colspan="4" class="dxy-attn-leave-empty">Tidak ada data Sakit.</td></tr>
+                    </template>
+                    <template x-for="(row, i) in attendance.sakitList" :key="'sakit-'+i">
+                      <tr>
+                        <td x-text="row.nik"></td>
+                        <td x-text="row.nama"></td>
+                        <td style="text-align:center" x-text="row.tanggal"></td>
+                        <td x-text="row.alasan"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+              <div class="dxy-attn-leave-footer">Total: <b x-text="attendance.sakitList.length"></b> orang</div>
+            </div>
+
+            <div class="dxy-panel dxy-span-3 dxy-table-panel-sm dxy-attn-leave-panel">
+              <div class="dxy-panel-head">
+                <span class="dxy-panel-title">🌴 Cuti</span>
+              </div>
+              <div class="dxy-table-scroll dxy-attn-leave-scroll">
+                <table class="dxy-table">
+                  <thead>
+                    <tr><th>NIK</th><th>Nama</th><th>Tanggal</th><th>Jenis Cuti</th><th>Keterangan</th></tr>
+                  </thead>
+                  <tbody>
+                    <template x-if="!attendance.cutiList.length">
+                      <tr><td colspan="5" class="dxy-attn-leave-empty">Tidak ada data Cuti.</td></tr>
+                    </template>
+                    <template x-for="(row, i) in attendance.cutiList" :key="'cuti-'+i">
+                      <tr>
+                        <td x-text="row.nik"></td>
+                        <td x-text="row.nama"></td>
+                        <td style="text-align:center" x-text="row.tanggal"></td>
+                        <td style="text-align:center" x-text="row.jenisCuti"></td>
+                        <td x-text="row.keterangan"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+              <div class="dxy-attn-leave-footer">Total: <b x-text="attendance.cutiList.length"></b> orang</div>
+            </div>
+
+            <div class="dxy-panel dxy-span-3 dxy-table-panel-sm dxy-attn-leave-panel">
+              <div class="dxy-panel-head">
+                <span class="dxy-panel-title">🚫 Mangkir</span>
+              </div>
+              <div class="dxy-table-scroll dxy-attn-leave-scroll">
+                <table class="dxy-table">
+                  <thead>
+                    <tr><th>NIK</th><th>Nama</th><th>Tanggal</th><th>Keterangan</th></tr>
+                  </thead>
+                  <tbody>
+                    <template x-if="!attendance.mangkirList.length">
+                      <tr><td colspan="4" class="dxy-attn-leave-empty">Tidak ada data Mangkir.</td></tr>
+                    </template>
+                    <template x-for="(row, i) in attendance.mangkirList" :key="'mangkir-'+i">
+                      <tr>
+                        <td x-text="row.nik"></td>
+                        <td x-text="row.nama"></td>
+                        <td style="text-align:center" x-text="row.tanggal"></td>
+                        <td x-text="row.keterangan"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+              <div class="dxy-attn-leave-footer">Total: <b x-text="attendance.mangkirList.length"></b> orang</div>
             </div>
           </div>
 
@@ -1799,14 +1920,24 @@ function dashboardExhaust() {
     // fetch/RPC -- masih placeholder angka 0, lihat onAttendancePeriodChange()).
     attendanceMonth: new Date().getMonth() + 1,
     attendanceYear: new Date().getFullYear(),
+    // Tanggal yang lagi dipilih untuk daftar Izin/Sakit/Cuti/Mangkir (4
+    // kolom di bawah). Default = HARI INI (format YYYY-MM-DD, dipakai
+    // langsung oleh <input type="date">).
+    attendanceDate: new Date().toISOString().slice(0, 10),
     attendance: {
       rate: 0, total: 0, hadir: 0, cuti: 0, absen: 0, ot: 0, shift1: 0, shift2: 0,
       // Trend kehadiran harian (tanggal 1-31) -- masih placeholder nol
       // semua, belum ada fetch/RPC (lihat catatan di onAttendancePeriodChange()).
       dailyTrend: { hadir: Array.from({ length: 31 }, () => 0), persen: Array.from({ length: 31 }, () => 0) },
-      // Daftar orang yang Cuti/Izin/Sakit HARI INI -- placeholder kosong.
-      // Bentuk tiap baris nanti: { nama, line, jenis: 'Cuti'|'Izin'|'Sakit' }.
-      todayLeave: [],
+      // 4 daftar terpisah -- Izin / Sakit / Cuti / Mangkir. Masih placeholder
+      // kosong (belum ada fetch/RPC). Bentuk tiap baris nanti:
+      // izin/sakit:  { nik, nama, tanggal, alasan }
+      // cuti:        { nik, nama, tanggal, jenisCuti, keterangan }
+      // mangkir:     { nik, nama, tanggal, keterangan }
+      izinList: [],
+      sakitList: [],
+      cutiList: [],
+      mangkirList: [],
     },
     qcMonth: new Date().getMonth() + 1,
     qcYear: new Date().getFullYear(),
@@ -3339,6 +3470,12 @@ function dashboardExhaust() {
     async onAttendancePeriodChange() {
       // TODO: fetchAttendance() begitu RPC/tabel attendance sudah siap.
       this.$nextTick(() => this.renderAttendanceCharts());
+    },
+    // Dipanggil saat date picker Izin/Sakit/Cuti/Mangkir diganti. Belum ada
+    // fetch/RPC -- masih placeholder (lihat izinList/sakitList/cutiList/
+    // mangkirList di data()), jadi ini sekarang cuma "tempat kaitan" saja.
+    async onAttendanceDateChange() {
+      // TODO: fetchAttendanceLeave(this.attendanceDate) begitu RPC siap.
     },
     // Dipanggil saat dropdown Bulan/Tahun di tab Bulanan berubah
     async onBulananPeriodChange() {
