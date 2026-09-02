@@ -9,6 +9,46 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
+<style>
+  /* ===== Scoped khusus Form Izin/Sakit/Cuti/Mangkir =====
+     Dikelompokkan per section (Data Karyawan / Periode / Keterangan)
+     supaya lebih enak dibaca dibanding satu grid rata semua field. */
+  .leave-form-section { margin-bottom: 18px; }
+  .leave-form-section:last-child { margin-bottom: 0; }
+  .leave-form-section-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0 0 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed var(--border);
+  }
+  .leave-field-hint {
+    display: block;
+    margin-top: 5px;
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--font-body);
+  }
+  .leave-field-hint.is-error { color: var(--red); }
+  .leave-field-hint.is-ok { color: var(--green); font-weight: 600; }
+  /* Field yang keisi otomatis (readonly) -- dikasih background beda
+     biar user langsung ngeh ini bukan input manual. */
+  .field input.leave-readonly {
+    background: var(--panel-2);
+    color: var(--muted);
+    cursor: not-allowed;
+  }
+  .field input.leave-computed {
+    background: var(--amber-dim);
+    color: var(--text);
+    font-weight: 600;
+    cursor: not-allowed;
+  }
+</style>
+
 <script>
   (function () {
     var t = localStorage.getItem("theme_v1") || "light";
@@ -66,6 +106,114 @@
 
     <template x-if="isLeaderOrAdmin()">
       <div>
+        <!-- ===== Form Izin / Sakit / Cuti / Mangkir (per-orang) =====
+             Ketik NIK -> Nama otomatis muncul dari master karyawan
+             (tabel karyawan_master). Field Nama DIKUNCI -- tidak bisa
+             diketik manual, supaya nama selalu konsisten dengan data
+             master. Kalau NIK belum terdaftar, muncul peringatan dan
+             tombol Simpan tidak akan jalan -- hubungi admin untuk
+             menambahkan NIK tsb ke karyawan_master dulu.
+             Urutan field: Jenis, NIK, Nama, lalu Tanggal (Izin/Sakit/
+             Mangkir) atau Tanggal Mulai/Selesai/Total Hari/Jenis Cuti
+             (Cuti). Total Hari otomatis TIDAK menghitung Sabtu & Minggu. -->
+        <div class="panel">
+          <p class="panel-title">Form Ketidakhadiran</p>
+
+          <div class="leave-form-section">
+            <p class="leave-form-section-label">Data Karyawan</p>
+            <div class="form-grid">
+              <div class="field"><label>Jenis</label>
+                <select x-model="leaveForm.jenis" @change="onLeaveJenisChange()">
+                  <option value="izin">Izin</option>
+                  <option value="sakit">Sakit</option>
+                  <option value="cuti">Cuti</option>
+                  <option value="mangkir">Mangkir</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>NIK</label>
+                <input type="text" x-model="leaveForm.nik" @input="onLeaveNikInput()" placeholder="Ketik NIK...">
+              </div>
+              <div class="field">
+                <label>Nama</label>
+                <input type="text" class="leave-readonly" x-model="leaveForm.nama" placeholder="Otomatis dari NIK" disabled readonly>
+                <span class="leave-field-hint is-ok" x-show="leaveNikFound">✓ Terisi otomatis dari master karyawan</span>
+                <span class="leave-field-hint is-error" x-show="leaveForm.nik && !leaveNikFound">NIK tidak terdaftar di master karyawan.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="leave-form-section">
+            <p class="leave-form-section-label" x-text="leaveForm.jenis === 'cuti' ? 'Periode Cuti' : 'Tanggal'"></p>
+            <div class="form-grid">
+              <div class="field"><label x-text="leaveForm.jenis === 'cuti' ? 'Tanggal Mulai' : 'Tanggal'"></label><input type="date" x-model="leaveForm.tanggal"></div>
+              <template x-if="leaveForm.jenis === 'cuti'">
+                <div class="field"><label>Tanggal Selesai</label><input type="date" x-model="leaveForm.tanggal_selesai" :min="leaveForm.tanggal"></div>
+              </template>
+              <template x-if="leaveForm.jenis === 'cuti'">
+                <div class="field">
+                  <label>Total Hari</label>
+                  <input type="text" class="leave-computed" :value="leaveTotalHari() + ' hari'" disabled readonly>
+                  <span class="leave-field-hint">Tanpa Sabtu/Minggu/Tgl Merah</span>
+                </div>
+              </template>
+              <template x-if="leaveForm.jenis === 'cuti'">
+                <div class="field"><label>Jenis Cuti</label>
+                  <select x-model="leaveForm.jenis_cuti">
+                    <option value="">Pilih jenis cuti...</option>
+                    <option value="Cuti Tahunan">Cuti Tahunan</option>
+                    <option value="Cuti Besar">Cuti Besar</option>
+                    <option value="Cuti Melahirkan">Cuti Melahirkan</option>
+                    <option value="Cuti Lainnya">Cuti Lainnya</option>
+                  </select>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <div class="leave-form-section">
+            <p class="leave-form-section-label" x-text="leaveForm.jenis === 'cuti' ? 'Keterangan' : (leaveForm.jenis === 'mangkir' ? 'Keterangan' : 'Alasan')"></p>
+            <div class="form-grid">
+              <div class="field" style="grid-column: 1 / -1;">
+                <input type="text" x-model="leaveForm.keterangan" placeholder="Opsional...">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn-primary" @click="saveLeave()">Simpan</button>
+            <button type="button" class="btn-secondary" x-show="leaveEditId" @click="resetLeaveForm()">Batal Edit</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <p class="panel-title">Riwayat Ketidakhadiran <span class="count" x-text="leaveRows.length + ' baris'"></span></p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Jenis</th><th>NIK</th><th>Nama</th><th>Tanggal</th><th>Sampai</th><th>Total Hari</th><th>Jenis Cuti</th><th>Keterangan</th><th>Aksi</th></tr></thead>
+              <tbody>
+                <template x-for="r in leaveRows" :key="r.id">
+                  <tr>
+                    <td x-text="leaveJenisLabel(r.jenis)"></td>
+                    <td class="mono" x-text="r.nik"></td>
+                    <td x-text="r.nama"></td>
+                    <td class="mono" x-text="r.tanggal"></td>
+                    <td class="mono" x-text="r.jenis === 'cuti' ? (r.tanggal_selesai || r.tanggal) : '-'"></td>
+                    <td class="mono" x-text="r.jenis === 'cuti' ? (r.jumlah_hari ?? 1) : '-'"></td>
+                    <td x-text="r.jenis_cuti || '-'"></td>
+                    <td x-text="r.keterangan || '-'"></td>
+                    <td>
+                      <button class="btn-secondary btn-sm" @click="editLeave(r)">Edit</button>
+                      <button class="btn-secondary btn-sm" @click="deleteLeave(r)">Hapus</button>
+                    </td>
+                  </tr>
+                </template>
+                <tr x-show="leaveRows.length === 0"><td colspan="9" class="empty-state">Belum ada data.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <div class="panel">
           <p class="panel-title">Form Absensi</p>
           <div class="form-grid">
@@ -103,6 +251,35 @@
                   </tr>
                 </template>
                 <tr x-show="rows.length === 0"><td colspan="8" class="empty-state">Belum ada data.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ===== Kelola Hari Libur / Tanggal Merah =====
+             Dipakai untuk exclude Sabtu/Minggu/tanggal merah dari
+             perhitungan Total Hari Cuti. -->
+        <div class="panel">
+          <p class="panel-title">Kelola Hari Libur / Tanggal Merah</p>
+          <div class="form-grid">
+            <div class="field"><label>Tanggal</label><input type="date" x-model="hariLiburForm.tanggal"></div>
+            <div class="field" style="grid-column: span 2;"><label>Keterangan</label><input type="text" x-model="hariLiburForm.keterangan" placeholder="mis. Tahun Baru Masehi"></div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn-primary" @click="addHariLibur()">Tambah</button>
+          </div>
+          <div class="table-wrap" style="margin-top:12px;">
+            <table>
+              <thead><tr><th>Tanggal</th><th>Keterangan</th><th>Aksi</th></tr></thead>
+              <tbody>
+                <template x-for="r in hariLiburRows" :key="r.tanggal">
+                  <tr>
+                    <td class="mono" x-text="r.tanggal"></td>
+                    <td x-text="r.keterangan || '-'"></td>
+                    <td><button class="btn-secondary btn-sm" @click="deleteHariLibur(r)">Hapus</button></td>
+                  </tr>
+                </template>
+                <tr x-show="hariLiburRows.length === 0"><td colspan="3" class="empty-state">Belum ada hari libur.</td></tr>
               </tbody>
             </table>
           </div>
@@ -150,9 +327,24 @@ function attendancePage() {
     fmtNum,
     form: { tanggal: localDateStr(new Date()), shift: "1", total_orang: "", hadir: "", cuti: "", absen: "", overtime_jam: "" },
     rows: [],
+    // ---- Form Izin/Sakit/Cuti/Mangkir (per-orang) ----
+    leaveForm: { tanggal: localDateStr(new Date()), tanggal_selesai: localDateStr(new Date()), jenis: "izin", nik: "", nama: "", jenis_cuti: "", keterangan: "" },
+    leaveRows: [],
+    leaveEditId: null,
+    leaveNikFound: false,
+    _leaveNikLookupTimer: null,
+    // Daftar tanggal merah (dari tabel hari_libur) -- dipakai supaya
+    // Total Hari Cuti otomatis skip tanggal itu juga, kalau ada yang
+    // diisi manual lewat SQL. Sabtu & Minggu selalu di-skip walau
+    // tabel ini kosong.
+    hariLibur: [],
+    hariLiburRows: [], // { tanggal, keterangan } buat ditampilkan di tabel
+    hariLiburForm: { tanggal: localDateStr(new Date()), keterangan: "" },
     async init() {
       if (!await this.initBase()) return;
       await this.fetchRows();
+      await this.fetchLeaveRows();
+      await this.fetchHariLibur();
     },
     async fetchRows() {
       const { data, error } = await supabaseClient.from("attendance_log").select("*").order("tanggal", { ascending: false }).limit(100);
@@ -176,6 +368,130 @@ function attendancePage() {
       if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
       this.flash("Absensi tersimpan.");
       await this.fetchRows();
+    },
+    // ---- Izin/Sakit/Cuti/Mangkir ----
+    async fetchLeaveRows() {
+      const { data, error } = await supabaseClient.from("attendance_leave").select("*").order("tanggal", { ascending: false }).limit(200);
+      if (!error && data) this.leaveRows = data;
+    },
+    leaveJenisLabel(j) {
+      return { izin: "Izin", sakit: "Sakit", cuti: "Cuti", mangkir: "Mangkir" }[j] || j;
+    },
+    // Dipanggil tiap kali user ngetik di field NIK -- di-debounce dikit
+    // (300ms) supaya tidak nembak query ke Supabase tiap 1 huruf.
+    onLeaveNikInput() {
+      this.leaveNikFound = false;
+      clearTimeout(this._leaveNikLookupTimer);
+      const nik = (this.leaveForm.nik || "").trim();
+      if (!nik) { this.leaveForm.nama = ""; return; }
+      this._leaveNikLookupTimer = setTimeout(async () => {
+        const { data } = await supabaseClient.from("karyawan_master").select("nama").eq("nik", nik).maybeSingle();
+        if (data && data.nama) {
+          this.leaveForm.nama = data.nama;
+          this.leaveNikFound = true;
+        }
+      }, 300);
+    },
+    onLeaveJenisChange() {
+      if (this.leaveForm.jenis === "cuti" && (!this.leaveForm.tanggal_selesai || this.leaveForm.tanggal_selesai < this.leaveForm.tanggal)) {
+        this.leaveForm.tanggal_selesai = this.leaveForm.tanggal;
+      }
+    },
+    // Hitung total hari cuti (inklusif tanggal mulai & selesai) untuk
+    // preview di form -- TIDAK menghitung Sabtu, Minggu, dan tanggal
+    // yang ada di this.hariLibur. Angka final yang tersimpan tetap
+    // dihitung ulang oleh database (trigger set_jumlah_hari_cuti, lihat
+    // migration_attendance_leave_v4_hari_libur.sql) supaya konsisten
+    // walau data diedit langsung dari SQL.
+    leaveTotalHari() {
+      const mulai = this.leaveForm.tanggal;
+      const selesai = this.leaveForm.tanggal_selesai || this.leaveForm.tanggal;
+      if (!mulai || !selesai) return 0;
+      let d = new Date(mulai + "T00:00:00");
+      const akhir = new Date(selesai + "T00:00:00");
+      if (akhir < d) return 0;
+      let total = 0;
+      while (d <= akhir) {
+        const dow = d.getDay(); // 0 = Minggu, 6 = Sabtu
+        const dStr = localDateStr(d);
+        if (dow !== 0 && dow !== 6 && !this.hariLibur.includes(dStr)) total++;
+        d.setDate(d.getDate() + 1);
+      }
+      return total;
+    },
+    // ---- Kelola Hari Libur / Tanggal Merah ----
+    async fetchHariLibur() {
+      const { data, error } = await supabaseClient.from("hari_libur").select("*").order("tanggal", { ascending: true });
+      if (!error && data) {
+        this.hariLiburRows = data;
+        this.hariLibur = data.map((r) => r.tanggal);
+      }
+    },
+    async addHariLibur() {
+      const f = this.hariLiburForm;
+      if (!f.tanggal) { this.flash("Tanggal wajib diisi.", true); return; }
+      const { error } = await supabaseClient.from("hari_libur").upsert(
+        { tanggal: f.tanggal, keterangan: f.keterangan || null, created_by: this.session.user.id },
+        { onConflict: "tanggal" }
+      );
+      if (error) { this.flash("Gagal simpan hari libur: " + error.message, true); return; }
+      this.flash("Hari libur tersimpan.");
+      this.hariLiburForm = { tanggal: localDateStr(new Date()), keterangan: "" };
+      await this.fetchHariLibur();
+    },
+    async deleteHariLibur(r) {
+      if (!confirm(`Hapus hari libur ${r.tanggal}${r.keterangan ? " (" + r.keterangan + ")" : ""}?`)) return;
+      const { error } = await supabaseClient.from("hari_libur").delete().eq("tanggal", r.tanggal);
+      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
+      this.flash("Hari libur dihapus.");
+      await this.fetchHariLibur();
+    },
+    resetLeaveForm() {
+      this.leaveForm = { tanggal: localDateStr(new Date()), tanggal_selesai: localDateStr(new Date()), jenis: "izin", nik: "", nama: "", jenis_cuti: "", keterangan: "" };
+      this.leaveEditId = null;
+      this.leaveNikFound = false;
+    },
+    editLeave(r) {
+      this.leaveForm = { tanggal: r.tanggal, tanggal_selesai: r.tanggal_selesai || r.tanggal, jenis: r.jenis, nik: r.nik, nama: r.nama, jenis_cuti: r.jenis_cuti || "", keterangan: r.keterangan || "" };
+      this.leaveEditId = r.id;
+      this.leaveNikFound = true;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    async saveLeave() {
+      const f = this.leaveForm;
+      const nik = (f.nik || "").trim();
+      const nama = (f.nama || "").trim();
+      if (!f.tanggal || !nik) { this.flash("Tanggal dan NIK wajib diisi.", true); return; }
+      if (!this.leaveNikFound || !nama) { this.flash("NIK tidak terdaftar di master karyawan. Hubungi admin untuk menambahkannya.", true); return; }
+      if (f.jenis === "cuti" && !f.jenis_cuti) { this.flash("Jenis Cuti wajib dipilih.", true); return; }
+      // Cuti multi-hari: tanggal_selesai wajib >= tanggal mulai. Kalau
+      // kosong, dianggap cuti 1 hari (tanggal_selesai = tanggal mulai).
+      const tanggalSelesai = f.jenis === "cuti" ? (f.tanggal_selesai || f.tanggal) : null;
+      if (f.jenis === "cuti" && tanggalSelesai < f.tanggal) { this.flash("Tanggal Selesai tidak boleh sebelum Tanggal Mulai.", true); return; }
+
+      const payload = {
+        tanggal: f.tanggal, tanggal_selesai: tanggalSelesai, nik, nama, jenis: f.jenis,
+        jenis_cuti: f.jenis === "cuti" ? f.jenis_cuti : null,
+        keterangan: f.keterangan || null,
+        updated_by: this.session.user.id,
+      };
+      let error;
+      if (this.leaveEditId) {
+        ({ error } = await supabaseClient.from("attendance_leave").update(payload).eq("id", this.leaveEditId));
+      } else {
+        ({ error } = await supabaseClient.from("attendance_leave").insert({ ...payload, created_by: this.session.user.id }));
+      }
+      if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
+      this.flash("Data tersimpan.");
+      this.resetLeaveForm();
+      await this.fetchLeaveRows();
+    },
+    async deleteLeave(r) {
+      if (!confirm(`Hapus data ${this.leaveJenisLabel(r.jenis)} atas nama ${r.nama} (${r.tanggal})?`)) return;
+      const { error } = await supabaseClient.from("attendance_leave").delete().eq("id", r.id);
+      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
+      this.flash("Data dihapus.");
+      await this.fetchLeaveRows();
     },
   };
 }
