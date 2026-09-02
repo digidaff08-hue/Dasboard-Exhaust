@@ -392,11 +392,11 @@ table.dxy-table thead th {
   color: #0284C7;
 }
 [data-theme="dark"] table.dxy-table thead th { background: #082F49; border-color: #0369A1; color: #7DD3FC; }
-[data-theme="dark"] table.dxy-table tbody tr { background: #0B1F32; }
-[data-theme="dark"] table.dxy-table tbody tr:nth-child(even) { background: #0F2A40; }
-table.dxy-table tbody td { padding: 5px 12px; border-bottom: 1px solid var(--dxy-border); vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: clip; }
-table.dxy-table tbody tr { background: #F9FCFF; }
-table.dxy-table tbody tr:nth-child(even) { background: #EDF7FE; }
+[data-theme="dark"] table.dxy-table tbody tr,
+[data-theme="dark"] table.dxy-table tbody tr:nth-child(even) { background: transparent; }
+table.dxy-table tbody td { padding: 5px 12px; border-bottom: none; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: clip; }
+table.dxy-table tbody tr,
+table.dxy-table tbody tr:nth-child(even) { background: transparent; }
 table.dxy-table tbody tr:hover { background: rgba(14,165,233,.08); }
 /* ---- Filter per-kolom di tabel Rekap NG Inline / NG Trial / Repair ---- */
 table.qc-detail-table thead th { cursor: pointer; user-select: none; transition: background 120ms ease; }
@@ -3210,7 +3210,11 @@ function dashboardExhaust() {
 
         const [prodRes, ngRes, planByPicRes, lineRes, repairMonthRes] = await Promise.all([
           supabaseClient.rpc("dashboard_bulanan_produksi", { p_start: prevFyStart.toISOString(), p_end: fyEnd.toISOString() }),
-          supabaseClient.rpc("dashboard_bulanan_ng_inline", { p_start: prevFyStart.toISOString(), p_end: fyEnd.toISOString() }),
+          // NG Inline: DISAMAKAN dengan sumber data tab Kontrol Kualitas
+          // (dashboard_qc_ng_month, p_type_ng = 'NG PRODUKSI') supaya
+          // angkanya konsisten di kedua tab -- dulu pakai RPC lain
+          // (dashboard_bulanan_ng_inline) yang datanya beda sendiri.
+          supabaseClient.rpc("dashboard_qc_ng_month", { p_type_ng: "NG PRODUKSI", p_start: fyStart.toISOString(), p_end: fyEnd.toISOString() }),
           // Downtime Supporting: Plan/Target TETAP total pabrik (tidak ada
           // target per-Line di database) -- lihat dashboard_tahunan_downtime_plan_by_pic.
           // Actual-nya diambil terpisah per-Line di bawah (downtimeActPerLineRes).
@@ -3333,7 +3337,14 @@ function dashboardExhaust() {
       };
 
       const prodRows = collapseByLine(raw.prodRows);
-      const ngRows = collapseByLine(raw.ngRows);
+      // ngRows sekarang dari dashboard_qc_ng_month (sama seperti Kontrol
+      // Kualitas) -- datanya SUDAH total pabrik per bulan (tidak ada kolom
+      // "mesin" per-Line), jadi TIDAK dilewatkan ke collapseByLine (kalau
+      // dilewatkan, saat Line filter dipilih baris ini malah kosong sama
+      // sekali). Konsekuensinya: kartu NG Inline di tab Tahunan sekarang
+      // selalu menampilkan total semua Line, tidak ikut filter Line lagi
+      // -- ini disengaja demi angka yang konsisten dengan Kontrol Kualitas.
+      const ngRows = raw.ngRows;
       const repairMonthRows = collapseByLine(raw.repairMonthRows);
       const monthKeyStr = (d) => localDateStr(d);
 
@@ -4407,6 +4418,36 @@ function dashboardExhaust() {
         },
       });
 
+      // Label kecil ("Qty" / "Value" / "%") nempel di atas deretan angka
+      // sumbu vertikal primary (kiri) & secondary (kanan) -- PERSIS sama
+      // dengan axisUnitLabels di tab Kontrol Kualitas, supaya chart
+      // NG Inline & Straight Pass di tab Tahunan juga punya nama sumbu.
+      const axisUnitLabels = (primaryText, secondaryText) => ({
+        id: "dxyTahunanAxisUnitLabels_" + Math.random(),
+        afterDraw(chart) {
+          const { ctx, chartArea, scales } = chart;
+          if (!chartArea) return;
+          ctx.save();
+          ctx.font = "bold 8.5px Inter, sans-serif";
+          ctx.fillStyle = "#000000";
+          ctx.strokeStyle = "#000000";
+          ctx.lineWidth = 0.6;
+          ctx.textBaseline = "bottom";
+          const labelY = chartArea.top - 14;
+          if (primaryText && scales.y) {
+            ctx.textAlign = "left";
+            ctx.strokeText(primaryText, scales.y.left, labelY);
+            ctx.fillText(primaryText, scales.y.left, labelY);
+          }
+          if (secondaryText && scales.y1) {
+            ctx.textAlign = "right";
+            ctx.strokeText(secondaryText, scales.y1.right, labelY);
+            ctx.fillText(secondaryText, scales.y1.right, labelY);
+          }
+          ctx.restore();
+        },
+      });
+
       // --- Plugin: label angka DI DALAM tiap segmen donut (tanpa leader line) ---
       // (untuk Downtime Supporting & Line)
       const donutLeaderLabels = (formatter) => ({
@@ -4676,7 +4717,7 @@ function dashboardExhaust() {
               y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => v + "%" }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true, suggestedMax: 100, grace: "8%" },
             },
           },
-          plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabelsAll((v) => (v === null ? "" : v + "%"), 1), barBevelInset(0)],
+          plugins: [barValueLabels((v) => (v === null ? "" : fmtNum(v)), 0, "base"), lineValueLabelsAll((v) => (v === null ? "" : v + "%"), 1), axisUnitLabels("Qty", "%"), barBevelInset(0)],
         });
       };
       // Catatan: dua kolom pertama di b.monthLabels adalah ringkasan
@@ -4703,7 +4744,7 @@ function dashboardExhaust() {
           },
           options: {
             responsive: true, maintainAspectRatio: false, animation: noAnim,
-            layout: { padding: { top: 34 } },
+            layout: { padding: { top: 38 } },
             plugins: { legend: legend(true), tooltip: tooltip() },
             scales: {
               x: baseScales().x,
@@ -4711,7 +4752,7 @@ function dashboardExhaust() {
               y1: { position: "right", ticks: { color: "#000000", font: { size: 9 }, callback: (v) => fmtNum(Math.round(v / 1000)) }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, beginAtZero: true },
             },
           },
-          plugins: [barValueLabels((v) => fmtNum(v), 0, "base"), lineValueLabelsAll((v) => fmtNum(Math.round(v / 1000)), 1), barBevelInset(0)],
+          plugins: [barValueLabels((v) => fmtNum(v), 0, "base"), lineValueLabelsAll((v) => fmtNum(Math.round(v / 1000)), 1), axisUnitLabels("Qty", "Value"), barBevelInset(0)],
         });
       }, "ngInline");
 
