@@ -1648,17 +1648,19 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
               <div class="dxy-table-scroll dxy-attn-leave-scroll">
                 <table class="dxy-table">
                   <thead>
-                    <tr><th>NIK</th><th>Nama</th><th>Tanggal</th><th>Jenis Cuti</th><th>Keterangan</th></tr>
+                    <tr><th>NIK</th><th>Nama</th><th>Mulai</th><th>Sampai</th><th>Total Hari</th><th>Jenis Cuti</th><th>Keterangan</th></tr>
                   </thead>
                   <tbody>
                     <template x-if="!attendance.cutiList.length">
-                      <tr><td colspan="5" class="dxy-attn-leave-empty">Tidak ada data Cuti.</td></tr>
+                      <tr><td colspan="7" class="dxy-attn-leave-empty">Tidak ada data Cuti.</td></tr>
                     </template>
                     <template x-for="(row, i) in attendance.cutiList" :key="'cuti-'+i">
                       <tr>
                         <td x-text="row.nik"></td>
                         <td x-text="row.nama"></td>
                         <td style="text-align:center" x-text="row.tanggal"></td>
+                        <td style="text-align:center" x-text="row.tanggalSelesai || row.tanggal"></td>
+                        <td style="text-align:center" x-text="row.jumlahHari"></td>
                         <td style="text-align:center" x-text="row.jenisCuti"></td>
                         <td x-text="row.keterangan"></td>
                       </tr>
@@ -1884,9 +1886,8 @@ function dashboardExhaust() {
         this.$nextTick(() => this.renderKualitasCharts());
       }
       if (tab === "attendance") {
-        // Belum ada fetchAttendance() -- data masih placeholder nol
-        // (lihat this.attendance di data()). Chart tetap dirender supaya
-        // layout & sumbu sudah siap begitu data asli tersambung nanti.
+        await this.fetchAttendance();
+        await this.fetchAttendanceLeave();
         this.$nextTick(() => this.renderAttendanceCharts());
       }
     },
@@ -1926,8 +1927,7 @@ function dashboardExhaust() {
     // Periode yang lagi dipilih di tab Bulanan (bulan + tahun berjalan default)
     bulananMonth: new Date().getMonth() + 1,
     bulananYear: new Date().getFullYear(),
-    // Periode yang lagi dipilih di tab Kontrol Attendance (belum ada
-    // fetch/RPC -- masih placeholder angka 0, lihat onAttendancePeriodChange()).
+    // Periode yang lagi dipilih di tab Kontrol Attendance.
     attendanceMonth: new Date().getMonth() + 1,
     attendanceYear: new Date().getFullYear(),
     // Tanggal yang lagi dipilih untuk daftar Izin/Sakit/Cuti/Mangkir (4
@@ -1936,13 +1936,25 @@ function dashboardExhaust() {
     attendanceDate: new Date().toISOString().slice(0, 10),
     attendance: {
       rate: 0, total: 0, hadir: 0, cuti: 0, absen: 0, ot: 0, shift1: 0, shift2: 0,
-      // Trend kehadiran harian (tanggal 1-31) -- masih placeholder nol
-      // semua, belum ada fetch/RPC (lihat catatan di onAttendancePeriodChange()).
-      dailyTrend: { hadir: Array.from({ length: 31 }, () => 0), persen: Array.from({ length: 31 }, () => 0) },
-      // 4 daftar terpisah -- Izin / Sakit / Cuti / Mangkir. Masih placeholder
-      // kosong (belum ada fetch/RPC). Bentuk tiap baris nanti:
+      // Trend kehadiran harian (tanggal 1-31), diisi oleh fetchAttendance().
+      // hadir = dari attendance_log. izin/sakit/cuti/mangkir = jumlah ORANG
+      // per hari dari attendance_leave (cuti dihitung "nyala" tiap hari di
+      // antara tanggal mulai-selesai). Dipakai di chart batang bertumpuk
+      // "Trend Kehadiran Harian" -- tiap array warnanya beda.
+      dailyTrend: {
+        hadir: Array.from({ length: 31 }, () => null),
+        izin: Array.from({ length: 31 }, () => null),
+        sakit: Array.from({ length: 31 }, () => null),
+        cuti: Array.from({ length: 31 }, () => null),
+        mangkir: Array.from({ length: 31 }, () => null),
+        persen: Array.from({ length: 31 }, () => null),
+      },
+      // 4 daftar terpisah -- Izin / Sakit / Cuti / Mangkir. Diisi oleh
+      // fetchAttendanceLeave() dari tabel attendance_leave (lihat
+      // migration_attendance_leave.sql), difilter per this.attendanceDate.
+      // Bentuk tiap baris:
       // izin/sakit:  { nik, nama, tanggal, alasan }
-      // cuti:        { nik, nama, tanggal, jenisCuti, keterangan }
+      // cuti:        { nik, nama, tanggal, tanggalSelesai, jumlahHari, jenisCuti, keterangan }
       // mangkir:     { nik, nama, tanggal, keterangan }
       izinList: [],
       sakitList: [],
@@ -3510,17 +3522,102 @@ function dashboardExhaust() {
       this.dxyProblemDetail = { open: false, loading: false, problem: "", rows: [] };
     },
     // Dipanggil saat dropdown Bulan/Tahun di tab Kontrol Attendance berubah.
-    // Belum ada fetch/RPC ke Supabase -- tab ini masih placeholder (angka
-    // tetap 0), jadi fungsi ini sekarang cuma "tempat kaitan" untuk nanti.
     async onAttendancePeriodChange() {
-      // TODO: fetchAttendance() begitu RPC/tabel attendance sudah siap.
+      await this.fetchAttendance();
       this.$nextTick(() => this.renderAttendanceCharts());
     },
-    // Dipanggil saat date picker Izin/Sakit/Cuti/Mangkir diganti. Belum ada
-    // fetch/RPC -- masih placeholder (lihat izinList/sakitList/cutiList/
-    // mangkirList di data()), jadi ini sekarang cuma "tempat kaitan" saja.
+    // Ambil data 1 bulan (attendanceMonth/attendanceYear) untuk:
+    // 1) Kartu ringkas Attendance (Total/Hadir/Cuti/Absen/O.T/Rate/Shift)
+    //    -- dari attendance_log (agregat per shift per hari yang diisi
+    //    lewat Form Absensi di input-attendance.html).
+    // 2) Chart "Trend Kehadiran Harian" (batang bertumpuk per tanggal):
+    //    Hadir (dari attendance_log) + Izin/Sakit/Cuti/Mangkir (jumlah
+    //    ORANG per hari, dari attendance_leave -- Form Ketidakhadiran).
+    //    Cuti dihitung "nyala" tiap hari di antara tanggal mulai-selesai.
+    async fetchAttendance() {
+      try {
+        const year = this.attendanceYear, month = this.attendanceMonth;
+        const nHari = daysInMonth(year, month);
+        const firstDay = localDateStr(new Date(year, month - 1, 1));
+        const lastDay = localDateStr(new Date(year, month - 1, nHari));
+
+        const [logRes, nonCutiRes, cutiRes] = await Promise.all([
+          supabaseClient.from("attendance_log").select("*").gte("tanggal", firstDay).lte("tanggal", lastDay),
+          supabaseClient.from("attendance_leave").select("*").neq("jenis", "cuti").gte("tanggal", firstDay).lte("tanggal", lastDay),
+          supabaseClient.from("attendance_leave").select("*").eq("jenis", "cuti").lte("tanggal", lastDay).or(`tanggal_selesai.is.null,tanggal_selesai.gte.${firstDay}`),
+        ]);
+        const logRows = logRes.data || [];
+        const nonCutiRows = nonCutiRes.data || [];
+        const cutiRows = cutiRes.data || [];
+        const sum = (rows, key) => rows.reduce((acc, r) => acc + (Number(r[key]) || 0), 0);
+
+        // ---- Kartu ringkas (total 1 bulan) ----
+        const totalOrangSum = sum(logRows, "total_orang");
+        const hadirSum = sum(logRows, "hadir");
+        this.attendance.total = logRows.length ? Math.round(totalOrangSum / logRows.length) : 0;
+        this.attendance.hadir = hadirSum;
+        this.attendance.cuti = sum(logRows, "cuti");
+        this.attendance.absen = sum(logRows, "absen");
+        this.attendance.ot = Math.round(sum(logRows, "overtime_jam") * 10) / 10;
+        this.attendance.rate = totalOrangSum > 0 ? Math.round((hadirSum / totalOrangSum) * 100) : 0;
+        this.attendance.shift1 = sum(logRows.filter((r) => String(r.shift) === "1"), "hadir");
+        this.attendance.shift2 = sum(logRows.filter((r) => String(r.shift) === "2"), "hadir");
+
+        // ---- Trend harian (tanggal 1-31, null utk tanggal yg belum ada) ----
+        const todayLocal = new Date();
+        todayLocal.setHours(0, 0, 0, 0);
+        const validDay = (d) => d <= nHari && new Date(year, month - 1, d) <= todayLocal;
+        const dayStr = (d) => localDateStr(new Date(year, month - 1, d));
+        const byDay = (fn) => Array.from({ length: 31 }, (_, i) => {
+          const d = i + 1;
+          return validDay(d) ? fn(dayStr(d)) : null;
+        });
+
+        const hadirByDay = byDay((ds) => sum(logRows.filter((r) => r.tanggal === ds), "hadir"));
+        const totalByDay = byDay((ds) => sum(logRows.filter((r) => r.tanggal === ds), "total_orang"));
+        const izinByDay = byDay((ds) => nonCutiRows.filter((r) => r.jenis === "izin" && r.tanggal === ds).length);
+        const sakitByDay = byDay((ds) => nonCutiRows.filter((r) => r.jenis === "sakit" && r.tanggal === ds).length);
+        const mangkirByDay = byDay((ds) => nonCutiRows.filter((r) => r.jenis === "mangkir" && r.tanggal === ds).length);
+        const cutiByDay = byDay((ds) => cutiRows.filter((r) => r.tanggal <= ds && (r.tanggal_selesai || r.tanggal) >= ds).length);
+        const persenByDay = Array.from({ length: 31 }, (_, i) => {
+          const t = totalByDay[i], h = hadirByDay[i];
+          return t ? Math.round((h / t) * 100) : null;
+        });
+
+        this.attendance.dailyTrend = { hadir: hadirByDay, izin: izinByDay, sakit: sakitByDay, cuti: cutiByDay, mangkir: mangkirByDay, persen: persenByDay };
+      } catch (e) {
+        console.error("Gagal memuat data Attendance:", e);
+      }
+    },
+    // Dipanggil saat date picker Izin/Sakit/Cuti/Mangkir diganti.
     async onAttendanceDateChange() {
-      // TODO: fetchAttendanceLeave(this.attendanceDate) begitu RPC siap.
+      await this.fetchAttendanceLeave();
+    },
+    // Ambil data Izin/Sakit/Cuti/Mangkir (per-orang) dari attendance_leave
+    // untuk tanggal this.attendanceDate, lalu sebar ke 4 list terpisah
+    // sesuai bentuk yang dipakai template (lihat catatan di data()).
+    // Cuti beda cara filter: bisa rentang beberapa hari (tanggal_selesai),
+    // jadi ditampilkan kalau attendanceDate ada DI ANTARA tanggal mulai
+    // dan tanggal_selesai -- bukan cuma cocok persis di 1 hari.
+    async fetchAttendanceLeave() {
+      const d = this.attendanceDate;
+      const [nonCuti, cuti] = await Promise.all([
+        supabaseClient.from("attendance_leave").select("*").eq("tanggal", d).neq("jenis", "cuti").order("nama", { ascending: true }),
+        supabaseClient.from("attendance_leave").select("*").eq("jenis", "cuti").lte("tanggal", d).or(`tanggal_selesai.is.null,tanggal_selesai.gte.${d}`).order("nama", { ascending: true }),
+      ]);
+      if (nonCuti.error || cuti.error) {
+        this.attendance.izinList = [];
+        this.attendance.sakitList = [];
+        this.attendance.cutiList = [];
+        this.attendance.mangkirList = [];
+        return;
+      }
+      const map = (r) => ({ nik: r.nik, nama: r.nama, tanggal: r.tanggal, tanggalSelesai: r.tanggal_selesai, jumlahHari: r.jumlah_hari, alasan: r.keterangan, jenisCuti: r.jenis_cuti, keterangan: r.keterangan });
+      const data = nonCuti.data || [];
+      this.attendance.izinList = data.filter((r) => r.jenis === "izin").map(map);
+      this.attendance.sakitList = data.filter((r) => r.jenis === "sakit").map(map);
+      this.attendance.mangkirList = data.filter((r) => r.jenis === "mangkir").map(map);
+      this.attendance.cutiList = (cuti.data || []).map(map);
     },
     // Dipanggil saat dropdown Bulan/Tahun di tab Bulanan berubah
     async onBulananPeriodChange() {
@@ -5226,10 +5323,10 @@ function dashboardExhaust() {
       qcDualAxisDaily("qcStraightpassDaily", "#EF4444", "#22C55E", "Qty Repair", "% Straightpass", true, this.qcStraightpass.dailyRepairQty, this.qcStraightpass.dailyPercent, { barLabelPos: "base" });
     },
     // Chart Trend Kehadiran Harian (tanggal 1-31) di tab Kontrol Attendance.
-    // Dual-axis: bar "Hadir" (qty, kiri) + garis "% Kehadiran" (kanan).
-    // Masih pakai data placeholder nol (this.attendance.dailyTrend) --
-    // begitu fetchAttendance() ada, tinggal isi array hadir/persen-nya,
-    // struktur chart & sumbu di bawah ini TIDAK perlu diubah.
+    // Batang BERTUMPUK (stacked): Hadir + Izin + Sakit + Cuti + Mangkir,
+    // tiap kategori warna beda -- ditumpuk per tanggal supaya kelihatan
+    // dari total orang di hari itu, berapa yang hadir vs nggak masuk dan
+    // alasannya apa. Plus garis "% Kehadiran" di sumbu kanan.
     renderAttendanceCharts() {
       if (typeof Chart === "undefined") return;
       const a = this.attendance;
@@ -5245,11 +5342,16 @@ function dashboardExhaust() {
         destroy("dxaTrendKehadiran");
         const canvas = document.getElementById("dxaTrendKehadiran");
         if (!canvas) return;
+        const maxTotal = Math.max(10, a.total || 0);
         this.attendanceCharts.dxaTrendKehadiran = new Chart(canvas, {
           data: {
             labels: AT_DAYS,
             datasets: [
-              { order: 2, type: "bar", label: "Hadir", data: a.dailyTrend.hadir, backgroundColor: barBg("#2563EB", AT_DAYS.length), yAxisID: "y", borderRadius: 3, barPercentage: 0.6, categoryPercentage: 0.75 },
+              { order: 2, type: "bar", label: "Hadir", data: a.dailyTrend.hadir, backgroundColor: barBg("#2563EB", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75 },
+              { order: 2, type: "bar", label: "Izin", data: a.dailyTrend.izin, backgroundColor: barBg("#F59E0B", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75 },
+              { order: 2, type: "bar", label: "Sakit", data: a.dailyTrend.sakit, backgroundColor: barBg("#F97316", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75 },
+              { order: 2, type: "bar", label: "Cuti", data: a.dailyTrend.cuti, backgroundColor: barBg("#8B5CF6", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75 },
+              { order: 2, type: "bar", label: "Mangkir", data: a.dailyTrend.mangkir, backgroundColor: barBg("#EF4444", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 3, barPercentage: 0.6, categoryPercentage: 0.75 },
               { order: 1, type: "line", label: "% Kehadiran", data: a.dailyTrend.persen, borderColor: "#10B981", backgroundColor: "#10B981", borderWidth: 1.5, fill: false, yAxisID: "y1", pointRadius: 2, tension: 0.3, spanGaps: true },
             ],
           },
@@ -5258,8 +5360,8 @@ function dashboardExhaust() {
             layout: { padding: { top: 8 } },
             plugins: { legend: legend(true), tooltip: tooltip() },
             scales: {
-              x: { ticks: { color: "#000000", font: { size: 8 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
-              y: { position: "left", min: 0, suggestedMax: Math.max(10, a.total || 0), ticks: { color: "#000000", font: { size: 9 }, precision: 0 }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") } },
+              x: { stacked: true, ticks: { color: "#000000", font: { size: 8 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
+              y: { stacked: true, position: "left", min: 0, suggestedMax: maxTotal, ticks: { color: "#000000", font: { size: 9 }, precision: 0 }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") } },
               y1: { position: "right", min: 0, max: 100, ticks: { color: "#000000", font: { size: 9 }, stepSize: 20, callback: (v) => v + "%" }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
             },
           },
