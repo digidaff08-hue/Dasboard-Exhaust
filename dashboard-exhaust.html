@@ -788,6 +788,19 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
 .dxy-attn-leave-scroll { max-height: 260px !important; }
 .dxy-attn-leave-scroll table.dxy-table { table-layout: auto; }
 .dxy-attn-leave-row th { text-align: center !important; }
+/* Font tabel Izin/Sakit/Cuti/Mangkir dikecilin + warna beda dari
+   default (biar nggak polos hitam/putih kayak tabel lain). */
+.dxy-attn-leave-panel table.dxy-table thead th { font-size: 7px; color: #0369A1; }
+.dxy-attn-leave-panel table.dxy-table tbody td { font-size: 9px; color: #475569; }
+[data-theme="dark"] .dxy-attn-leave-panel table.dxy-table thead th { color: #7DD3FC; }
+[data-theme="dark"] .dxy-attn-leave-panel table.dxy-table tbody td { color: #CBD5E1; }
+/* Hapus garis pembatas antar baris & background putih/selang-seling --
+   baris data biar transparan, nyatu sama background panel (bukan kotak
+   putih terpisah tiap baris). */
+.dxy-attn-leave-panel table.dxy-table tbody td { border-bottom: none; }
+.dxy-attn-leave-panel table.dxy-table tbody tr,
+.dxy-attn-leave-panel table.dxy-table tbody tr:nth-child(even) { background: transparent; }
+.dxy-attn-leave-panel table.dxy-table tbody tr:hover { background: rgba(14,165,233,.08); }
 @media (max-width: 640px) {
   .dxy-attn-card { max-width: 100%; }
   .dxy-attn-stat-row { grid-template-columns: repeat(3, 1fr); }
@@ -802,6 +815,17 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+<script>
+  // Daftarkan plugin datalabels tapi MATIKAN secara default supaya chart
+  // lain (yang jumlahnya banyak di dashboard ini) nggak tiba-tiba
+  // kelebihan label. Cuma chart tertentu (mis. Trend Kehadiran Harian)
+  // yang nyalain lewat opsi plugins.datalabels: { display: true, ... }.
+  if (typeof Chart !== "undefined" && typeof ChartDataLabels !== "undefined") {
+    Chart.register(ChartDataLabels);
+    Chart.defaults.set("plugins.datalabels", { display: false });
+  }
+</script>
 <script src="assets/supabaseClient.js"></script>
 </head>
 <body>
@@ -1648,19 +1672,17 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
               <div class="dxy-table-scroll dxy-attn-leave-scroll">
                 <table class="dxy-table">
                   <thead>
-                    <tr><th>NIK</th><th>Nama</th><th>Mulai</th><th>Sampai</th><th>Total Hari</th><th>Jenis Cuti</th><th>Keterangan</th></tr>
+                    <tr><th>NIK</th><th>Nama</th><th>Tanggal Cuti</th><th>Jenis Cuti</th><th>Keterangan</th></tr>
                   </thead>
                   <tbody>
                     <template x-if="!attendance.cutiList.length">
-                      <tr><td colspan="7" class="dxy-attn-leave-empty">Tidak ada data Cuti.</td></tr>
+                      <tr><td colspan="5" class="dxy-attn-leave-empty">Tidak ada data Cuti.</td></tr>
                     </template>
                     <template x-for="(row, i) in attendance.cutiList" :key="'cuti-'+i">
                       <tr>
                         <td x-text="row.nik"></td>
                         <td x-text="row.nama"></td>
-                        <td style="text-align:center" x-text="row.tanggal"></td>
-                        <td style="text-align:center" x-text="row.tanggalSelesai || row.tanggal"></td>
-                        <td style="text-align:center" x-text="row.jumlahHari"></td>
+                        <td style="text-align:center" x-text="fmtTglID(attendanceDate)"></td>
                         <td style="text-align:center" x-text="row.jenisCuti"></td>
                         <td x-text="row.keterangan"></td>
                       </tr>
@@ -1798,6 +1820,24 @@ function daysInMonth(year, month1to12) {
 function fmtNum(n) {
   if (n === null || n === undefined || Number.isNaN(Number(n))) return "-";
   return Number(n).toLocaleString("en-US", { maximumFractionDigits: 1 });
+}
+// Format tanggal 'YYYY-MM-DD' -> 'DD/MM/YYYY' (dipakai kolom "Tanggal
+// Cuti" di tabel Cuti tab Kontrol Attendance).
+function fmtTglID(s) {
+  if (!s) return "-";
+  const [y, m, d] = s.split("-");
+  return `${d}/${m}/${y}`;
+}
+// Gabungkan tanggal mulai & selesai cuti jadi 1 label -- tidak dipakai
+// lagi di tabel Cuti (sekarang tabel Cuti nampilin tanggal yang lagi
+// dibuka di date picker, bukan rentangnya), tapi disimpan di sini kalau
+// suatu saat perlu lagi (mis. laporan cetak/export).
+function fmtCutiTanggal(row) {
+  const mulai = row.tanggal;
+  const selesai = row.tanggalSelesai || row.tanggal;
+  if (!mulai) return "-";
+  if (selesai === mulai) return fmtTglID(mulai);
+  return `${fmtTglID(mulai)} - ${fmtTglID(selesai)}`;
 }
 // Angka utuh (TIDAK dibagi 1000) tapi dikasih titik pemisah ribuan --
 // dipakai buat kolom Value NG Inline/NG Trial di tabel Rekap & NG Terbesar.
@@ -5337,6 +5377,9 @@ function dashboardExhaust() {
       const tooltip = () => ({ backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"), borderColor: cssVar("--border"), borderWidth: 1, padding: 8, cornerRadius: 8 });
       const barBg = (hex, len) => Array.from({ length: len }, () => hex);
       const AT_DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1));
+      // Label angka di TENGAH tiap segmen batang -- cuma muncul kalau
+      // nilainya > 0 (biar nggak numpuk angka "0" di semua batang kosong).
+      const dl = { display: (ctx) => (ctx.dataset.data[ctx.dataIndex] || 0) > 0, color: "#fff", anchor: "center", align: "center", font: { size: 8, weight: "bold" }, formatter: (v) => v };
 
       safe(() => {
         destroy("dxaTrendKehadiran");
@@ -5347,12 +5390,12 @@ function dashboardExhaust() {
           data: {
             labels: AT_DAYS,
             datasets: [
-              { order: 2, type: "bar", label: "Hadir", data: a.dailyTrend.hadir, backgroundColor: barBg("#2563EB", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75 },
-              { order: 2, type: "bar", label: "Izin", data: a.dailyTrend.izin, backgroundColor: barBg("#F59E0B", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75 },
-              { order: 2, type: "bar", label: "Sakit", data: a.dailyTrend.sakit, backgroundColor: barBg("#F97316", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75 },
-              { order: 2, type: "bar", label: "Cuti", data: a.dailyTrend.cuti, backgroundColor: barBg("#8B5CF6", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75 },
-              { order: 2, type: "bar", label: "Mangkir", data: a.dailyTrend.mangkir, backgroundColor: barBg("#EF4444", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 3, barPercentage: 0.6, categoryPercentage: 0.75 },
-              { order: 1, type: "line", label: "% Kehadiran", data: a.dailyTrend.persen, borderColor: "#10B981", backgroundColor: "#10B981", borderWidth: 1.5, fill: false, yAxisID: "y1", pointRadius: 2, tension: 0.3, spanGaps: true },
+              { order: 2, type: "bar", label: "Hadir", data: a.dailyTrend.hadir, backgroundColor: barBg("#2563EB", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75, datalabels: dl },
+              { order: 2, type: "bar", label: "Izin", data: a.dailyTrend.izin, backgroundColor: barBg("#F59E0B", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75, datalabels: dl },
+              { order: 2, type: "bar", label: "Sakit", data: a.dailyTrend.sakit, backgroundColor: barBg("#F97316", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75, datalabels: dl },
+              { order: 2, type: "bar", label: "Cuti", data: a.dailyTrend.cuti, backgroundColor: barBg("#8B5CF6", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75, datalabels: dl },
+              { order: 2, type: "bar", label: "Mangkir", data: a.dailyTrend.mangkir, backgroundColor: barBg("#EF4444", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 3, barPercentage: 0.6, categoryPercentage: 0.75, datalabels: dl },
+              { order: 1, type: "line", label: "% Kehadiran", data: a.dailyTrend.persen, borderColor: "#10B981", backgroundColor: "#10B981", borderWidth: 1.5, fill: false, yAxisID: "y1", pointRadius: 2, tension: 0.3, spanGaps: true, datalabels: { display: false } },
             ],
           },
           options: {
