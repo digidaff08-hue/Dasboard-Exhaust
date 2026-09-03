@@ -5582,7 +5582,13 @@ function dashboardExhaust() {
         destroy("dxaTrendKehadiran");
         const canvas = document.getElementById("dxaTrendKehadiran");
         if (!canvas) return;
-        const maxTotal = Math.max(10, ...(a.dailyTrend.total || []).map((v) => Number(v) || 0));
+        // Sumbu kiri (jumlah orang) sengaja dibuat jauh LEBIH TINGGI dari
+        // nilai maksimal datanya (bukan pas-pasan), supaya garis Hadir
+        // "turun" ke area bawah-tengah chart. Kalau dibiarkan pas-pasan,
+        // garis Hadir (mis. 46 dari skala 0-50) dan garis % Kehadiran
+        // (mis. 100% dari skala 0-110%) jatuh di ketinggian yang hampir
+        // sama persis -> dua garis & angkanya numpuk/tabrakan.
+        const maxTotal = Math.max(20, Math.ceil(Math.max(10, ...(a.dailyTrend.total || []).map((v) => Number(v) || 0)) * 2.2));
         this.attendanceCharts.dxaTrendKehadiran = new Chart(canvas, {
           data: {
             labels: AT_DAYS,
