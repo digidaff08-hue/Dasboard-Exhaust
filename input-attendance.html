@@ -219,8 +219,6 @@
           <div class="form-grid">
             <div class="field"><label>Tanggal</label><input type="date" x-model="form.tanggal"></div>
             <div class="field"><label>Total Orang</label><input type="number" x-model="form.total_orang"></div>
-            <div class="field"><label>Hadir Shift 1</label><input type="number" x-model="form.shift1_hadir"></div>
-            <div class="field"><label>Hadir Shift 2</label><input type="number" x-model="form.shift2_hadir"></div>
             <div class="field"><label>Overtime (jam)</label><input type="number" step="0.5" x-model="form.overtime_jam"></div>
           </div>
           <div class="form-actions">
@@ -232,19 +230,61 @@
           <p class="panel-title">Riwayat Absensi <span class="count" x-text="rows.length + ' baris'"></span></p>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Tanggal</th><th>Total Orang</th><th>Hadir Shift 1</th><th>Hadir Shift 2</th><th>OT (jam)</th><th>Aksi</th></tr></thead>
+              <thead><tr><th>Tanggal</th><th>Total Orang</th><th>OT (jam)</th><th>Aksi</th></tr></thead>
               <tbody>
                 <template x-for="r in rows" :key="r.tanggal">
                   <tr>
                     <td class="mono" x-text="r.tanggal"></td>
                     <td class="mono" x-text="fmtNum(r.total_orang)"></td>
-                    <td class="mono" x-text="fmtNum(r.shift1_hadir)"></td>
-                    <td class="mono" x-text="fmtNum(r.shift2_hadir)"></td>
                     <td class="mono" x-text="fmtNum(r.overtime_jam)"></td>
                     <td><button class="btn-secondary btn-sm" @click="edit(r)">Edit</button></td>
                   </tr>
                 </template>
-                <tr x-show="rows.length === 0"><td colspan="6" class="empty-state">Belum ada data.</td></tr>
+                <tr x-show="rows.length === 0"><td colspan="4" class="empty-state">Belum ada data.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ===== Form Kehadiran Shift Mingguan =====
+             Terpisah dari Absensi Harian -- Hadir Shift 1/2 diisi per
+             RENTANG TANGGAL bebas (biasanya 1 minggu), bukan per hari,
+             karena angkanya memang baru berubah tiap minggu. -->
+        <div class="panel">
+          <p class="panel-title">Form Kehadiran Shift Mingguan</p>
+          <div class="form-grid">
+            <div class="field"><label>Tanggal Mulai</label><input type="date" x-model="shiftForm.tanggal_mulai"></div>
+            <div class="field"><label>Tanggal Selesai</label><input type="date" x-model="shiftForm.tanggal_selesai" :min="shiftForm.tanggal_mulai"></div>
+            <div class="field"><label>Hadir Shift 1</label><input type="number" x-model="shiftForm.shift1_hadir"></div>
+            <div class="field"><label>Hadir Shift 2</label><input type="number" x-model="shiftForm.shift2_hadir"></div>
+            <div class="field" style="grid-column: span 2;"><label>Keterangan</label><input type="text" x-model="shiftForm.keterangan" placeholder="Opsional"></div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn-primary" @click="saveShift()" x-text="shiftEditId ? 'Update Shift' : 'Simpan Shift'"></button>
+            <button type="button" class="btn-secondary" x-show="shiftEditId" @click="resetShiftForm()">Batal Edit</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <p class="panel-title">Riwayat Kehadiran Shift Mingguan <span class="count" x-text="shiftRows.length + ' baris'"></span></p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Tanggal Mulai</th><th>Tanggal Selesai</th><th>Hadir Shift 1</th><th>Hadir Shift 2</th><th>Keterangan</th><th>Aksi</th></tr></thead>
+              <tbody>
+                <template x-for="r in shiftRows" :key="r.id">
+                  <tr>
+                    <td class="mono" x-text="r.tanggal_mulai"></td>
+                    <td class="mono" x-text="r.tanggal_selesai"></td>
+                    <td class="mono" x-text="fmtNum(r.shift1_hadir)"></td>
+                    <td class="mono" x-text="fmtNum(r.shift2_hadir)"></td>
+                    <td x-text="r.keterangan || '-'"></td>
+                    <td>
+                      <button class="btn-secondary btn-sm" @click="editShift(r)">Edit</button>
+                      <button class="btn-secondary btn-sm" @click="deleteShift(r)">Hapus</button>
+                    </td>
+                  </tr>
+                </template>
+                <tr x-show="shiftRows.length === 0"><td colspan="6" class="empty-state">Belum ada data.</td></tr>
               </tbody>
             </table>
           </div>
@@ -320,8 +360,12 @@ function attendancePage() {
   return {
     ...baseInputPage(),
     fmtNum,
-    form: { tanggal: localDateStr(new Date()), total_orang: 46, shift1_hadir: "", shift2_hadir: "", overtime_jam: "" },
+    form: { tanggal: localDateStr(new Date()), total_orang: 46, overtime_jam: "" },
     rows: [],
+    // ---- Form Kehadiran Shift Mingguan ----
+    shiftForm: { tanggal_mulai: localDateStr(new Date()), tanggal_selesai: localDateStr(new Date()), shift1_hadir: "", shift2_hadir: "", keterangan: "" },
+    shiftRows: [],
+    shiftEditId: null,
     // ---- Form Izin/Sakit/Cuti/Mangkir (per-orang) ----
     leaveForm: { tanggal: localDateStr(new Date()), tanggal_selesai: localDateStr(new Date()), jenis: "izin", nik: "", nama: "", jenis_cuti: "", keterangan: "" },
     leaveRows: [],
@@ -338,6 +382,7 @@ function attendancePage() {
     async init() {
       if (!await this.initBase()) return;
       await this.fetchRows();
+      await this.fetchShiftRows();
       await this.fetchLeaveRows();
       await this.fetchHariLibur();
     },
@@ -346,7 +391,7 @@ function attendancePage() {
       if (!error && data) this.rows = data;
     },
     edit(r) {
-      this.form = { tanggal: r.tanggal, total_orang: r.total_orang, shift1_hadir: r.shift1_hadir, shift2_hadir: r.shift2_hadir, overtime_jam: r.overtime_jam };
+      this.form = { tanggal: r.tanggal, total_orang: r.total_orang, overtime_jam: r.overtime_jam };
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
     async save() {
@@ -355,7 +400,6 @@ function attendancePage() {
       const payload = {
         tanggal: f.tanggal,
         total_orang: Number(f.total_orang) || 0,
-        shift1_hadir: Number(f.shift1_hadir) || 0, shift2_hadir: Number(f.shift2_hadir) || 0,
         overtime_jam: Number(f.overtime_jam) || 0,
         updated_by: this.session.user.id,
       };
@@ -363,6 +407,50 @@ function attendancePage() {
       if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
       this.flash("Absensi tersimpan.");
       await this.fetchRows();
+    },
+    // ---- Kehadiran Shift Mingguan ----
+    async fetchShiftRows() {
+      const { data, error } = await supabaseClient.from("attendance_shift_weekly").select("*").order("tanggal_mulai", { ascending: false }).limit(100);
+      if (!error && data) this.shiftRows = data;
+    },
+    resetShiftForm() {
+      this.shiftForm = { tanggal_mulai: localDateStr(new Date()), tanggal_selesai: localDateStr(new Date()), shift1_hadir: "", shift2_hadir: "", keterangan: "" };
+      this.shiftEditId = null;
+    },
+    editShift(r) {
+      this.shiftForm = { tanggal_mulai: r.tanggal_mulai, tanggal_selesai: r.tanggal_selesai, shift1_hadir: r.shift1_hadir, shift2_hadir: r.shift2_hadir, keterangan: r.keterangan || "" };
+      this.shiftEditId = r.id;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    async saveShift() {
+      const f = this.shiftForm;
+      if (!f.tanggal_mulai || !f.tanggal_selesai) { this.flash("Tanggal Mulai dan Tanggal Selesai wajib diisi.", true); return; }
+      if (f.tanggal_selesai < f.tanggal_mulai) { this.flash("Tanggal Selesai tidak boleh sebelum Tanggal Mulai.", true); return; }
+      const payload = {
+        tanggal_mulai: f.tanggal_mulai,
+        tanggal_selesai: f.tanggal_selesai,
+        shift1_hadir: Number(f.shift1_hadir) || 0,
+        shift2_hadir: Number(f.shift2_hadir) || 0,
+        keterangan: f.keterangan || null,
+        updated_by: this.session.user.id,
+      };
+      let error;
+      if (this.shiftEditId) {
+        ({ error } = await supabaseClient.from("attendance_shift_weekly").update(payload).eq("id", this.shiftEditId));
+      } else {
+        ({ error } = await supabaseClient.from("attendance_shift_weekly").insert({ ...payload, created_by: this.session.user.id }));
+      }
+      if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
+      this.flash("Kehadiran Shift tersimpan.");
+      this.resetShiftForm();
+      await this.fetchShiftRows();
+    },
+    async deleteShift(r) {
+      if (!confirm(`Hapus data Shift ${r.tanggal_mulai} - ${r.tanggal_selesai}?`)) return;
+      const { error } = await supabaseClient.from("attendance_shift_weekly").delete().eq("id", r.id);
+      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
+      this.flash("Data Shift dihapus.");
+      await this.fetchShiftRows();
     },
     // ---- Izin/Sakit/Cuti/Mangkir ----
     async fetchLeaveRows() {
