@@ -3618,9 +3618,10 @@ function dashboardExhaust() {
     // keduanya independen: ganti Bulan/Tahun cuma gerakkan chart, ganti
     // Tanggal cuma gerakkan kartu.
     // Sumber data:
-    // - attendance_log (1 baris per HARI, isinya MURNI manual dari Form
-    //   Absensi Harian: total_orang, shift1_hadir, shift2_hadir,
-    //   overtime_jam). TIDAK ada kolom hadir/cuti/absen tersimpan di sini.
+    // - attendance_log (1 baris per HARI, isinya total_orang &
+    //   overtime_jam dari Form Absensi Harian). Total Orang di sini
+    //   di-CARRY-FORWARD (lihat totalCarryOn di bawah) -- sama seperti di
+    //   kartu ringkas, supaya konsisten.
     // - attendance_leave (Form Ketidakhadiran, per-orang, jenis izin/
     //   sakit/cuti/mangkir) -- dipakai untuk MENGHITUNG OTOMATIS di sini:
     //     Cuti  = jumlah orang jenis 'cuti' yang aktif di tanggal itu
@@ -3635,8 +3636,12 @@ function dashboardExhaust() {
         const firstDay = localDateStr(new Date(year, month - 1, 1));
         const lastDay = localDateStr(new Date(year, month - 1, nHari));
 
-        const [logRes, nonCutiRes, cutiRes] = await Promise.all([
+        const [logRes, seedLogRes, nonCutiRes, cutiRes] = await Promise.all([
           supabaseClient.from("attendance_log").select("*").gte("tanggal", firstDay).lte("tanggal", lastDay),
+          // Total Orang jarang berubah -- ambil 1 baris log PALING BARU
+          // sebelum awal bulan ini, buat "seed" nilai carry-forward di
+          // tanggal 1 kalau bulan ini sendiri belum ada input di awal.
+          supabaseClient.from("attendance_log").select("tanggal, total_orang").lt("tanggal", firstDay).order("tanggal", { ascending: false }).limit(1).maybeSingle(),
           supabaseClient.from("attendance_leave").select("*").neq("jenis", "cuti").gte("tanggal", firstDay).lte("tanggal", lastDay),
           supabaseClient.from("attendance_leave").select("*").eq("jenis", "cuti").lte("tanggal", lastDay).or(`tanggal_selesai.is.null,tanggal_selesai.gte.${firstDay}`),
         ]);
@@ -3659,19 +3664,33 @@ function dashboardExhaust() {
           return validDay(d) ? fn(dayStr(d)) : null;
         });
 
-        const findLog = (ds) => logRows.find((r) => r.tanggal === ds);
-        const totalByDay = byDay((ds) => Number(findLog(ds)?.total_orang) || 0);
+        // Total Orang: CARRY-FORWARD, sama seperti kartu ringkas (lihat
+        // fetchAttendanceDayCard()) -- nilainya "bertahan" dari input
+        // terakhir sampai ada input baru, bukan cuma muncul persis di
+        // tanggal yang diinput. logRows diurutkan dulu supaya forward-fill
+        // per tanggal jalan berurutan.
+        const sortedLogRows = [...logRows].sort((a, b) => (a.tanggal < b.tanggal ? -1 : 1));
+        const totalCarryOn = (() => {
+          let carry = Number(seedLogRes.data?.total_orang) || 0;
+          let li = 0;
+          const map = {};
+          for (let d = 1; d <= nHari; d++) {
+            const ds = dayStr(d);
+            while (li < sortedLogRows.length && sortedLogRows[li].tanggal <= ds) {
+              carry = Number(sortedLogRows[li].total_orang) || carry;
+              li++;
+            }
+            map[ds] = carry;
+          }
+          return (ds) => map[ds] || 0;
+        })();
+        const totalByDay = byDay((ds) => totalCarryOn(ds));
         const izinByDay = byDay((ds) => nonCutiRows.filter((r) => r.jenis === "izin" && r.tanggal === ds).length);
         const sakitByDay = byDay((ds) => nonCutiRows.filter((r) => r.jenis === "sakit" && r.tanggal === ds).length);
         const mangkirByDay = byDay((ds) => nonCutiRows.filter((r) => r.jenis === "mangkir" && r.tanggal === ds).length);
         const cutiByDay = byDay((ds) => cutiCountOn(ds));
-        // Hadir per hari = Total Orang - Cuti - Absen (dihitung otomatis
-        // di sini, TIDAK diambil dari attendance_log).
-        const hadirByDay = byDay((ds) => {
-          const r = findLog(ds);
-          if (!r) return 0;
-          return Math.max(0, (Number(r.total_orang) || 0) - cutiCountOn(ds) - absenCountOn(ds));
-        });
+        // Hadir per hari = Total Orang (carry-forward) - Cuti - Absen.
+        const hadirByDay = byDay((ds) => Math.max(0, totalCarryOn(ds) - cutiCountOn(ds) - absenCountOn(ds)));
         const persenByDay = Array.from({ length: 31 }, (_, i) => {
           const t = totalByDay[i], h = hadirByDay[i];
           return t ? Math.round((h / t) * 100) : null;
@@ -3694,23 +3713,33 @@ function dashboardExhaust() {
     },
     // Ambil data 1 HARI (this.attendanceDate) buat kartu ringkas
     // "ATTENDANCE / MORAL":
-    // - Total Orang, Hadir Shift 1/2, Overtime: langsung dari baris
-    //   attendance_log tanggal itu (manual, dari Form Absensi Harian).
-    //   Kalau belum ada baris log utk tanggal itu, semuanya tampil 0.
+    // - Total Orang: CARRY-FORWARD -- ambil dari baris attendance_log
+    //   PALING BARU yang tanggal-nya <= tanggal dipilih (bukan cuma yang
+    //   persis sama). Total Orang jarang berubah, jadi begini nilainya
+    //   selalu ada di tiap tanggal, bukan cuma di tanggal yang persis
+    //   diinput lewat Form Absensi Harian.
+    // - Overtime: TETAP per-hari persis (TIDAK carry-forward), dari baris
+    //   attendance_log yang tanggal-nya PERSIS SAMA. OT itu angka harian,
+    //   kalau hari itu belum diinput ya 0.
+    // - Hadir Shift 1/2: dari attendance_shift_weekly -- cari baris yang
+    //   RENTANG tanggal_mulai..tanggal_selesai-nya MENCAKUP tanggal yang
+    //   dipilih (kalau ada beberapa yang overlap, pakai yang tanggal_mulai
+    //   paling baru). Kalau tidak ada rentang yang cocok, tampil 0.
     // - Cuti = jumlah orang jenis 'cuti' yang aktif di tanggal itu.
     // - Absen = jumlah Izin + Sakit + Mangkir di tanggal itu.
-    // - Hadir = Total Orang - Cuti - Absen.
+    // - Hadir = Total Orang (carry-forward) - Cuti - Absen.
     // - Rate = Hadir / Total Orang * 100.
     async fetchAttendanceDayCard() {
       try {
         const d = this.attendanceDate;
-        const [logRes, nonCutiRes, cutiRes] = await Promise.all([
-          supabaseClient.from("attendance_log").select("*").eq("tanggal", d).maybeSingle(),
+        const [latestLogRes, dayLogRes, nonCutiRes, cutiRes, shiftRes] = await Promise.all([
+          supabaseClient.from("attendance_log").select("total_orang").lte("tanggal", d).order("tanggal", { ascending: false }).limit(1).maybeSingle(),
+          supabaseClient.from("attendance_log").select("overtime_jam").eq("tanggal", d).maybeSingle(),
           supabaseClient.from("attendance_leave").select("*").eq("tanggal", d).neq("jenis", "cuti"),
           supabaseClient.from("attendance_leave").select("*").eq("jenis", "cuti").lte("tanggal", d).or(`tanggal_selesai.is.null,tanggal_selesai.gte.${d}`),
+          supabaseClient.from("attendance_shift_weekly").select("shift1_hadir, shift2_hadir").lte("tanggal_mulai", d).gte("tanggal_selesai", d).order("tanggal_mulai", { ascending: false }).limit(1).maybeSingle(),
         ]);
-        const log = logRes.data || null;
-        const totalOrang = Number(log?.total_orang) || 0;
+        const totalOrang = Number(latestLogRes.data?.total_orang) || 0;
         const cutiCount = (cutiRes.data || []).length;
         const absenCount = (nonCutiRes.data || []).length;
         const hadir = Math.max(0, totalOrang - cutiCount - absenCount);
@@ -3718,10 +3747,10 @@ function dashboardExhaust() {
         this.attendance.hadir = hadir;
         this.attendance.cuti = cutiCount;
         this.attendance.absen = absenCount;
-        this.attendance.ot = Math.round((Number(log?.overtime_jam) || 0) * 10) / 10;
+        this.attendance.ot = Math.round((Number(dayLogRes.data?.overtime_jam) || 0) * 10) / 10;
         this.attendance.rate = totalOrang > 0 ? Math.round((hadir / totalOrang) * 100) : 0;
-        this.attendance.shift1 = Number(log?.shift1_hadir) || 0;
-        this.attendance.shift2 = Number(log?.shift2_hadir) || 0;
+        this.attendance.shift1 = Number(shiftRes.data?.shift1_hadir) || 0;
+        this.attendance.shift2 = Number(shiftRes.data?.shift2_hadir) || 0;
       } catch (e) {
         console.error("Gagal memuat kartu Attendance per tanggal:", e);
       }
