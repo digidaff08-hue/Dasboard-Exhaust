@@ -3579,12 +3579,18 @@ function dashboardExhaust() {
     },
     // Ambil data 1 bulan (attendanceMonth/attendanceYear) untuk:
     // 1) Kartu ringkas Attendance (Total/Hadir/Cuti/Absen/O.T/Rate/Shift)
-    //    -- dari attendance_log (agregat per shift per hari yang diisi
-    //    lewat Form Absensi di input-attendance.html).
+    //    -- Total/Hadir/Cuti/Absen/OT dari attendance_log (1 baris per
+    //    HARI, sudah otomatis kehitung di Form Absensi Harian). Shift 1/2
+    //    dari attendance_shift_weekly (input manual per RENTANG TANGGAL
+    //    bebas, bukan harian) -- dijumlah semua entri minggu yang overlap
+    //    bulan yang dipilih. Kalau ada 1 entri minggu yang overlap 2
+    //    bulan sekaligus, nilainya kehitung utuh di kedua bulan itu
+    //    (tidak diprorata per hari) -- simplifikasi yang disengaja.
     // 2) Chart "Trend Kehadiran Harian" (batang bertumpuk per tanggal):
-    //    Hadir (dari attendance_log) + Izin/Sakit/Cuti/Mangkir (jumlah
-    //    ORANG per hari, dari attendance_leave -- Form Ketidakhadiran).
-    //    Cuti dihitung "nyala" tiap hari di antara tanggal mulai-selesai.
+    //    Hadir & Total Orang langsung dari attendance_log (1 baris/hari).
+    //    Izin/Sakit/Cuti/Mangkir (jumlah ORANG per hari) dari
+    //    attendance_leave -- Form Ketidakhadiran. Cuti dihitung "nyala"
+    //    tiap hari di antara tanggal mulai-selesai.
     async fetchAttendance() {
       try {
         const year = this.attendanceYear, month = this.attendanceMonth;
@@ -3592,14 +3598,16 @@ function dashboardExhaust() {
         const firstDay = localDateStr(new Date(year, month - 1, 1));
         const lastDay = localDateStr(new Date(year, month - 1, nHari));
 
-        const [logRes, nonCutiRes, cutiRes] = await Promise.all([
+        const [logRes, nonCutiRes, cutiRes, shiftRes] = await Promise.all([
           supabaseClient.from("attendance_log").select("*").gte("tanggal", firstDay).lte("tanggal", lastDay),
           supabaseClient.from("attendance_leave").select("*").neq("jenis", "cuti").gte("tanggal", firstDay).lte("tanggal", lastDay),
           supabaseClient.from("attendance_leave").select("*").eq("jenis", "cuti").lte("tanggal", lastDay).or(`tanggal_selesai.is.null,tanggal_selesai.gte.${firstDay}`),
+          supabaseClient.from("attendance_shift_weekly").select("*").lte("tanggal_mulai", lastDay).gte("tanggal_selesai", firstDay),
         ]);
         const logRows = logRes.data || [];
         const nonCutiRows = nonCutiRes.data || [];
         const cutiRows = cutiRes.data || [];
+        const shiftRows = shiftRes.data || [];
         const sum = (rows, key) => rows.reduce((acc, r) => acc + (Number(r[key]) || 0), 0);
 
         // ---- Kartu ringkas (total 1 bulan) ----
@@ -3611,8 +3619,8 @@ function dashboardExhaust() {
         this.attendance.absen = sum(logRows, "absen");
         this.attendance.ot = Math.round(sum(logRows, "overtime_jam") * 10) / 10;
         this.attendance.rate = totalOrangSum > 0 ? Math.round((hadirSum / totalOrangSum) * 100) : 0;
-        this.attendance.shift1 = sum(logRows.filter((r) => String(r.shift) === "1"), "hadir");
-        this.attendance.shift2 = sum(logRows.filter((r) => String(r.shift) === "2"), "hadir");
+        this.attendance.shift1 = sum(shiftRows, "shift1_hadir");
+        this.attendance.shift2 = sum(shiftRows, "shift2_hadir");
 
         // ---- Trend harian (tanggal 1-31, null utk tanggal yg belum ada) ----
         const todayLocal = new Date();
@@ -3624,8 +3632,11 @@ function dashboardExhaust() {
           return validDay(d) ? fn(dayStr(d)) : null;
         });
 
-        const hadirByDay = byDay((ds) => sum(logRows.filter((r) => r.tanggal === ds), "hadir"));
-        const totalByDay = byDay((ds) => sum(logRows.filter((r) => r.tanggal === ds), "total_orang"));
+        // attendance_log sekarang 1 baris per hari -- cari langsung
+        // barisnya (tidak perlu filter+sum per shift lagi).
+        const findLog = (ds) => logRows.find((r) => r.tanggal === ds);
+        const hadirByDay = byDay((ds) => Number(findLog(ds)?.hadir) || 0);
+        const totalByDay = byDay((ds) => Number(findLog(ds)?.total_orang) || 0);
         const izinByDay = byDay((ds) => nonCutiRows.filter((r) => r.jenis === "izin" && r.tanggal === ds).length);
         const sakitByDay = byDay((ds) => nonCutiRows.filter((r) => r.jenis === "sakit" && r.tanggal === ds).length);
         const mangkirByDay = byDay((ds) => nonCutiRows.filter((r) => r.jenis === "mangkir" && r.tanggal === ds).length);
