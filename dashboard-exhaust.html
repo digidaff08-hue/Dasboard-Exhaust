@@ -1943,8 +1943,7 @@ function dashboardExhaust() {
         this.$nextTick(() => this.renderKualitasCharts());
       }
       if (tab === "attendance") {
-        await this.fetchAttendance();
-        await this.fetchAttendanceLeave();
+        await Promise.all([this.fetchAttendance(), this.fetchAttendanceDayCard(), this.fetchAttendanceLeave()]);
         this.$nextTick(() => this.renderAttendanceCharts());
       }
     },
@@ -2002,6 +2001,7 @@ function dashboardExhaust() {
       // antara tanggal mulai-selesai). Dipakai di chart batang bertumpuk
       // "Trend Kehadiran Harian" -- tiap array warnanya beda.
       dailyTrend: {
+        total: Array.from({ length: 31 }, () => null),
         hadir: Array.from({ length: 31 }, () => null),
         izin: Array.from({ length: 31 }, () => null),
         sakit: Array.from({ length: 31 }, () => null),
@@ -3610,9 +3610,13 @@ function dashboardExhaust() {
         this.$nextTick(() => this.renderAttendanceCharts());
       }
     },
-    // Ambil data 1 bulan (attendanceMonth/attendanceYear) untuk:
-    // 1) Kartu ringkas Attendance (Total/Hadir/Cuti/Absen/O.T/Rate/Shift)
-    // 2) Chart "Trend Kehadiran Harian" (batang bertumpuk per tanggal)
+    // Ambil data 1 bulan (attendanceMonth/attendanceYear) khusus untuk
+    // chart "Trend Kehadiran Harian" (batang bertumpuk per tanggal, tab
+    // Kontrol Attendance). TIDAK lagi mengisi kartu ringkas "ATTENDANCE /
+    // MORAL" -- kartu itu sekarang murni per-tanggal, diisi oleh
+    // fetchAttendanceDayCard() (ikut date picker "Tanggal"), supaya
+    // keduanya independen: ganti Bulan/Tahun cuma gerakkan chart, ganti
+    // Tanggal cuma gerakkan kartu.
     // Sumber data:
     // - attendance_log (1 baris per HARI, isinya MURNI manual dari Form
     //   Absensi Harian: total_orang, shift1_hadir, shift2_hadir,
@@ -3622,11 +3626,8 @@ function dashboardExhaust() {
     //     Cuti  = jumlah orang jenis 'cuti' yang aktif di tanggal itu
     //     Absen = jumlah Izin + Sakit + Mangkir di tanggal itu
     //     Hadir = Total Orang - Cuti - Absen
-    //   Hasil hitungan ini CUMA dipakai buat kartu ringkas & chart --
-    //   tidak ditulis balik ke attendance_log.
-    // - Hadir Shift 1/2 di kartu ringkas: langsung sum kolom
-    //   shift1_hadir/shift2_hadir dari attendance_log (manual, apa
-    //   adanya, tidak dihitung ulang).
+    //   Hasil hitungan ini CUMA dipakai buat chart -- tidak ditulis balik
+    //   ke attendance_log.
     async fetchAttendance() {
       try {
         const year = this.attendanceYear, month = this.attendanceMonth;
@@ -3642,32 +3643,11 @@ function dashboardExhaust() {
         const logRows = logRes.data || [];
         const nonCutiRows = nonCutiRes.data || [];
         const cutiRows = cutiRes.data || [];
-        const sum = (rows, key) => rows.reduce((acc, r) => acc + (Number(r[key]) || 0), 0);
 
         // Jumlah Cuti & Absen (Izin+Sakit+Mangkir) per tanggal, dari
-        // attendance_leave -- dipakai berulang (per hari & buat total
-        // sebulan), jadi dibikin fungsi kecil.
+        // attendance_leave -- dipakai per hari buat chart.
         const cutiCountOn = (ds) => cutiRows.filter((r) => r.tanggal <= ds && (r.tanggal_selesai || r.tanggal) >= ds).length;
         const absenCountOn = (ds) => nonCutiRows.filter((r) => r.tanggal === ds).length;
-
-        // ---- Kartu ringkas (total 1 bulan) ----
-        const totalOrangSum = sum(logRows, "total_orang");
-        // Hadir/Cuti/Absen sebulan = dijumlah dari hitungan HARIAN (bukan
-        // dari attendance_log), supaya konsisten dengan chart trend.
-        let hadirSum = 0, cutiSum = 0, absenSum = 0;
-        logRows.forEach((r) => {
-          const c = cutiCountOn(r.tanggal), a = absenCountOn(r.tanggal);
-          cutiSum += c; absenSum += a;
-          hadirSum += Math.max(0, (Number(r.total_orang) || 0) - c - a);
-        });
-        this.attendance.total = logRows.length ? Math.round(totalOrangSum / logRows.length) : 0;
-        this.attendance.hadir = hadirSum;
-        this.attendance.cuti = cutiSum;
-        this.attendance.absen = absenSum;
-        this.attendance.ot = Math.round(sum(logRows, "overtime_jam") * 10) / 10;
-        this.attendance.rate = totalOrangSum > 0 ? Math.round((hadirSum / totalOrangSum) * 100) : 0;
-        this.attendance.shift1 = sum(logRows, "shift1_hadir");
-        this.attendance.shift2 = sum(logRows, "shift2_hadir");
 
         // ---- Trend harian (tanggal 1-31, null utk tanggal yg belum ada) ----
         const todayLocal = new Date();
@@ -3697,33 +3677,54 @@ function dashboardExhaust() {
           return t ? Math.round((h / t) * 100) : null;
         });
 
-        this.attendance.dailyTrend = { hadir: hadirByDay, izin: izinByDay, sakit: sakitByDay, cuti: cutiByDay, mangkir: mangkirByDay, persen: persenByDay };
+        this.attendance.dailyTrend = { total: totalByDay, hadir: hadirByDay, izin: izinByDay, sakit: sakitByDay, cuti: cutiByDay, mangkir: mangkirByDay, persen: persenByDay };
       } catch (e) {
         console.error("Gagal memuat data Attendance:", e);
       }
     },
-    // Dipanggil saat date picker "Tanggal" diganti. Sekarang ikut
-    // menggerakkan chart Trend Kehadiran (bukan cuma 4 tabel Izin/Sakit/
-    // Cuti/Mangkir seperti sebelumnya):
-    // 1) Kalau tanggal yang dipilih beda bulan/tahun dari yang lagi
-    //    tampil (attendanceMonth/attendanceYear), pindahkan dropdown
-    //    Bulan/Tahun ikut tanggal itu & fetch ulang data sebulan.
-    // 2) Chart di-render ulang dengan kolom tanggal yang dipilih
-    //    di-highlight (lihat renderAttendanceCharts()) supaya keliatan
-    //    jelas "pertanggal"-nya walau masih di bulan yang sama.
+    // Dipanggil saat date picker "Tanggal" diganti. Ini yang menggerakkan
+    // KARTU RINGKAS "ATTENDANCE / MORAL" (Total/Hadir/Cuti/Absen/O.T/
+    // Rate/Shift1/Shift2) supaya nilainya PER TANGGAL itu -- bukan
+    // rata-rata/jumlah sebulan lagi. Juga tetap memuat ulang 4 tabel
+    // Izin/Sakit/Cuti/Mangkir seperti sebelumnya. Chart "Trend Kehadiran
+    // Harian" TIDAK disentuh di sini -- itu tetap murni ikut dropdown
+    // Bulan/Tahun (lihat onAttendancePeriodChange()).
     async onAttendanceDateChange() {
-      const d = this.attendanceDate;
-      if (d) {
-        const dt = new Date(d + "T00:00:00");
-        const newMonth = dt.getMonth() + 1, newYear = dt.getFullYear();
-        if (newMonth !== this.attendanceMonth || newYear !== this.attendanceYear) {
-          this.attendanceMonth = newMonth;
-          this.attendanceYear = newYear;
-          await this.fetchAttendance();
-        }
+      await Promise.all([this.fetchAttendanceDayCard(), this.fetchAttendanceLeave()]);
+    },
+    // Ambil data 1 HARI (this.attendanceDate) buat kartu ringkas
+    // "ATTENDANCE / MORAL":
+    // - Total Orang, Hadir Shift 1/2, Overtime: langsung dari baris
+    //   attendance_log tanggal itu (manual, dari Form Absensi Harian).
+    //   Kalau belum ada baris log utk tanggal itu, semuanya tampil 0.
+    // - Cuti = jumlah orang jenis 'cuti' yang aktif di tanggal itu.
+    // - Absen = jumlah Izin + Sakit + Mangkir di tanggal itu.
+    // - Hadir = Total Orang - Cuti - Absen.
+    // - Rate = Hadir / Total Orang * 100.
+    async fetchAttendanceDayCard() {
+      try {
+        const d = this.attendanceDate;
+        const [logRes, nonCutiRes, cutiRes] = await Promise.all([
+          supabaseClient.from("attendance_log").select("*").eq("tanggal", d).maybeSingle(),
+          supabaseClient.from("attendance_leave").select("*").eq("tanggal", d).neq("jenis", "cuti"),
+          supabaseClient.from("attendance_leave").select("*").eq("jenis", "cuti").lte("tanggal", d).or(`tanggal_selesai.is.null,tanggal_selesai.gte.${d}`),
+        ]);
+        const log = logRes.data || null;
+        const totalOrang = Number(log?.total_orang) || 0;
+        const cutiCount = (cutiRes.data || []).length;
+        const absenCount = (nonCutiRes.data || []).length;
+        const hadir = Math.max(0, totalOrang - cutiCount - absenCount);
+        this.attendance.total = totalOrang;
+        this.attendance.hadir = hadir;
+        this.attendance.cuti = cutiCount;
+        this.attendance.absen = absenCount;
+        this.attendance.ot = Math.round((Number(log?.overtime_jam) || 0) * 10) / 10;
+        this.attendance.rate = totalOrang > 0 ? Math.round((hadir / totalOrang) * 100) : 0;
+        this.attendance.shift1 = Number(log?.shift1_hadir) || 0;
+        this.attendance.shift2 = Number(log?.shift2_hadir) || 0;
+      } catch (e) {
+        console.error("Gagal memuat kartu Attendance per tanggal:", e);
       }
-      await this.fetchAttendanceLeave();
-      this.$nextTick(() => this.renderAttendanceCharts());
     },
     // Ambil data Izin/Sakit/Cuti/Mangkir (per-orang) dari attendance_leave
     // untuk tanggal this.attendanceDate, lalu sebar ke 4 list terpisah
@@ -5497,31 +5498,8 @@ function dashboardExhaust() {
       const noAnim = { duration: 0 };
       const legend = (show) => ({ display: show, position: "bottom", labels: { color: "#000000", boxWidth: 5, boxHeight: 5, usePointStyle: true, pointStyle: "circle", font: { size: 7.5 }, padding: 3 } });
       const tooltip = () => ({ backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"), borderColor: cssVar("--border"), borderWidth: 1, padding: 8, cornerRadius: 8 });
+      const barBg = (hex, len) => Array.from({ length: len }, () => hex);
       const AT_DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1));
-      // Tanggal yang lagi dipilih di date picker "Tanggal" -- kalau jatuh
-      // di bulan/tahun yang lagi ditampilkan, kolomnya di-highlight di
-      // chart (bar full-opacity + border gelap, titik garis %-nya
-      // dibesarkan). Kalau beda bulan (harusnya sudah disinkronkan oleh
-      // onAttendanceDateChange(), tapi jaga-jaga saja) -- tidak ada yang
-      // di-highlight.
-      let highlightDay = null;
-      if (this.attendanceDate) {
-        const dt = new Date(this.attendanceDate + "T00:00:00");
-        if (dt.getFullYear() === this.attendanceYear && dt.getMonth() + 1 === this.attendanceMonth) {
-          highlightDay = dt.getDate();
-        }
-      }
-      const hexToRgba = (hex, alpha) => {
-        const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
-        return `rgba(${r},${g},${b},${alpha})`;
-      };
-      // Bar lain diredupkan (alpha .28) kalau ada tanggal yang di-highlight,
-      // supaya kolom tanggal terpilih kelihatan menonjol.
-      const barBg = (hex, len) => Array.from({ length: len }, (_, i) => (highlightDay && i + 1 !== highlightDay ? hexToRgba(hex, 0.28) : hex));
-      const barBorderColor = (len) => Array.from({ length: len }, (_, i) => (highlightDay && i + 1 === highlightDay ? "#111827" : "transparent"));
-      const barBorderWidth = (len) => Array.from({ length: len }, (_, i) => (highlightDay && i + 1 === highlightDay ? 2 : 0));
-      const pointRadii = (len) => Array.from({ length: len }, (_, i) => (highlightDay && i + 1 === highlightDay ? 5 : 2));
-      const pointBg = (len) => Array.from({ length: len }, (_, i) => (highlightDay && i + 1 === highlightDay ? "#111827" : "#10B981"));
       // Label angka di TENGAH tiap segmen batang -- cuma muncul kalau
       // nilainya > 0 (biar nggak numpuk angka "0" di semua batang kosong).
       const dl = { display: (ctx) => (ctx.dataset.data[ctx.dataIndex] || 0) > 0, color: "#fff", anchor: "center", align: "center", font: { size: 8, weight: "bold" }, formatter: (v) => v };
@@ -5530,17 +5508,17 @@ function dashboardExhaust() {
         destroy("dxaTrendKehadiran");
         const canvas = document.getElementById("dxaTrendKehadiran");
         if (!canvas) return;
-        const maxTotal = Math.max(10, a.total || 0);
+        const maxTotal = Math.max(10, ...(a.dailyTrend.total || []).map((v) => Number(v) || 0));
         this.attendanceCharts.dxaTrendKehadiran = new Chart(canvas, {
           data: {
             labels: AT_DAYS,
             datasets: [
-              { order: 2, type: "bar", label: "Hadir", data: a.dailyTrend.hadir, backgroundColor: barBg("#2563EB", AT_DAYS.length), borderColor: barBorderColor(AT_DAYS.length), borderWidth: barBorderWidth(AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75, datalabels: dl },
-              { order: 2, type: "bar", label: "Izin", data: a.dailyTrend.izin, backgroundColor: barBg("#F59E0B", AT_DAYS.length), borderColor: barBorderColor(AT_DAYS.length), borderWidth: barBorderWidth(AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75, datalabels: dl },
-              { order: 2, type: "bar", label: "Sakit", data: a.dailyTrend.sakit, backgroundColor: barBg("#F97316", AT_DAYS.length), borderColor: barBorderColor(AT_DAYS.length), borderWidth: barBorderWidth(AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75, datalabels: dl },
-              { order: 2, type: "bar", label: "Cuti", data: a.dailyTrend.cuti, backgroundColor: barBg("#8B5CF6", AT_DAYS.length), borderColor: barBorderColor(AT_DAYS.length), borderWidth: barBorderWidth(AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75, datalabels: dl },
-              { order: 2, type: "bar", label: "Mangkir", data: a.dailyTrend.mangkir, backgroundColor: barBg("#EF4444", AT_DAYS.length), borderColor: barBorderColor(AT_DAYS.length), borderWidth: barBorderWidth(AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 3, barPercentage: 0.6, categoryPercentage: 0.75, datalabels: dl },
-              { order: 1, type: "line", label: "% Kehadiran", data: a.dailyTrend.persen, borderColor: "#10B981", backgroundColor: "#10B981", borderWidth: 1.5, fill: false, yAxisID: "y1", pointRadius: pointRadii(AT_DAYS.length), pointBackgroundColor: pointBg(AT_DAYS.length), tension: 0.3, spanGaps: true, datalabels: { display: false } },
+              { order: 2, type: "bar", label: "Hadir", data: a.dailyTrend.hadir, backgroundColor: barBg("#2563EB", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75, datalabels: dl },
+              { order: 2, type: "bar", label: "Izin", data: a.dailyTrend.izin, backgroundColor: barBg("#F59E0B", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75, datalabels: dl },
+              { order: 2, type: "bar", label: "Sakit", data: a.dailyTrend.sakit, backgroundColor: barBg("#F97316", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75, datalabels: dl },
+              { order: 2, type: "bar", label: "Cuti", data: a.dailyTrend.cuti, backgroundColor: barBg("#8B5CF6", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75, datalabels: dl },
+              { order: 2, type: "bar", label: "Mangkir", data: a.dailyTrend.mangkir, backgroundColor: barBg("#EF4444", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 3, barPercentage: 0.6, categoryPercentage: 0.75, datalabels: dl },
+              { order: 1, type: "line", label: "% Kehadiran", data: a.dailyTrend.persen, borderColor: "#10B981", backgroundColor: "#10B981", borderWidth: 1.5, fill: false, yAxisID: "y1", pointRadius: 2, tension: 0.3, spanGaps: true, datalabels: { display: false } },
             ],
           },
           options: {
