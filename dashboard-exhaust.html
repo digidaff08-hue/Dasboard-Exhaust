@@ -5574,6 +5574,9 @@ function dashboardExhaust() {
       // tengah batang seperti dl (dl dipakai buat Izin/Sakit/Cuti/Mangkir
       // yang masih batang bertumpuk).
       const dlLine = { display: (ctx) => (ctx.dataset.data[ctx.dataIndex] || 0) > 0, color: "#2563EB", anchor: "end", align: "top", offset: 4, font: { size: 8, weight: "bold" }, formatter: (v) => v };
+      // Label angka % Kehadiran (garis hijau, sumbu kanan y1) -- ditaruh
+      // di atas titik juga, warna hijau senada garisnya.
+      const dlPersen = { display: (ctx) => ctx.dataset.data[ctx.dataIndex] !== null && ctx.dataset.data[ctx.dataIndex] !== undefined, color: "#10B981", anchor: "end", align: "top", offset: 4, font: { size: 8, weight: "bold" }, formatter: (v) => v + "%" };
 
       safe(() => {
         destroy("dxaTrendKehadiran");
@@ -5584,12 +5587,12 @@ function dashboardExhaust() {
           data: {
             labels: AT_DAYS,
             datasets: [
-              { order: 1, type: "line", label: "Hadir", data: a.dailyTrend.hadir, borderColor: "#2563EB", backgroundColor: "#2563EB", borderWidth: 2, fill: false, yAxisID: "y", pointRadius: 3, pointHoverRadius: 4, tension: 0.3, spanGaps: false, datalabels: dlLine },
+              { order: 1, type: "line", label: "Hadir", data: a.dailyTrend.hadir, borderColor: "#2563EB", backgroundColor: "#2563EB", borderWidth: 2, fill: false, yAxisID: "y", pointRadius: 3, pointHoverRadius: 4, tension: 0.3, spanGaps: true, datalabels: dlLine },
               { order: 2, type: "bar", label: "Izin", data: a.dailyTrend.izin, backgroundColor: barBg("#F59E0B", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75, datalabels: dl },
               { order: 2, type: "bar", label: "Sakit", data: a.dailyTrend.sakit, backgroundColor: barBg("#F97316", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75, datalabels: dl },
               { order: 2, type: "bar", label: "Cuti", data: a.dailyTrend.cuti, backgroundColor: barBg("#8B5CF6", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75, datalabels: dl },
               { order: 2, type: "bar", label: "Mangkir", data: a.dailyTrend.mangkir, backgroundColor: barBg("#EF4444", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 3, barPercentage: 0.6, categoryPercentage: 0.75, datalabels: dl },
-              { order: 1, type: "line", label: "% Kehadiran", data: a.dailyTrend.persen, borderColor: "#10B981", backgroundColor: "#10B981", borderWidth: 1.5, fill: false, yAxisID: "y1", pointRadius: 2, tension: 0.3, spanGaps: true, datalabels: { display: false } },
+              { order: 1, type: "line", label: "% Kehadiran", data: a.dailyTrend.persen, borderColor: "#10B981", backgroundColor: "#10B981", borderWidth: 1.5, fill: false, yAxisID: "y1", pointRadius: 2, tension: 0.3, spanGaps: true, datalabels: dlPersen },
             ],
           },
           options: {
@@ -5599,7 +5602,7 @@ function dashboardExhaust() {
             scales: {
               x: { stacked: true, ticks: { color: "#000000", font: { size: 8 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
               y: { stacked: true, position: "left", min: 0, suggestedMax: maxTotal, ticks: { color: "#000000", font: { size: 9 }, precision: 0 }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") } },
-              y1: { position: "right", min: 0, max: 100, ticks: { color: "#000000", font: { size: 9 }, stepSize: 20, callback: (v) => v + "%" }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
+              y1: { position: "right", min: 0, max: 110, ticks: { color: "#000000", font: { size: 9 }, stepSize: 20, callback: (v) => v + "%" }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
             },
           },
         });
