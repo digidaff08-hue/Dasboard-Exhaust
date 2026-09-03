@@ -3702,15 +3702,27 @@ function dashboardExhaust() {
           }
           return (ds) => map[ds] || 0;
         })();
+        // "Sudah pernah diinput" TIDAK sama dengan totalCarryOn -- carry-
+        // forward dipakai untuk Total Orang & bar Izin/Sakit/Cuti/Mangkir
+        // (supaya konsisten dgn kartu MORAL), TAPI garis Hadir sengaja
+        // TIDAK ikut carry-forward: garis ini cuma boleh tampil angka di
+        // tanggal yang beneran ada baris attendance_log-nya (Form Absensi
+        // Harian benar-benar diisi untuk tanggal itu). Tanggal yang belum
+        // pernah diinput -> null, biar garis Hadir "putus"/kosong di sana,
+        // bukan ikut ke-isi angka dari input hari lain.
+        const hasLogOn = (ds) => logRows.some((r) => r.tanggal === ds);
         const totalByDay = byDay((ds) => totalCarryOn(ds));
         const izinByDay = byDay((ds) => nonCutiRows.filter((r) => r.jenis === "izin" && r.tanggal === ds).length);
         const sakitByDay = byDay((ds) => nonCutiRows.filter((r) => r.jenis === "sakit" && r.tanggal === ds).length);
         const mangkirByDay = byDay((ds) => nonCutiRows.filter((r) => r.jenis === "mangkir" && r.tanggal === ds).length);
         const cutiByDay = byDay((ds) => cutiCountOn(ds));
-        // Hadir per hari = Total Orang (carry-forward) - Cuti - Absen.
-        const hadirByDay = byDay((ds) => Math.max(0, totalCarryOn(ds) - cutiCountOn(ds) - absenCountOn(ds)));
+        // Hadir per hari = Total Orang (carry-forward) - Cuti - Absen,
+        // TAPI cuma dihitung/ditampilkan di tanggal yang beneran ada input
+        // (lihat hasLogOn di atas). Kalau belum ada input -> null.
+        const hadirByDay = byDay((ds) => hasLogOn(ds) ? Math.max(0, totalCarryOn(ds) - cutiCountOn(ds) - absenCountOn(ds)) : null);
         const persenByDay = Array.from({ length: 31 }, (_, i) => {
           const t = totalByDay[i], h = hadirByDay[i];
+          if (h === null || h === undefined) return null;
           return t ? Math.round((h / t) * 100) : null;
         });
 
@@ -5558,6 +5570,10 @@ function dashboardExhaust() {
       // Label angka di TENGAH tiap segmen batang -- cuma muncul kalau
       // nilainya > 0 (biar nggak numpuk angka "0" di semua batang kosong).
       const dl = { display: (ctx) => (ctx.dataset.data[ctx.dataIndex] || 0) > 0, color: "#fff", anchor: "center", align: "center", font: { size: 8, weight: "bold" }, formatter: (v) => v };
+      // Label angka Hadir (garis) -- ditaruh di ATAS titik, bukan di
+      // tengah batang seperti dl (dl dipakai buat Izin/Sakit/Cuti/Mangkir
+      // yang masih batang bertumpuk).
+      const dlLine = { display: (ctx) => (ctx.dataset.data[ctx.dataIndex] || 0) > 0, color: "#2563EB", anchor: "end", align: "top", offset: 4, font: { size: 8, weight: "bold" }, formatter: (v) => v };
 
       safe(() => {
         destroy("dxaTrendKehadiran");
@@ -5568,7 +5584,7 @@ function dashboardExhaust() {
           data: {
             labels: AT_DAYS,
             datasets: [
-              { order: 2, type: "bar", label: "Hadir", data: a.dailyTrend.hadir, backgroundColor: barBg("#2563EB", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75, datalabels: dl },
+              { order: 1, type: "line", label: "Hadir", data: a.dailyTrend.hadir, borderColor: "#2563EB", backgroundColor: "#2563EB", borderWidth: 2, fill: false, yAxisID: "y", pointRadius: 3, pointHoverRadius: 4, tension: 0.3, spanGaps: false, datalabels: dlLine },
               { order: 2, type: "bar", label: "Izin", data: a.dailyTrend.izin, backgroundColor: barBg("#F59E0B", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75, datalabels: dl },
               { order: 2, type: "bar", label: "Sakit", data: a.dailyTrend.sakit, backgroundColor: barBg("#F97316", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75, datalabels: dl },
               { order: 2, type: "bar", label: "Cuti", data: a.dailyTrend.cuti, backgroundColor: barBg("#8B5CF6", AT_DAYS.length), yAxisID: "y", stack: "att", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75, datalabels: dl },
