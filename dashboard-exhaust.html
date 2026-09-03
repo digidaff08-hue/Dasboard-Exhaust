@@ -3636,12 +3636,19 @@ function dashboardExhaust() {
         const firstDay = localDateStr(new Date(year, month - 1, 1));
         const lastDay = localDateStr(new Date(year, month - 1, nHari));
 
-        const [logRes, seedLogRes, nonCutiRes, cutiRes] = await Promise.all([
+        const [logRes, seedLogRes, futureSeedLogRes, nonCutiRes, cutiRes] = await Promise.all([
           supabaseClient.from("attendance_log").select("*").gte("tanggal", firstDay).lte("tanggal", lastDay),
           // Total Orang jarang berubah -- ambil 1 baris log PALING BARU
           // sebelum awal bulan ini, buat "seed" nilai carry-forward di
           // tanggal 1 kalau bulan ini sendiri belum ada input di awal.
           supabaseClient.from("attendance_log").select("tanggal, total_orang").lt("tanggal", firstDay).order("tanggal", { ascending: false }).limit(1).maybeSingle(),
+          // Fallback KEBALIKANNYA: kalau sama sekali belum pernah ada input
+          // SEBELUM awal bulan ini (mis. baru pertama kali diisi mulai
+          // tanggal 3), tanggal 1-2 tetap butuh angka. Ambil baris log
+          // PALING AWAL yang >= awal bulan (bisa di bulan ini atau bulan
+          // depan) buat backward-fill tanggal-tanggal sebelum input
+          // pertama itu, supaya Total Orang tidak nge-0.
+          supabaseClient.from("attendance_log").select("tanggal, total_orang").gte("tanggal", firstDay).order("tanggal", { ascending: true }).limit(1).maybeSingle(),
           supabaseClient.from("attendance_leave").select("*").neq("jenis", "cuti").gte("tanggal", firstDay).lte("tanggal", lastDay),
           supabaseClient.from("attendance_leave").select("*").eq("jenis", "cuti").lte("tanggal", lastDay).or(`tanggal_selesai.is.null,tanggal_selesai.gte.${firstDay}`),
         ]);
@@ -3655,9 +3662,15 @@ function dashboardExhaust() {
         const absenCountOn = (ds) => nonCutiRows.filter((r) => r.tanggal === ds).length;
 
         // ---- Trend harian (tanggal 1-31, null utk tanggal yg belum ada) ----
-        const todayLocal = new Date();
-        todayLocal.setHours(0, 0, 0, 0);
-        const validDay = (d) => d <= nHari && new Date(year, month - 1, d) <= todayLocal;
+        // CATATAN: sebelumnya ada filter "sembunyikan tanggal > hari ini"
+        // (pola itu dipakai di modul lain yang datanya proyeksi/belum
+        // tentu ada). Attendance TIDAK butuh itu -- semua data di sini
+        // murni hasil input manual (Form Absensi Harian/Shift Mingguan),
+        // jadi tanggal apa pun dalam bulan yang dipilih harus tetap
+        // tampil kalau memang ada datanya, termasuk tanggal setelah hari
+        // ini (mis. sengaja dites lebih awal, atau input untuk tanggal
+        // mendatang).
+        const validDay = (d) => d <= nHari;
         const dayStr = (d) => localDateStr(new Date(year, month - 1, d));
         const byDay = (fn) => Array.from({ length: 31 }, (_, i) => {
           const d = i + 1;
@@ -3671,7 +3684,12 @@ function dashboardExhaust() {
         // per tanggal jalan berurutan.
         const sortedLogRows = [...logRows].sort((a, b) => (a.tanggal < b.tanggal ? -1 : 1));
         const totalCarryOn = (() => {
-          let carry = Number(seedLogRes.data?.total_orang) || 0;
+          // Prioritas: seed dari sebelum bulan ini (carry-forward normal).
+          // Kalau tidak ada (belum pernah diisi sama sekali sebelum bulan
+          // ini), pakai backward-fill dari input pertama yang ada (bisa di
+          // bulan ini) -- supaya tanggal sebelum input pertama itu tidak
+          // tampil 0.
+          let carry = Number(seedLogRes.data?.total_orang) || Number(futureSeedLogRes.data?.total_orang) || 0;
           let li = 0;
           const map = {};
           for (let d = 1; d <= nHari; d++) {
@@ -3717,7 +3735,10 @@ function dashboardExhaust() {
     //   PALING BARU yang tanggal-nya <= tanggal dipilih (bukan cuma yang
     //   persis sama). Total Orang jarang berubah, jadi begini nilainya
     //   selalu ada di tiap tanggal, bukan cuma di tanggal yang persis
-    //   diinput lewat Form Absensi Harian.
+    //   diinput lewat Form Absensi Harian. Kalau BELUM ADA input sama
+    //   sekali sebelum/persis tanggal itu (mis. input pertama baru mulai
+    //   beberapa hari setelahnya), fallback ke input PALING AWAL setelah
+    //   tanggal itu (backward-fill), supaya tetap ada angkanya.
     // - Overtime: TETAP per-hari persis (TIDAK carry-forward), dari baris
     //   attendance_log yang tanggal-nya PERSIS SAMA. OT itu angka harian,
     //   kalau hari itu belum diinput ya 0.
@@ -3732,14 +3753,19 @@ function dashboardExhaust() {
     async fetchAttendanceDayCard() {
       try {
         const d = this.attendanceDate;
-        const [latestLogRes, dayLogRes, nonCutiRes, cutiRes, shiftRes] = await Promise.all([
+        const [latestLogRes, futureLogRes, dayLogRes, nonCutiRes, cutiRes, shiftRes] = await Promise.all([
           supabaseClient.from("attendance_log").select("total_orang").lte("tanggal", d).order("tanggal", { ascending: false }).limit(1).maybeSingle(),
+          // Fallback kalau belum ada input SEBELUM/PERSIS tanggal ini sama
+          // sekali (mis. input pertama baru mulai beberapa hari setelah
+          // tanggal yang dipilih) -- ambil input PALING AWAL setelah
+          // tanggal ini, supaya Total Orang tetap tampil (bukan 0).
+          supabaseClient.from("attendance_log").select("total_orang").gte("tanggal", d).order("tanggal", { ascending: true }).limit(1).maybeSingle(),
           supabaseClient.from("attendance_log").select("overtime_jam").eq("tanggal", d).maybeSingle(),
           supabaseClient.from("attendance_leave").select("*").eq("tanggal", d).neq("jenis", "cuti"),
           supabaseClient.from("attendance_leave").select("*").eq("jenis", "cuti").lte("tanggal", d).or(`tanggal_selesai.is.null,tanggal_selesai.gte.${d}`),
           supabaseClient.from("attendance_shift_weekly").select("shift1_hadir, shift2_hadir").lte("tanggal_mulai", d).gte("tanggal_selesai", d).order("tanggal_mulai", { ascending: false }).limit(1).maybeSingle(),
         ]);
-        const totalOrang = Number(latestLogRes.data?.total_orang) || 0;
+        const totalOrang = Number(latestLogRes.data?.total_orang) || Number(futureLogRes.data?.total_orang) || 0;
         const cutiCount = (cutiRes.data || []).length;
         const absenCount = (nonCutiRes.data || []).length;
         const hadir = Math.max(0, totalOrang - cutiCount - absenCount);
