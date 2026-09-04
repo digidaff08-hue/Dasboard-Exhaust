@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Master Data — Welding Exhaust System</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  /* Tombol tab Master Data (Attendance, dan kategori lain di masa
+     depan) -- dibikin scoped biar nggak numpang ke .btn-secondary
+     global. */
+  .md-subtab-nav { margin: 0 0 20px !important; padding: 0 !important; display: flex; gap: 8px; flex-wrap: wrap; }
+  .md-subtab-nav button { margin: 0 !important; }
+</style>
+
+<script>
+  (function () {
+    var t = localStorage.getItem("theme_v1") || "light";
+    document.documentElement.setAttribute("data-theme", t);
+  })();
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/supabaseClient.js"></script>
+</head>
+<body>
+
+<div class="app-shell" x-data="masterDataPage()" x-init="init()">
+  <div class="mobile-topbar">
+    <button class="hamburger" @click="mobileNavOpen = true">☰</button>
+    <span class="mobile-title">Master Data</span>
+  </div>
+  <div class="sidebar-overlay" x-show="mobileNavOpen" @click="mobileNavOpen = false" x-cloak></div>
+  <aside class="sidebar" :class="[mobileNavOpen ? 'sidebar-open' : '', sidebarCollapsed ? 'sidebar-collapsed' : '']">
+    <button class="sidebar-collapse-btn" @click="sidebarCollapsed = !sidebarCollapsed">
+      <span x-show="!sidebarCollapsed">‹</span><span x-show="sidebarCollapsed">›</span>
+    </button>
+    <div class="sidebar-brand" x-show="!sidebarCollapsed">WELDING EXHAUST<span>·</span>SYSTEM</div>
+    <nav class="sidebar-nav" @click="mobileNavOpen = false">
+      <a href="dashboard-exhaust.html" class="sidebar-link" title="Dashboard Exhaust"><span>📊</span><span x-show="!sidebarCollapsed">Dashboard Exhaust</span></a>
+      <a href="index.html" class="sidebar-link" title="Dashboard"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a>
+      <a href="plan-produksi.html" class="sidebar-link" title="Plan Produksi"><span>📅</span><span x-show="!sidebarCollapsed">Plan Produksi</span></a>
+      <a href="input-produksi.html" class="sidebar-link" title="Input Produksi"><span>⚙️</span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-attendance.html" class="sidebar-link" title="Attendance"><span>👥</span><span x-show="!sidebarCollapsed">Attendance</span></a>
+      </template>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="master-data.html" class="sidebar-link active" title="Master Data"><span>🗂️</span><span x-show="!sidebarCollapsed">Master Data</span></a>
+      </template>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-scrap.html" class="sidebar-link" title="Input Scrap"><span>♻️</span><span x-show="!sidebarCollapsed">Input Scrap</span></a>
+      </template>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-safety.html" class="sidebar-link" title="Input Safety"><span>⛑️</span><span x-show="!sidebarCollapsed">Input Safety</span></a>
+      </template>
+    </nav>
+    <div class="sidebar-foot" x-show="!sidebarCollapsed">
+      <div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
+      <span class="badge" :class="profile?.role === 'admin' ? 'role-admin' : ''" x-text="profile?.jabatan || profile?.role || '...'"></span>
+      <button class="btn-ghost btn-sm" @click="logout()">Keluar</button>
+    </div>
+    <button class="sidebar-logout-collapsed" x-show="sidebarCollapsed" @click="logout()" title="Keluar">⏻</button>
+  </aside>
+
+  <main class="main">
+    <div class="page-header">
+      <h1 class="page-title"><span class="eyebrow">Master</span>Data</h1>
+    </div>
+    <template x-if="!isLeaderOrAdmin() && profile">
+      <div class="error-msg">Halaman ini khusus admin/leader.</div>
+    </template>
+    <template x-if="msg"><div :class="msgError ? 'error-msg' : 'success-msg'" x-text="msg"></div></template>
+
+    <template x-if="isLeaderOrAdmin()">
+      <div>
+        <!-- ===== Tombol kategori Master Data =====
+             Saat ini baru ada "Attendance" (Total Orang / OT harian,
+             Kehadiran Shift Mingguan, Hari Libur/Tanggal Merah) --
+             kategori lain bisa ditambah di sini nanti pakai pola yang
+             sama (tambah tombol + activeTab baru). -->
+        <div class="md-subtab-nav">
+          <button class="btn-secondary btn-sm" :class="activeTab === 'attendance' ? 'btn-primary' : ''" @click="setTab('attendance')">Attendance</button>
+        </div>
+
+        <!-- ===== TAB: ATTENDANCE ===== -->
+        <template x-if="activeTab === 'attendance'">
+          <div>
+            <div class="panel">
+              <p class="panel-title">Form Absensi Harian</p>
+              <div class="form-grid">
+                <div class="field"><label>Tanggal</label><input type="date" x-model="form.tanggal"></div>
+                <div class="field"><label>Total Orang</label><input type="number" x-model="form.total_orang"></div>
+                <div class="field"><label>Overtime (jam)</label><input type="number" step="0.5" x-model="form.overtime_jam"></div>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn-primary" @click="save()">Simpan Absensi</button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <p class="panel-title">Riwayat Absensi <span class="count" x-text="rows.length + ' baris'"></span></p>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Tanggal</th><th>Total Orang</th><th>OT (jam)</th><th>Aksi</th></tr></thead>
+                  <tbody>
+                    <template x-for="r in rows" :key="r.tanggal">
+                      <tr>
+                        <td class="mono" x-text="r.tanggal"></td>
+                        <td class="mono" x-text="fmtNum(r.total_orang)"></td>
+                        <td class="mono" x-text="fmtNum(r.overtime_jam)"></td>
+                        <td><button class="btn-secondary btn-sm" @click="edit(r)">Edit</button></td>
+                      </tr>
+                    </template>
+                    <tr x-show="rows.length === 0"><td colspan="4" class="empty-state">Belum ada data.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- ===== Form Kehadiran Shift Mingguan =====
+                 Terpisah dari Absensi Harian -- Hadir Shift 1/2 diisi per
+                 RENTANG TANGGAL bebas (biasanya 1 minggu), bukan per hari,
+                 karena angkanya memang baru berubah tiap minggu. -->
+            <div class="panel">
+              <p class="panel-title">Form Kehadiran Shift Mingguan</p>
+              <div class="form-grid">
+                <div class="field"><label>Tanggal Mulai</label><input type="date" x-model="shiftForm.tanggal_mulai"></div>
+                <div class="field"><label>Tanggal Selesai</label><input type="date" x-model="shiftForm.tanggal_selesai" :min="shiftForm.tanggal_mulai"></div>
+                <div class="field"><label>Hadir Shift 1</label><input type="number" x-model="shiftForm.shift1_hadir"></div>
+                <div class="field"><label>Hadir Shift 2</label><input type="number" x-model="shiftForm.shift2_hadir"></div>
+                <div class="field" style="grid-column: span 2;"><label>Keterangan</label><input type="text" x-model="shiftForm.keterangan" placeholder="Opsional"></div>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn-primary" @click="saveShift()" x-text="shiftEditId ? 'Update Shift' : 'Simpan Shift'"></button>
+                <button type="button" class="btn-secondary" x-show="shiftEditId" @click="resetShiftForm()">Batal Edit</button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <p class="panel-title">Riwayat Kehadiran Shift Mingguan <span class="count" x-text="shiftRows.length + ' baris'"></span></p>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Tanggal Mulai</th><th>Tanggal Selesai</th><th>Hadir Shift 1</th><th>Hadir Shift 2</th><th>Keterangan</th><th>Aksi</th></tr></thead>
+                  <tbody>
+                    <template x-for="r in shiftRows" :key="r.id">
+                      <tr>
+                        <td class="mono" x-text="r.tanggal_mulai"></td>
+                        <td class="mono" x-text="r.tanggal_selesai"></td>
+                        <td class="mono" x-text="fmtNum(r.shift1_hadir)"></td>
+                        <td class="mono" x-text="fmtNum(r.shift2_hadir)"></td>
+                        <td x-text="r.keterangan || '-'"></td>
+                        <td>
+                          <button class="btn-secondary btn-sm" @click="editShift(r)">Edit</button>
+                          <button class="btn-secondary btn-sm" @click="deleteShift(r)">Hapus</button>
+                        </td>
+                      </tr>
+                    </template>
+                    <tr x-show="shiftRows.length === 0"><td colspan="6" class="empty-state">Belum ada data.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- ===== Kelola Hari Libur / Tanggal Merah =====
+                 Dipakai di halaman Attendance untuk exclude Sabtu/Minggu/
+                 tanggal merah dari perhitungan Total Hari Cuti. -->
+            <div class="panel">
+              <p class="panel-title">Kelola Hari Libur / Tanggal Merah</p>
+              <div class="form-grid">
+                <div class="field"><label>Tanggal</label><input type="date" x-model="hariLiburForm.tanggal"></div>
+                <div class="field" style="grid-column: span 2;"><label>Keterangan</label><input type="text" x-model="hariLiburForm.keterangan" placeholder="mis. Tahun Baru Masehi"></div>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn-primary" @click="addHariLibur()">Tambah</button>
+              </div>
+              <div class="table-wrap" style="margin-top:12px;">
+                <table>
+                  <thead><tr><th>Tanggal</th><th>Keterangan</th><th>Aksi</th></tr></thead>
+                  <tbody>
+                    <template x-for="r in hariLiburRows" :key="r.tanggal">
+                      <tr>
+                        <td class="mono" x-text="r.tanggal"></td>
+                        <td x-text="r.keterangan || '-'"></td>
+                        <td><button class="btn-secondary btn-sm" @click="deleteHariLibur(r)">Hapus</button></td>
+                      </tr>
+                    </template>
+                    <tr x-show="hariLiburRows.length === 0"><td colspan="3" class="empty-state">Belum ada hari libur.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </template>
+  </main>
+</div>
+<script>
+
+function baseInputPage() {
+  return {
+    session: null, profile: null, mobileNavOpen: false, sidebarCollapsed: true,
+    theme: localStorage.getItem("theme_v1") || "light",
+    msg: "", msgError: false,
+    isLeaderOrAdmin() { return this.profile && ["admin", "leader"].includes(this.profile.role); },
+    flash(m, isErr) {
+      this.msg = m; this.msgError = !!isErr;
+      setTimeout(() => { this.msg = ""; }, 4000);
+    },
+    async initBase() {
+      this.session = await requireAuth();
+      if (!this.session) return false;
+      const { data } = await supabaseClient.from("profiles").select("*").eq("id", this.session.user.id).maybeSingle();
+      this.profile = data;
+      return true;
+    },
+    logout,
+  };
+}
+function fmtNum(n) {
+  if (n === null || n === undefined || Number.isNaN(Number(n))) return "-";
+  return Number(n).toLocaleString("en-US", { maximumFractionDigits: 1 });
+}
+// toISOString().slice(0,10) mengonversi ke UTC dulu -- WIB = UTC+7, jadi
+// tengah malam lokal bisa terpotong mundur 1 hari. Ambil Y/M/D lokal saja.
+function localDateStr(d) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function masterDataPage() {
+  return {
+    ...baseInputPage(),
+    fmtNum,
+    // Tombol kategori Master Data -- baru ada "attendance" untuk
+    // sekarang, tapi ditulis sebagai activeTab supaya gampang nambah
+    // kategori Master Data lain nanti tanpa ubah struktur.
+    activeTab: "attendance",
+    setTab(tab) { this.activeTab = tab; },
+    // ---- Form Absensi Harian (Total Orang & Overtime) ----
+    form: { tanggal: localDateStr(new Date()), total_orang: 46, overtime_jam: "" },
+    rows: [],
+    // ---- Form Kehadiran Shift Mingguan ----
+    shiftForm: { tanggal_mulai: localDateStr(new Date()), tanggal_selesai: localDateStr(new Date()), shift1_hadir: "", shift2_hadir: "", keterangan: "" },
+    shiftRows: [],
+    shiftEditId: null,
+    // ---- Kelola Hari Libur / Tanggal Merah ----
+    hariLiburRows: [], // { tanggal, keterangan } buat ditampilkan di tabel
+    hariLiburForm: { tanggal: localDateStr(new Date()), keterangan: "" },
+    async init() {
+      if (!await this.initBase()) return;
+      await this.fetchRows();
+      await this.fetchShiftRows();
+      await this.fetchHariLibur();
+    },
+    // ---- Absensi Harian ----
+    async fetchRows() {
+      const { data, error } = await supabaseClient.from("attendance_log").select("*").order("tanggal", { ascending: false }).limit(100);
+      if (!error && data) this.rows = data;
+    },
+    edit(r) {
+      this.form = { tanggal: r.tanggal, total_orang: r.total_orang, overtime_jam: r.overtime_jam };
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    async save() {
+      const f = this.form;
+      if (!f.tanggal || f.total_orang === "" || f.total_orang === null) { this.flash("Tanggal dan Total Orang wajib diisi.", true); return; }
+      const payload = {
+        tanggal: f.tanggal,
+        total_orang: Number(f.total_orang) || 0,
+        overtime_jam: Number(f.overtime_jam) || 0,
+        updated_by: this.session.user.id,
+      };
+      const { error } = await supabaseClient.from("attendance_log").upsert(payload, { onConflict: "tanggal" });
+      if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
+      this.flash("Absensi tersimpan.");
+      await this.fetchRows();
+    },
+    // ---- Kehadiran Shift Mingguan ----
+    async fetchShiftRows() {
+      const { data, error } = await supabaseClient.from("attendance_shift_weekly").select("*").order("tanggal_mulai", { ascending: false }).limit(100);
+      if (!error && data) this.shiftRows = data;
+    },
+    resetShiftForm() {
+      this.shiftForm = { tanggal_mulai: localDateStr(new Date()), tanggal_selesai: localDateStr(new Date()), shift1_hadir: "", shift2_hadir: "", keterangan: "" };
+      this.shiftEditId = null;
+    },
+    editShift(r) {
+      this.shiftForm = { tanggal_mulai: r.tanggal_mulai, tanggal_selesai: r.tanggal_selesai, shift1_hadir: r.shift1_hadir, shift2_hadir: r.shift2_hadir, keterangan: r.keterangan || "" };
+      this.shiftEditId = r.id;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    async saveShift() {
+      const f = this.shiftForm;
+      if (!f.tanggal_mulai || !f.tanggal_selesai) { this.flash("Tanggal Mulai dan Tanggal Selesai wajib diisi.", true); return; }
+      if (f.tanggal_selesai < f.tanggal_mulai) { this.flash("Tanggal Selesai tidak boleh sebelum Tanggal Mulai.", true); return; }
+      const payload = {
+        tanggal_mulai: f.tanggal_mulai,
+        tanggal_selesai: f.tanggal_selesai,
+        shift1_hadir: Number(f.shift1_hadir) || 0,
+        shift2_hadir: Number(f.shift2_hadir) || 0,
+        keterangan: f.keterangan || null,
+        updated_by: this.session.user.id,
+      };
+      let error;
+      if (this.shiftEditId) {
+        ({ error } = await supabaseClient.from("attendance_shift_weekly").update(payload).eq("id", this.shiftEditId));
+      } else {
+        ({ error } = await supabaseClient.from("attendance_shift_weekly").insert({ ...payload, created_by: this.session.user.id }));
+      }
+      if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
+      this.flash("Kehadiran Shift tersimpan.");
+      this.resetShiftForm();
+      await this.fetchShiftRows();
+    },
+    async deleteShift(r) {
+      if (!confirm(`Hapus data Shift ${r.tanggal_mulai} - ${r.tanggal_selesai}?`)) return;
+      const { error } = await supabaseClient.from("attendance_shift_weekly").delete().eq("id", r.id);
+      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
+      this.flash("Data Shift dihapus.");
+      await this.fetchShiftRows();
+    },
+    // ---- Kelola Hari Libur / Tanggal Merah ----
+    async fetchHariLibur() {
+      const { data, error } = await supabaseClient.from("hari_libur").select("*").order("tanggal", { ascending: true });
+      if (!error && data) this.hariLiburRows = data;
+    },
+    async addHariLibur() {
+      const f = this.hariLiburForm;
+      if (!f.tanggal) { this.flash("Tanggal wajib diisi.", true); return; }
+      const { error } = await supabaseClient.from("hari_libur").upsert(
+        { tanggal: f.tanggal, keterangan: f.keterangan || null, created_by: this.session.user.id },
+        { onConflict: "tanggal" }
+      );
+      if (error) { this.flash("Gagal simpan hari libur: " + error.message, true); return; }
+      this.flash("Hari libur tersimpan.");
+      this.hariLiburForm = { tanggal: localDateStr(new Date()), keterangan: "" };
+      await this.fetchHariLibur();
+    },
+    async deleteHariLibur(r) {
+      if (!confirm(`Hapus hari libur ${r.tanggal}${r.keterangan ? " (" + r.keterangan + ")" : ""}?`)) return;
+      const { error } = await supabaseClient.from("hari_libur").delete().eq("tanggal", r.tanggal);
+      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
+      this.flash("Hari libur dihapus.");
+      await this.fetchHariLibur();
+    },
+  };
+}
+</script>
+</body>
+</html>
