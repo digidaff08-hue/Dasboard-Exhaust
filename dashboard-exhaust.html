@@ -5608,8 +5608,10 @@ function dashboardExhaust() {
         // skala 0-15 dan "kabur" ke luar chart kalau nilainya besar,
         // misal 46). Sebagai gantinya, dipakai plugin custom di bawah yang
         // menggambar kotak/badge biru berisi angka Hadir di posisi TETAP
-        // (baris atas area chart), persis di posisi titik garis dulu --
-        // tapi posisinya fixed, bukan ngikut skala data asli.
+        // (bukan ngikut skala data Hadir asli). Baris badge ini dihitung
+        // dari posisi sumbu %Kehadiran (y1) di nilai 100 -- jadi selalu
+        // berada DI BAWAH baris label %Kehadiran, dengan jarak aman, dan
+        // tidak akan pernah numpuk walau %Kehadiran-nya 100%.
         const hadirBadgePlugin = {
           id: "hadirBadgePlugin",
           afterDatasetsDraw(chart, _args, opts) {
@@ -5617,12 +5619,19 @@ function dashboardExhaust() {
             const data = opts.data || [];
             const { ctx, chartArea, scales } = chart;
             const xScale = scales.x;
+            const y1Scale = scales.y1;
             if (!xScale) return;
             ctx.save();
             ctx.font = "bold 8px sans-serif";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            const badgeY = chartArea.top + 10;
+            // Posisi baris label %Kehadiran tertinggi (nilai 100) di atas
+            // titiknya kira-kira setinggi ~16px (offset label + tinggi
+            // font). Badge Hadir ditaruh 18px LEBIH BAWAH dari titik itu,
+            // supaya ada jarak yang jelas (tidak mepet) di bawah label
+            // %Kehadiran, sekaligus tetap di baris atas chart.
+            const percentTopPixel = y1Scale ? y1Scale.getPixelForValue(100) : chartArea.top;
+            const badgeY = Math.max(chartArea.top + 10, percentTopPixel + 18);
             data.forEach((val, i) => {
               if (val === null || val === undefined) return;
               const x = xScale.getPixelForValue(i);
@@ -5661,7 +5670,7 @@ function dashboardExhaust() {
           },
           options: {
             responsive: true, maintainAspectRatio: false, animation: noAnim,
-            layout: { padding: { top: 8 } },
+            layout: { padding: { top: 20 } },
             plugins: {
               legend: {
                 ...legend(true),
