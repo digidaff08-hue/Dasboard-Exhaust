@@ -3765,19 +3765,30 @@ function dashboardExhaust() {
     async fetchAttendanceDayCard() {
       try {
         const d = this.attendanceDate;
-        const [dayTotalRes, dayLogRes, nonCutiRes, cutiRes, shiftRes] = await Promise.all([
-          // Total Orang sekarang PERSIS tanggal itu saja (sama seperti
-          // Cuti) -- TIDAK carry-forward/fallback lagi. Kalau Form
-          // Absensi Harian belum diisi untuk tanggal ini, hasilnya null
-          // (ditampilkan "-" di kartu), bukan angka bawaan dari tanggal
-          // lain.
-          supabaseClient.from("attendance_log").select("total_orang").eq("tanggal", d).maybeSingle(),
+        const todayStr = localDateStr(new Date());
+        const [latestLogRes, dayLogRes, nonCutiRes, cutiRes, shiftRes] = await Promise.all([
+          // Ambil baris attendance_log PALING BARU yang tanggalnya <= d.
+          // Kalau ada input PERSIS di tanggal d, ini otomatis dapat baris
+          // itu (jadi exact match tetap prioritas utama).
+          supabaseClient.from("attendance_log").select("tanggal, total_orang").lte("tanggal", d).order("tanggal", { ascending: false }).limit(1).maybeSingle(),
           supabaseClient.from("attendance_log").select("overtime_jam").eq("tanggal", d).maybeSingle(),
           supabaseClient.from("attendance_leave").select("*").eq("tanggal", d).neq("jenis", "cuti"),
           supabaseClient.from("attendance_leave").select("*").eq("jenis", "cuti").lte("tanggal", d).or(`tanggal_selesai.is.null,tanggal_selesai.gte.${d}`),
           supabaseClient.from("attendance_shift_weekly").select("shift1_hadir, shift2_hadir").lte("tanggal_mulai", d).gte("tanggal_selesai", d).order("tanggal_mulai", { ascending: false }).limit(1).maybeSingle(),
         ]);
-        const totalOrang = dayTotalRes.data ? Number(dayTotalRes.data.total_orang) || 0 : null;
+        const isExactMatch = latestLogRes.data?.tanggal === d;
+        const isFutureDate = d > todayStr;
+        // - Ada input PERSIS di tanggal d -> selalu dipakai (walau d itu
+        //   tanggal "masa depan", mis. sengaja dites lebih awal).
+        // - d <= hari ini & belum ada input persis -> carry-forward dari
+        //   input terakhir sebelumnya (Total Orang jarang berubah).
+        // - d > hari ini (belum "kejadian") & belum ada input persis ->
+        //   kosong (null), karena memang belum masuk datanya.
+        const totalOrang = isExactMatch
+          ? Number(latestLogRes.data.total_orang) || 0
+          : isFutureDate
+          ? null
+          : (latestLogRes.data ? Number(latestLogRes.data.total_orang) || 0 : null);
         const cutiCount = (cutiRes.data || []).length;
         const absenCount = (nonCutiRes.data || []).length;
         const hadir = totalOrang === null ? null : Math.max(0, totalOrang - cutiCount - absenCount);
