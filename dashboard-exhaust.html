@@ -1521,6 +1521,10 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                 <template x-for="y in tahunanYearOptions" :key="'aty-'+y"><option :value="y" x-text="y"></option></template>
               </select>
             </div>
+            <div class="dxy-field" x-show="attendanceViewMode === 'bulanan'">
+              <label>Tanggal</label>
+              <input type="date" class="dxy-select" x-model="attendanceDate" @change="onAttendanceDateChange()">
+            </div>
             <div class="dxy-spacer"></div>
             <div class="dxy-field">
               <button type="button" class="dxy-btn" :class="attendanceViewMode === 'bulanan' ? 'dxy-btn-primary' : ''" @click="setAttendanceViewMode('bulanan')">Bulanan</button>
@@ -1618,16 +1622,10 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
             </div>
           </div>
 
-          <!-- ===== Date picker untuk Izin/Sakit/Cuti/Mangkir -- default HARI INI.
-               Ganti tanggal di sini juga yang menggerakkan chart Trend Kehadiran
-               di atas (lihat onAttendanceDateChange()). ===== -->
-          <div class="dxy-filterbar" x-show="attendanceViewMode === 'bulanan'">
-            <div class="dxy-field">
-              <label>Tanggal</label>
-              <input type="date" class="dxy-select" x-model="attendanceDate" @change="onAttendanceDateChange()">
-            </div>
-            <div class="dxy-spacer"></div>
-          </div>
+          <!-- ===== Date picker untuk Izin/Sakit/Cuti/Mangkir dipindah ke
+               dalam header kartu ATTENDANCE/MORAL (sejajar tulisan MORAL,
+               rata kanan) -- lihat dxy-attn-head di atas. Tetap
+               menggerakkan chart Trend Kehadiran (lihat onAttendanceDateChange()). ===== -->
 
           <!-- ===== Baris 3: 4 kolom sejajar -- Izin / Sakit / Cuti / Mangkir.
                Masing-masing tabel terpisah dengan struktur kolomnya sendiri.
