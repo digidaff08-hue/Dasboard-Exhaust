@@ -89,33 +89,83 @@
         <!-- ===== TAB: ATTENDANCE ===== -->
         <template x-if="activeTab === 'attendance'">
           <div>
+            <!-- ===== Total Orang (Bulanan) =====
+                 Total Orang cukup diinput SEKALI per bulan (pilih Bulan +
+                 Tahun) -- nilainya disimpan di attendance_log dengan
+                 tanggal = tanggal 1 bulan itu, lalu ikut carry-forward
+                 dipakai untuk SEMUA tanggal di bulan itu di dashboard. -->
             <div class="panel">
-              <p class="panel-title">Form Absensi Harian</p>
+              <p class="panel-title">Total Orang (Bulanan)</p>
               <div class="form-grid">
-                <div class="field"><label>Tanggal</label><input type="date" x-model="form.tanggal"></div>
-                <div class="field"><label>Total Orang</label><input type="number" x-model="form.total_orang"></div>
-                <div class="field"><label>Overtime (jam)</label><input type="number" step="0.5" x-model="form.overtime_jam"></div>
+                <div class="field">
+                  <label>Bulan</label>
+                  <select x-model.number="mpForm.bulan">
+                    <template x-for="(nm, i) in BULAN_LABELS" :key="'mp-bln-'+i">
+                      <option :value="i+1" x-text="nm"></option>
+                    </template>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Tahun</label>
+                  <select x-model.number="mpForm.tahun">
+                    <template x-for="y in tahunOptions" :key="'mp-thn-'+y"><option :value="y" x-text="y"></option></template>
+                  </select>
+                </div>
+                <div class="field"><label>Total Orang</label><input type="number" x-model="mpForm.total_orang"></div>
               </div>
               <div class="form-actions">
-                <button type="button" class="btn-primary" @click="save()">Simpan Absensi</button>
+                <button type="button" class="btn-primary" @click="saveMp()">Simpan Total Orang</button>
               </div>
             </div>
 
             <div class="panel">
-              <p class="panel-title">Riwayat Absensi <span class="count" x-text="rows.length + ' baris'"></span></p>
+              <p class="panel-title">Riwayat Total Orang (Bulanan) <span class="count" x-text="mpRows.length + ' baris'"></span></p>
               <div class="table-wrap">
                 <table>
-                  <thead><tr><th>Tanggal</th><th>Total Orang</th><th>OT (jam)</th><th>Aksi</th></tr></thead>
+                  <thead><tr><th>Bulan</th><th>Total Orang</th><th>Aksi</th></tr></thead>
                   <tbody>
-                    <template x-for="r in rows" :key="r.tanggal">
+                    <template x-for="r in mpRows" :key="r.tanggal">
                       <tr>
-                        <td class="mono" x-text="r.tanggal"></td>
+                        <td class="mono" x-text="fmtBulanTahun(r.tanggal)"></td>
                         <td class="mono" x-text="fmtNum(r.total_orang)"></td>
-                        <td class="mono" x-text="fmtNum(r.overtime_jam)"></td>
-                        <td><button class="btn-secondary btn-sm" @click="edit(r)">Edit</button></td>
+                        <td><button class="btn-secondary btn-sm" @click="editMp(r)">Edit</button></td>
                       </tr>
                     </template>
-                    <tr x-show="rows.length === 0"><td colspan="4" class="empty-state">Belum ada data.</td></tr>
+                    <tr x-show="mpRows.length === 0"><td colspan="3" class="empty-state">Belum ada data.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- ===== Overtime Harian =====
+                 Beda dari Total Orang -- OT memang berubah tiap hari,
+                 jadi tetap diinput per tanggal. Menyimpan OT TIDAK ikut
+                 menimpa Total Orang di tanggal yang sama (lihat saveOt()). -->
+            <div class="panel">
+              <p class="panel-title">Overtime Harian</p>
+              <div class="form-grid">
+                <div class="field"><label>Tanggal</label><input type="date" x-model="otForm.tanggal"></div>
+                <div class="field"><label>Overtime (jam)</label><input type="number" step="0.5" x-model="otForm.overtime_jam"></div>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn-primary" @click="saveOt()">Simpan Overtime</button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <p class="panel-title">Riwayat Overtime Harian <span class="count" x-text="otRows.length + ' baris'"></span></p>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Tanggal</th><th>OT (jam)</th><th>Aksi</th></tr></thead>
+                  <tbody>
+                    <template x-for="r in otRows" :key="r.tanggal">
+                      <tr>
+                        <td class="mono" x-text="r.tanggal"></td>
+                        <td class="mono" x-text="fmtNum(r.overtime_jam)"></td>
+                        <td><button class="btn-secondary btn-sm" @click="editOt(r)">Edit</button></td>
+                      </tr>
+                    </template>
+                    <tr x-show="otRows.length === 0"><td colspan="3" class="empty-state">Belum ada data.</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -241,9 +291,14 @@ function masterDataPage() {
     // kategori Master Data lain nanti tanpa ubah struktur.
     activeTab: "attendance",
     setTab(tab) { this.activeTab = tab; },
-    // ---- Form Absensi Harian (Total Orang & Overtime) ----
-    form: { tanggal: localDateStr(new Date()), total_orang: 46, overtime_jam: "" },
-    rows: [],
+    // ---- Total Orang (Bulanan) ----
+    // Dropdown Bulan pakai label yang sama dengan dashboard (BULAN_LABELS).
+    BULAN_LABELS: ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"],
+    mpForm: { bulan: new Date().getMonth() + 1, tahun: new Date().getFullYear(), total_orang: 46 },
+    mpRows: [],
+    // ---- Form Overtime Harian ----
+    otForm: { tanggal: localDateStr(new Date()), overtime_jam: "" },
+    otRows: [],
     // ---- Form Kehadiran Shift Mingguan ----
     shiftForm: { tanggal_mulai: localDateStr(new Date()), tanggal_selesai: localDateStr(new Date()), shift1_hadir: "", shift2_hadir: "", keterangan: "" },
     shiftRows: [],
@@ -251,34 +306,83 @@ function masterDataPage() {
     // ---- Kelola Hari Libur / Tanggal Merah ----
     hariLiburRows: [], // { tanggal, keterangan } buat ditampilkan di tabel
     hariLiburForm: { tanggal: localDateStr(new Date()), keterangan: "" },
+    // Pilihan Tahun buat dropdown Total Orang (Bulanan) -- 2 tahun ke
+    // belakang s/d 1 tahun ke depan, cukup buat kebutuhan input.
+    get tahunOptions() {
+      const y = new Date().getFullYear();
+      return [y - 2, y - 1, y, y + 1];
+    },
     async init() {
       if (!await this.initBase()) return;
-      await this.fetchRows();
+      await this.fetchMp();
+      await this.fetchOt();
       await this.fetchShiftRows();
       await this.fetchHariLibur();
     },
-    // ---- Absensi Harian ----
-    async fetchRows() {
+    // ---- Total Orang (Bulanan) ----
+    // Ditampilkan sebagai "Riwayat Total Orang" -- hanya baris yang
+    // tanggalnya persis tanggal 1 (hasil input dari form Bulanan ini).
+    // Baris lain (hasil input Overtime Harian di tanggal lain) tidak
+    // ikut nongol di sini, biar nggak ketuker.
+    async fetchMp() {
       const { data, error } = await supabaseClient.from("attendance_log").select("*").order("tanggal", { ascending: false }).limit(100);
-      if (!error && data) this.rows = data;
+      if (!error && data) this.mpRows = data.filter((r) => r.tanggal && r.tanggal.endsWith("-01"));
     },
-    edit(r) {
-      this.form = { tanggal: r.tanggal, total_orang: r.total_orang, overtime_jam: r.overtime_jam };
+    fmtBulanTahun(tanggal) {
+      const [y, m] = tanggal.split("-");
+      return `${this.BULAN_LABELS[Number(m) - 1]} ${y}`;
+    },
+    editMp(r) {
+      const [y, m] = r.tanggal.split("-");
+      this.mpForm = { bulan: Number(m), tahun: Number(y), total_orang: r.total_orang };
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
-    async save() {
-      const f = this.form;
-      if (!f.tanggal || f.total_orang === "" || f.total_orang === null) { this.flash("Tanggal dan Total Orang wajib diisi.", true); return; }
+    // Simpan Total Orang untuk 1 bulan penuh -- disimpan di baris
+    // tanggal=1 bulan itu, lalu ikut carry-forward ke semua tanggal di
+    // bulan tsb (lihat totalCarryOn() di dashboard-exhaust.html).
+    // Overtime yang sudah ada di tanggal 1 itu (kalau ada) TIDAK ditimpa.
+    async saveMp() {
+      const f = this.mpForm;
+      if (!f.bulan || !f.tahun || f.total_orang === "" || f.total_orang === null) { this.flash("Bulan, Tahun, dan Total Orang wajib diisi.", true); return; }
+      const tanggal = `${f.tahun}-${String(f.bulan).padStart(2, "0")}-01`;
+      const { data: existing } = await supabaseClient.from("attendance_log").select("overtime_jam").eq("tanggal", tanggal).maybeSingle();
       const payload = {
-        tanggal: f.tanggal,
+        tanggal,
         total_orang: Number(f.total_orang) || 0,
-        overtime_jam: Number(f.overtime_jam) || 0,
+        overtime_jam: existing ? existing.overtime_jam : 0,
         updated_by: this.session.user.id,
       };
       const { error } = await supabaseClient.from("attendance_log").upsert(payload, { onConflict: "tanggal" });
       if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
-      this.flash("Absensi tersimpan.");
-      await this.fetchRows();
+      this.flash(`Total Orang bulan ${this.fmtBulanTahun(tanggal)} tersimpan.`);
+      await this.fetchMp();
+    },
+    // ---- Overtime Harian ----
+    async fetchOt() {
+      const { data, error } = await supabaseClient.from("attendance_log").select("*").order("tanggal", { ascending: false }).limit(100);
+      if (!error && data) this.otRows = data;
+    },
+    editOt(r) {
+      this.otForm = { tanggal: r.tanggal, overtime_jam: r.overtime_jam };
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    // Simpan OT di 1 tanggal spesifik -- TIDAK menimpa Total Orang yang
+    // sudah tersimpan di tanggal itu (kalau ada baris sebelumnya).
+    async saveOt() {
+      const f = this.otForm;
+      if (!f.tanggal) { this.flash("Tanggal wajib diisi.", true); return; }
+      const { data: existing } = await supabaseClient.from("attendance_log").select("total_orang").eq("tanggal", f.tanggal).maybeSingle();
+      const payload = {
+        tanggal: f.tanggal,
+        overtime_jam: Number(f.overtime_jam) || 0,
+        total_orang: existing ? existing.total_orang : 0,
+        updated_by: this.session.user.id,
+      };
+      const { error } = await supabaseClient.from("attendance_log").upsert(payload, { onConflict: "tanggal" });
+      if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
+      this.flash("Overtime tersimpan.");
+      await this.fetchOt();
+      await this.fetchMp();
     },
     // ---- Kehadiran Shift Mingguan ----
     async fetchShiftRows() {
