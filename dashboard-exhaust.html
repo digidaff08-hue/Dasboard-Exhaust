@@ -3639,6 +3639,7 @@ function dashboardExhaust() {
         const nHari = daysInMonth(year, month);
         const firstDay = localDateStr(new Date(year, month - 1, 1));
         const lastDay = localDateStr(new Date(year, month - 1, nHari));
+        const todayStr = localDateStr(new Date());
 
         const [logRes, seedLogRes, futureSeedLogRes, nonCutiRes, cutiRes] = await Promise.all([
           supabaseClient.from("attendance_log").select("*").gte("tanggal", firstDay).lte("tanggal", lastDay),
@@ -3706,24 +3707,26 @@ function dashboardExhaust() {
           }
           return (ds) => map[ds] || 0;
         })();
-        // "Sudah pernah diinput" TIDAK sama dengan totalCarryOn -- carry-
-        // forward dipakai untuk Total Orang & bar Izin/Sakit/Cuti/Mangkir
-        // (supaya konsisten dgn kartu MORAL), TAPI garis Hadir sengaja
-        // TIDAK ikut carry-forward: garis ini cuma boleh tampil angka di
-        // tanggal yang beneran ada baris attendance_log-nya (Form Absensi
-        // Harian benar-benar diisi untuk tanggal itu). Tanggal yang belum
-        // pernah diinput -> null, biar garis Hadir "putus"/kosong di sana,
-        // bukan ikut ke-isi angka dari input hari lain.
-        const hasLogOn = (ds) => logRows.some((r) => r.tanggal === ds);
+        // Total Orang cukup diinput SEKALI (tanggal berapa saja dalam
+        // sebulan) lewat Form Absensi Harian -- nilainya otomatis
+        // carry-forward dan berlaku untuk SEMUA tanggal di bulan itu
+        // (lihat totalCarryOn di atas). Hadir juga ikut dihitung otomatis
+        // untuk SEMUA tanggal dari angka carry-forward itu -- TIDAK lagi
+        // disyaratkan ada baris attendance_log persis di tanggal tsb.
+        // (Sebelumnya ada gate "hasLogOn" yang bikin Hadir kosong/null di
+        // tanggal yang belum diisi form harian -- itu sudah dihapus.)
         const totalByDay = byDay((ds) => totalCarryOn(ds));
         const izinByDay = byDay((ds) => nonCutiRows.filter((r) => r.jenis === "izin" && r.tanggal === ds).length);
         const sakitByDay = byDay((ds) => nonCutiRows.filter((r) => r.jenis === "sakit" && r.tanggal === ds).length);
         const mangkirByDay = byDay((ds) => nonCutiRows.filter((r) => r.jenis === "mangkir" && r.tanggal === ds).length);
         const cutiByDay = byDay((ds) => cutiCountOn(ds));
-        // Hadir per hari = Total Orang (carry-forward) - Cuti - Absen,
-        // TAPI cuma dihitung/ditampilkan di tanggal yang beneran ada input
-        // (lihat hasLogOn di atas). Kalau belum ada input -> null.
-        const hadirByDay = byDay((ds) => hasLogOn(ds) ? Math.max(0, totalCarryOn(ds) - cutiCountOn(ds) - absenCountOn(ds)) : null);
+        // Hadir per hari = Total Orang (carry-forward, berlaku sebulan) -
+        // Cuti - Absen hari itu. Dihitung otomatis untuk tanggal yang
+        // SUDAH LEWAT atau HARI INI (tidak perlu isi form persis di
+        // tanggal itu lagi). TAPI untuk tanggal yang BELUM LEWAT (masa
+        // depan) tetap null -- karena kehadiran hari itu memang belum
+        // "kejadian", jadi belum semestinya ditampilkan.
+        const hadirByDay = byDay((ds) => ds > todayStr ? null : Math.max(0, totalCarryOn(ds) - cutiCountOn(ds) - absenCountOn(ds)));
         const persenByDay = Array.from({ length: 31 }, (_, i) => {
           const t = totalByDay[i], h = hadirByDay[i];
           if (h === null || h === undefined) return null;
