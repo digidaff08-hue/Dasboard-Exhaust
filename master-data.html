@@ -51,12 +51,6 @@
       <template x-if="isLeaderOrAdmin()">
         <a href="master-data.html" class="sidebar-link active" title="Master Data"><span>🗂️</span><span x-show="!sidebarCollapsed">Master Data</span></a>
       </template>
-      <template x-if="isLeaderOrAdmin()">
-        <a href="input-scrap.html" class="sidebar-link" title="Input Scrap"><span>♻️</span><span x-show="!sidebarCollapsed">Input Scrap</span></a>
-      </template>
-      <template x-if="isLeaderOrAdmin()">
-        <a href="input-safety.html" class="sidebar-link" title="Input Safety"><span>⛑️</span><span x-show="!sidebarCollapsed">Input Safety</span></a>
-      </template>
     </nav>
     <div class="sidebar-foot" x-show="!sidebarCollapsed">
       <div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
@@ -84,6 +78,8 @@
              sama (tambah tombol + activeTab baru). -->
         <div class="md-subtab-nav">
           <button class="btn-secondary btn-sm" :class="activeTab === 'attendance' ? 'btn-primary' : ''" @click="setTab('attendance')">Attendance</button>
+          <button class="btn-secondary btn-sm" :class="activeTab === 'scrap' ? 'btn-primary' : ''" @click="setTab('scrap')">Scrap</button>
+          <button class="btn-secondary btn-sm" :class="activeTab === 'safety' ? 'btn-primary' : ''" @click="setTab('safety')">Safety</button>
         </div>
 
         <!-- ===== TAB: ATTENDANCE ===== -->
@@ -245,6 +241,98 @@
             </div>
           </div>
         </template>
+
+        <!-- ===== TAB: SCRAP ===== -->
+        <template x-if="activeTab === 'scrap'">
+          <div>
+            <div class="panel">
+              <p class="panel-title">Form Scrap Top End</p>
+              <p class="hint" style="margin-bottom:12px;">Satuan mengikuti laporan asli: <b>K IDR</b> (ribuan Rupiah).</p>
+              <div class="form-grid">
+                <div class="field"><label>Tahun</label><input type="number" min="2000" max="2100" x-model="scrapForm.tahun"></div>
+                <div class="field"><label>Bulan</label>
+                  <select x-model="scrapForm.bulan">
+                    <template x-for="(nm, i) in BULAN_LABELS" :key="'scr-bln-'+i">
+                      <option :value="String(i+1)" x-text="nm"></option>
+                    </template>
+                  </select>
+                </div>
+                <div class="field"><label>Scrap Value (K IDR)</label><input type="number" step="0.001" x-model="scrapForm.scrap_value_kidr"></div>
+                <div class="field"><label>Total Value (K IDR)</label><input type="number" step="0.001" x-model="scrapForm.total_value_kidr"></div>
+                <div class="field"><label>Target Rasio (mis. 0.0046)</label><input type="number" step="0.0001" x-model="scrapForm.target_rasio"></div>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn-primary" @click="saveScrap()">Simpan Scrap</button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <p class="panel-title">Riwayat Scrap <span class="count" x-text="scrapRows.length + ' baris'"></span></p>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Periode</th><th>Scrap (K IDR)</th><th>Total (K IDR)</th><th>Rasio</th><th>Target</th><th>Aksi</th></tr></thead>
+                  <tbody>
+                    <template x-for="r in scrapRows" :key="r.id">
+                      <tr>
+                        <td class="mono" x-text="r.tahun + '-' + String(r.bulan).padStart(2,'0')"></td>
+                        <td class="mono" x-text="fmtNum(r.scrap_value_kidr)"></td>
+                        <td class="mono" x-text="fmtNum(r.total_value_kidr)"></td>
+                        <td class="mono" x-text="r.total_value_kidr > 0 ? fmtNum(r.scrap_value_kidr / r.total_value_kidr * 100) + '%' : '-'"></td>
+                        <td class="mono" x-text="r.target_rasio ? fmtNum(r.target_rasio * 100) + '%' : '-'"></td>
+                        <td><button class="btn-secondary btn-sm" @click="editScrap(r)">Edit</button></td>
+                      </tr>
+                    </template>
+                    <tr x-show="scrapRows.length === 0"><td colspan="6" class="empty-state">Belum ada data.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- ===== TAB: SAFETY ===== -->
+        <template x-if="activeTab === 'safety'">
+          <div>
+            <div class="panel">
+              <p class="panel-title">Catat Insiden</p>
+              <p class="hint" style="margin-bottom:12px;">Kalau tidak ada insiden, tidak perlu diisi — dashboard otomatis menghitung "hari tanpa kecelakaan".</p>
+              <div class="form-grid">
+                <div class="field"><label>Tanggal</label><input type="date" x-model="safetyForm.tanggal"></div>
+                <div class="field"><label>Kategori</label>
+                  <select x-model="safetyForm.kategori">
+                    <option value="ACCIDENT">Accident (kecelakaan kerja)</option>
+                    <option value="NEAR_MISS">Near Miss (hampir celaka)</option>
+                    <option value="OTHER">Lainnya</option>
+                  </select>
+                </div>
+                <div class="field" style="grid-column: 1 / -1;"><label>Keterangan</label><input type="text" x-model="safetyForm.keterangan" placeholder="Kronologi singkat..."></div>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn-primary" @click="saveSafety()">Simpan Insiden</button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <p class="panel-title">Riwayat Insiden <span class="count" x-text="safetyRows.length + ' baris'"></span></p>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Tanggal</th><th>Kategori</th><th>Keterangan</th><th>Aksi</th></tr></thead>
+                  <tbody>
+                    <template x-for="r in safetyRows" :key="r.id">
+                      <tr>
+                        <td class="mono" x-text="r.tanggal"></td>
+                        <td><span class="badge" x-text="r.kategori"></span></td>
+                        <td x-text="r.keterangan || '-'"></td>
+                        <td><button class="btn-danger btn-sm" @click="hapusSafety(r.id)">Hapus</button></td>
+                      </tr>
+                    </template>
+                    <tr x-show="safetyRows.length === 0"><td colspan="4" class="empty-state">Tidak ada insiden tercatat. 👍</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </template>
       </div>
     </template>
   </main>
@@ -306,6 +394,12 @@ function masterDataPage() {
     // ---- Kelola Hari Libur / Tanggal Merah ----
     hariLiburRows: [], // { tanggal, keterangan } buat ditampilkan di tabel
     hariLiburForm: { tanggal: localDateStr(new Date()), keterangan: "" },
+    // ---- Form Scrap Top End (Bulanan) ----
+    scrapForm: { tahun: new Date().getFullYear(), bulan: String(new Date().getMonth() + 1), scrap_value_kidr: "", total_value_kidr: "", target_rasio: "" },
+    scrapRows: [],
+    // ---- Form Safety / Insiden ----
+    safetyForm: { tanggal: localDateStr(new Date()), kategori: "ACCIDENT", keterangan: "" },
+    safetyRows: [],
     // Pilihan Tahun buat dropdown Total Orang (Bulanan) -- 2 tahun ke
     // belakang s/d 1 tahun ke depan, cukup buat kebutuhan input.
     get tahunOptions() {
@@ -318,6 +412,8 @@ function masterDataPage() {
       await this.fetchOt();
       await this.fetchShiftRows();
       await this.fetchHariLibur();
+      await this.fetchScrapRows();
+      await this.fetchSafetyRows();
     },
     // ---- Total Orang (Bulanan) ----
     // Ditampilkan sebagai "Riwayat Total Orang" -- hanya baris yang
@@ -451,6 +547,53 @@ function masterDataPage() {
       if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
       this.flash("Hari libur dihapus.");
       await this.fetchHariLibur();
+    },
+    // ---- Scrap Top End (Bulanan) ----
+    async fetchScrapRows() {
+      const { data, error } = await supabaseClient.from("scrap_top_end").select("*")
+        .order("tahun", { ascending: false }).order("bulan", { ascending: false }).limit(100);
+      if (!error && data) this.scrapRows = data;
+    },
+    editScrap(r) {
+      this.scrapForm = { tahun: r.tahun, bulan: String(r.bulan), scrap_value_kidr: r.scrap_value_kidr, total_value_kidr: r.total_value_kidr, target_rasio: r.target_rasio ?? "" };
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    async saveScrap() {
+      const f = this.scrapForm;
+      if (!f.tahun || !f.bulan) { this.flash("Tahun dan Bulan wajib diisi.", true); return; }
+      const payload = {
+        tahun: Number(f.tahun), bulan: Number(f.bulan),
+        scrap_value_kidr: Number(f.scrap_value_kidr) || 0,
+        total_value_kidr: Number(f.total_value_kidr) || 0,
+        target_rasio: f.target_rasio === "" ? null : Number(f.target_rasio),
+      };
+      const { error } = await supabaseClient.from("scrap_top_end").upsert(payload, { onConflict: "tahun,bulan" });
+      if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
+      this.flash("Data scrap tersimpan.");
+      await this.fetchScrapRows();
+    },
+    // ---- Safety / Insiden ----
+    async fetchSafetyRows() {
+      const { data, error } = await supabaseClient.from("safety_log").select("*").order("tanggal", { ascending: false }).limit(100);
+      if (!error && data) this.safetyRows = data;
+    },
+    async saveSafety() {
+      const f = this.safetyForm;
+      if (!f.tanggal) { this.flash("Tanggal wajib diisi.", true); return; }
+      const { error } = await supabaseClient.from("safety_log").insert({
+        tanggal: f.tanggal, kategori: f.kategori, keterangan: f.keterangan || null,
+        created_by: this.session.user.id,
+      });
+      if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
+      this.flash("Insiden tercatat.");
+      this.safetyForm.keterangan = "";
+      await this.fetchSafetyRows();
+    },
+    async hapusSafety(id) {
+      if (!confirm("Hapus catatan insiden ini?")) return;
+      const { error } = await supabaseClient.from("safety_log").delete().eq("id", id);
+      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
+      await this.fetchSafetyRows();
     },
   };
 }
