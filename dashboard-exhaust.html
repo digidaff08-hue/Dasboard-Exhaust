@@ -805,6 +805,70 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
   .dxy-attn-card { max-width: 100%; }
   .dxy-attn-stat-row { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* ===== Mode "Landscape Otomatis" khusus HP (halaman ini saja) =====
+   TIDAK memaksa fisik HP untuk berputar (browser/OS tidak mengizinkan
+   itu tanpa aksi user) -- ini trik CSS murni: elemen <html> diputar
+   -90deg lewat transform, lalu width/height-nya ditukar (100vh x 100vw)
+   supaya konten yang "landscape" itu pas mengisi layar walau HP masih
+   dipegang tegak (portrait). User tidak perlu memutar HP-nya sendiri.
+
+   CATATAN PENTING: transform CSS ini cuma visual -- browser tetap
+   menganggap lebar viewport = lebar fisik HP posisi tegak (biasanya
+   ~360-430px, TIDAK berubah walau tampilan sudah divisualkan landscape).
+   Jadi breakpoint mobile (640/800/1024/1366px) punya file ini & di
+   assets/style.css masih akan aktif kalau dibiarkan -- makanya di bawah
+   ini grid & sidebar-nya di-override manual balik ke versi DESKTOP,
+   KHUSUS untuk kondisi (lebar<=800px + orientation:portrait) ini saja.
+   Halaman lain (assets/style.css) TIDAK disentuh sama sekali. */
+@media (max-width: 800px) and (orientation: portrait) {
+  html {
+    transform: rotate(-90deg);
+    transform-origin: left top;
+    width: 100vh;
+    height: 100vw;
+    overflow-x: hidden;
+    position: absolute;
+    top: 100%;
+    left: 0;
+  }
+  body { margin: 0; }
+
+  /* Sidebar & shell balik ke mode desktop (bukan drawer/hamburger mobile) */
+  .mobile-topbar, .sidebar-overlay { display: none !important; }
+  .app-shell { flex-direction: row !important; }
+  .sidebar {
+    position: relative !important;
+    transform: none !important;
+    box-shadow: none !important;
+    width: 220px !important;
+  }
+  .sidebar.sidebar-collapsed {
+    width: 6px !important;
+    position: fixed !important;
+    top: 0; left: 0; bottom: 0;
+  }
+  .sidebar.sidebar-collapsed:hover,
+  .sidebar.sidebar-collapsed:focus-within { width: 52px !important; }
+  .main { padding: 28px 32px !important; }
+
+  /* Grid dashboard balik ke span/kolom desktop (bukan numpuk 1 kolom) */
+  .dxy-kpi-card, .dxy-skeleton { grid-column: span 3; }
+  .dxy-span-2 { grid-column: span 2; }
+  .dxy-span-3 { grid-column: span 3; }
+  .dxy-span-4 { grid-column: span 4; }
+  .dxy-span-5 { grid-column: span 5; }
+  .dxy-span-6 { grid-column: span 6; }
+  .dxy-span-8 { grid-column: span 8; }
+  .dxy-filterbar { gap: 14px; }
+  .dxy-weekly-grid { grid-template-columns: repeat(5, 1fr); }
+  .dxy-dt-terbesar-grid { grid-template-columns: repeat(3, 1fr); }
+  .dxy-qc-grid { grid-template-columns: repeat(3, 1fr); }
+  .dxy-qc-subgrid { grid-template-columns: 1fr 1fr; }
+  .dxy-attn-stat-row { grid-template-columns: repeat(2, 1fr) repeat(4, 0.75fr); }
+  .dxy-attn-card { max-width: 440px; }
+  .dxy-panel .dxy-chart-box.dxy-attn-trend-box { min-height: 400px !important; max-height: 400px !important; height: 400px !important; }
+}
 </style>
 <script>
   (function () {
