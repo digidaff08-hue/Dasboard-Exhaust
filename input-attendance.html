@@ -83,12 +83,6 @@
       <template x-if="isLeaderOrAdmin()">
         <a href="master-data.html" class="sidebar-link" title="Master Data"><span>🗂️</span><span x-show="!sidebarCollapsed">Master Data</span></a>
       </template>
-      <template x-if="isLeaderOrAdmin()">
-        <a href="input-scrap.html" class="sidebar-link" title="Input Scrap"><span>♻️</span><span x-show="!sidebarCollapsed">Input Scrap</span></a>
-      </template>
-      <template x-if="isLeaderOrAdmin()">
-        <a href="input-safety.html" class="sidebar-link" title="Input Safety"><span>⛑️</span><span x-show="!sidebarCollapsed">Input Safety</span></a>
-      </template>
     </nav>
     <div class="sidebar-foot" x-show="!sidebarCollapsed">
       <div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
