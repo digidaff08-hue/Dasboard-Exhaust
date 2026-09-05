@@ -1431,6 +1431,42 @@ tr.row-qty-warn td { background: rgba(217,119,6,0.07) !important; }
 
 @media (min-width: 801px) {
   .mobile-topbar, .sidebar-overlay { display: none; }
+
+  /* ===== Sidebar auto-hide (khusus monitor/desktop) =====
+     Default sidebarCollapsed selalu true di semua halaman, jadi rail
+     ikon 52px itu SELALU kelihatan nempel di kiri layar. Di sini rail
+     itu dibikin auto-hide: menciut jadi strip tipis 6px (nyaris tak
+     kelihatan) waktu tidak disentuh, lalu "keluar" jadi rail ikon 52px
+     yang MELAYANG DI ATAS konten (position: fixed, overlay) begitu
+     kursor diarahkan ke tepi kiri -- tanpa menggeser/mendorong layout
+     dashboard di baliknya. Kalau user klik tombol collapse (buka jadi
+     220px penuh label), itu tetap seperti biasa/tidak auto-hide, karena
+     aturan di bawah cuma menyasar .sidebar-collapsed. */
+  .sidebar.sidebar-collapsed {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 6px;
+    padding: 0;
+    overflow: hidden;
+    z-index: 40;
+    transition: width 0.15s ease, box-shadow 0.15s ease;
+  }
+  .sidebar.sidebar-collapsed:hover,
+  .sidebar.sidebar-collapsed:focus-within {
+    width: 52px;
+    padding: 24px 0 12px;
+    overflow: visible;
+    box-shadow: 2px 0 20px rgba(0,0,0,0.18);
+  }
+  /* Tombol collapse (‹/›) ikut disembunyikan waktu strip lagi menciut,
+     biar gak nongol sendirian keluar dari area 6px yang sempit itu. */
+  .sidebar.sidebar-collapsed .sidebar-collapse-btn { opacity: 0; pointer-events: none; transition: opacity 0.12s ease; }
+  .sidebar.sidebar-collapsed:hover .sidebar-collapse-btn,
+  .sidebar.sidebar-collapsed:focus-within .sidebar-collapse-btn { opacity: 1; pointer-events: auto; }
+  /* Karena sidebar-collapsed sekarang "fixed" (lepas dari alur flex
+     .app-shell), .main otomatis melebar penuh mengisi sisa layar --
+     ini disengaja, supaya dashboard dapat lebar maksimal saat sidebar
+     lagi menciut. */
 }
 
 
