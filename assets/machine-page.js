@@ -350,13 +350,17 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
 
       try {
         this.ensureLines();
+        // Cuma data yang BENERAN dibutuhin tab default "Input Produksi" yang
+        // ditunggu di sini, biar form-nya langsung kelihatan secepat mungkin.
+        // Data buat tab lain (Downtime, NG Inline, Repair, Riwayat gabungan,
+        // Non-Produksi, Planning, master Problem/Cause/Area) menyusul di
+        // belakang layar SETELAH tab default siap -- sama pola kayak data
+        // Performance yang sudah lebih dulu dibikin lazy (lihat komentar di
+        // bawah).
         const [profileRes] = await Promise.all([
           supabaseClient.from("profiles").select("*").eq("id", this.session.user.id).maybeSingle(),
-          this.fetchProduction(), this.fetchDowntime(), this.fetchNonProduksi(),
-          this.fetchPlanning(), this.fetchPartNumbers(), this.fetchProblems(), this.fetchCauses(), this.fetchAreas(), this.fetchNonProduksiTypes(),
-          this.fetchNgModelsForLine(), this.fetchNgInline(), this.fetchProduksiNew(),
-          this.fetchRepairViews(), this.fetchRepairKategori(), this.fetchRepairLog(), this.fetchRepairPartNoOptions(),
-          this.fetchMesinSettings(),
+          this.fetchProduksiNew(), this.fetchPartNumbers(), this.fetchNonProduksiTypes(),
+          this.fetchNgModelsForLine(), this.fetchMesinSettings(),
         ]);
         if (profileRes.error) throw profileRes.error;
         this.profile = profileRes.data;
@@ -364,11 +368,23 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         await this.fetchProduksiPartNumberOptions();
         this.watchAndAutosave();
         this.refreshPendingCount();
-        // Data pokok buat nampilin form udah lengkap di titik ini -- jangan
-        // nunggu syncNow()/initRealtime() lagi buat matiin layar "Memuat
-        // data...". Sync offline queue & realtime subscribe jalan di
-        // belakang layar setelah form udah kelihatan, bukan sebelum.
+        // Data pokok buat nampilin tab "Input Produksi" udah lengkap di titik
+        // ini -- jangan nunggu data tab lain / syncNow() / initRealtime()
+        // lagi buat matiin layar "Memuat data...".
         this.loading = false;
+
+        // Data tab lain diambil di belakang layar, TIDAK memblokir form
+        // utama. Kalau operator sempat buka tab itu sebelum datanya sampai,
+        // tabelnya sebentar kosong lalu otomatis keisi sendiri (reaktivitas
+        // Alpine) -- bukan error, cuma nunggu giliran.
+        Promise.all([
+          this.fetchProduction(), this.fetchDowntime(), this.fetchNonProduksi(),
+          this.fetchPlanning(), this.fetchProblems(), this.fetchCauses(), this.fetchAreas(),
+          this.fetchNgInline(), this.fetchRepairViews(), this.fetchRepairKategori(),
+          this.fetchRepairLog(), this.fetchRepairPartNoOptions(),
+        ]).catch((err) => {
+          this.flash("Sebagian data tab lain gagal dimuat: " + (err.message || err), true);
+        });
         // Data Performance (Tahunan/Bulanan/Harian) SENGAJA TIDAK dimuat di sini.
         // Sebelumnya fetchAllPerf() dipanggil otomatis di init(), padahal itu
         // memicu puluhan request RPC sekaligus (tiap hari dalam sebulan +
