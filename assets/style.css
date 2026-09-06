@@ -18,12 +18,12 @@
   --border: #e2e8f0;
   --text: #0f172a;
   --muted: #64748b;
-  --primary: #2563eb;
-  --navy: #2563eb;
+  --primary: #c2600c;
+  --navy: #475569;
   --teal: var(--green);
   --sky: #60a5fa;
-  --amber: #2563eb;
-  --amber-dim: #eff6ff;
+  --amber: #c2600c;
+  --amber-dim: #fdf1e0;
   --green: #16a34a;
   --red: #dc2626;
   --blue: #2563eb;
@@ -44,6 +44,11 @@
   --warn-bg: #fef3e2;
   --bad-bg: #fdecec;
   --good-bg: #e9f7ef;
+  --sidebar-bg: #1c2128;
+  --sidebar-border: #2a303a;
+  --sidebar-text: #aeb4bd;
+  --sidebar-text-strong: #f4f5f7;
+  --sidebar-active-bg: #262c35;
 }
 
 /* ---------- Tema Gelap ---------- */
@@ -56,12 +61,12 @@
   --border: #334155;
   --text: #f8fafc;
   --muted: #94a3b8;
-  --primary: #3b82f6;
-  --navy: #3b82f6;
+  --primary: #f59e0b;
+  --navy: #94a3b8;
   --teal: var(--green);
   --sky: #60a5fa;
-  --amber: #3b82f6;
-  --amber-dim: #1e3a5f;
+  --amber: #f59e0b;
+  --amber-dim: #3a2c10;
   --green: #22c55e;
   --red: #ef4444;
   --blue: #3b82f6;
@@ -82,6 +87,11 @@
   --warn-bg: #3a2c10;
   --bad-bg: #3a1717;
   --good-bg: #103a21;
+  --sidebar-bg: #0b0f17;
+  --sidebar-border: #1b2230;
+  --sidebar-text: #93a0b3;
+  --sidebar-text-strong: #f8fafc;
+  --sidebar-active-bg: #161d29;
 }
 
 * { box-sizing: border-box; }
@@ -122,8 +132,8 @@ a { color: var(--amber); }
      kaca transparan). Sekarang app-shell putih polos, jadi sidebar
      dibikin panel solid biasa -- warna teks/border ikut var(--text)
      dkk. bawaan tema (gelap di tema terang, terang di tema gelap). */
-  background: var(--panel-2);
-  border-right: 1px solid var(--border);
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
   padding: 24px 0;
   display: flex;
   flex-direction: column;
@@ -137,16 +147,16 @@ a { color: var(--amber); }
   top: 18px; right: -12px;
   width: 24px; height: 24px;
   border-radius: 50%;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  color: var(--muted);
+  background: var(--sidebar-bg);
+  border: 1px solid var(--sidebar-border);
+  color: var(--sidebar-text);
   cursor: pointer;
   font-size: 14px;
   line-height: 1;
   display: flex; align-items: center; justify-content: center;
   z-index: 5;
 }
-.sidebar-collapse-btn:hover { color: var(--text); border-color: var(--amber); }
+.sidebar-collapse-btn:hover { color: var(--sidebar-text-strong); border-color: var(--amber); }
 .sidebar.sidebar-collapsed .sidebar-link {
   justify-content: center;
   padding: 10px 0;
@@ -161,7 +171,7 @@ a { color: var(--amber); }
   margin: auto auto 0;
   background: none;
   border: none;
-  color: var(--muted);
+  color: var(--sidebar-text);
   font-size: 18px;
   cursor: pointer;
   padding: 10px 0;
@@ -173,9 +183,9 @@ a { color: var(--amber); }
   font-weight: 700;
   font-size: 15px;
   letter-spacing: 0.03em;
-  color: var(--text);
+  color: var(--sidebar-text-strong);
   padding: 0 20px 20px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--sidebar-border);
   margin-bottom: 12px;
 }
 .sidebar-brand span { color: var(--amber); }
@@ -187,22 +197,22 @@ a { color: var(--amber); }
   align-items: center;
   gap: 10px;
   padding: 10px 20px;
-  color: var(--muted);
+  color: var(--sidebar-text);
   text-decoration: none;
   font-size: 14px;
   border-left: 3px solid transparent;
 }
-.sidebar-link:hover { color: var(--text); background: var(--panel-2); }
+.sidebar-link:hover { color: var(--sidebar-text-strong); background: var(--sidebar-active-bg); }
 .sidebar-link.active {
   color: var(--amber);
   border-left-color: var(--amber);
-  background: var(--panel-2);
+  background: var(--sidebar-active-bg);
 }
 .sidebar-tag {
   font-family: var(--font-mono);
   font-size: 10px;
-  color: var(--muted);
-  background: var(--bg);
+  color: var(--sidebar-text);
+  background: rgba(255,255,255,0.08);
   border-radius: 3px;
   padding: 1px 5px;
   margin-left: auto;
@@ -210,16 +220,19 @@ a { color: var(--amber); }
 
 .sidebar-foot {
   padding: 14px 20px 0;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--sidebar-border);
   margin-top: 12px;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--sidebar-text);
 }
-.sidebar-foot .who { color: var(--text); font-weight: 600; }
+.sidebar-foot .who { color: var(--sidebar-text-strong); font-weight: 600; }
 .sidebar-foot button {
   margin-top: 10px;
   width: 100%;
 }
+.sidebar-foot .btn-ghost { color: var(--sidebar-text); border-color: var(--sidebar-border); }
+.sidebar-foot .badge { background: rgba(255,255,255,0.08); color: var(--amber); }
+.sidebar-foot .badge.role-admin { background: rgba(34,197,94,0.15); color: #4ade80; }
 
 .main {
   --row-gap: 20px;
@@ -1376,16 +1389,16 @@ tr.row-qty-warn td { background: rgba(217,119,6,0.07) !important; }
     align-items: center;
     gap: 12px;
     padding: 12px 16px;
-    background: var(--panel);
-    border-bottom: 1px solid var(--border);
+    background: var(--sidebar-bg);
+    border-bottom: 1px solid var(--sidebar-border);
     position: sticky;
     top: 0;
     z-index: 20;
   }
   .mobile-topbar button.hamburger {
     background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text);
+    border: 1px solid var(--sidebar-border);
+    color: var(--sidebar-text-strong);
     font-size: 18px;
     padding: 6px 12px;
     line-height: 1;
@@ -1394,6 +1407,7 @@ tr.row-qty-warn td { background: rgba(217,119,6,0.07) !important; }
     font-family: var(--font-display);
     font-size: 15px;
     font-weight: 700;
+    color: var(--sidebar-text-strong);
   }
 
   .sidebar {
