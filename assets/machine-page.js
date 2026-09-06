@@ -349,22 +349,21 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       setInterval(() => { this.nowTick = Date.now(); }, 1000);
 
       try {
-        const { data: profile, error: pErr } = await supabaseClient.from("profiles").select("*").eq("id", this.session.user.id).maybeSingle();
-        if (pErr) throw pErr;
-        this.profile = profile;
-
         this.ensureLines();
-        await Promise.all([
+        const [profileRes] = await Promise.all([
+          supabaseClient.from("profiles").select("*").eq("id", this.session.user.id).maybeSingle(),
           this.fetchProduction(), this.fetchDowntime(), this.fetchNonProduksi(),
           this.fetchPlanning(), this.fetchPartNumbers(), this.fetchProblems(), this.fetchCauses(), this.fetchAreas(), this.fetchNonProduksiTypes(),
           this.fetchNgModelsForLine(), this.fetchNgInline(), this.fetchProduksiNew(),
           this.fetchRepairViews(), this.fetchRepairKategori(), this.fetchRepairLog(), this.fetchRepairPartNoOptions(),
+          this.fetchMesinSettings(),
         ]);
+        if (profileRes.error) throw profileRes.error;
+        this.profile = profileRes.data;
         this.restoreLocalState();
         await this.fetchProduksiPartNumberOptions();
         this.watchAndAutosave();
         this.refreshPendingCount();
-        await this.fetchMesinSettings();
         // Data pokok buat nampilin form udah lengkap di titik ini -- jangan
         // nunggu syncNow()/initRealtime() lagi buat matiin layar "Memuat
         // data...". Sync offline queue & realtime subscribe jalan di
