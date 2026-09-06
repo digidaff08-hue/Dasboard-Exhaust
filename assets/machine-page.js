@@ -385,6 +385,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         ]).catch((err) => {
           this.flash("Sebagian data tab lain gagal dimuat: " + (err.message || err), true);
         });
+
+        // "Mesin" 3D (Three.js + loader STL/3MF + kontrol rotasi) juga
+        // disiapin dari sekarang di belakang layar -- bukan pas tab Repair
+        // baru diklik. Jadi kalau operator buka tab Repair, yang ditunggu
+        // tinggal file model part-nya doang, librarynya udah siap duluan.
+        this.ensureThreeLib().catch(() => { /* biarin, nanti dicoba lagi pas tab Repair beneran dibuka */ });
         // Data Performance (Tahunan/Bulanan/Harian) SENGAJA TIDAK dimuat di sini.
         // Sebelumnya fetchAllPerf() dipanggil otomatis di init(), padahal itu
         // memicu puluhan request RPC sekaligus (tiap hari dalam sebulan +
