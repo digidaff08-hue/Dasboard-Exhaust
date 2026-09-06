@@ -23,14 +23,22 @@ function enqueueOffline(table, payload) {
 async function trySyncOfflineQueue() {
   let q = loadOfflineQueue();
   if (q.length === 0) return { synced: 0 };
-  let synced = 0; const remaining = [];
-  for (const item of q) {
-    try {
-      const { error } = await supabaseClient.from(item.table).insert(item.payload);
-      if (error) throw error;
-      synced++;
-    } catch { remaining.push(item); }
-  }
+  // Dulu ini kirim satu-satu berurutan (for...await), jadi kalau ada
+  // banyak item nyangkut di queue, waktu totalnya numpuk jadi lama
+  // banget (dan diulang tiap halaman mesin dibuka). Sekarang dikirim
+  // BARENGAN (paralel) -- waktunya ditentuin item paling lambat, bukan
+  // jumlah semua item dijumlahin.
+  const results = await Promise.allSettled(
+    q.map((item) => supabaseClient.from(item.table).insert(item.payload))
+  );
+  let synced = 0;
+  const remaining = [];
+  results.forEach((res, i) => {
+    const item = q[i];
+    const gagal = res.status === "rejected" || (res.value && res.value.error);
+    if (gagal) remaining.push(item);
+    else synced++;
+  });
   saveOfflineQueue(remaining);
   return { synced };
 }
@@ -357,6 +365,11 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         this.watchAndAutosave();
         this.refreshPendingCount();
         await this.fetchMesinSettings();
+        // Data pokok buat nampilin form udah lengkap di titik ini -- jangan
+        // nunggu syncNow()/initRealtime() lagi buat matiin layar "Memuat
+        // data...". Sync offline queue & realtime subscribe jalan di
+        // belakang layar setelah form udah kelihatan, bukan sebelum.
+        this.loading = false;
         // Data Performance (Tahunan/Bulanan/Harian) SENGAJA TIDAK dimuat di sini.
         // Sebelumnya fetchAllPerf() dipanggil otomatis di init(), padahal itu
         // memicu puluhan request RPC sekaligus (tiap hari dalam sebulan +
