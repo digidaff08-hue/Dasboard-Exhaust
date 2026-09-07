@@ -21,6 +21,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="../assets/supabaseClient.js"></script>
 <script src="../assets/machine-page.js"></script>
 </head>
@@ -352,7 +353,19 @@
                 <div class="form-grid">
                   <div class="field"><label>Waktu Awal</label><input type="datetime-local" x-model="lines[st.id].editForm.waktu_awal" @change="recalcEditBreak(st.id)"></div>
                   <div class="field"><label>Waktu Akhir</label><input type="datetime-local" x-model="lines[st.id].editForm.waktu_akhir" @change="recalcEditBreak(st.id)"></div>
-                  <div class="field"><label>Part Number</label><input type="text" x-model="lines[st.id].editForm.part_number"></div>
+                  <div class="field">
+                    <label>Part Number</label>
+                    <select x-model="lines[st.id].editForm.part_number">
+                      <option value="">-- pilih --</option>
+                      <template x-for="pn in partNumberList" :key="pn.value"><option :value="pn.value" x-text="pn.value"></option></template>
+                      <!-- Kalau data lama pakai part number yang sekarang udah dihapus
+                           dari Master Data, tetep ditampilin di sini (bukan ilang diam-diam
+                           jadi kosong) supaya operator sadar dan bisa pilih yang benar. -->
+                      <template x-if="lines[st.id].editForm.part_number && !partNumberList.some(pn => pn.value === lines[st.id].editForm.part_number)">
+                        <option :value="lines[st.id].editForm.part_number" x-text="lines[st.id].editForm.part_number + ' (sudah tidak ada di Master Data)'"></option>
+                      </template>
+                    </select>
+                  </div>
                   <div class="field"><label>Qty</label><input type="number" x-model="lines[st.id].editForm.qty"></div>
                   <div class="field"><label>Jumlah MP</label><input type="number" x-model="lines[st.id].editForm.manpower"></div>
                   <div class="field"><label>Repair</label><input type="number" x-model="lines[st.id].editForm.repair"></div>
@@ -371,14 +384,10 @@
                 <div class="planning-col">
                   <p class="panel-subtitle">Planning Produksi</p>
                   <div class="planning-add-row" x-show="isLeaderOrAdmin()">
-                    <div class="combo" x-data="comboBox(() => partNumberList.map(p => p.value), () => newPlanning.part_number, (v) => newPlanning.part_number = v)" @click.outside="open = false">
-                      <input type="text" x-model="query" @input="onInput()" @focus="open = true" placeholder="Part Number">
-                      <div class="combo-list" x-show="open && filtered().length > 0" x-cloak>
-                        <template x-for="opt in filtered()" :key="opt">
-                          <div class="combo-item" @mousedown.prevent="select(opt)" x-text="opt"></div>
-                        </template>
-                      </div>
-                    </div>
+                    <select x-model="newPlanning.part_number">
+                      <option value="">-- pilih Part Number --</option>
+                      <template x-for="pn in partNumberList" :key="pn.value"><option :value="pn.value" x-text="pn.value"></option></template>
+                    </select>
                     <input type="number" placeholder="Qty" x-model="newPlanning.qty_rencana" style="max-width:80px;">
                     <input type="datetime-local" x-model="newPlanning.jam_mulai" title="Jam rencana mulai">
                     <input type="datetime-local" x-model="newPlanning.jam_selesai" title="Jam rencana selesai">
@@ -507,6 +516,7 @@
               <input type="date" x-model="riwayatFilter.sampai" title="Sampai tanggal">
               <input type="text" x-model="riwayatFilter.part_number" placeholder="Filter Part Number...">
               <button type="button" class="btn-ghost btn-sm" @click="resetRiwayatFilter()">Reset</button>
+              <button type="button" class="btn-secondary btn-sm" @click="exportRiwayatExcel()">⬇ Export Excel</button>
             </div>
             <div class="table-wrap">
               <table>
@@ -1058,7 +1068,10 @@
             </form>
           </div>
           <div class="panel">
-            <p class="panel-title">Riwayat Downtime <span class="count" x-text="downtimeRowsFiltered().length + ' baris'"></span></p>
+            <p class="panel-title">
+              <span>Riwayat Downtime <span class="count" x-text="downtimeRowsFiltered().length + ' baris'"></span></span>
+              <button type="button" class="btn-secondary btn-sm" @click="exportDowntimeExcel()">⬇ Export Excel</button>
+            </p>
             <div class="offline-banner" x-show="downtimeFilterProductionId" style="display:flex;align-items:center;justify-content:space-between;">
               <span>Filter aktif: cuma downtime untuk <b x-text="downtimeFilterLabel"></b></span>
               <button type="button" class="btn-ghost btn-sm" @click="clearDowntimeFilter()">✕ Tampilkan semua</button>
@@ -1187,7 +1200,10 @@
           </div>
 
           <div class="panel">
-            <p class="panel-title">Riwayat NG Inline <span class="count" x-text="ngInlineRows.length + ' baris'"></span></p>
+            <p class="panel-title">
+              <span>Riwayat NG Inline <span class="count" x-text="ngInlineRows.length + ' baris'"></span></span>
+              <button type="button" class="btn-secondary btn-sm" @click="exportNgInlineExcel()">⬇ Export Excel</button>
+            </p>
             <div class="table-wrap">
               <table>
                 <thead>
@@ -1278,7 +1294,10 @@
           </div>
 
           <div class="panel">
-            <p class="panel-title">Riwayat Repair <span class="count" x-text="repairLogRows.length + ' baris'"></span></p>
+            <p class="panel-title">
+              <span>Riwayat Repair <span class="count" x-text="repairLogRows.length + ' baris'"></span></span>
+              <button type="button" class="btn-secondary btn-sm" @click="exportRepairExcel()">⬇ Export Excel</button>
+            </p>
             <div class="table-wrap">
               <table>
                 <thead><tr><th>Tanggal</th><th>Point</th><th>Model</th><th>Part No</th><th class="num-col">Qty</th><th>Kategori Repair</th><th>Aksi</th></tr></thead>
@@ -1433,14 +1452,10 @@
                             </div>
                             <div style="flex:1;min-width:150px;">
                               <label class="hint" style="display:block;margin-bottom:4px;">Part Number di line itu</label>
-                            <div class="combo" x-data="comboBox(() => (partNumbersByLine[proc.line] || []), () => proc.part_number, (v) => proc.part_number = v)" @click.outside="open = false">
-                              <input type="text" x-model="query" @input="onInput()" @focus="open = true" placeholder="Part number di line itu">
-                              <div class="combo-list" x-show="open && filtered().length > 0" x-cloak>
-                                <template x-for="opt in filtered()" :key="opt">
-                                  <div class="combo-item" @mousedown.prevent="select(opt)" x-text="opt"></div>
-                                </template>
-                              </div>
-                            </div>
+                            <select x-model="proc.part_number">
+                              <option value="">- pilih part number -</option>
+                              <template x-for="pn in (partNumbersByLine[proc.line] || [])" :key="pn"><option :value="pn" x-text="pn"></option></template>
+                            </select>
                             </div>
                             <button type="button" class="btn-danger btn-sm" style="margin-top:20px;" @click="removeNextProcessRow(item, proc._key)">✕</button>
                           </div>

@@ -180,6 +180,35 @@ function tanggalJamToIso(tanggal, jam) {
 }
 
 // =========================================================
+// Export Excel -- dipakai bareng oleh semua tab (Riwayat Produksi,
+// Downtime, NG Inline, Repair). `rows` adalah array object biasa, key-nya
+// dipakai langsung sebagai nama kolom di file Excel (urutan key = urutan
+// kolom). File langsung ke-download di browser, tidak lewat server.
+function exportRowsToExcel(filename, rows) {
+  if (!window.XLSX) {
+    alert("Fitur Export Excel belum siap dimuat, coba beberapa detik lagi lalu ulangi.");
+    return false;
+  }
+  if (!rows || rows.length === 0) {
+    alert("Tidak ada data untuk di-export (cek filter tanggal/pencarian, mungkin hasilnya kosong).");
+    return false;
+  }
+  const ws = XLSX.utils.json_to_sheet(rows);
+  // Lebar kolom otomatis kira-kira ngikutin isi terpanjang tiap kolom,
+  // biar gak semua kolom sempit banget pas dibuka di Excel.
+  const colWidths = Object.keys(rows[0]).map((key) => {
+    const maxLen = rows.reduce((m, r) => Math.max(m, String(r[key] ?? "").length), key.length);
+    return { wch: Math.min(Math.max(maxLen + 2, 10), 40) };
+  });
+  ws["!cols"] = colWidths;
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Data");
+  const tanggal = localDateStr(new Date());
+  XLSX.writeFile(wb, `${filename}_${tanggal}.xlsx`);
+  return true;
+}
+
+// =========================================================
 // Kompres foto (NG Inline dll) di browser SEBELUM upload ke Supabase
 // Storage. Foto dari kamera HP biasanya 3-8 MB -- untuk bukti NG di
 // dashboard itu jauh lebih besar dari yang dibutuhkan (bikin upload
@@ -1372,6 +1401,78 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (!a || !b) return "-";
       const d = (new Date(b) - new Date(a)) / 60000;
       return d >= 0 ? d.toFixed(1) + " mnt" : "-";
+    },
+    // Versi angka mentah dari durasiMenit -- dipakai buat export Excel
+    // (biar kolomnya bisa langsung dijumlah di Excel, bukan teks "12.3 mnt").
+    durasiMenitRaw(a, b) {
+      if (!a || !b) return "";
+      const d = (new Date(b) - new Date(a)) / 60000;
+      return d >= 0 ? Number(d.toFixed(1)) : "";
+    },
+
+    // ================= EXPORT EXCEL (per tab) =================
+    exportRiwayatExcel() {
+      const rows = this.riwayatGabungan().map((row) => ({
+        "Kode": row._tipe === "produksi" ? (row.kode || "-") : "-",
+        "Stasiun": row.stasiun || "-",
+        "Waktu Awal": this.fmt(row.waktu_awal),
+        "Waktu Akhir": this.fmt(row.waktu_akhir),
+        "Part Number": this.detailRiwayat(row),
+        "Qty": row._tipe === "produksi" ? (row.qty ?? "") : "",
+        "MP": row._tipe === "produksi" ? (row.manpower ?? "") : "",
+        "NG Inline": row._tipe === "produksi" ? (row.ngInlineQty ?? 0) : "",
+        "Repair": row._tipe === "produksi" ? (row.repair ?? "") : "",
+        "Dandori (menit)": row._tipe === "produksi" ? (row.dandori_menit ?? 0) : "",
+        "Downtime (menit)": row._tipe === "produksi" ? (row.downtime_menit ?? 0) : "",
+        "Break (menit)": row._tipe === "produksi" ? (row.break_menit ?? 0) : "",
+        "Routing": row._tipe === "produksi" && row.extra?.routing_type ? (row.extra.routing_type + (row.extra.routing_numbers ? " " + row.extra.routing_numbers.join(",") : "")) : "-",
+      }));
+      exportRowsToExcel(`Riwayat_Produksi_${machineKey}`, rows);
+    },
+    exportDowntimeExcel() {
+      const rows = this.downtimeRowsFiltered().map((row) => ({
+        "Stasiun": row.stasiun || "-",
+        "Waktu Awal": this.fmt(row.waktu_awal),
+        "Waktu Akhir": this.fmt(row.waktu_akhir),
+        "Durasi (menit)": this.durasiMenitRaw(row.waktu_awal, row.waktu_akhir),
+        "Kategori": row.kategori || "-",
+        "PIC": row.pic || "-",
+        "Waktu Tunggu": row.waktu_tunggu ?? "-",
+        "Keterangan": row.ket || "-",
+        "Problem Kategori": row.problem || "-",
+        "Problem Detail": row.penyebab || "-",
+        "Area": row.area || "-",
+        "Countermeasure": row.countermeasure || "-",
+        "Status": row.status || "-",
+      }));
+      exportRowsToExcel(`Downtime_${machineKey}`, rows);
+    },
+    exportNgInlineExcel() {
+      const rows = this.ngInlineRows.map((row) => ({
+        "Tanggal": row.tanggal || "-",
+        "Type": row.type_ng || "-",
+        "Model": row.model || "-",
+        "PIC": row.pic || "-",
+        "Part No": row.part_number || "-",
+        "Area": row.area || "-",
+        "NG Proses": row.ng_proses || "-",
+        "Qty": row.qty ?? "",
+        "Value (Rp)": row.value ?? "",
+        "Kategori": row.ng_kategori || "-",
+        "Reason": row.reason || "-",
+      }));
+      exportRowsToExcel(`NG_Inline_${machineKey}`, rows);
+    },
+    exportRepairExcel() {
+      const rows = this.repairLogRows.map((row) => ({
+        "Tanggal": row.tanggal || "-",
+        "Point": row.point_label || "-",
+        "Model": this.repairPartNoModelMap[row.part_number] || "-",
+        "Part No": row.part_number || "-",
+        "Qty": row.qty ?? "",
+        "Kategori Repair": row.kategori_repair || "-",
+      }));
+      exportRowsToExcel(`Repair_${machineKey}`, rows);
     },
 
     // ================= EDIT / HAPUS (riwayat, koreksi manual) =================
