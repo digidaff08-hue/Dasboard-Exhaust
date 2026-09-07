@@ -805,6 +805,14 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
   .dxy-attn-card { max-width: 100%; }
   .dxy-attn-stat-row { grid-template-columns: repeat(3, 1fr); }
 }
+/* ---- Chart "Rekap Tahunan" (tab Kontrol Attendance -> Tahunan): lebih
+   sempit (tidak full-width) & lebih tinggi dari box chart standar. Rule
+   ini sengaja ditaruh PALING AKHIR supaya menang dari override
+   .dxy-chart-box di media query manapun di atas (specificity sama,
+   urutan terakhir menang). ---- */
+.dxy-attn-tahunan-panel { grid-column: span 7; max-width: 720px; }
+.dxy-attn-tahunan-box { min-height: 300px !important; max-height: 300px !important; }
+@media (max-width: 1024px) { .dxy-attn-tahunan-panel { grid-column: span 12; max-width: none; } }
 </style>
 <script>
   (function () {
@@ -1529,13 +1537,21 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
             </div>
           </div>
 
-          <!-- ===== Placeholder tab Tahunan -- belum ada isinya ===== -->
+          <!-- ===== Tab Tahunan: Grafik Rekap Tahunan (April - Maret) =====
+               Total MP (bar biru) + Rata-rata Kehadiran (bar hijau) di
+               sumbu kiri, Rasio Kehadiran (garis teal, %) di sumbu kanan.
+               Lihat fetchAttendanceTahunan()/renderAttendanceTahunanChart(). -->
           <template x-if="attendanceViewMode === 'tahunan'">
-            <div class="dxy-panel" style="min-height:240px; display:flex; align-items:center; justify-content:center; text-align:center; color:var(--dxy-muted);">
-              <div>
-                <div style="font-size:28px; margin-bottom:8px;">🚧</div>
-                <div style="font-weight:700;">Tampilan Tahunan belum tersedia</div>
-                <div style="font-size:12px; margin-top:4px;">Menyusul -- sementara pakai tampilan Bulanan.</div>
+            <div class="dxy-chart-grid">
+              <div class="dxy-panel dxy-attn-tahunan-panel">
+                <div class="dxy-panel-head">
+                  <span class="dxy-panel-title">📊 Rekap Tahunan</span>
+                  <span class="dxy-panel-sub" x-text="'FY ' + attendanceYear + ' (Apr ' + attendanceYear + ' - Mar ' + (attendanceYear + 1) + ')'"></span>
+                </div>
+                <template x-if="attendanceTahunanLoading">
+                  <p class="empty-state">Memuat data rekap tahunan...</p>
+                </template>
+                <div class="dxy-chart-box dxy-attn-tahunan-box" x-show="!attendanceTahunanLoading"><canvas id="dxaRekapTahunan"></canvas></div>
               </div>
             </div>
           </template>
@@ -1946,6 +1962,13 @@ function dashboardExhaust() {
       if (tab === "attendance") {
         await Promise.all([this.fetchAttendance(), this.fetchAttendanceDayCard(), this.fetchAttendanceLeave()]);
         this.$nextTick(() => this.renderAttendanceCharts());
+        // Balik ke tab Attendance sementara toggle-nya masih di Tahunan
+        // (mis. pindah tab lalu balik lagi) -- render ulang chart Rekap
+        // Tahunan juga, fetch dulu kalau datanya belum ada.
+        if (this.attendanceViewMode === "tahunan") {
+          await this.fetchAttendanceTahunan();
+          this.$nextTick(() => this.renderAttendanceTahunanChart());
+        }
       }
     },
     async onTahunanYearChange() {
@@ -1961,7 +1984,12 @@ function dashboardExhaust() {
       document.documentElement.setAttribute("data-theme", this.theme);
       if (this.activeTab === "bulanan") this.$nextTick(() => this.renderBulananCharts());
       if (this.activeTab === "tahunan") this.$nextTick(() => this.renderTahunanCharts());
-      if (this.activeTab === "attendance") this.$nextTick(() => this.renderAttendanceCharts());
+      if (this.activeTab === "attendance") {
+        this.$nextTick(() => {
+          this.renderAttendanceCharts();
+          if (this.attendanceViewMode === "tahunan") this.renderAttendanceTahunanChart();
+        });
+      }
     },
     // ---------------------------------------------------------------
     // DATA DUMMY "Bulanan" -- sementara statis, tinggal diganti hasil
@@ -1988,8 +2016,22 @@ function dashboardExhaust() {
     attendanceMonth: new Date().getMonth() + 1,
     attendanceYear: new Date().getFullYear(),
     // Toggle tampilan di tab Kontrol Attendance: 'bulanan' (default, semua
-    // yang sudah ada) atau 'tahunan' (placeholder, belum ada isinya).
+    // yang sudah ada) atau 'tahunan' (Grafik Rekap Tahunan, lihat
+    // fetchAttendanceTahunan()).
     attendanceViewMode: "bulanan",
+    // Data grafik "Rekap Tahunan" (tab Kontrol Attendance -> Tahunan).
+    // fyStartYear = attendanceYear (dropdown "Tahun" yang sama dipakai
+    // Bulanan & Tahunan) -- FY = April attendanceYear s/d Maret
+    // attendanceYear+1. Diisi oleh fetchAttendanceTahunan().
+    attendanceTahunanLoading: false,
+    attendanceTahunanLoaded: false,
+    _attendanceTahunanLoadedYear: null,
+    attendanceTahunan: {
+      labels: [],   // "Apr", "Mei", ... "Mar" (12 bulan FY)
+      totalMp: [],  // Total MP per bulan (angka yg diinput user di awal bulan)
+      avgHadir: [], // rata-rata Hadir per hari, 1 bulan penuh
+      avgRasio: [], // rata-rata % Kehadiran per hari, 1 bulan penuh
+    },
     // Tanggal yang lagi dipilih untuk daftar Izin/Sakit/Cuti/Mangkir (4
     // kolom di bawah). Default = HARI INI (format YYYY-MM-DD, dipakai
     // langsung oleh <input type="date">).
@@ -3594,21 +3636,32 @@ function dashboardExhaust() {
       this.dxyProblemDetail = { open: false, loading: false, problem: "", rows: [] };
     },
     // Dipanggil saat dropdown Bulan/Tahun di tab Kontrol Attendance berubah.
+    // Kalau lagi di tampilan Tahunan, dropdown "Tahun" gerakkan Grafik
+    // Rekap Tahunan (FY), bukan chart Bulanan.
     async onAttendancePeriodChange() {
+      if (this.attendanceViewMode === "tahunan") {
+        await this.fetchAttendanceTahunan();
+        this.$nextTick(() => this.renderAttendanceTahunanChart());
+        return;
+      }
       await this.fetchAttendance();
       this.$nextTick(() => this.renderAttendanceCharts());
     },
-    // Toggle Bulanan/Tahunan di tab Kontrol Attendance. Tahunan masih
-    // placeholder kosong -- cuma Bulanan yang beneran fetch/render. Balik
-    // ke Bulanan dari Tahunan perlu render ulang chart karena canvas-nya
-    // sempat di-unmount (x-show tetap ada di DOM sebenarnya, jadi canvas
-    // TIDAK di-unmount -- tapi tetap re-render untuk jaga-jaga ukurannya
-    // benar setelah container disembunyikan/dimunculkan lagi).
-    setAttendanceViewMode(mode) {
+    // Toggle Bulanan/Tahunan di tab Kontrol Attendance. Balik ke Bulanan
+    // dari Tahunan perlu render ulang chart karena canvas-nya sempat
+    // di-unmount (x-show tetap ada di DOM sebenarnya, jadi canvas TIDAK
+    // di-unmount -- tapi tetap re-render untuk jaga-jaga ukurannya benar
+    // setelah container disembunyikan/dimunculkan lagi). Pindah ke Tahunan
+    // fetch data FY (kalau belum ada/tahunnya beda) baru render.
+    async setAttendanceViewMode(mode) {
       if (this.attendanceViewMode === mode) return;
       this.attendanceViewMode = mode;
       if (mode === "bulanan") {
         this.$nextTick(() => this.renderAttendanceCharts());
+      }
+      if (mode === "tahunan") {
+        await this.fetchAttendanceTahunan();
+        this.$nextTick(() => this.renderAttendanceTahunanChart());
       }
     },
     // Ambil data 1 bulan (attendanceMonth/attendanceYear) khusus untuk
@@ -3733,6 +3786,118 @@ function dashboardExhaust() {
         this.attendance.dailyTrend = { total: totalByDay, hadir: hadirByDay, izin: izinByDay, sakit: sakitByDay, cuti: cutiByDay, mangkir: mangkirByDay, persen: persenByDay };
       } catch (e) {
         console.error("Gagal memuat data Attendance:", e);
+      }
+    },
+    // ---------------------------------------------------------------
+    // Grafik "Rekap Tahunan" (tab Kontrol Attendance -> Tahunan).
+    // Fiscal year: April (attendanceYear) -> Maret (attendanceYear+1) --
+    // pola fyMonths sama seperti tab Tahunan lain (fetchTahunan()).
+    // Per bulan dihitung 3 angka:
+    //   - Total MP   : angka Total Orang dari baris attendance_log PALING
+    //                  AWAL yang tanggalnya JATUH DI DALAM bulan itu (ini
+    //                  angka yang diinput user di Form Absensi Harian di
+    //                  AWAL bulan -- BUKAN carry-forward di akhir bulan).
+    //                  Kalau bulan itu belum ada input sama sekali (mis.
+    //                  bulan yang belum kejadian), nilainya NULL -- tidak
+    //                  fallback ke angka bulan lain.
+    //   - Rata-rata Kehadiran : rata-rata Hadir per hari sepanjang bulan
+    //                  itu (1 bulan penuh) -- sumber datanya SAMA seperti
+    //                  chart "Trend Kehadiran Harian" di tampilan Bulanan
+    //                  (attendance_log + attendance_leave), cuma di sini
+    //                  dirata-rata jadi 1 angka per bulan.
+    //   - Rasio Kehadiran     : rata-rata % Kehadiran per hari sepanjang
+    //                  bulan itu, sumber sama juga.
+    // Hari yang belum "kejadian" (tanggal > hari ini) TIDAK ikut dirata-
+    // rata, sama seperti aturan Hadir di fetchAttendance().
+    async fetchAttendanceTahunan() {
+      const fyStartYear = this.attendanceYear;
+      if (this.attendanceTahunanLoaded && this._attendanceTahunanLoadedYear === fyStartYear) return;
+      this.attendanceTahunanLoading = true;
+      try {
+        const fyStart = new Date(fyStartYear, 3, 1); // 1 April fyStartYear
+        const fyEndExclusive = new Date(fyStartYear + 1, 3, 1); // 1 April tahun berikutnya (exclusive)
+        const fyStartStr = localDateStr(fyStart);
+        const fyLastDayStr = localDateStr(new Date(fyEndExclusive.getTime() - 86400000));
+        const todayStr = localDateStr(new Date());
+
+        const [logRes, seedLogRes, nonCutiRes, cutiRes] = await Promise.all([
+          supabaseClient.from("attendance_log").select("tanggal, total_orang").gte("tanggal", fyStartStr).lte("tanggal", fyLastDayStr).order("tanggal", { ascending: true }),
+          // Seed carry-forward SEBELUM awal FY -- dipakai kalau bulan
+          // pertama (April) belum ada input sama sekali di bulan itu.
+          supabaseClient.from("attendance_log").select("tanggal, total_orang").lt("tanggal", fyStartStr).order("tanggal", { ascending: false }).limit(1).maybeSingle(),
+          supabaseClient.from("attendance_leave").select("tanggal, jenis").neq("jenis", "cuti").gte("tanggal", fyStartStr).lte("tanggal", fyLastDayStr),
+          supabaseClient.from("attendance_leave").select("tanggal, tanggal_selesai").eq("jenis", "cuti").lte("tanggal", fyLastDayStr).or(`tanggal_selesai.is.null,tanggal_selesai.gte.${fyStartStr}`),
+        ]);
+        const logRows = logRes.data || [];
+        const nonCutiRows = nonCutiRes.data || [];
+        const cutiRows = cutiRes.data || [];
+
+        const cutiCountOn = (ds) => cutiRows.filter((r) => r.tanggal <= ds && (r.tanggal_selesai || r.tanggal) >= ds).length;
+        const absenCountOn = (ds) => nonCutiRows.filter((r) => r.tanggal === ds).length;
+
+        // Carry-forward Total Orang HARIAN sepanjang 1 tahun fiskal penuh
+        // (dipakai buat hitung Hadir/Rasio per hari) -- polanya sama
+        // persis seperti totalCarryOn di fetchAttendance(), cuma
+        // rentangnya 12 bulan sekaligus, bukan 1 bulan.
+        let carry = Number(seedLogRes.data?.total_orang) || 0;
+        let li = 0;
+        const totalCarryMap = {};
+        for (let d = new Date(fyStart); d < fyEndExclusive; d.setDate(d.getDate() + 1)) {
+          const ds = localDateStr(d);
+          while (li < logRows.length && logRows[li].tanggal <= ds) {
+            carry = Number(logRows[li].total_orang) || carry;
+            li++;
+          }
+          totalCarryMap[ds] = carry;
+        }
+
+        const monthLabelId = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+        const fyMonths = [];
+        for (let i = 0; i < 12; i++) fyMonths.push(new Date(fyStartYear, 3 + i, 1));
+
+        const labels = fyMonths.map((d) => monthLabelId[d.getMonth()]);
+        const totalMp = [];
+        const avgHadir = [];
+        const avgRasio = [];
+
+        fyMonths.forEach((mDate) => {
+          const y = mDate.getFullYear(), m = mDate.getMonth() + 1;
+          const nHari = daysInMonth(y, m);
+          const firstDay = localDateStr(new Date(y, m - 1, 1));
+          const lastDay = localDateStr(new Date(y, m - 1, nHari));
+
+          // --- Total MP: baris attendance_log PALING AWAL yang tanggalnya
+          // DI DALAM bulan ini (input user di awal bulan). Kalau bulan ini
+          // belum ada input SAMA SEKALI (mis. belum kejadian/belum
+          // diinput), biarkan null -- TIDAK fallback ke carry-forward lagi,
+          // supaya bulan yang belum ada inputnya (mis. bulan depan) memang
+          // kosong, bukan "kepinjem" angka bulan sebelumnya.
+          const rowsInMonth = logRows.filter((r) => r.tanggal >= firstDay && r.tanggal <= lastDay);
+          totalMp.push(rowsInMonth.length ? Number(rowsInMonth[0].total_orang) || 0 : null);
+
+          // --- Rata-rata Kehadiran & Rasio Kehadiran: rata-rata harian
+          // sepanjang bulan itu (hari yang sudah lewat/hari ini saja --
+          // hari yang belum kejadian tidak ikut dirata-rata).
+          let sumHadir = 0, countHadir = 0, sumRasio = 0, countRasio = 0;
+          for (let d = 1; d <= nHari; d++) {
+            const ds = localDateStr(new Date(y, m - 1, d));
+            if (ds > todayStr) continue;
+            const total = totalCarryMap[ds] || 0;
+            const hadir = Math.max(0, total - cutiCountOn(ds) - absenCountOn(ds));
+            sumHadir += hadir; countHadir++;
+            if (total) { sumRasio += (hadir / total) * 100; countRasio++; }
+          }
+          avgHadir.push(countHadir ? Math.round(sumHadir / countHadir) : null);
+          avgRasio.push(countRasio ? Math.round(sumRasio / countRasio) : null);
+        });
+
+        this.attendanceTahunan = { labels, totalMp, avgHadir, avgRasio };
+        this.attendanceTahunanLoaded = true;
+        this._attendanceTahunanLoadedYear = fyStartYear;
+      } catch (e) {
+        console.error("Gagal memuat data Rekap Tahunan Attendance:", e);
+      } finally {
+        this.attendanceTahunanLoading = false;
       }
     },
     // Dipanggil saat date picker "Tanggal" diganti. Ini yang menggerakkan
@@ -5715,6 +5880,183 @@ function dashboardExhaust() {
           },
         });
       }, "trendKehadiran");
+    },
+    // Chart "Rekap Tahunan" (tab Kontrol Attendance -> Tahunan). Bar hijau
+    // "Rata-rata Kehadiran" di sumbu kiri (jumlah orang) + garis teal
+    // "Rasio Kehadiran" (%) di sumbu kanan -- "Total MP" TIDAK digambar
+    // sebagai bar, tapi sebagai KOTAK/BADGE biru di posisi tetap (persis
+    // pola hadirBadgePlugin di chart Trend Kehadiran Harian), karena Total
+    // MP cuma angka input (bukan nilai yang perlu diukur skalanya di
+    // sumbu). 12 kolom bulan (April - Maret), data dari fetchAttendanceTahunan().
+    renderAttendanceTahunanChart() {
+      if (typeof Chart === "undefined") return;
+      const t = this.attendanceTahunan;
+      const canvas = document.getElementById("dxaRekapTahunan");
+      if (!canvas) return;
+      if (this.attendanceCharts.dxaRekapTahunan) { this.attendanceCharts.dxaRekapTahunan.destroy(); delete this.attendanceCharts.dxaRekapTahunan; }
+      try {
+        const noAnim = { duration: 0 };
+        const tooltip = { backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"), borderColor: cssVar("--border"), borderWidth: 1, padding: 8, cornerRadius: 8 };
+        const barBg = (hex, len) => Array.from({ length: len }, () => hex);
+        const mpColor = "#2563EB";
+
+        // Label angka DI TENGAH batang "Rata-rata Kehadiran" (bukan di
+        // atas lagi) -- warna putih supaya kontras di atas warna hijau.
+        const barValueLabels = (datasetIndex) => ({
+          id: "dxaRekapTahunanBarLabels_" + datasetIndex,
+          afterDatasetsDraw(chart) {
+            const meta = chart.getDatasetMeta(datasetIndex);
+            const dataset = chart.data.datasets[datasetIndex];
+            if (!meta || !dataset || meta.type !== "bar" || !meta.data) return;
+            const { ctx } = chart;
+            ctx.save();
+            ctx.font = "700 9px Inter, sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillStyle = "#ffffff";
+            meta.data.forEach((bar, i) => {
+              const raw = dataset.data[i];
+              if (raw === null || raw === undefined) return;
+              const { x, y, base } = bar.getProps(["x", "y", "base"], true);
+              ctx.fillText(String(raw), x, (y + base) / 2);
+            });
+            ctx.restore();
+          },
+        });
+        // Label % DI ATAS tiap titik garis (Rasio Kehadiran).
+        const lineValueLabels = (datasetIndex) => ({
+          id: "dxaRekapTahunanLineLabels",
+          afterDatasetsDraw(chart) {
+            const meta = chart.getDatasetMeta(datasetIndex);
+            const dataset = chart.data.datasets[datasetIndex];
+            if (!meta || !dataset || meta.type !== "line" || !meta.data) return;
+            const { ctx } = chart;
+            ctx.save();
+            ctx.font = "700 9px Inter, sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "bottom";
+            ctx.fillStyle = "#0D9488";
+            meta.data.forEach((point, i) => {
+              const raw = dataset.data[i];
+              if (raw === null || raw === undefined) return;
+              const { x, y } = point.getProps(["x", "y"], true);
+              ctx.fillText(raw + "%", x, y - 6);
+            });
+            ctx.restore();
+          },
+        });
+
+        // Kotak/badge biru "Total MP" -- POLA SAMA PERSIS seperti
+        // hadirBadgePlugin di chart Trend Kehadiran Harian (renderAttendanceCharts()):
+        // digambar di posisi Y TETAP (bukan ngikut skala sumbu), 1 badge
+        // per bulan, bulan yang datanya null (belum ada input) di-skip
+        // otomatis -- jadi bulan yang belum diisi memang kosong.
+        const totalMpBadgePlugin = {
+          id: "totalMpBadgePlugin",
+          afterDatasetsDraw(chart, _args, opts) {
+            if (!opts || opts.display === false) return;
+            const data = opts.data || [];
+            const { ctx, chartArea, scales } = chart;
+            const xScale = scales.x;
+            if (!xScale) return;
+            ctx.save();
+            ctx.font = "bold 9px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            // Badge digambar DI ATAS area plot (di zona padding atas
+            // chart, sebelum chartArea mulai) -- supaya SELALU berada di
+            // atas garis %Kehadiran & labelnya, berapa pun tingginya nilai
+            // % itu, bukan ngikut skala manapun. Butuh layout.padding.top
+            // yang cukup lebar (lihat options di bawah) supaya kotak ini
+            // tidak kepotong tepi atas kanvas.
+            const badgeY = chartArea.top - 12;
+            data.forEach((val, i) => {
+              if (val === null || val === undefined) return;
+              const x = xScale.getPixelForValue(i);
+              const label = String(val);
+              const textWidth = ctx.measureText(label).width;
+              const boxW = Math.max(textWidth + 8, 20);
+              const boxH = 14;
+              const x0 = x - boxW / 2, y0 = badgeY - boxH / 2;
+              const r = 4;
+              ctx.fillStyle = opts.color || mpColor;
+              ctx.beginPath();
+              ctx.moveTo(x0 + r, y0);
+              ctx.arcTo(x0 + boxW, y0, x0 + boxW, y0 + boxH, r);
+              ctx.arcTo(x0 + boxW, y0 + boxH, x0, y0 + boxH, r);
+              ctx.arcTo(x0, y0 + boxH, x0, y0, r);
+              ctx.arcTo(x0, y0, x0 + boxW, y0, r);
+              ctx.closePath();
+              ctx.fill();
+              ctx.fillStyle = "#ffffff";
+              ctx.fillText(label, x, badgeY + 0.5);
+            });
+            ctx.restore();
+          },
+        };
+
+        this.attendanceCharts.dxaRekapTahunan = new Chart(canvas, {
+          data: {
+            labels: t.labels,
+            datasets: [
+              { order: 2, type: "bar", label: "Rata-rata Kehadiran", data: t.avgHadir, backgroundColor: barBg("#10B981", t.labels.length), yAxisID: "y", borderRadius: 4, barPercentage: 0.5, categoryPercentage: 0.6 },
+              { order: 1, type: "line", label: "Rasio Kehadiran", data: t.avgRasio, borderColor: "#14B8A6", backgroundColor: "#14B8A6", borderWidth: 2, fill: false, yAxisID: "y1", pointRadius: 3, pointBackgroundColor: "#14B8A6", tension: 0.3, spanGaps: true },
+            ],
+          },
+          plugins: [totalMpBadgePlugin, barValueLabels(0), lineValueLabels(1)],
+          options: {
+            responsive: true, maintainAspectRatio: false, animation: noAnim,
+            // padding.top digedein khusus di chart ini -- badge "Total MP"
+            // digambar di zona ini (di atas chartArea), jadi butuh ruang
+            // lebih dari chart lain yang cuma pakai 20.
+            layout: { padding: { top: 34 } },
+            plugins: {
+              legend: {
+                display: true, position: "bottom",
+                labels: {
+                  color: "#000000", boxWidth: 5, boxHeight: 5, usePointStyle: true, pointStyle: "circle", font: { size: 8.5 }, padding: 6,
+                  // Legend "Total MP" ditambahkan manual (bukan dari
+                  // dataset asli, karena Total MP digambar lewat plugin
+                  // badge, bukan dataset bar/line) -- klik legend ini
+                  // toggle tampil/sembunyi badge-nya.
+                  generateLabels: (chart) => {
+                    const items = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+                    const badgeOpts = chart.options.plugins.totalMpBadgePlugin || {};
+                    items.unshift({
+                      text: "Total MP",
+                      fillStyle: mpColor,
+                      strokeStyle: mpColor,
+                      pointStyle: "rect",
+                      hidden: badgeOpts.display === false,
+                      datasetIndex: -1,
+                    });
+                    return items;
+                  },
+                },
+                onClick: (e, legendItem, legendEl) => {
+                  if (legendItem.datasetIndex === -1) {
+                    const chart = legendEl.chart;
+                    const badgeOpts = chart.options.plugins.totalMpBadgePlugin;
+                    badgeOpts.display = badgeOpts.display === false;
+                    chart.update();
+                    return;
+                  }
+                  Chart.defaults.plugins.legend.onClick(e, legendItem, legendEl);
+                },
+              },
+              tooltip,
+              totalMpBadgePlugin: { display: true, color: mpColor, data: t.totalMp },
+            },
+            scales: {
+              x: { ticks: { color: "#000000", font: { size: 9 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false }, border: { display: true, color: cssVar("--border") } },
+              y: { position: "left", beginAtZero: true, ticks: { color: "#000000", font: { size: 9 }, precision: 0 }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: cssVar("--border") }, title: { display: true, text: "Orang", color: "#000000", font: { size: 9, weight: "bold" } } },
+              y1: { position: "right", min: 0, max: 110, ticks: { color: "#000000", font: { size: 9 }, stepSize: 20, callback: (v) => v + "%" }, grid: { display: false }, border: { display: true, color: cssVar("--border") }, title: { display: true, text: "%", color: "#000000", font: { size: 9, weight: "bold" } } },
+            },
+          },
+        });
+      } catch (e) {
+        console.error("Gagal render chart Rekap Tahunan Attendance:", e);
+      }
     },
     logout,
   };

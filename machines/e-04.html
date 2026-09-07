@@ -516,6 +516,7 @@
               <input type="date" x-model="riwayatFilter.sampai" title="Sampai tanggal">
               <input type="text" x-model="riwayatFilter.part_number" placeholder="Filter Part Number...">
               <button type="button" class="btn-ghost btn-sm" @click="resetRiwayatFilter()">Reset</button>
+              <input type="month" x-model="riwayatExportMonth" title="Pilih bulan buat export" style="max-width:150px;">
               <button type="button" class="btn-secondary btn-sm" @click="exportRiwayatExcel()">⬇ Export Excel</button>
             </div>
             <div class="table-wrap">
@@ -1070,7 +1071,10 @@
           <div class="panel">
             <p class="panel-title">
               <span>Riwayat Downtime <span class="count" x-text="downtimeRowsFiltered().length + ' baris'"></span></span>
-              <button type="button" class="btn-secondary btn-sm" @click="exportDowntimeExcel()">⬇ Export Excel</button>
+              <span style="display:flex;gap:8px;align-items:center;">
+                <input type="month" x-model="downtimeExportMonth" title="Pilih bulan buat export" style="max-width:150px;">
+                <button type="button" class="btn-secondary btn-sm" @click="exportDowntimeExcel()">⬇ Export Excel</button>
+              </span>
             </p>
             <div class="offline-banner" x-show="downtimeFilterProductionId" style="display:flex;align-items:center;justify-content:space-between;">
               <span>Filter aktif: cuma downtime untuk <b x-text="downtimeFilterLabel"></b></span>
@@ -1202,7 +1206,10 @@
           <div class="panel">
             <p class="panel-title">
               <span>Riwayat NG Inline <span class="count" x-text="ngInlineRows.length + ' baris'"></span></span>
-              <button type="button" class="btn-secondary btn-sm" @click="exportNgInlineExcel()">⬇ Export Excel</button>
+              <span style="display:flex;gap:8px;align-items:center;">
+                <input type="month" x-model="ngInlineExportMonth" title="Pilih bulan buat export" style="max-width:150px;">
+                <button type="button" class="btn-secondary btn-sm" @click="exportNgInlineExcel()">⬇ Export Excel</button>
+              </span>
             </p>
             <div class="table-wrap">
               <table>
@@ -1296,7 +1303,10 @@
           <div class="panel">
             <p class="panel-title">
               <span>Riwayat Repair <span class="count" x-text="repairLogRows.length + ' baris'"></span></span>
-              <button type="button" class="btn-secondary btn-sm" @click="exportRepairExcel()">⬇ Export Excel</button>
+              <span style="display:flex;gap:8px;align-items:center;">
+                <input type="month" x-model="repairExportMonth" title="Pilih bulan buat export" style="max-width:150px;">
+                <button type="button" class="btn-secondary btn-sm" @click="exportRepairExcel()">⬇ Export Excel</button>
+              </span>
             </p>
             <div class="table-wrap">
               <table>

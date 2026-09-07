@@ -285,6 +285,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
   const BBOX_HANDLE_COLOR = "#f97316"; // kotak kecil oranye -- handle Ukuran gaya Excel/PowerPoint (sudut & tengah sisi)
   return {
     session: null, profile: null, tab: "produksi_new", loading: true,
+    riwayatExportMonth: localDateStr(new Date()).slice(0, 7),
+    downtimeExportMonth: localDateStr(new Date()).slice(0, 7),
+    ngInlineExportMonth: localDateStr(new Date()).slice(0, 7),
+    repairExportMonth: localDateStr(new Date()).slice(0, 7),
     errorMsg: "", successMsg: "",
     extraFields, routingMax: routingMax || 0,
     kategoriOptions: kategoriOptions || ["MESIN", "DIES", "OTHER"],
@@ -1410,9 +1414,48 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       return d >= 0 ? Number(d.toFixed(1)) : "";
     },
 
-    // ================= EXPORT EXCEL (per tab) =================
-    exportRiwayatExcel() {
-      const rows = this.riwayatGabungan().map((row) => ({
+    // ================= EXPORT EXCEL (per tab, per bulan) =================
+    // Sengaja query LANGSUNG ke database sesuai bulan yang dipilih, bukan
+    // dari array yang udah ke-load di layar -- soalnya array yang ke-load
+    // itu dibatasi jumlahnya (mis. 300-500 baris terakhir), jadi kalau
+    // operator mau export bulan yang udah lama, datanya belum tentu lengkap
+    // kalau cuma ambil dari situ.
+    monthBoundsFromInput(monthStr) {
+      const parts = (monthStr || "").split("-").map(Number);
+      const y = parts[0], m = parts[1];
+      if (!y || !m) return null;
+      return { start: new Date(y, m - 1, 1), end: new Date(y, m, 1) };
+    },
+    async exportRiwayatExcel() {
+      const bounds = this.monthBoundsFromInput(this.riwayatExportMonth);
+      if (!bounds) { alert("Pilih bulan dulu."); return; }
+      const startIso = bounds.start.toISOString(), endIso = bounds.end.toISOString();
+      const [prodRes, nonProdRes] = await Promise.all([
+        supabaseClient.from("production_log").select("*").eq("mesin", machineKey).gte("waktu_awal", startIso).lt("waktu_awal", endIso),
+        supabaseClient.from("dandori_log").select("*").eq("mesin", machineKey).gte("waktu_awal", startIso).lt("waktu_awal", endIso),
+      ]);
+      if (prodRes.error || nonProdRes.error) {
+        this.flash("Gagal ambil data buat export: " + (prodRes.error?.message || nonProdRes.error?.message), true);
+        return;
+      }
+      const prodRows = prodRes.data || [];
+      const ids = prodRows.map((r) => r.id);
+      const ngRes = ids.length
+        ? await supabaseClient.from("ng_inline_log").select("production_log_id, qty").in("production_log_id", ids)
+        : { data: [] };
+      const ngByRow = {};
+      (ngRes.data || []).forEach((r) => { ngByRow[r.production_log_id] = (ngByRow[r.production_log_id] || 0) + (Number(r.qty) || 0); });
+
+      const prod = prodRows.map((r) => ({ ...r, ngInlineQty: ngByRow[r.id] || 0, _tipe: "produksi" }));
+      const nonProd = (nonProdRes.data || []).map((r) => ({ ...r, _tipe: "nonproduksi" }));
+      let combined = [...prod, ...nonProd];
+      if (this.stationConfig.mode === "variant" && this.tandemVariant) {
+        const active = new Set(this.stationConfig.variants[this.tandemVariant]);
+        combined = combined.filter((r) => active.has(r.stasiun));
+      }
+      combined.sort((a, b) => new Date(a.waktu_awal) - new Date(b.waktu_awal));
+
+      const rows = combined.map((row) => ({
         "Kode": row._tipe === "produksi" ? (row.kode || "-") : "-",
         "Stasiun": row.stasiun || "-",
         "Waktu Awal": this.fmt(row.waktu_awal),
@@ -1427,10 +1470,16 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         "Break (menit)": row._tipe === "produksi" ? (row.break_menit ?? 0) : "",
         "Routing": row._tipe === "produksi" && row.extra?.routing_type ? (row.extra.routing_type + (row.extra.routing_numbers ? " " + row.extra.routing_numbers.join(",") : "")) : "-",
       }));
-      exportRowsToExcel(`Riwayat_Produksi_${machineKey}`, rows);
+      exportRowsToExcel(`Riwayat_Produksi_${machineKey}_${this.riwayatExportMonth}`, rows);
     },
-    exportDowntimeExcel() {
-      const rows = this.downtimeRowsFiltered().map((row) => ({
+    async exportDowntimeExcel() {
+      const bounds = this.monthBoundsFromInput(this.downtimeExportMonth);
+      if (!bounds) { alert("Pilih bulan dulu."); return; }
+      const { data, error } = await supabaseClient.from("downtime_log").select("*").eq("mesin", machineKey)
+        .gte("waktu_awal", bounds.start.toISOString()).lt("waktu_awal", bounds.end.toISOString())
+        .order("waktu_awal", { ascending: true });
+      if (error) { this.flash("Gagal ambil data downtime buat export: " + error.message, true); return; }
+      const rows = (data || []).map((row) => ({
         "Stasiun": row.stasiun || "-",
         "Waktu Awal": this.fmt(row.waktu_awal),
         "Waktu Akhir": this.fmt(row.waktu_akhir),
@@ -1445,10 +1494,18 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         "Countermeasure": row.countermeasure || "-",
         "Status": row.status || "-",
       }));
-      exportRowsToExcel(`Downtime_${machineKey}`, rows);
+      exportRowsToExcel(`Downtime_${machineKey}_${this.downtimeExportMonth}`, rows);
     },
-    exportNgInlineExcel() {
-      const rows = this.ngInlineRows.map((row) => ({
+    async exportNgInlineExcel() {
+      const bounds = this.monthBoundsFromInput(this.ngInlineExportMonth);
+      if (!bounds) { alert("Pilih bulan dulu."); return; }
+      const startStr = localDateStr(bounds.start);
+      const endStr = localDateStr(new Date(bounds.end.getTime() - 86400000)); // tanggal terakhir bulan itu (inklusif)
+      const { data, error } = await supabaseClient.from("ng_inline_log").select("*").eq("mesin", machineKey)
+        .gte("tanggal", startStr).lte("tanggal", endStr)
+        .order("tanggal", { ascending: true });
+      if (error) { this.flash("Gagal ambil data NG Inline buat export: " + error.message, true); return; }
+      const rows = (data || []).map((row) => ({
         "Tanggal": row.tanggal || "-",
         "Type": row.type_ng || "-",
         "Model": row.model || "-",
@@ -1461,10 +1518,18 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         "Kategori": row.ng_kategori || "-",
         "Reason": row.reason || "-",
       }));
-      exportRowsToExcel(`NG_Inline_${machineKey}`, rows);
+      exportRowsToExcel(`NG_Inline_${machineKey}_${this.ngInlineExportMonth}`, rows);
     },
-    exportRepairExcel() {
-      const rows = this.repairLogRows.map((row) => ({
+    async exportRepairExcel() {
+      const bounds = this.monthBoundsFromInput(this.repairExportMonth);
+      if (!bounds) { alert("Pilih bulan dulu."); return; }
+      const startStr = localDateStr(bounds.start);
+      const endStr = localDateStr(new Date(bounds.end.getTime() - 86400000));
+      const { data, error } = await supabaseClient.from("repair_log").select("*").eq("mesin", machineKey)
+        .gte("tanggal", startStr).lte("tanggal", endStr)
+        .order("tanggal", { ascending: true });
+      if (error) { this.flash("Gagal ambil data Repair buat export: " + error.message, true); return; }
+      const rows = (data || []).map((row) => ({
         "Tanggal": row.tanggal || "-",
         "Point": row.point_label || "-",
         "Model": this.repairPartNoModelMap[row.part_number] || "-",
@@ -1472,7 +1537,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         "Qty": row.qty ?? "",
         "Kategori Repair": row.kategori_repair || "-",
       }));
-      exportRowsToExcel(`Repair_${machineKey}`, rows);
+      exportRowsToExcel(`Repair_${machineKey}_${this.repairExportMonth}`, rows);
     },
 
     // ================= EDIT / HAPUS (riwayat, koreksi manual) =================
