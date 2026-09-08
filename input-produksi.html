@@ -7,7 +7,7 @@
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@400;500;600;700;800;900&family=Barlow+Condensed:wght@600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
 <script>
   (function () {
@@ -19,410 +19,268 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/supabaseClient.js"></script>
 <style>
-  /* ── OVERRIDE: full dark industrial shell ── */
-  .app-shell { background: #0d0f12; }
-  .main { background: #0d0f12; padding: 0; }
+  * { box-sizing: border-box; }
 
-  /* ── SCANLINE TEXTURE ── */
-  .hub-wrap {
+  .hub-shell {
     min-height: 100vh;
-    padding: 32px 28px 40px;
-    position: relative;
-    background:
-      repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba(255,255,255,0.012) 2px,
-        rgba(255,255,255,0.012) 4px
-      ),
-      #0d0f12;
+    background: #f6f7fb;
+    padding: 36px 32px 48px;
+    font-family: 'Plus Jakarta Sans', sans-serif;
   }
 
-  /* ── TOP BAR ── */
-  .hub-topbar {
+  /* ─── HEADER ─── */
+  .hub-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: 40px;
-    border-bottom: 1px solid rgba(255,120,0,0.2);
-    padding-bottom: 18px;
+    margin-bottom: 36px;
+    gap: 20px;
+    flex-wrap: wrap;
   }
 
-  .hub-brand {
-    display: flex;
+  .hub-tag {
+    display: inline-flex;
     align-items: center;
-    gap: 14px;
-  }
-
-  .hub-brand-icon {
-    width: 38px;
-    height: 38px;
-    background: #ff7800;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    box-shadow: 0 0 16px rgba(255,120,0,0.5);
-  }
-
-  .hub-brand-text {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-weight: 800;
-    font-size: 15px;
-    letter-spacing: 0.12em;
+    gap: 7px;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
     text-transform: uppercase;
-    color: #fff;
-    line-height: 1.2;
+    color: #6366f1;
+    background: rgba(99,102,241,0.09);
+    border: 1px solid rgba(99,102,241,0.18);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 14px;
   }
 
-  .hub-brand-sub {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px;
-    color: rgba(255,120,0,0.8);
-    letter-spacing: 0.15em;
-  }
-
-  .hub-status-row {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-  }
-
-  .hub-clock {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 15px;
-    color: #ff7800;
-    letter-spacing: 0.08em;
-    text-shadow: 0 0 8px rgba(255,120,0,0.6);
-  }
-
-  .hub-online-pill {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    color: #22c55e;
-    background: rgba(34,197,94,0.1);
-    border: 1px solid rgba(34,197,94,0.25);
-    padding: 4px 10px;
-    border-radius: 3px;
-  }
-
-  .online-dot {
+  .hub-tag-dot {
     width: 6px; height: 6px;
-    background: #22c55e;
     border-radius: 50%;
-    animation: blink 1.4s ease-in-out infinite;
-    box-shadow: 0 0 6px #22c55e;
+    background: #6366f1;
+    box-shadow: 0 0 0 2px rgba(99,102,241,0.25);
   }
 
-  @keyframes blink {
-    0%,100% { opacity:1; } 50% { opacity:0.3; }
+  .hub-title {
+    font-size: 38px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    margin: 0 0 8px;
   }
 
-  /* ── HERO HEADING ── */
-  .hub-hero {
-    margin-bottom: 32px;
+  .hub-title span { color: #6366f1; }
+
+  .hub-sub {
+    font-size: 14px;
+    color: #94a3b8;
+    font-weight: 500;
   }
 
-  .hub-eyebrow {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 11px;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: #ff7800;
-    margin-bottom: 8px;
+  .hub-header-right {
     display: flex;
-    align-items: center;
-    gap: 10px;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
   }
 
-  .hub-eyebrow::before {
-    content: '';
-    display: inline-block;
-    width: 24px;
-    height: 1px;
-    background: #ff7800;
+  .hub-clock-box {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 10px 18px;
+    text-align: right;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
   }
 
-  .hub-h1 {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 52px;
-    font-weight: 900;
-    line-height: 0.95;
+  .hub-clock-time {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 22px;
+    font-weight: 600;
+    color: #0f172a;
     letter-spacing: -0.01em;
-    text-transform: uppercase;
-    color: #ffffff;
-    margin: 0 0 10px;
+    line-height: 1;
   }
 
-  .hub-h1 em {
-    font-style: normal;
-    color: #ff7800;
-    text-shadow: 0 0 24px rgba(255,120,0,0.4);
-  }
-
-  .hub-desc {
-    font-family: 'Barlow', sans-serif;
-    font-size: 13px;
-    color: rgba(255,255,255,0.35);
+  .hub-clock-date {
+    font-size: 11px;
+    color: #94a3b8;
+    font-weight: 500;
+    margin-top: 3px;
     letter-spacing: 0.03em;
   }
 
-  /* ── DIVIDER ── */
-  .hub-divider {
+  .hub-user-pill {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 24px;
+    gap: 8px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    padding: 5px 12px 5px 6px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
   }
 
-  .hub-divider-label {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: rgba(255,255,255,0.25);
-    white-space: nowrap;
+  .hub-avatar {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1, #818cf8);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    color: #fff;
+    font-weight: 700;
+    flex-shrink: 0;
   }
 
-  .hub-divider-line {
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(90deg, rgba(255,120,0,0.3), rgba(255,255,255,0.06));
+  .hub-user-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: #334155;
   }
 
-  /* ── LINE GRID ── */
+  .hub-user-role {
+    font-size: 10.5px;
+    color: #94a3b8;
+    font-weight: 500;
+  }
+
+  /* ─── GRID ─── */
   .line-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
   }
 
-  /* ── LINE CARD ── */
+  /* ─── CARD ─── */
   .line-card {
     position: relative;
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    background: #fff;
+    border: 1.5px solid #e8eaf0;
+    border-radius: 16px;
+    padding: 20px 22px;
     text-decoration: none;
-    background: #141720;
-    border: 1px solid rgba(255,255,255,0.07);
-    border-top: 3px solid var(--lc-color);
-    border-radius: 6px;
-    padding: 22px 20px 18px;
+    color: inherit;
     overflow: hidden;
-    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
     cursor: pointer;
   }
 
-  .line-card::after {
+  .line-card:hover {
+    border-color: var(--lc);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.08), 0 0 0 4px color-mix(in srgb, var(--lc) 10%, transparent);
+    transform: translateY(-2px);
+  }
+
+  .line-card:active { transform: translateY(0); }
+
+  .lc-02 { --lc: #6366f1; }
+  .lc-03 { --lc: #f59e0b; }
+  .lc-04 { --lc: #10b981; }
+  .lc-05 { --lc: #ef4444; }
+  .lc-06 { --lc: #8b5cf6; }
+  .lc-07 { --lc: #0ea5e9; }
+
+  .line-card::before {
     content: '';
     position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 3px;
-    background: var(--lc-color);
-    box-shadow: 0 0 12px var(--lc-color);
-    opacity: 0;
-    transition: opacity 0.15s ease;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+    background: var(--lc);
+    border-radius: 16px 0 0 16px;
+    opacity: 0.7;
+    transition: opacity 0.18s ease, width 0.18s ease;
   }
 
-  .line-card:hover {
-    background: #1a1e2a;
-    border-color: var(--lc-color);
-    box-shadow: 0 0 0 1px var(--lc-color), 0 8px 32px rgba(0,0,0,0.5), inset 0 0 40px rgba(255,255,255,0.02);
-    transform: translateY(-3px);
-  }
+  .line-card:hover::before { opacity: 1; width: 5px; }
 
-  .line-card:hover::after { opacity: 1; }
-  .line-card:active { transform: translateY(0px); }
-
-  /* per-line colors */
-  .lc-02 { --lc-color: #3b82f6; }
-  .lc-03 { --lc-color: #ff7800; }
-  .lc-04 { --lc-color: #22c55e; }
-  .lc-05 { --lc-color: #ef4444; }
-  .lc-06 { --lc-color: #a855f7; }
-  .lc-07 { --lc-color: #06b6d4; }
-
-  /* indicator light */
-  .lc-indicator {
+  .lc-badge {
+    flex-shrink: 0;
+    width: 60px; height: 60px;
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--lc) 10%, #f8f9ff);
+    border: 1.5px solid color-mix(in srgb, var(--lc) 20%, transparent);
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
+    justify-content: center;
+    transition: background 0.18s ease, transform 0.18s ease;
   }
 
-  .lc-light {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: var(--lc-color);
-    box-shadow: 0 0 8px var(--lc-color), 0 0 2px var(--lc-color);
-    animation: lamp 2.2s ease-in-out infinite;
+  .line-card:hover .lc-badge {
+    background: color-mix(in srgb, var(--lc) 16%, #f8f9ff);
+    transform: scale(1.06);
   }
 
-  @keyframes lamp {
-    0%,100% { opacity:1; } 50% { opacity:0.45; }
-  }
-
-  .lc-tag {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 9px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--lc-color);
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
-    padding: 2px 8px;
-    border-radius: 2px;
-  }
-
-  /* big number */
   .lc-num {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 64px;
-    font-weight: 900;
-    line-height: 0.9;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--lc);
     letter-spacing: -0.02em;
-    text-transform: uppercase;
+  }
+
+  .lc-body { flex: 1; min-width: 0; }
+
+  .lc-name {
+    font-size: 18px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+    margin-bottom: 3px;
+  }
+
+  .lc-desc {
+    font-size: 12.5px;
+    color: #94a3b8;
+    font-weight: 500;
+  }
+
+  .lc-arrow {
+    flex-shrink: 0;
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    color: #cbd5e1;
+    transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  }
+
+  .line-card:hover .lc-arrow {
+    background: var(--lc);
     color: #fff;
-    margin-bottom: 4px;
-    position: relative;
-    z-index: 1;
+    transform: translateX(2px);
   }
 
-  .lc-num em {
-    font-style: normal;
-    color: var(--lc-color);
-    text-shadow: 0 0 20px var(--lc-color);
-  }
-
-  .lc-sub {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: rgba(255,255,255,0.2);
-    margin-bottom: 18px;
-  }
-
-  /* ghost number bg */
   .lc-ghost {
     position: absolute;
-    right: -10px;
-    bottom: -18px;
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 120px;
-    font-weight: 900;
-    color: var(--lc-color);
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 72px;
+    font-weight: 600;
+    color: var(--lc);
     opacity: 0.04;
-    line-height: 1;
-    letter-spacing: -0.04em;
     pointer-events: none;
     user-select: none;
-    transition: opacity 0.15s ease;
+    letter-spacing: -0.04em;
+    transition: opacity 0.18s ease;
+    line-height: 1;
   }
 
   .line-card:hover .lc-ghost { opacity: 0.08; }
 
-  /* footer bar */
-  .lc-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding-top: 12px;
-    border-top: 1px solid rgba(255,255,255,0.06);
-  }
-
-  .lc-cta {
-    font-family: 'Barlow', sans-serif;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: rgba(255,255,255,0.35);
-    transition: color 0.15s ease;
-  }
-
-  .line-card:hover .lc-cta { color: var(--lc-color); }
-
-  .lc-arrow {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 14px;
-    color: rgba(255,255,255,0.15);
-    transition: color 0.15s ease, transform 0.15s ease;
-  }
-
-  .line-card:hover .lc-arrow {
-    color: var(--lc-color);
-    transform: translateX(4px);
-    text-shadow: 0 0 8px var(--lc-color);
-  }
-
-  /* ── FOOTER USER ── */
-  .hub-footer {
-    margin-top: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding-top: 18px;
-    border-top: 1px solid rgba(255,255,255,0.05);
-  }
-
-  .hub-user {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .hub-avatar {
-    width: 30px; height: 30px;
-    border-radius: 50%;
-    background: rgba(255,120,0,0.15);
-    border: 1px solid rgba(255,120,0,0.3);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 13px;
-  }
-
-  .hub-user-name {
-    font-family: 'Barlow', sans-serif;
-    font-size: 12px;
-    font-weight: 600;
-    color: rgba(255,255,255,0.5);
-    letter-spacing: 0.02em;
-  }
-
-  .hub-user-role {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 9px;
-    letter-spacing: 0.12em;
-    color: rgba(255,120,0,0.6);
-    text-transform: uppercase;
-  }
-
-  .hub-line-count {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.12em;
-    color: rgba(255,255,255,0.15);
-  }
-
-  /* ── RESPONSIVE ── */
+  /* ─── RESPONSIVE ─── */
   @media (max-width: 900px) {
-    .line-grid { grid-template-columns: repeat(2, 1fr); }
-    .hub-h1 { font-size: 40px; }
-    .lc-num { font-size: 52px; }
-  }
-
-  @media (max-width: 560px) {
-    .hub-wrap { padding: 18px 14px 28px; }
+    .hub-shell { padding: 20px 16px 32px; }
+    .hub-title { font-size: 28px; }
+    .hub-header { margin-bottom: 24px; }
+    /* Mobile & tablet: 2 kolom × 3 baris */
     .line-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-    .hub-h1 { font-size: 32px; }
-    .lc-num { font-size: 44px; }
-    .lc-ghost { display: none; }
-    .hub-topbar { margin-bottom: 24px; }
   }
 </style>
 </head>
@@ -460,136 +318,91 @@
   </aside>
 
   <main class="main">
-    <div class="hub-wrap">
+    <div class="hub-shell">
 
-      <!-- TOP BAR -->
-      <div class="hub-topbar">
-        <div class="hub-brand">
-          <div class="hub-brand-icon">⚙</div>
-          <div>
-            <div class="hub-brand-text">Welding Exhaust</div>
-            <div class="hub-brand-sub">Production Control System</div>
+      <!-- HEADER -->
+      <div class="hub-header">
+        <div>
+          <div class="hub-tag"><span class="hub-tag-dot"></span>Welding Dept · 6 Lines</div>
+          <h1 class="hub-title">Pilih <span>Line</span><br>Produksi</h1>
+          <p class="hub-sub">Tap kartu untuk membuka halaman input line</p>
+        </div>
+        <div class="hub-header-right">
+          <div class="hub-clock-box">
+            <div class="hub-clock-time" x-text="clockTime"></div>
+            <div class="hub-clock-date" x-text="clockDate"></div>
+          </div>
+          <div class="hub-user-pill">
+            <div class="hub-avatar" x-text="(profile?.full_name || 'U')[0].toUpperCase()"></div>
+            <div>
+              <div class="hub-user-name" x-text="profile?.full_name || '...'"></div>
+              <div class="hub-user-role" x-text="profile?.jabatan || profile?.role || '...'"></div>
+            </div>
           </div>
         </div>
-        <div class="hub-status-row">
-          <span class="hub-clock" x-text="clock"></span>
-          <span class="hub-online-pill"><span class="online-dot"></span>SYSTEM ONLINE</span>
-        </div>
       </div>
 
-      <!-- HERO -->
-      <div class="hub-hero">
-        <div class="hub-eyebrow">Select Production Line</div>
-        <h1 class="hub-h1">Pilih <em>Line</em><br>Produksi</h1>
-        <p class="hub-desc">6 Welding Line aktif · Tap line untuk mulai input</p>
-      </div>
-
-      <!-- DIVIDER -->
-      <div class="hub-divider">
-        <span class="hub-divider-label">Active Lines</span>
-        <div class="hub-divider-line"></div>
-        <span class="hub-divider-label">06 / 06</span>
-      </div>
-
-      <!-- LINE GRID -->
+      <!-- GRID -->
       <div class="line-grid">
-
         <a href="machines/e-02.html" class="line-card lc-02">
-          <div class="lc-indicator">
-            <div class="lc-light"></div>
-            <span class="lc-tag">Welding</span>
+          <div class="lc-badge"><span class="lc-num">E-02</span></div>
+          <div class="lc-body">
+            <div class="lc-name">Line E-02</div>
+            <div class="lc-desc">Welding · Siap Input</div>
           </div>
-          <div class="lc-num">E-<em>02</em></div>
-          <div class="lc-sub">Line Produksi</div>
-          <div class="lc-footer">
-            <span class="lc-cta">Open Line</span>
-            <span class="lc-arrow">→</span>
-          </div>
+          <div class="lc-arrow">→</div>
           <div class="lc-ghost">02</div>
         </a>
 
         <a href="machines/e-03.html" class="line-card lc-03">
-          <div class="lc-indicator">
-            <div class="lc-light"></div>
-            <span class="lc-tag">Welding</span>
+          <div class="lc-badge"><span class="lc-num">E-03</span></div>
+          <div class="lc-body">
+            <div class="lc-name">Line E-03</div>
+            <div class="lc-desc">Welding · Siap Input</div>
           </div>
-          <div class="lc-num">E-<em>03</em></div>
-          <div class="lc-sub">Line Produksi</div>
-          <div class="lc-footer">
-            <span class="lc-cta">Open Line</span>
-            <span class="lc-arrow">→</span>
-          </div>
+          <div class="lc-arrow">→</div>
           <div class="lc-ghost">03</div>
         </a>
 
         <a href="machines/e-04.html" class="line-card lc-04">
-          <div class="lc-indicator">
-            <div class="lc-light"></div>
-            <span class="lc-tag">Welding</span>
+          <div class="lc-badge"><span class="lc-num">E-04</span></div>
+          <div class="lc-body">
+            <div class="lc-name">Line E-04</div>
+            <div class="lc-desc">Welding · Siap Input</div>
           </div>
-          <div class="lc-num">E-<em>04</em></div>
-          <div class="lc-sub">Line Produksi</div>
-          <div class="lc-footer">
-            <span class="lc-cta">Open Line</span>
-            <span class="lc-arrow">→</span>
-          </div>
+          <div class="lc-arrow">→</div>
           <div class="lc-ghost">04</div>
         </a>
 
         <a href="machines/e-05.html" class="line-card lc-05">
-          <div class="lc-indicator">
-            <div class="lc-light"></div>
-            <span class="lc-tag">Welding</span>
+          <div class="lc-badge"><span class="lc-num">E-05</span></div>
+          <div class="lc-body">
+            <div class="lc-name">Line E-05</div>
+            <div class="lc-desc">Welding · Siap Input</div>
           </div>
-          <div class="lc-num">E-<em>05</em></div>
-          <div class="lc-sub">Line Produksi</div>
-          <div class="lc-footer">
-            <span class="lc-cta">Open Line</span>
-            <span class="lc-arrow">→</span>
-          </div>
+          <div class="lc-arrow">→</div>
           <div class="lc-ghost">05</div>
         </a>
 
         <a href="machines/e-06.html" class="line-card lc-06">
-          <div class="lc-indicator">
-            <div class="lc-light"></div>
-            <span class="lc-tag">Welding</span>
+          <div class="lc-badge"><span class="lc-num">E-06</span></div>
+          <div class="lc-body">
+            <div class="lc-name">Line E-06</div>
+            <div class="lc-desc">Welding · Siap Input</div>
           </div>
-          <div class="lc-num">E-<em>06</em></div>
-          <div class="lc-sub">Line Produksi</div>
-          <div class="lc-footer">
-            <span class="lc-cta">Open Line</span>
-            <span class="lc-arrow">→</span>
-          </div>
+          <div class="lc-arrow">→</div>
           <div class="lc-ghost">06</div>
         </a>
 
         <a href="machines/e-07.html" class="line-card lc-07">
-          <div class="lc-indicator">
-            <div class="lc-light"></div>
-            <span class="lc-tag">Welding</span>
+          <div class="lc-badge"><span class="lc-num">E-07</span></div>
+          <div class="lc-body">
+            <div class="lc-name">Line E-07</div>
+            <div class="lc-desc">Welding · Siap Input</div>
           </div>
-          <div class="lc-num">E-<em>07</em></div>
-          <div class="lc-sub">Line Produksi</div>
-          <div class="lc-footer">
-            <span class="lc-cta">Open Line</span>
-            <span class="lc-arrow">→</span>
-          </div>
+          <div class="lc-arrow">→</div>
           <div class="lc-ghost">07</div>
         </a>
-
-      </div>
-
-      <!-- FOOTER -->
-      <div class="hub-footer">
-        <div class="hub-user">
-          <div class="hub-avatar">👤</div>
-          <div>
-            <div class="hub-user-name" x-text="profile?.full_name || '...'"></div>
-            <div class="hub-user-role" x-text="profile?.jabatan || profile?.role || '...'"></div>
-          </div>
-        </div>
-        <div class="hub-line-count">WELDING DEPT · 6 LINES ACTIVE</div>
       </div>
 
     </div>
@@ -618,18 +431,18 @@ function baseInputPage() {
 function produksiHub() {
   return {
     ...baseInputPage(),
-    clock: "",
+    clockTime: "", clockDate: "",
     async init() {
       await this.initBase();
-      this.updateClock();
-      setInterval(() => this.updateClock(), 1000);
+      this.tick();
+      setInterval(() => this.tick(), 1000);
     },
-    updateClock() {
+    tick() {
       const now = new Date();
-      const days = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
-      const d = days[now.getDay()];
-      const t = now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
-      this.clock = `${d}  ${t}`;
+      this.clockTime = now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+      const days = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
+      const months = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+      this.clockDate = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
     },
   };
 }
