@@ -3305,17 +3305,11 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         // Kena Point yang SUDAH ADA (garis/bola) -> jangan mulai gambar,
         // biar onUp yang proses (pilih Point / buka popup, lihat handleRepair3DClick).
         if (this.raycastRepairMarkers(ev, container)) return;
-        // Kena permukaan model KOSONG -> cek dulu apakah mulai dekat ujung
-        // garis yang sudah ada (Opsi B: extend, Opsi C: merge ujung ke ujung).
-        // Kalau tidak, baru gambar Point baru dari scratch.
+        // Kena permukaan model KOSONG -> mulai gambar Point baru, bentuknya
+        // ngikut tombol "Bentuk Point" yang lagi aktif (Bebas/Lingkaran/Kotak).
         const surfaceHit = this.raycastRepairSurface(ev, container);
         if (!surfaceHit) return;
-        const snapResult = this.findNearestLineEndpoint(surfaceHit.local);
-        if (snapResult && this.repairDrawShape === "freehand") {
-          this.startExtendDraw(snapResult, surfaceHit, ev);
-        } else {
-          this.startRepairDraw(this.repairDrawShape, surfaceHit, ev);
-        }
+        this.startRepairDraw(this.repairDrawShape, surfaceHit, ev);
       };
       const onMove = (ev) => {
         this.handleRepair3DHover(ev, container);
@@ -3352,40 +3346,6 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const hit = this.raycastRepairMarkers(ev, container);
       const hoverId = hit && hit.object.userData && hit.object.userData.pointId ? hit.object.userData.pointId : null;
       if (hoverId !== r.hoveredPointId) this.setRepairHover(hoverId);
-
-      // Snap endpoint indicator: kalau kursor dekat ujung garis -> cursor crosshair + dot hijau
-      if (this.repairEditMode && this.repairDrawShape === "freehand") {
-        const surfaceHit = this.raycastRepairSurface(ev, container);
-        const snap = surfaceHit ? this.findNearestLineEndpoint(surfaceHit.local) : null;
-        this.updateEndpointSnapIndicator(snap ? snap.pos : null);
-        if (snap) { container.style.cursor = "crosshair"; return; }
-      }
-      this.updateEndpointSnapIndicator(null);
-    },
-
-    // Tampilkan titik hijau kecil di ujung garis yang siap di-snap,
-    // hapus kalau tidak ada snap target.
-    updateEndpointSnapIndicator(localPos) {
-      const r = repairThreeState; if (!r) return;
-      const THREE = r.THREE;
-      // Hapus indikator lama
-      if (r.snapIndicator) {
-        r.mesh.remove(r.snapIndicator);
-        r.snapIndicator.geometry && r.snapIndicator.geometry.dispose();
-        r.snapIndicator.material && r.snapIndicator.material.dispose();
-        r.snapIndicator = null;
-      }
-      if (!localPos) return;
-      // Buat bola hijau kecil di titik snap
-      const radius = Math.max((r.maxDim || 1) * 0.018, 0.12);
-      const geo = new THREE.SphereGeometry(radius, 10, 10);
-      const mat = new THREE.MeshBasicMaterial({ color: 0x00dd55, toneMapped: false, depthTest: false });
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.copy(localPos);
-      mesh.renderOrder = 2000;
-      mesh.userData.isRepairAux = true;
-      r.mesh.add(mesh);
-      r.snapIndicator = mesh;
     },
     setRepairHover(pointId) {
       const r = repairThreeState; if (!r) return;
@@ -3495,45 +3455,6 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // ---- Mulai gambar Point baru (tahan/pointerdown di permukaan kosong) ----
     // shape: "freehand" (garis bebas, lihat extendFreehandDraw) atau
     // "circle"/"square" (lihat extendRepairShapeDraw).
-    // Cari ujung garis (endpoint) terdekat dari titik lokal yang diklik.
-    // Return: { pointId, endIndex (0=awal/1=akhir), pos: Vector3 } atau null.
-    findNearestLineEndpoint(localPoint) {
-      const r = repairThreeState; if (!r) return null;
-      const THREE = r.THREE;
-      const threshold = Math.max((r.maxDim || 1) * 0.12, 0.5);
-      let best = null, bestDist = Infinity;
-      for (const pt of this.repairPoints) {
-        const norm = this.normalizeRepairPath(pt.path);
-        if (!norm || norm.closed || norm.points.length < 2) continue; // skip loop tertutup & titik tunggal
-        const pts = norm.points;
-        // Cek ujung awal (index 0) dan ujung akhir (index terakhir)
-        for (const [endIndex, p] of [[0, pts[0]], [1, pts[pts.length - 1]]]) {
-          const v = new THREE.Vector3(p.x, p.y, p.z);
-          const d = localPoint.distanceTo(v);
-          if (d < threshold && d < bestDist) {
-            bestDist = d;
-            best = { pointId: pt.id, endIndex, pos: v, points: pts };
-          }
-        }
-      }
-      return best;
-    },
-
-    // Mulai gambar "extend": titik awal sudah di-snap ke ujung garis yang ada.
-    // r.extendTarget menyimpan info garis yang akan diperpanjang/di-merge.
-    startExtendDraw(snapResult, surfaceHit, ev) {
-      const r = repairThreeState; if (!r) return;
-      const THREE = r.THREE;
-      r.controls.enabled = false;
-      r.drawing = true;
-      r.drawMode = "freehand";
-      r.extendTarget = snapResult; // { pointId, endIndex, points }
-      // Mulai dari ujung garis yang di-snap (bukan dari posisi kursor mentah)
-      r.drawPath = [snapResult.pos.clone()];
-      r.drawNormals = [surfaceHit.normal ? surfaceHit.normal.clone() : null];
-      r.lastClientX = ev.clientX; r.lastClientY = ev.clientY;
-    },
-
     startRepairDraw(shape, surfaceHit, ev) {
       const r = repairThreeState; if (!r) return;
       r.controls.enabled = false; // matiin putar-model sementara, drag = gambar Point
@@ -3587,60 +3508,19 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       r.drawing = false; r.drawMode = null;
       const rawPath = r.drawPath || [];
       const rawNormals = r.drawNormals || [];
-      const extendTarget = r.extendTarget || null;
       this.clearRepairDrawPreview();
-      r.drawPath = []; r.drawNormals = []; r.extendTarget = null;
+      r.drawPath = []; r.drawNormals = [];
+      // Cuma nge-tap doang (gak beneran diseret) -> diabaikan, bukan Point baru.
       if (rawPath.length < 2) return;
-
-      const closeThreshold = Math.max((r.maxDim || 1) * 0.15, 0.8);
-
-      // ── OPSI B + C: extend / merge ──────────────────────────────────────
-      if (extendTarget) {
-        const THREE = r.THREE;
-        const lastPt = rawPath[rawPath.length - 1];
-
-        // Cek apakah ujung yang baru digambar mendekati ujung garis LAIN (Merge / Opsi C)
-        const mergeTarget = this.findNearestLineEndpoint(lastPt);
-        const isMergeToSelf = mergeTarget && mergeTarget.pointId === extendTarget.pointId;
-        const isMergeToOther = mergeTarget && !isMergeToSelf;
-
-        // Bangun segmen baru yang dihaluskan
-        const smoothedSeg = this.smoothRepairPath(rawPath, false);
-
-        // Titik-titik garis yang di-extend (arah disesuaikan dengan ujung mana yang di-snap)
-        let existingPts = [...extendTarget.points];
-        if (extendTarget.endIndex === 0) existingPts = existingPts.reverse(); // snap di awal -> balik urutan
-
-        // Gabungkan: existing + segmen baru (buang titik pertama yg duplikat)
-        let merged = [...existingPts, ...smoothedSeg.slice(1)];
-
-        if (isMergeToOther) {
-          // Opsi C: ujung akhir dekat garis LAIN -> gabungkan ke garis itu juga
-          let otherPts = [...mergeTarget.points];
-          if (mergeTarget.endIndex === 1) otherPts = otherPts.reverse(); // snap di akhir -> balik biar nyambung
-          merged = [...merged, ...otherPts.slice(1)];
-
-          // Hapus garis "other" yang sudah digabung
-          await supabaseClient.from("repair_points").delete().eq("id", mergeTarget.pointId);
-          this.repairPoints = this.repairPoints.filter((p) => p.id !== mergeTarget.pointId);
-          this.flash("Garis digabungkan (merge) ✓");
-        } else {
-          this.flash("Garis diperpanjang (extend) ✓");
-        }
-
-        // Simpan kembali ke garis yang di-extend (update)
-        const finalPoints = merged.map((p) => {
-          if (p && p.x !== undefined) return p;
-          return { x: p.x, y: p.y, z: p.z };
-        });
-        await this.saveRepairPointGeometry(extendTarget.pointId, finalPoints, false);
-        return;
-      }
-
-      // ── GAMBAR BARU BIASA ────────────────────────────────────────────────
+      // Deteksi "loop 360 derajat": kalau titik akhir balik deket ke titik
+      // awal (nutup sendiri), otomatis disambung jadi 1 GARIS TERTUTUP,
+      // bukan garis dengan ujung nganggur.
+      const closeThreshold = Math.max((r.maxDim || 1) * 0.035, 0.4);
       let workingPath = rawPath;
       const isClosed = rawPath.length > 5 && rawPath[0].distanceTo(rawPath[rawPath.length - 1]) < closeThreshold;
       if (isClosed) {
+        // buang buntut titik yang numpuk deket titik awal (bekas nutup loop)
+        // biar gak ada gerombolan titik ganda pas nyambung.
         while (workingPath.length > 5 && workingPath[workingPath.length - 1].distanceTo(workingPath[0]) < closeThreshold) {
           workingPath = workingPath.slice(0, -1);
         }
@@ -3705,17 +3585,11 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const THREE = r.THREE;
       this.clearRepairDrawPreview();
       const smoothed = this.smoothRawDrawPoints(r.drawPath, 2);
-      // Deteksi snap: kalau ujung sudah dekat titik awal -> preview hijau = siap nyambung
-      const closeThreshold = Math.max((r.maxDim || 1) * 0.15, 0.8);
-      const nearStart = r.drawPath.length > 5 &&
-        r.drawPath[r.drawPath.length - 1].distanceTo(r.drawPath[0]) < closeThreshold;
-      const previewColor = nearStart ? 0x00cc44 : WELD_LINE_DRAW_COLOR;
-      const isClosed = nearStart;
-      const curve = new THREE.CatmullRomCurve3(smoothed, isClosed, "centripetal", 0.5);
+      const curve = new THREE.CatmullRomCurve3(smoothed, false, "centripetal", 0.5);
       const segs = Math.max(8, Math.min(100, r.drawPath.length * 4));
       const radius = Math.max((r.maxDim || 1) * 0.0055, 0.05);
-      const geo = new THREE.TubeGeometry(curve, segs, radius, 6, isClosed);
-      const mat = new THREE.MeshBasicMaterial({ color: previewColor, toneMapped: false, transparent: true, opacity: 0.92 });
+      const geo = new THREE.TubeGeometry(curve, segs, radius, 6, false);
+      const mat = new THREE.MeshBasicMaterial({ color: WELD_LINE_DRAW_COLOR, toneMapped: false, transparent: true, opacity: 0.92 });
       const mesh = new THREE.Mesh(geo, mat);
       mesh.userData.isRepairAux = true;
       mesh.renderOrder = 1000;
@@ -3749,19 +3623,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       r.previewMesh = mesh;
     },
     clearRepairDrawPreview() {
-      const r = repairThreeState; if (!r) return;
-      if (r.previewMesh) {
-        r.mesh.remove(r.previewMesh);
-        this.disposeRepairObject(r.previewMesh);
-        r.previewMesh = null;
-      }
-      // Bersihkan snap indicator juga
-      if (r.snapIndicator) {
-        r.mesh.remove(r.snapIndicator);
-        r.snapIndicator.geometry && r.snapIndicator.geometry.dispose();
-        r.snapIndicator.material && r.snapIndicator.material.dispose();
-        r.snapIndicator = null;
-      }
+      const r = repairThreeState; if (!r || !r.previewMesh) return;
+      r.mesh.remove(r.previewMesh);
+      this.disposeRepairObject(r.previewMesh);
+      r.previewMesh = null;
     },
     // Haluskan jalur mentah hasil drag Bebas (kadang zigzag kasar ngikutin
     // getar tangan) buat hasil AKHIR yang disimpan -- 2 tahap: (1) rata-
