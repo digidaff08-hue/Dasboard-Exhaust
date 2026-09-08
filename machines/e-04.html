@@ -1274,6 +1274,7 @@
               <button type="button" class="btn-secondary btn-sm" :class="repairDrawShape === 'circle' ? 'btn-primary' : ''" @click="repairDrawShape = 'circle'">◯ Lingkaran</button>
               <button type="button" class="btn-secondary btn-sm" :class="repairDrawShape === 'square' ? 'btn-primary' : ''" @click="repairDrawShape = 'square'">▭ Kotak</button>
               <button type="button" class="btn-secondary btn-sm" @click="undoLastRepairPoint()" :disabled="!repairPoints.length" title="Hapus Point terakhir">↩️ Undo</button>
+              <button type="button" class="btn-sm" :class="repairSnapMode ? 'btn-primary' : 'btn-secondary'" @click="repairSnapMode = !repairSnapMode" title="Aktifkan untuk bisa sambung/extend garis yang sudah ada">🔗 Sambung Garis</button>
             </div>
             <p class="repair-edit-hint" x-show="repairEditMode">
               <template x-if="repairDrawShape === 'freehand'"><span>Tahan &amp; seret di permukaan model buat gambar garis Point baru menyusuri jalur las. Balik lagi ke titik awal buat otomatis nutup jadi 1 loop (360&deg;).</span></template>
