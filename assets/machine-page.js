@@ -3515,7 +3515,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // Deteksi "loop 360 derajat": kalau titik akhir balik deket ke titik
       // awal (nutup sendiri), otomatis disambung jadi 1 GARIS TERTUTUP,
       // bukan garis dengan ujung nganggur.
-      const closeThreshold = Math.max((r.maxDim || 1) * 0.035, 0.4);
+      const closeThreshold = Math.max((r.maxDim || 1) * 0.15, 0.8);
       let workingPath = rawPath;
       const isClosed = rawPath.length > 5 && rawPath[0].distanceTo(rawPath[rawPath.length - 1]) < closeThreshold;
       if (isClosed) {
@@ -3585,11 +3585,17 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const THREE = r.THREE;
       this.clearRepairDrawPreview();
       const smoothed = this.smoothRawDrawPoints(r.drawPath, 2);
-      const curve = new THREE.CatmullRomCurve3(smoothed, false, "centripetal", 0.5);
+      // Deteksi snap: kalau ujung sudah dekat titik awal -> preview hijau = siap nyambung
+      const closeThreshold = Math.max((r.maxDim || 1) * 0.15, 0.8);
+      const nearStart = r.drawPath.length > 5 &&
+        r.drawPath[r.drawPath.length - 1].distanceTo(r.drawPath[0]) < closeThreshold;
+      const previewColor = nearStart ? 0x00cc44 : WELD_LINE_DRAW_COLOR;
+      const isClosed = nearStart;
+      const curve = new THREE.CatmullRomCurve3(smoothed, isClosed, "centripetal", 0.5);
       const segs = Math.max(8, Math.min(100, r.drawPath.length * 4));
       const radius = Math.max((r.maxDim || 1) * 0.0055, 0.05);
-      const geo = new THREE.TubeGeometry(curve, segs, radius, 6, false);
-      const mat = new THREE.MeshBasicMaterial({ color: WELD_LINE_DRAW_COLOR, toneMapped: false, transparent: true, opacity: 0.92 });
+      const geo = new THREE.TubeGeometry(curve, segs, radius, 6, isClosed);
+      const mat = new THREE.MeshBasicMaterial({ color: previewColor, toneMapped: false, transparent: true, opacity: 0.92 });
       const mesh = new THREE.Mesh(geo, mat);
       mesh.userData.isRepairAux = true;
       mesh.renderOrder = 1000;
