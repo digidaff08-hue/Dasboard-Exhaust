@@ -3523,14 +3523,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (Math.sqrt(dx * dx + dy * dy) < 10) return;
       const hit = this.raycastRepairSurface(ev, container);
       if (!hit) return;
-      // Offset titik sedikit ke arah normal supaya garis melayang di atas
-      // permukaan (tidak ikut lekukan kontur) -- hasilnya lebih smooth & lurus.
-      const pt = hit.local.clone();
-      if (hit.normal) {
-        const offsetDist = Math.max((r.maxDim || 1) * 0.012, 0.05);
-        pt.addScaledVector(hit.normal, offsetDist);
-      }
-      r.drawPath.push(pt);
+      r.drawPath.push(hit.local.clone());
       r.drawNormals.push(hit.normal ? hit.normal.clone() : null);
       r.lastClientX = ev.clientX; r.lastClientY = ev.clientY;
       this.updateRepairDrawPreview();
