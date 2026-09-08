@@ -3423,17 +3423,17 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       return ok ? r.mesh.worldToLocal(hitWorld) : center.clone();
     },
     // Bikin titik-titik Lingkaran (di bidang tangent titik tengah), tiap
-    // titik ditempel ke permukaan model (lihat snapRepairToSurface).
+    // Lingkaran FLAT (tidak ikut kontur permukaan -- tetap bulat sempurna).
     generateRepairCirclePoints(r, center, normal, radius, segments) {
       const THREE = r.THREE;
       const { u, v } = this.repairTangentBasis(THREE, normal);
       const pts = [];
       for (let i = 0; i < segments; i++) {
         const angle = (i / segments) * Math.PI * 2;
-        const flat = center.clone()
+        const pt = center.clone()
           .add(u.clone().multiplyScalar(radius * Math.cos(angle)))
           .add(v.clone().multiplyScalar(radius * Math.sin(angle)));
-        pts.push(this.snapRepairToSurface(r, flat, normal));
+        pts.push(pt); // flat, tidak di-snap ke permukaan
       }
       return pts;
     },
@@ -3998,6 +3998,33 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.repairPoints.push(data);
       this.rebuildRepairMarkers();
       this.flash(isClosed ? "Point (garis tertutup) ditambahkan." : "Point (garis las) ditambahkan.");
+    },
+
+    // Hapus Point/garis terakhir yang ditambahkan (Undo).
+    async undoLastRepairPoint() {
+      if (!this.repairPoints.length) return;
+      const last = this.repairPoints[this.repairPoints.length - 1];
+      if (!confirm(`Hapus Point terakhir "${last.label || '(tanpa label)'}"?`)) return;
+      const { error } = await supabaseClient.from("repair_points").delete().eq("id", last.id);
+      if (error) { this.flash("Gagal undo: " + error.message, true); return; }
+      this.repairPoints = this.repairPoints.slice(0, -1);
+      if (this.repairSelectedPointId === last.id) { this.repairSelectedPointId = null; this.repairPointActionMode = null; }
+      this.rebuildRepairMarkers();
+      this.flash("Point terakhir dihapus (Undo) ✓");
+    },
+
+    // Edit label/nama Point yang sedang dipilih.
+    async renameRepairPoint(pointId) {
+      const pt = this.repairPoints.find((p) => p.id === pointId);
+      if (!pt) return;
+      const newLabel = prompt("Nama Point:", pt.label || "");
+      if (newLabel === null) return; // batal
+      const { data, error } = await supabaseClient.from("repair_points")
+        .update({ label: newLabel || null }).eq("id", pointId).select().single();
+      if (error) { this.flash("Gagal rename: " + error.message, true); return; }
+      this.repairPoints = this.repairPoints.map((p) => p.id === data.id ? data : p);
+      this.rebuildRepairMarkers();
+      this.flash("Nama Point diperbarui ✓");
     },
 
     logout,
