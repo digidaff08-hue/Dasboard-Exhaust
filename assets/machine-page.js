@@ -3520,14 +3520,17 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     extendFreehandDraw(ev, container) {
       const r = repairThreeState; if (!r || !r.drawing) return;
       const dx = ev.clientX - r.lastClientX, dy = ev.clientY - r.lastClientY;
-      // Throttle sampel berdasar jarak di layar (bukan tiap event) biar
-      // jalurnya gak numpuk ribuan titik cuma dari getar tangan kecil.
-      // Digedein dari 4 -> 10px: makin jarang sampel mentah = makin gak
-      // gampang keiket getar tangan, dasar buat garis yang lebih mulus.
       if (Math.sqrt(dx * dx + dy * dy) < 10) return;
       const hit = this.raycastRepairSurface(ev, container);
-      if (!hit) return; // sempat meleset dari permukaan model -> lewati sampel ini, terusin nunggu gerakan berikutnya
-      r.drawPath.push(hit.local.clone());
+      if (!hit) return;
+      // Offset titik sedikit ke arah normal supaya garis melayang di atas
+      // permukaan (tidak ikut lekukan kontur) -- hasilnya lebih smooth & lurus.
+      const pt = hit.local.clone();
+      if (hit.normal) {
+        const offsetDist = Math.max((r.maxDim || 1) * 0.012, 0.05);
+        pt.addScaledVector(hit.normal, offsetDist);
+      }
+      r.drawPath.push(pt);
       r.drawNormals.push(hit.normal ? hit.normal.clone() : null);
       r.lastClientX = ev.clientX; r.lastClientY = ev.clientY;
       this.updateRepairDrawPreview();
