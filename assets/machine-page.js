@@ -353,7 +353,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     repairModalOpen: false, repairModalPoint: null, repairSaving: false,
     editingRepairId: null,
     // Mode admin buat naruh titik baru di Master Data
-    repairEditMode: false, repairDrawShape: "freehand", repairNewViewLabel: "", repairNewViewFile: null, repairViewUploading: false,
+    repairEditMode: false, repairDrawShape: "freehand", repairSnapMode: false, repairNewViewLabel: "", repairNewViewFile: null, repairViewUploading: false,
     repairNewViewColor: "#9aa4ad",
     // Point yang lagi dipilih buat di-edit (Geser/Ukuran/Edit Titik), dan
     // sub-mode aksi yang lagi aktif buat Point itu (lihat selectRepairPoint,
@@ -3312,7 +3312,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         if (!surfaceHit) return;
         // Opsi B/C: kalau mulai seret dari dekat ujung garis yang sudah ada
         // (mode Bebas saja) -> extend/merge, bukan Point baru.
-        if (this.repairDrawShape === "freehand") {
+        if (this.repairDrawShape === "freehand" && this.repairSnapMode) {
           const snap = this.findNearestEndpoint(surfaceHit.local);
           if (snap) { this.startExtendDraw(snap, surfaceHit, ev); return; }
         }
