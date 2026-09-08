@@ -21,22 +21,58 @@
 <style>
   * { box-sizing: border-box; }
 
-  .hub-shell {
-    min-height: 100vh;
-    background: #f6f7fb;
-    padding: 36px 32px 48px;
-    font-family: 'Plus Jakarta Sans', sans-serif;
+  /* ── PAGE FADE IN ── */
+  @keyframes pageFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
   }
 
-  /* ─── HEADER ─── */
-  .hub-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    margin-bottom: 36px;
-    gap: 20px;
-    flex-wrap: wrap;
+  .hub-shell {
+    min-height: 100vh;
+    background: transparent;
+    position: relative;
+    z-index: 1;
+    padding: 36px 32px 48px;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    animation: pageFadeIn 0.4s ease both;
   }
+
+  .main {
+    background: #f6f7fb;
+    position: relative;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER SLIDE IN ── */
+  @keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-24px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(24px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes slideInUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes tagPop {
+    0%   { opacity: 0; transform: scale(0.8) translateY(6px); }
+    70%  { transform: scale(1.06) translateY(-1px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  @keyframes dotPulseIn {
+    0%   { transform: scale(0); opacity: 0; }
+    60%  { transform: scale(1.3); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .hub-header { animation: slideInLeft 0.5s cubic-bezier(.2,.8,.4,1) 0.1s both; }
+  .hub-header-right { animation: slideInRight 0.5s cubic-bezier(.2,.8,.4,1) 0.15s both; }
 
   .hub-tag {
     display: inline-flex;
@@ -52,6 +88,7 @@
     padding: 4px 12px;
     border-radius: 20px;
     margin-bottom: 14px;
+    animation: tagPop 0.5s cubic-bezier(.2,.8,.4,1) 0.25s both;
   }
 
   .hub-tag-dot {
@@ -59,6 +96,21 @@
     border-radius: 50%;
     background: #6366f1;
     box-shadow: 0 0 0 2px rgba(99,102,241,0.25);
+    animation: dotPulseIn 0.5s ease 0.5s both, dotBlink 2.4s ease-in-out 1s infinite;
+  }
+
+  @keyframes dotBlink {
+    0%,100% { opacity: 1; box-shadow: 0 0 0 2px rgba(99,102,241,0.25); }
+    50%      { opacity: 0.5; box-shadow: 0 0 0 4px rgba(99,102,241,0.1); }
+  }
+
+  .hub-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 36px;
+    gap: 20px;
+    flex-wrap: wrap;
   }
 
   .hub-title {
@@ -85,6 +137,7 @@
     gap: 8px;
   }
 
+  /* ── CLOCK ── */
   .hub-clock-box {
     background: #fff;
     border: 1px solid #e2e8f0;
@@ -92,6 +145,12 @@
     padding: 10px 18px;
     text-align: right;
     box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    transition: box-shadow 0.2s ease;
+  }
+
+  .hub-clock-box:hover {
+    box-shadow: 0 4px 16px rgba(99,102,241,0.12);
+    border-color: rgba(99,102,241,0.25);
   }
 
   .hub-clock-time {
@@ -101,6 +160,7 @@
     color: #0f172a;
     letter-spacing: -0.01em;
     line-height: 1;
+    transition: color 0.15s ease;
   }
 
   .hub-clock-date {
@@ -111,6 +171,7 @@
     letter-spacing: 0.03em;
   }
 
+  /* ── USER PILL ── */
   .hub-user-pill {
     display: flex;
     align-items: center;
@@ -120,6 +181,12 @@
     border-radius: 20px;
     padding: 5px 12px 5px 6px;
     box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+
+  .hub-user-pill:hover {
+    box-shadow: 0 4px 16px rgba(99,102,241,0.1);
+    border-color: rgba(99,102,241,0.2);
   }
 
   .hub-avatar {
@@ -133,26 +200,28 @@
     flex-shrink: 0;
   }
 
-  .hub-user-name {
-    font-size: 12px;
-    font-weight: 600;
-    color: #334155;
-  }
+  .hub-user-name { font-size: 12px; font-weight: 600; color: #334155; }
+  .hub-user-role { font-size: 10.5px; color: #94a3b8; font-weight: 500; }
 
-  .hub-user-role {
-    font-size: 10.5px;
-    color: #94a3b8;
-    font-weight: 500;
-  }
-
-  /* ─── GRID ─── */
+  /* ── GRID ── */
   .line-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
   }
 
-  /* ─── CARD ─── */
+  /* ── CARD STAGGER ANIMATION ── */
+  .line-card {
+    animation: slideInUp 0.5s cubic-bezier(.2,.8,.4,1) both;
+  }
+  .line-card:nth-child(1) { animation-delay: 0.20s; }
+  .line-card:nth-child(2) { animation-delay: 0.27s; }
+  .line-card:nth-child(3) { animation-delay: 0.34s; }
+  .line-card:nth-child(4) { animation-delay: 0.41s; }
+  .line-card:nth-child(5) { animation-delay: 0.48s; }
+  .line-card:nth-child(6) { animation-delay: 0.55s; }
+
+  /* ── CARD BASE ── */
   .line-card {
     position: relative;
     display: flex;
@@ -165,25 +234,54 @@
     text-decoration: none;
     color: inherit;
     overflow: hidden;
-    transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+    /* 3D tilt via JS, smooth base transition */
+    transition:
+      border-color 0.2s ease,
+      box-shadow 0.2s ease,
+      transform 0.15s ease;
     cursor: pointer;
+    transform-style: preserve-3d;
+    will-change: transform;
   }
 
   .line-card:hover {
     border-color: var(--lc);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.08), 0 0 0 4px color-mix(in srgb, var(--lc) 10%, transparent);
-    transform: translateY(-2px);
+    box-shadow:
+      0 12px 40px rgba(0,0,0,0.10),
+      0 0 0 3px color-mix(in srgb, var(--lc) 12%, transparent);
   }
 
-  .line-card:active { transform: translateY(0); }
+  .line-card:active { transform: scale(0.97) !important; }
 
-  .lc-02 { --lc: #6366f1; }
-  .lc-03 { --lc: #f59e0b; }
-  .lc-04 { --lc: #10b981; }
-  .lc-05 { --lc: #ef4444; }
-  .lc-06 { --lc: #8b5cf6; }
-  .lc-07 { --lc: #0ea5e9; }
+  /* ── RIPPLE ── */
+  .line-card .ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--lc) 25%, transparent);
+    transform: scale(0);
+    animation: rippleAnim 0.55s ease-out forwards;
+    pointer-events: none;
+  }
 
+  @keyframes rippleAnim {
+    to { transform: scale(4); opacity: 0; }
+  }
+
+  /* ── SHINE SWEEP ── */
+  .line-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(120deg, transparent, rgba(255,255,255,0.35), transparent);
+    transition: left 0.45s ease;
+    pointer-events: none;
+  }
+
+  .line-card:hover::after { left: 150%; }
+
+  /* ── LEFT BAR ── */
   .line-card::before {
     content: '';
     position: absolute;
@@ -191,27 +289,35 @@
     width: 4px;
     background: var(--lc);
     border-radius: 16px 0 0 16px;
-    opacity: 0.7;
-    transition: opacity 0.18s ease, width 0.18s ease;
+    opacity: 0.6;
+    transition: opacity 0.2s ease, width 0.2s ease;
   }
 
   .line-card:hover::before { opacity: 1; width: 5px; }
 
+  /* ── ACCENT COLORS ── */
+  .lc-02 { --lc: #6366f1; }
+  .lc-03 { --lc: #f59e0b; }
+  .lc-04 { --lc: #10b981; }
+  .lc-05 { --lc: #ef4444; }
+  .lc-06 { --lc: #8b5cf6; }
+  .lc-07 { --lc: #0ea5e9; }
+
+  /* ── BADGE ── */
   .lc-badge {
     flex-shrink: 0;
     width: 60px; height: 60px;
     border-radius: 14px;
     background: color-mix(in srgb, var(--lc) 10%, #f8f9ff);
     border: 1.5px solid color-mix(in srgb, var(--lc) 20%, transparent);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.18s ease, transform 0.18s ease;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s ease, transform 0.2s cubic-bezier(.2,.8,.4,1), box-shadow 0.2s ease;
   }
 
   .line-card:hover .lc-badge {
     background: color-mix(in srgb, var(--lc) 16%, #f8f9ff);
-    transform: scale(1.06);
+    transform: scale(1.08) rotate(-2deg);
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--lc) 30%, transparent);
   }
 
   .lc-num {
@@ -222,6 +328,7 @@
     letter-spacing: -0.02em;
   }
 
+  /* ── BODY ── */
   .lc-body { flex: 1; min-width: 0; }
 
   .lc-name {
@@ -230,7 +337,10 @@
     color: #0f172a;
     letter-spacing: -0.02em;
     margin-bottom: 3px;
+    transition: color 0.15s ease;
   }
+
+  .line-card:hover .lc-name { color: var(--lc); }
 
   .lc-desc {
     font-size: 12.5px;
@@ -238,23 +348,37 @@
     font-weight: 500;
   }
 
+  /* ── ARROW ── */
   .lc-arrow {
     flex-shrink: 0;
-    width: 34px; height: 34px;
+    width: 36px; height: 36px;
     border-radius: 50%;
     background: #f1f5f9;
     display: flex; align-items: center; justify-content: center;
-    font-size: 15px;
-    color: #cbd5e1;
-    transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+    line-height: 1;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.25s cubic-bezier(.2,.8,.4,1);
+  }
+
+  .lc-arrow svg {
+    width: 16px; height: 16px;
+    display: block;
+    stroke: #cbd5e1;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: stroke 0.2s ease;
+    flex-shrink: 0;
   }
 
   .line-card:hover .lc-arrow {
     background: var(--lc);
-    color: #fff;
-    transform: translateX(2px);
+    transform: translateX(4px) scale(1.1);
   }
 
+  .line-card:hover .lc-arrow svg { stroke: #fff; }
+
+  /* ── GHOST NUMBER ── */
   .lc-ghost {
     position: absolute;
     right: 14px;
@@ -268,20 +392,115 @@
     pointer-events: none;
     user-select: none;
     letter-spacing: -0.04em;
-    transition: opacity 0.18s ease;
+    transition: opacity 0.2s ease, transform 0.2s ease;
     line-height: 1;
   }
 
-  .line-card:hover .lc-ghost { opacity: 0.08; }
+  .line-card:hover .lc-ghost {
+    opacity: 0.09;
+    transform: translateY(-50%) scale(1.08);
+  }
 
-  /* ─── RESPONSIVE ─── */
+  /* ── RESPONSIVE ── */
   @media (max-width: 900px) {
     .hub-shell { padding: 20px 16px 32px; }
     .hub-title { font-size: 28px; }
     .hub-header { margin-bottom: 24px; }
-    /* Mobile & tablet: 2 kolom × 3 baris */
     .line-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   }
+
+  @keyframes dotSeq {
+    0%,80%,100% { background: rgba(255,255,255,0.2); transform: scale(1); }
+    40%          { background: #818cf8; transform: scale(1.3); }
+  }
+
+  /* ── BACKGROUND DECORATION ── */
+  .hub-decor {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .main {
+    position: relative;
+  }
+
+  .hub-decor .decor-gear {
+    position: absolute;
+    left: -20px;
+    top: 5%;
+    width: 160px;
+    opacity: 0.18;
+    animation: spinGear 24s linear infinite;
+  }
+
+  .hub-decor .decor-gear-sm {
+    position: absolute;
+    right: -16px;
+    bottom: 15%;
+    width: 100px;
+    opacity: 0.15;
+    animation: spinGear 18s linear infinite reverse;
+  }
+
+  .hub-decor .decor-spark {
+    position: absolute;
+    right: 6%;
+    top: 6%;
+    width: 80px;
+    opacity: 0.18;
+    animation: floatSpark 8s ease-in-out infinite;
+  }
+
+  .hub-decor .decor-gauge {
+    position: absolute;
+    right: 2%;
+    top: 35%;
+    width: 160px;
+    opacity: 0.14;
+    animation: floatSpark 10s ease-in-out 2s infinite;
+  }
+
+  .hub-decor .decor-factory {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%);
+    width: 480px;
+    opacity: 0.12;
+  }
+
+  .hub-decor .decor-bolt {
+    position: absolute;
+    left: 5%;
+    bottom: 20%;
+    width: 60px;
+    opacity: 0.18;
+    animation: floatSpark 12s ease-in-out 1s infinite;
+  }
+
+  .hub-decor .decor-circuit {
+    position: absolute;
+    left: 30%;
+    top: -20px;
+    width: 200px;
+    opacity: 0.10;
+  }
+
+  @keyframes spinGear {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+
+  @keyframes floatSpark {
+    0%,100% { transform: translateY(0) rotate(0deg); }
+    50%      { transform: translateY(-10px) rotate(5deg); }
+  }
+
+  /* konten di atas dekorasi */
+  .hub-shell { position: relative; z-index: 1; }
 </style>
 </head>
 <body>
@@ -318,12 +537,87 @@
   </aside>
 
   <main class="main">
+
+    <!-- BACKGROUND DECORATION -->
+    <div class="hub-decor" aria-hidden="true">
+
+      <!-- Gear besar kiri -->
+      <svg class="decor-gear" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="26" stroke="#6366f1" stroke-width="2.5"/>
+        <circle cx="50" cy="50" r="9" stroke="#6366f1" stroke-width="2.5"/>
+        <g stroke="#6366f1" stroke-width="2.5" stroke-linecap="round">
+          <path d="M50 16 L50 4"/><path d="M50 84 L50 96"/>
+          <path d="M16 50 L4 50"/><path d="M84 50 L96 50"/>
+          <path d="M27 27 L19 19"/><path d="M73 73 L81 81"/>
+          <path d="M73 27 L81 19"/><path d="M27 73 L19 81"/>
+        </g>
+      </svg>
+
+      <!-- Gear kecil kanan bawah -->
+      <svg class="decor-gear-sm" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="26" stroke="#6366f1" stroke-width="2.5"/>
+        <circle cx="50" cy="50" r="9" stroke="#6366f1" stroke-width="2.5"/>
+        <g stroke="#6366f1" stroke-width="2.5" stroke-linecap="round">
+          <path d="M50 16 L50 4"/><path d="M50 84 L50 96"/>
+          <path d="M16 50 L4 50"/><path d="M84 50 L96 50"/>
+          <path d="M27 27 L19 19"/><path d="M73 73 L81 81"/>
+          <path d="M73 27 L81 19"/><path d="M27 73 L19 81"/>
+        </g>
+      </svg>
+
+      <!-- Percikan las kanan atas -->
+      <svg class="decor-spark" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g stroke="#6366f1" stroke-width="2.4" stroke-linecap="round">
+          <path d="M40 40 L40 6"/><path d="M40 40 L64 14"/>
+          <path d="M40 40 L70 40"/><path d="M40 40 L64 66"/>
+          <path d="M40 40 L40 74"/><path d="M40 40 L16 66"/>
+          <path d="M40 40 L10 40"/><path d="M40 40 L16 14"/>
+        </g>
+        <circle cx="40" cy="40" r="7" stroke="#6366f1" stroke-width="2.4"/>
+      </svg>
+
+      <!-- Gauge kanan tengah -->
+      <svg class="decor-gauge" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="60" cy="60" r="46" stroke="#6366f1" stroke-width="2.4"/>
+        <path d="M60 60 L82 38" stroke="#6366f1" stroke-width="2.6" stroke-linecap="round"/>
+        <circle cx="60" cy="60" r="5" stroke="#6366f1" stroke-width="2.4"/>
+        <g stroke="#6366f1" stroke-width="2.2" stroke-linecap="round">
+          <path d="M60 18 L60 26"/><path d="M60 94 L60 102"/>
+          <path d="M18 60 L26 60"/><path d="M94 60 L102 60"/>
+          <path d="M30 30 L36 36"/><path d="M90 30 L84 36"/>
+        </g>
+      </svg>
+
+      <!-- Factory silhouette bawah -->
+      <svg class="decor-factory" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M20 260 L20 160 L70 190 L70 140 L120 170 L120 120 L170 150 L170 100 L230 100 L230 260 Z" stroke="#6366f1" stroke-width="2" stroke-linejoin="round"/>
+        <rect x="90" y="70" width="16" height="50" stroke="#6366f1" stroke-width="2"/>
+        <rect x="150" y="50" width="16" height="70" stroke="#6366f1" stroke-width="2"/>
+        <path d="M98 70 C 94 55, 104 55, 100 40" stroke="#6366f1" stroke-width="2" stroke-linecap="round"/>
+        <path d="M158 50 C 154 35, 164 35, 160 20" stroke="#6366f1" stroke-width="2" stroke-linecap="round"/>
+        <g stroke="#6366f1" stroke-width="2.2" stroke-linecap="round">
+          <path d="M300 150 L300 110"/><path d="M300 150 L332 130"/>
+          <path d="M300 150 L336 158"/><path d="M300 150 L326 186"/>
+          <path d="M300 150 L268 186"/><path d="M300 150 L264 158"/>
+          <path d="M300 150 L268 130"/>
+        </g>
+        <circle cx="300" cy="150" r="6" stroke="#6366f1" stroke-width="2"/>
+      </svg>
+
+      <!-- Bolt kiri bawah -->
+      <svg class="decor-bolt" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M40 4 L70 22 L70 58 L40 76 L10 58 L10 22 Z" stroke="#6366f1" stroke-width="2.4" stroke-linejoin="round"/>
+        <circle cx="40" cy="40" r="15" stroke="#6366f1" stroke-width="2.4"/>
+      </svg>
+
+    </div>
+
     <div class="hub-shell">
 
       <!-- HEADER -->
       <div class="hub-header">
         <div>
-          <div class="hub-tag"><span class="hub-tag-dot"></span>Welding Dept · 6 Lines</div>
+          <div class="hub-tag"><span class="hub-tag-dot"></span>Welding Dept</div>
           <h1 class="hub-title">Pilih <span>Line</span><br>Produksi</h1>
           <p class="hub-sub">Tap kartu untuk membuka halaman input line</p>
         </div>
@@ -343,14 +637,15 @@
       </div>
 
       <!-- GRID -->
-      <div class="line-grid">
+      <div class="line-grid" id="lineGrid">
+
         <a href="machines/e-02.html" class="line-card lc-02">
           <div class="lc-badge"><span class="lc-num">E-02</span></div>
           <div class="lc-body">
             <div class="lc-name">Line E-02</div>
             <div class="lc-desc">Welding · Siap Input</div>
           </div>
-          <div class="lc-arrow">→</div>
+          <div class="lc-arrow"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
           <div class="lc-ghost">02</div>
         </a>
 
@@ -360,7 +655,7 @@
             <div class="lc-name">Line E-03</div>
             <div class="lc-desc">Welding · Siap Input</div>
           </div>
-          <div class="lc-arrow">→</div>
+          <div class="lc-arrow"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
           <div class="lc-ghost">03</div>
         </a>
 
@@ -370,7 +665,7 @@
             <div class="lc-name">Line E-04</div>
             <div class="lc-desc">Welding · Siap Input</div>
           </div>
-          <div class="lc-arrow">→</div>
+          <div class="lc-arrow"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
           <div class="lc-ghost">04</div>
         </a>
 
@@ -380,7 +675,7 @@
             <div class="lc-name">Line E-05</div>
             <div class="lc-desc">Welding · Siap Input</div>
           </div>
-          <div class="lc-arrow">→</div>
+          <div class="lc-arrow"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
           <div class="lc-ghost">05</div>
         </a>
 
@@ -390,7 +685,7 @@
             <div class="lc-name">Line E-06</div>
             <div class="lc-desc">Welding · Siap Input</div>
           </div>
-          <div class="lc-arrow">→</div>
+          <div class="lc-arrow"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
           <div class="lc-ghost">06</div>
         </a>
 
@@ -400,23 +695,24 @@
             <div class="lc-name">Line E-07</div>
             <div class="lc-desc">Welding · Siap Input</div>
           </div>
-          <div class="lc-arrow">→</div>
+          <div class="lc-arrow"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
           <div class="lc-ghost">07</div>
         </a>
-      </div>
 
+      </div>
     </div>
   </main>
 </div>
 
 <script>
+/* ── Alpine ── */
 function baseInputPage() {
   return {
     session: null, profile: null, mobileNavOpen: false, sidebarCollapsed: true,
     theme: localStorage.getItem("theme_v1") || "light",
     msg: "", msgError: false,
-    isLeaderOrAdmin() { return this.profile && ["admin", "leader"].includes(this.profile.role); },
-    flash(m, isErr) { this.msg = m; this.msgError = !!isErr; setTimeout(() => { this.msg = ""; }, 4000); },
+    isLeaderOrAdmin() { return this.profile && ["admin","leader"].includes(this.profile.role); },
+    flash(m,e){ this.msg=m; this.msgError=!!e; setTimeout(()=>{this.msg="";},4000); },
     async initBase() {
       this.session = await requireAuth();
       if (!this.session) return false;
@@ -431,20 +727,56 @@ function baseInputPage() {
 function produksiHub() {
   return {
     ...baseInputPage(),
-    clockTime: "", clockDate: "",
-    async init() {
+    clockTime: "", clockDate: "", async init() {
       await this.initBase();
       this.tick();
       setInterval(() => this.tick(), 1000);
+      initCardEffects();
     },
     tick() {
       const now = new Date();
-      this.clockTime = now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
-      const days = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
-      const months = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
-      this.clockDate = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+      this.clockTime = now.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
+      const days=["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
+      const months=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+      this.clockDate=`${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
     },
   };
+}
+
+/* ── Card Effects: 3D Tilt + Ripple ── */
+function initCardEffects() {
+  const cards = document.querySelectorAll('.line-card');
+
+  cards.forEach(card => {
+    /* 3D tilt on mousemove */
+    card.addEventListener('mousemove', e => {
+      const r = card.getBoundingClientRect();
+      const x = e.clientX - r.left;
+      const y = e.clientY - r.top;
+      const cx = r.width / 2;
+      const cy = r.height / 2;
+      const rotateX = ((y - cy) / cy) * -6;   /* max 6deg */
+      const rotateY = ((x - cx) / cx) * 8;    /* max 8deg */
+      card.style.transform = `perspective(600px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-3px)`;
+    });
+
+    card.addEventListener('mouseleave', () => {
+      card.style.transform = '';
+    });
+
+    /* Ripple on click */
+    card.addEventListener('click', e => {
+      const r = card.getBoundingClientRect();
+      const size = Math.max(r.width, r.height);
+      const x = e.clientX - r.left - size / 2;
+      const y = e.clientY - r.top - size / 2;
+      const ripple = document.createElement('span');
+      ripple.classList.add('ripple');
+      ripple.style.cssText = `width:${size}px;height:${size}px;left:${x}px;top:${y}px`;
+      card.appendChild(ripple);
+      setTimeout(() => ripple.remove(), 600);
+    });
+  });
 }
 </script>
 </body>
