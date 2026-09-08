@@ -46,13 +46,10 @@
       <a href="../plan-produksi.html" class="sidebar-link" title="Plan Produksi"><span>📅</span><span x-show="!sidebarCollapsed">Plan Produksi</span></a>
       <a href="../input-produksi.html" class="sidebar-link active" title="Input Produksi"><span>⚙️</span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
       <template x-if="isLeaderOrAdmin()">
-        <a href="../input-attendance.html" class="sidebar-link" title="Input Attendance"><span>👥</span><span x-show="!sidebarCollapsed">Input Attendance</span></a>
+        <a href="../input-attendance.html" class="sidebar-link" title="Attendance"><span>👥</span><span x-show="!sidebarCollapsed">Attendance</span></a>
       </template>
       <template x-if="isLeaderOrAdmin()">
-        <a href="../input-scrap.html" class="sidebar-link" title="Input Scrap"><span>♻️</span><span x-show="!sidebarCollapsed">Input Scrap</span></a>
-      </template>
-      <template x-if="isLeaderOrAdmin()">
-        <a href="../input-safety.html" class="sidebar-link" title="Input Safety"><span>⛑️</span><span x-show="!sidebarCollapsed">Input Safety</span></a>
+        <a href="../master-data.html" class="sidebar-link" title="Master Data"><span>🗂️</span><span x-show="!sidebarCollapsed">Master Data</span></a>
       </template>
     </nav>
     <div class="sidebar-foot" x-show="!sidebarCollapsed">
@@ -71,11 +68,11 @@
     <div class="page-header">
       <h1 class="page-title"><span class="eyebrow">Mesin</span>E-06</h1>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn-secondary btn-sm" :class="tab==='produksi_new' ? 'btn-primary' : ''" @click="tab='produksi_new'">Input Produksi</button>
+        <button class="btn-secondary btn-sm" :class="tab==='produksi_new' ? 'btn-primary' : ''" @click="tab='produksi_new'">Input Produksi NEW</button>
         <button class="btn-secondary btn-sm" :class="tab==='downtime' ? 'btn-primary' : ''" @click="tab='downtime'">Downtime</button>
         <button class="btn-secondary btn-sm" :class="tab==='ng_inline' ? 'btn-primary' : ''" @click="tab='ng_inline'; syncNgPartFromProduction()">NG Inline</button>
         <button class="btn-secondary btn-sm" :class="tab==='repair' ? 'btn-primary' : ''" @click="tab='repair'">Repair</button>
-        <button class="btn-secondary btn-sm" :class="tab==='produksi' ? 'btn-primary' : ''" @click="tab='produksi'">Input Produksi NEW</button>
+        <button class="btn-secondary btn-sm" :class="tab==='produksi' ? 'btn-primary' : ''" @click="tab='produksi'">Input Produksi</button>
         <button class="btn-secondary btn-sm" :class="tab==='riwayat' ? 'btn-primary' : ''" @click="tab='riwayat'">Riwayat Produksi</button>
         <button class="btn-secondary btn-sm" :class="tab==='performance' ? 'btn-primary' : ''" @click="openPerformanceTab()">Performance</button>
         <template x-if="isLeaderOrAdmin()">
@@ -96,106 +93,8 @@
 
     <template x-if="!loading">
       <div>
-        <!-- ===================== TAB INPUT PRODUKSI (BARU) ===================== -->
-        <div x-show="tab === 'produksi_new'">
-          <div class="panel">
-            <p class="panel-title" x-text="produksiNewEditingId ? 'Edit Input Produksi' : 'Input Produksi'"></p>
-            <form @submit.prevent="saveProduksiNew">
-              <p class="hint" x-show="isNonProduksiSelected(produksiNewForm.part_number)" style="margin-bottom:10px;">Jenis Non-Produksi dipilih — Qty, Break, Dandori, Total Repair boleh dikosongkan.</p>
-              <div class="form-grid">
-                <div class="field"><label>Waktu Awal <span class="req">*</span></label><input type="datetime-local" x-model="produksiNewForm.waktu_awal"></div>
-                <div class="field"><label>Waktu Akhir <span class="req">*</span></label><input type="datetime-local" x-model="produksiNewForm.waktu_akhir"></div>
-                <div class="field">
-                  <label>Part Number <span class="req">*</span></label>
-                  <select x-model="produksiNewForm.part_number">
-                    <option value="">-- pilih --</option>
-                    <template x-for="pn in produksiNewPartOptions" :key="pn"><option :value="pn" x-text="pn"></option></template>
-                    <template x-for="n in nonProduksiTypeList" :key="n.id"><option :value="n.nama" x-text="n.nama"></option></template>
-                  </select>
-                </div>
-                <div class="field"><label x-html="isNonProduksiSelected(produksiNewForm.part_number) ? 'Qty' : 'Qty &lt;span class=&quot;req&quot;&gt;*&lt;/span&gt;'"></label><input type="text" inputmode="numeric" pattern="[0-9]*" x-model.number="produksiNewForm.qty" @input='$event.target.value = $event.target.value.replace(/[^0-9]/g, ""); produksiNewForm.qty = $event.target.value === "" ? "" : Number($event.target.value)' placeholder="0" :class="produksiNewQtyIssue(produksiNewForm) ? 'input-qty-warn' : ''"></div>
-                <div class="field"><label>Break (menit)</label><input type="text" inputmode="numeric" pattern="[0-9]*" x-model.number="produksiNewForm.break_menit" @input='$event.target.value = $event.target.value.replace(/[^0-9]/g, ""); produksiNewForm.break_menit = $event.target.value === "" ? "" : Number($event.target.value)' placeholder="0"></div>
-                <div class="field"><label>Dandori (menit)</label><input type="text" inputmode="numeric" pattern="[0-9]*" x-model.number="produksiNewForm.dandori_menit" @input='$event.target.value = $event.target.value.replace(/[^0-9]/g, ""); produksiNewForm.dandori_menit = $event.target.value === "" ? "" : Number($event.target.value)' placeholder="0"></div>
-                <div class="field"><label>Waktu Problem (menit)</label><input type="text" disabled :value="fmtNum(produksiNewForm.waktu_problem_menit || 0)"><p class="hint" style="margin-top:4px;">Terisi otomatis setelah data ini disimpan lalu di-link dari tab Downtime.</p></div>
-                <div class="field"><label>Total Repair</label><input type="text" inputmode="numeric" pattern="[0-9]*" x-model.number="produksiNewForm.total_repair_menit" @input='$event.target.value = $event.target.value.replace(/[^0-9]/g, ""); produksiNewForm.total_repair_menit = $event.target.value === "" ? "" : Number($event.target.value)' placeholder="0"></div>
-              </div>
-
-              <div class="panel" style="margin-top:14px;">
-                <p class="panel-title" style="font-size:14px;">Hasil Kalkulasi Otomatis</p>
-                <div class="form-grid">
-                  <div class="field"><label>Earned (Qty × CT)</label><input type="text" disabled :value="produksiNewEarned(produksiNewForm) !== null ? fmtNum(produksiNewEarned(produksiNewForm)) + ' mnt' : '-'"></div>
-                  <div class="field"><label>Operation Min</label><input type="text" disabled :value="produksiNewOperationMin(produksiNewForm) !== null ? fmtNum(produksiNewOperationMin(produksiNewForm)) + ' mnt' : '-'"></div>
-                  <div class="field"><label>Workmin</label><input type="text" disabled :value="produksiNewWorkmin(produksiNewForm) !== null ? fmtNum(produksiNewWorkmin(produksiNewForm)) + ' mnt' : '-'"></div>
-                  <div class="field"><label>P.Eff</label><input type="text" disabled :value="produksiNewPeff(produksiNewForm) !== null ? fmtDecimal(produksiNewPeff(produksiNewForm), 3) : '-'"></div>
-                  <div class="field"><label>P.Eff Seharusnya</label><input type="text" disabled :value="produksiNewPeffSeharusnya(produksiNewForm) !== null ? fmtDecimal(produksiNewPeffSeharusnya(produksiNewForm), 3) : '-'"></div>
-                  <div class="field"><label>Straightpass</label><input type="text" disabled :value="produksiNewStraightpass(produksiNewForm) !== null ? fmtNum(produksiNewStraightpass(produksiNewForm)) + '%' : '-'"></div>
-                </div>
-                <p class="hint" style="margin-top:6px;">Earned & Operation Min butuh Std CT dan Std MP yang diisi lewat Master Data Part Number.</p>
-                <div class="qty-warn-msg" x-show="produksiNewQtyIssue(produksiNewForm)" x-cloak>
-                  <span>⚠️</span>
-                  <span x-text="produksiNewQtyIssue(produksiNewForm)"></span>
-                </div>
-              </div>
-
-              <div class="form-actions">
-                <button type="button" class="btn-ghost" x-show="produksiNewEditingId" @click="cancelEditProduksiNew()">Batal Edit</button>
-                <button type="submit" class="btn-primary" :disabled="produksiNewSaving" x-text="produksiNewSaving ? 'Menyimpan...' : (produksiNewEditingId ? 'Update Data' : 'Simpan Data')"></button>
-              </div>
-            </form>
-          </div>
-
-          <div class="panel">
-            <p class="panel-title">Riwayat Input Produksi <span class="count" x-text="produksiNewRows.length + ' baris'"></span></p>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Kode</th><th>Waktu Awal</th><th>Waktu Akhir</th><th>Part Number</th><th>Qty</th>
-                    <th>Break</th><th>Dandori</th><th>Wkt Problem</th><th>Total Repair</th>
-                    <th>Earned</th><th>Operation</th><th>Workmin</th><th>P.Eff</th><th>P.Eff Seharusnya</th><th>Straightpass</th>
-                    <th>Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <template x-for="row in produksiNewRows" :key="row.id">
-                    <tr :class="produksiNewQtyIssue(row) ? 'row-qty-warn' : ''">
-                      <td class="mono" x-text="row.kode || '-'"></td>
-                      <td class="mono" x-text="fmt(row.waktu_awal)"></td>
-                      <td class="mono" x-text="fmt(row.waktu_akhir)"></td>
-                      <td x-text="row.part_number"></td>
-                      <td>
-                        <span x-text="fmtNum(row.qty)"></span>
-                        <span class="qty-warn-badge" x-show="produksiNewQtyIssue(row)" x-cloak :title="produksiNewQtyIssue(row)">⚠️</span>
-                      </td>
-                      <td class="mono" x-text="fmtNum(row.break_menit) + ' mnt'"></td>
-                      <td class="mono" x-text="fmtNum(row.dandori_menit) + ' mnt'"></td>
-                      <td class="mono" x-text="fmtNum(row.waktu_problem_menit) + ' mnt'"></td>
-                      <td class="mono" x-text="fmtNum(row.total_repair_menit)"></td>
-                      <td class="mono" x-text="produksiNewEarned(row) !== null ? fmtNum(produksiNewEarned(row)) + ' mnt' : '-'"></td>
-                      <td class="mono" x-text="produksiNewOperationMin(row) !== null ? fmtNum(produksiNewOperationMin(row)) + ' mnt' : '-'"></td>
-                      <td class="mono" x-text="produksiNewWorkmin(row) !== null ? fmtNum(produksiNewWorkmin(row)) + ' mnt' : '-'"></td>
-                      <td class="mono" x-text="produksiNewPeff(row) !== null ? fmtDecimal(produksiNewPeff(row), 3) : '-'"></td>
-                      <td class="mono" x-text="produksiNewPeffSeharusnya(row) !== null ? fmtDecimal(produksiNewPeffSeharusnya(row), 3) : '-'"></td>
-                      <td class="mono" x-text="produksiNewStraightpass(row) !== null ? fmtNum(produksiNewStraightpass(row)) + '%' : '-'"></td>
-                      <td>
-                        <div class="row-actions">
-                          <button class="btn-secondary btn-sm" @click="editProduksiNew(row)">Edit</button>
-                          <button class="btn-danger btn-sm" @click="deleteProduksiNew(row.id)">Hapus</button>
-                        </div>
-                      </td>
-                    </tr>
-                  </template>
-                  <tr x-show="produksiNewRows.length === 0">
-                    <td colspan="16" class="empty-state">Belum ada data.</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
         <!-- ===================== TAB PRODUKSI ===================== -->
-        <div x-show="tab === 'produksi'">
+        <div x-show="tab === 'produksi_new'">
 
           <div class="panel" x-show="editingNonProduksiId" x-cloak>
             <p class="panel-title">Edit Data Non-Produksi</p>
@@ -487,6 +386,104 @@
           </div>
         </div>
 
+        <!-- ===================== TAB INPUT PRODUKSI (BARU) ===================== -->
+        <div x-show="tab === 'produksi'">
+          <div class="panel">
+            <p class="panel-title" x-text="produksiNewEditingId ? 'Edit Input Produksi' : 'Input Produksi'"></p>
+            <form @submit.prevent="saveProduksiNew">
+              <p class="hint" x-show="isNonProduksiSelected(produksiNewForm.part_number)" style="margin-bottom:10px;">Jenis Non-Produksi dipilih — Qty, Break, Dandori, Total Repair boleh dikosongkan.</p>
+              <div class="form-grid">
+                <div class="field"><label>Waktu Awal <span class="req">*</span></label><input type="datetime-local" x-model="produksiNewForm.waktu_awal"></div>
+                <div class="field"><label>Waktu Akhir <span class="req">*</span></label><input type="datetime-local" x-model="produksiNewForm.waktu_akhir"></div>
+                <div class="field">
+                  <label>Part Number <span class="req">*</span></label>
+                  <select x-model="produksiNewForm.part_number">
+                    <option value="">-- pilih --</option>
+                    <template x-for="pn in produksiNewPartOptions" :key="pn"><option :value="pn" x-text="pn"></option></template>
+                    <template x-for="n in nonProduksiTypeList" :key="n.id"><option :value="n.nama" x-text="n.nama"></option></template>
+                  </select>
+                </div>
+                <div class="field"><label x-html="isNonProduksiSelected(produksiNewForm.part_number) ? 'Qty' : 'Qty &lt;span class=&quot;req&quot;&gt;*&lt;/span&gt;'"></label><input type="text" inputmode="numeric" pattern="[0-9]*" x-model.number="produksiNewForm.qty" @input='$event.target.value = $event.target.value.replace(/[^0-9]/g, ""); produksiNewForm.qty = $event.target.value === "" ? "" : Number($event.target.value)' placeholder="0" :class="produksiNewQtyIssue(produksiNewForm) ? 'input-qty-warn' : ''"></div>
+                <div class="field"><label>Break (menit)</label><input type="text" inputmode="numeric" pattern="[0-9]*" x-model.number="produksiNewForm.break_menit" @input='$event.target.value = $event.target.value.replace(/[^0-9]/g, ""); produksiNewForm.break_menit = $event.target.value === "" ? "" : Number($event.target.value)' placeholder="0"></div>
+                <div class="field"><label>Dandori (menit)</label><input type="text" inputmode="numeric" pattern="[0-9]*" x-model.number="produksiNewForm.dandori_menit" @input='$event.target.value = $event.target.value.replace(/[^0-9]/g, ""); produksiNewForm.dandori_menit = $event.target.value === "" ? "" : Number($event.target.value)' placeholder="0"></div>
+                <div class="field"><label>Waktu Problem (menit)</label><input type="text" disabled :value="fmtNum(produksiNewForm.waktu_problem_menit || 0)"><p class="hint" style="margin-top:4px;">Terisi otomatis setelah data ini disimpan lalu di-link dari tab Downtime.</p></div>
+                <div class="field"><label>Total Repair</label><input type="text" inputmode="numeric" pattern="[0-9]*" x-model.number="produksiNewForm.total_repair_menit" @input='$event.target.value = $event.target.value.replace(/[^0-9]/g, ""); produksiNewForm.total_repair_menit = $event.target.value === "" ? "" : Number($event.target.value)' placeholder="0"></div>
+              </div>
+
+              <div class="panel" style="margin-top:14px;">
+                <p class="panel-title" style="font-size:14px;">Hasil Kalkulasi Otomatis</p>
+                <div class="form-grid">
+                  <div class="field"><label>Earned (Qty × CT)</label><input type="text" disabled :value="produksiNewEarned(produksiNewForm) !== null ? fmtNum(produksiNewEarned(produksiNewForm)) + ' mnt' : '-'"></div>
+                  <div class="field"><label>Operation Min</label><input type="text" disabled :value="produksiNewOperationMin(produksiNewForm) !== null ? fmtNum(produksiNewOperationMin(produksiNewForm)) + ' mnt' : '-'"></div>
+                  <div class="field"><label>Workmin</label><input type="text" disabled :value="produksiNewWorkmin(produksiNewForm) !== null ? fmtNum(produksiNewWorkmin(produksiNewForm)) + ' mnt' : '-'"></div>
+                  <div class="field"><label>P.Eff</label><input type="text" disabled :value="produksiNewPeff(produksiNewForm) !== null ? fmtDecimal(produksiNewPeff(produksiNewForm), 3) : '-'"></div>
+                  <div class="field"><label>P.Eff Seharusnya</label><input type="text" disabled :value="produksiNewPeffSeharusnya(produksiNewForm) !== null ? fmtDecimal(produksiNewPeffSeharusnya(produksiNewForm), 3) : '-'"></div>
+                  <div class="field"><label>Straightpass</label><input type="text" disabled :value="produksiNewStraightpass(produksiNewForm) !== null ? fmtNum(produksiNewStraightpass(produksiNewForm)) + '%' : '-'"></div>
+                </div>
+                <p class="hint" style="margin-top:6px;">Earned & Operation Min butuh Std CT dan Std MP yang diisi lewat Master Data Part Number.</p>
+                <div class="qty-warn-msg" x-show="produksiNewQtyIssue(produksiNewForm)" x-cloak>
+                  <span>⚠️</span>
+                  <span x-text="produksiNewQtyIssue(produksiNewForm)"></span>
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button type="button" class="btn-ghost" x-show="produksiNewEditingId" @click="cancelEditProduksiNew()">Batal Edit</button>
+                <button type="submit" class="btn-primary" :disabled="produksiNewSaving" x-text="produksiNewSaving ? 'Menyimpan...' : (produksiNewEditingId ? 'Update Data' : 'Simpan Data')"></button>
+              </div>
+            </form>
+          </div>
+
+          <div class="panel">
+            <p class="panel-title">Riwayat Input Produksi <span class="count" x-text="produksiNewRows.length + ' baris'"></span></p>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Kode</th><th>Waktu Awal</th><th>Waktu Akhir</th><th>Part Number</th><th>Qty</th>
+                    <th>Break</th><th>Dandori</th><th>Wkt Problem</th><th>Total Repair</th>
+                    <th>Earned</th><th>Operation</th><th>Workmin</th><th>P.Eff</th><th>P.Eff Seharusnya</th><th>Straightpass</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="row in produksiNewRows" :key="row.id">
+                    <tr :class="produksiNewQtyIssue(row) ? 'row-qty-warn' : ''">
+                      <td class="mono" x-text="row.kode || '-'"></td>
+                      <td class="mono" x-text="fmt(row.waktu_awal)"></td>
+                      <td class="mono" x-text="fmt(row.waktu_akhir)"></td>
+                      <td x-text="row.part_number"></td>
+                      <td>
+                        <span x-text="fmtNum(row.qty)"></span>
+                        <span class="qty-warn-badge" x-show="produksiNewQtyIssue(row)" x-cloak :title="produksiNewQtyIssue(row)">⚠️</span>
+                      </td>
+                      <td class="mono" x-text="fmtNum(row.break_menit) + ' mnt'"></td>
+                      <td class="mono" x-text="fmtNum(row.dandori_menit) + ' mnt'"></td>
+                      <td class="mono" x-text="fmtNum(row.waktu_problem_menit) + ' mnt'"></td>
+                      <td class="mono" x-text="fmtNum(row.total_repair_menit)"></td>
+                      <td class="mono" x-text="produksiNewEarned(row) !== null ? fmtNum(produksiNewEarned(row)) + ' mnt' : '-'"></td>
+                      <td class="mono" x-text="produksiNewOperationMin(row) !== null ? fmtNum(produksiNewOperationMin(row)) + ' mnt' : '-'"></td>
+                      <td class="mono" x-text="produksiNewWorkmin(row) !== null ? fmtNum(produksiNewWorkmin(row)) + ' mnt' : '-'"></td>
+                      <td class="mono" x-text="produksiNewPeff(row) !== null ? fmtDecimal(produksiNewPeff(row), 3) : '-'"></td>
+                      <td class="mono" x-text="produksiNewPeffSeharusnya(row) !== null ? fmtDecimal(produksiNewPeffSeharusnya(row), 3) : '-'"></td>
+                      <td class="mono" x-text="produksiNewStraightpass(row) !== null ? fmtNum(produksiNewStraightpass(row)) + '%' : '-'"></td>
+                      <td>
+                        <div class="row-actions">
+                          <button class="btn-secondary btn-sm" @click="editProduksiNew(row)">Edit</button>
+                          <button class="btn-danger btn-sm" @click="deleteProduksiNew(row.id)">Hapus</button>
+                        </div>
+                      </td>
+                    </tr>
+                  </template>
+                  <tr x-show="produksiNewRows.length === 0">
+                    <td colspan="16" class="empty-state">Belum ada data.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <!-- ===================== TAB RIWAYAT PRODUKSI ===================== -->
         <div x-show="tab === 'riwayat'">
 
@@ -516,8 +513,8 @@
               <input type="date" x-model="riwayatFilter.sampai" title="Sampai tanggal">
               <input type="text" x-model="riwayatFilter.part_number" placeholder="Filter Part Number...">
               <button type="button" class="btn-ghost btn-sm" @click="resetRiwayatFilter()">Reset</button>
-              <input type="month" x-model="riwayatExportMonth" title="Pilih bulan buat export" style="max-width:150px;">
-              <button type="button" class="btn-secondary btn-sm" @click="exportRiwayatExcel()">⬇ Export Excel</button>
+              <template x-if="profile?.role === 'admin'"><input type="month" x-model="riwayatExportMonth" title="Pilih bulan buat export" style="max-width:150px;"></template>
+              <template x-if="profile?.role === 'admin'"><button type="button" class="btn-secondary btn-sm" @click="exportRiwayatExcel()">⬇ Export Excel</button></template>
             </div>
             <div class="table-wrap">
               <table>
@@ -1071,10 +1068,10 @@
           <div class="panel">
             <p class="panel-title">
               <span>Riwayat Downtime <span class="count" x-text="downtimeRowsFiltered().length + ' baris'"></span></span>
-              <span style="display:flex;gap:8px;align-items:center;">
+              <template x-if="profile?.role === 'admin'"><span style="display:flex;gap:8px;align-items:center;">
                 <input type="month" x-model="downtimeExportMonth" title="Pilih bulan buat export" style="max-width:150px;">
                 <button type="button" class="btn-secondary btn-sm" @click="exportDowntimeExcel()">⬇ Export Excel</button>
-              </span>
+              </span></template>
             </p>
             <div class="offline-banner" x-show="downtimeFilterProductionId" style="display:flex;align-items:center;justify-content:space-between;">
               <span>Filter aktif: cuma downtime untuk <b x-text="downtimeFilterLabel"></b></span>
@@ -1206,10 +1203,10 @@
           <div class="panel">
             <p class="panel-title">
               <span>Riwayat NG Inline <span class="count" x-text="ngInlineRows.length + ' baris'"></span></span>
-              <span style="display:flex;gap:8px;align-items:center;">
+              <template x-if="profile?.role === 'admin'"><span style="display:flex;gap:8px;align-items:center;">
                 <input type="month" x-model="ngInlineExportMonth" title="Pilih bulan buat export" style="max-width:150px;">
                 <button type="button" class="btn-secondary btn-sm" @click="exportNgInlineExcel()">⬇ Export Excel</button>
-              </span>
+              </span></template>
             </p>
             <div class="table-wrap">
               <table>
@@ -1306,10 +1303,10 @@
           <div class="panel">
             <p class="panel-title">
               <span>Riwayat Repair <span class="count" x-text="repairLogRows.length + ' baris'"></span></span>
-              <span style="display:flex;gap:8px;align-items:center;">
+              <template x-if="profile?.role === 'admin'"><span style="display:flex;gap:8px;align-items:center;">
                 <input type="month" x-model="repairExportMonth" title="Pilih bulan buat export" style="max-width:150px;">
                 <button type="button" class="btn-secondary btn-sm" @click="exportRepairExcel()">⬇ Export Excel</button>
-              </span>
+              </span></template>
             </p>
             <div class="table-wrap">
               <table>
