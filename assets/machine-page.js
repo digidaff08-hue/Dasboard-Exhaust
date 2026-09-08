@@ -2828,6 +2828,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           // Preview LIVE selagi geser/edit titik lagi berlangsung (belum tersimpan ke server) --
           // dipakai rebuildRepairMarkers/buildWeldLineMarker buat gambar posisi sementara.
           dragPreviewPointId: null, dragPreviewPoints: null, dragPreviewClosed: false,
+          extendTarget: null, // opsi B/C: garis yang sedang di-extend/merge
           maxDim: 1, // di-update tiap rebuildRepairMarkers() -- dipakai buat ukuran preview garis pas drawing
           // Disimpan supaya bisa dipakai reset kamera tiap kali tab Repair
           // dibuka lagi -- lihat resetRepairCameraView() & resumeRepair3D().
@@ -3309,6 +3310,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         // ngikut tombol "Bentuk Point" yang lagi aktif (Bebas/Lingkaran/Kotak).
         const surfaceHit = this.raycastRepairSurface(ev, container);
         if (!surfaceHit) return;
+        // Opsi B/C: kalau mulai seret dari dekat ujung garis yang sudah ada
+        // (mode Bebas saja) -> extend/merge, bukan Point baru.
+        if (this.repairDrawShape === "freehand") {
+          const snap = this.findNearestEndpoint(surfaceHit.local);
+          if (snap) { this.startExtendDraw(snap, surfaceHit, ev); return; }
+        }
         this.startRepairDraw(this.repairDrawShape, surfaceHit, ev);
       };
       const onMove = (ev) => {
@@ -3455,6 +3462,40 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // ---- Mulai gambar Point baru (tahan/pointerdown di permukaan kosong) ----
     // shape: "freehand" (garis bebas, lihat extendFreehandDraw) atau
     // "circle"/"square" (lihat extendRepairShapeDraw).
+    // Cari ujung garis terdekat dari titik lokal.
+    // Return { pointId, endIndex (0=awal, 1=akhir), pos, points } atau null.
+    findNearestEndpoint(localPoint) {
+      const r = repairThreeState; if (!r) return null;
+      const THREE = r.THREE;
+      const threshold = Math.max((r.maxDim || 1) * 0.08, 0.3);
+      let best = null, bestDist = Infinity;
+      for (const pt of this.repairPoints) {
+        const norm = this.normalizeRepairPath(pt.path);
+        if (!norm || norm.closed || norm.points.length < 2) continue;
+        const pts = norm.points;
+        for (const [endIndex, p] of [[0, pts[0]], [1, pts[pts.length - 1]]]) {
+          const d = localPoint.distanceTo(new THREE.Vector3(p.x, p.y, p.z));
+          if (d < threshold && d < bestDist) {
+            bestDist = d;
+            best = { pointId: pt.id, endIndex, pos: new THREE.Vector3(p.x, p.y, p.z), points: pts };
+          }
+        }
+      }
+      return best;
+    },
+
+    // Mulai extend: drawPath dimulai dari ujung garis yang di-snap.
+    startExtendDraw(snap, surfaceHit, ev) {
+      const r = repairThreeState; if (!r) return;
+      r.controls.enabled = false;
+      r.drawing = true;
+      r.drawMode = "freehand";
+      r.extendTarget = snap;
+      r.drawPath = [snap.pos.clone()];
+      r.drawNormals = [surfaceHit.normal ? surfaceHit.normal.clone() : null];
+      r.lastClientX = ev.clientX; r.lastClientY = ev.clientY;
+    },
+
     startRepairDraw(shape, surfaceHit, ev) {
       const r = repairThreeState; if (!r) return;
       r.controls.enabled = false; // matiin putar-model sementara, drag = gambar Point
@@ -3508,19 +3549,47 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       r.drawing = false; r.drawMode = null;
       const rawPath = r.drawPath || [];
       const rawNormals = r.drawNormals || [];
+      const extendTarget = r.extendTarget || null;
       this.clearRepairDrawPreview();
-      r.drawPath = []; r.drawNormals = [];
-      // Cuma nge-tap doang (gak beneran diseret) -> diabaikan, bukan Point baru.
+      r.drawPath = []; r.drawNormals = []; r.extendTarget = null;
       if (rawPath.length < 2) return;
-      // Deteksi "loop 360 derajat": kalau titik akhir balik deket ke titik
-      // awal (nutup sendiri), otomatis disambung jadi 1 GARIS TERTUTUP,
-      // bukan garis dengan ujung nganggur.
+
+      // ── OPSI B/C: lagi extend garis yang sudah ada ──────────────────────
+      if (extendTarget) {
+        const THREE = r.THREE;
+        const lastPt = rawPath[rawPath.length - 1];
+        const smoothedSeg = this.smoothRepairPath(rawPath, false);
+
+        // Susun ulang titik existing sesuai ujung mana yang di-snap
+        let existingPts = [...extendTarget.points];
+        if (extendTarget.endIndex === 0) existingPts = existingPts.reverse();
+
+        // Gabungkan: existing + segmen baru (buang titik pertama yg duplikat)
+        let merged = [...existingPts, ...smoothedSeg.slice(1)];
+
+        // Opsi C: cek apakah ujung baru mendekati ujung garis LAIN
+        const mergeSnap = this.findNearestEndpoint(lastPt);
+        if (mergeSnap && mergeSnap.pointId !== extendTarget.pointId) {
+          let otherPts = [...mergeSnap.points];
+          if (mergeSnap.endIndex === 1) otherPts = otherPts.reverse();
+          merged = [...merged, ...otherPts.slice(1)];
+          // Hapus garis lain yang sudah digabung
+          await supabaseClient.from("repair_points").delete().eq("id", mergeSnap.pointId);
+          this.repairPoints = this.repairPoints.filter((p) => p.id !== mergeSnap.pointId);
+          this.flash("Dua garis digabung jadi satu ✓");
+        } else {
+          this.flash("Garis diperpanjang ✓");
+        }
+
+        await this.saveRepairPointGeometry(extendTarget.pointId, merged, false);
+        return;
+      }
+
+      // ── GAMBAR BARU BIASA (behavior original, tidak diubah) ──────────────
       const closeThreshold = Math.max((r.maxDim || 1) * 0.035, 0.4);
       let workingPath = rawPath;
       const isClosed = rawPath.length > 5 && rawPath[0].distanceTo(rawPath[rawPath.length - 1]) < closeThreshold;
       if (isClosed) {
-        // buang buntut titik yang numpuk deket titik awal (bekas nutup loop)
-        // biar gak ada gerombolan titik ganda pas nyambung.
         while (workingPath.length > 5 && workingPath[workingPath.length - 1].distanceTo(workingPath[0]) < closeThreshold) {
           workingPath = workingPath.slice(0, -1);
         }
