@@ -77,8 +77,10 @@ di tengah jalan (misal error "type already exists"), jalankan
 E-02, E-03, E-04, E-05, E-06, E-07 — masing-masing 1 mesin = 1 line.
 
 ### Form Produksi
-Part Number (dropdown, ketik atau pilih) → Qty → NG → Break, dsb. Master
-Part Number & Std Cycle Time dikelola di tab **Master Data** tiap line.
+Part Number (dropdown murni, pilih dari list) → Qty → NG → Break, dsb.
+Master Part Number & Std Cycle Time dikelola di tab **Master Data** tiap
+line. (Combo box ketik-manual masih dipakai khusus di form Plan Harian
+— `plan-produksi.html` — untuk pilih Part Number saat bikin rencana.)
 
 ### Form Downtime
 Field wajib diisi (kecuali **Menit Tunggu** & **Ket**, boleh kosong):
@@ -167,13 +169,30 @@ sudah jalan lebih dulu, karena pakai type `machine_type` & tabel
 
 ---
 
+## Export Excel
+Setiap halaman line (E-02...E-07) punya tombol **⬇ Export Excel** (pakai
+library [SheetJS](https://sheetjs.com/) via CDN) di 4 tab, per bulan:
+- Riwayat Produksi
+- Downtime
+- NG Inline
+- Repair
+
+File turun sebagai `.xlsx` (nama file: `<Jenis>_<Line>_<Bulan>.xlsx`).
+Dashboard Exhaust (ringkasan tahunan) juga punya export, tapi formatnya
+**CSV** (tombol export tahunan), bukan `.xlsx`.
+
+---
+
 ## Yang masih bisa dikembangkan
-- **Part Number** di form Input Produksi masih combo box (bisa ketik
-  manual selain pilih dari list) — belum diubah jadi dropdown murni
-  seperti Problem Kategori/Detail/Area.
 - **Data historis** (kalau ada data lama dari sistem sebelumnya) belum
   dipindah/disesuaikan ke skema Welding ini.
-- **Export ke Excel** belum dibangun.
+- **Export Excel di Plan Produksi** belum ada — `plan-produksi.html`
+  belum punya tombol export (halaman per-line E-02..E-07 sudah punya,
+  lihat bagian "Export Excel" di bawah).
+
+> Catatan: dua poin lama di sini (Part Number combo box & Export Excel)
+> sudah selesai dikerjakan, sudah dihapus dari daftar per audit kode
+> September 2026.
 
 ## Kalau ada bug/error
 Screenshot **tab Console** di browser (`F12` → Console, atau Safari:
@@ -196,4 +215,3 @@ seperti biasa, cuma tidak ada auto-update-nya).
 Cara cek: buka line yang sama di 2 tab/HP berbeda, simpan data (misal
 NG Inline) di salah satunya — tab satunya harus otomatis muncul data
 barunya dalam ±1 detik tanpa perlu di-refresh.
-
