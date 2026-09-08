@@ -351,6 +351,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     repairLogRows: [],
     repairForm: { tanggal: localDateStr(new Date()), jam: localTimeStr(new Date()), part_number: "", qty: "", kategori_repair: "" },
     repairModalOpen: false, repairModalPoint: null, repairSaving: false,
+    repairPartLocked: false, repairPartHint: "",
     editingRepairId: null,
     // Mode admin buat naruh titik baru di Master Data
     repairEditMode: false, repairDrawShape: "freehand", repairSnapMode: false, repairNewViewLabel: "", repairNewViewFile: null, repairViewUploading: false,
@@ -397,6 +398,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         ]);
         if (profileRes.error) throw profileRes.error;
         this.profile = profileRes.data;
+        this.ngForm.pic = this.profile?.full_name || "";
         this.restoreLocalState();
         await this.fetchProduksiPartNumberOptions();
         this.watchAndAutosave();
@@ -1568,7 +1570,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       line.routingType = row.extra?.routing_type || null;
       line.routingNumbers = row.extra?.routing_numbers || [];
       if (!row.break_menit) this.recalcEditBreak(stationId);
-      this.tab = "produksi";
+      this.tab = "produksi_new";
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
     async saveEditProduction(stationId) {
@@ -2146,6 +2148,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         break_menit: row.break_menit ?? "", dandori_menit: row.dandori_menit ?? "",
         waktu_problem_menit: row.waktu_problem_menit ?? 0, total_repair_menit: row.total_repair_menit ?? "",
       };
+      this.tab = "produksi_new";
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
     cancelEditProduksiNew() {
@@ -2254,7 +2257,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.ngFotoPreviewUrl = URL.createObjectURL(this.ngFotoFile);
     },
     resetNgForm() {
-      this.ngForm = { tanggal: localDateStr(new Date()), jam: localTimeStr(new Date()), type_ng: "", pic: "", model: "", part_number: "", area_id: "", area: "", ng_proses: "", qty: "", harga: 0, ng_kategori: "", reason: "" };
+      this.ngForm = { tanggal: localDateStr(new Date()), jam: localTimeStr(new Date()), type_ng: "", pic: this.profile?.full_name || "", model: "", part_number: "", area_id: "", area: "", ng_proses: "", qty: "", harga: 0, ng_kategori: "", reason: "" };
       this.ngPartNoList = []; this.ngAreaOptions = [];
       this.ngPartLocked = false; this.ngPartHint = "";
       if (this.ngFotoPreviewUrl) URL.revokeObjectURL(this.ngFotoPreviewUrl);
@@ -2490,7 +2493,9 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.editingRepairId = null;
       this.repairModalPoint = point;
       this.repairForm = { tanggal: localDateStr(new Date()), jam: localTimeStr(new Date()), part_number: "", qty: "", kategori_repair: "" };
+      this.repairPartLocked = false; this.repairPartHint = "";
       this.repairModalOpen = true;
+      this.syncRepairPartFromProduction();
     },
     editRepairLog(row) {
       const point = this.repairPoints.find((p) => p.id === row.point_id) || { id: row.point_id, label: row.point_label };
@@ -2501,6 +2506,32 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
     closeRepairModal() {
       this.repairModalOpen = false; this.repairModalPoint = null; this.editingRepairId = null;
+    },
+    async syncRepairPartFromProduction() {
+      // Auto-fill Part No dari Input Produksi berdasarkan tanggal & jam -- sama logikanya dengan NG Inline
+      const iso = tanggalJamToIso(this.repairForm.tanggal, this.repairForm.jam);
+      if (!iso) { this.repairPartLocked = false; this.repairPartHint = ""; return; }
+
+      const { data: prod, error } = await supabaseClient
+        .from("production_log")
+        .select("part_number")
+        .eq("mesin", machineKey)
+        .lte("waktu_awal", iso)
+        .gte("waktu_akhir", iso)
+        .order("waktu_awal", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error || !prod || !prod.part_number) {
+        this.repairForm.part_number = "";
+        this.repairPartLocked = false;
+        this.repairPartHint = "Tidak ada Input Produksi pada jam ini -- cek kembali Tanggal & Jam.";
+        return;
+      }
+
+      this.repairForm.part_number = prod.part_number;
+      this.repairPartLocked = true;
+      this.repairPartHint = `Otomatis dari Input Produksi jam ${this.repairForm.jam} (${prod.part_number}).`;
     },
     async submitRepairPoint() {
       const f = this.repairForm;

@@ -1137,11 +1137,8 @@
                   </div>
                 </div>
                 <div class="field">
-                  <label>PIC <span class="req">*</span></label>
-                  <select x-model="ngForm.pic">
-                    <option value="">-- pilih --</option>
-                    <template x-for="p in ngPicOptions" :key="p"><option :value="p" x-text="p"></option></template>
-                  </select>
+                  <label>PIC</label>
+                  <input type="text" :value="ngForm.pic" disabled style="background:var(--input-bg,#f5f5f5); color:var(--text); opacity:0.8; cursor:not-allowed;">
                 </div>
                 <div class="field">
                   <label>Model <span class="req">*</span></label>
@@ -1338,14 +1335,12 @@
           <div class="panel" style="max-width:360px;width:100%;">
             <p class="panel-title" x-text="(editingRepairId ? 'Edit ' : '') + 'Repair — ' + (repairModalPoint?.label || 'Point')"></p>
             <div class="form-grid">
-              <div class="field" style="grid-column: span 2;"><label>Tanggal <span class="req">*</span></label><input type="date" x-model="repairForm.tanggal"></div>
-              <div class="field" style="grid-column: span 2;"><label>Jam <span class="req">*</span></label><input type="time" x-model="repairForm.jam"></div>
+              <div class="field" style="grid-column: span 2;"><label>Tanggal <span class="req">*</span></label><input type="date" x-model="repairForm.tanggal" @change="syncRepairPartFromProduction()"></div>
+              <div class="field" style="grid-column: span 2;"><label>Jam <span class="req">*</span></label><input type="time" x-model="repairForm.jam" @change="syncRepairPartFromProduction()"></div>
               <div class="field" style="grid-column: span 2;">
                 <label>Part No <span class="req">*</span></label>
-                <select x-model="repairForm.part_number">
-                  <option value="">-- pilih --</option>
-                  <template x-for="p in repairPartNoOptionsForActiveView()" :key="p"><option :value="p" x-text="p"></option></template>
-                </select>
+                <input type="text" :value="repairForm.part_number || '-- otomatis dari Input Produksi --'" disabled style="background:var(--input-bg,#f5f5f5); color:var(--text); opacity:0.8; cursor:not-allowed;">
+                <p class="hint" :class="repairPartLocked ? '' : 'hint-warn'" x-show="repairPartHint" x-text="repairPartHint"></p>
               </div>
               <div class="field" style="grid-column: span 2;"><label>Qty <span class="req">*</span></label><input type="number" min="1" x-model="repairForm.qty"></div>
               <div class="field" style="grid-column: span 2;">
