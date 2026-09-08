@@ -7,7 +7,7 @@
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@400;500;600;700;800;900&family=Barlow+Condensed:wght@600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
 <script>
   (function () {
@@ -18,6 +18,413 @@
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/supabaseClient.js"></script>
+<style>
+  /* ── OVERRIDE: full dark industrial shell ── */
+  .app-shell { background: #0d0f12; }
+  .main { background: #0d0f12; padding: 0; }
+
+  /* ── SCANLINE TEXTURE ── */
+  .hub-wrap {
+    min-height: 100vh;
+    padding: 32px 28px 40px;
+    position: relative;
+    background:
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(255,255,255,0.012) 2px,
+        rgba(255,255,255,0.012) 4px
+      ),
+      #0d0f12;
+  }
+
+  /* ── TOP BAR ── */
+  .hub-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    border-bottom: 1px solid rgba(255,120,0,0.2);
+    padding-bottom: 18px;
+  }
+
+  .hub-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .hub-brand-icon {
+    width: 38px;
+    height: 38px;
+    background: #ff7800;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    box-shadow: 0 0 16px rgba(255,120,0,0.5);
+  }
+
+  .hub-brand-text {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 15px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #fff;
+    line-height: 1.2;
+  }
+
+  .hub-brand-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: rgba(255,120,0,0.8);
+    letter-spacing: 0.15em;
+  }
+
+  .hub-status-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .hub-clock {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 15px;
+    color: #ff7800;
+    letter-spacing: 0.08em;
+    text-shadow: 0 0 8px rgba(255,120,0,0.6);
+  }
+
+  .hub-online-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: #22c55e;
+    background: rgba(34,197,94,0.1);
+    border: 1px solid rgba(34,197,94,0.25);
+    padding: 4px 10px;
+    border-radius: 3px;
+  }
+
+  .online-dot {
+    width: 6px; height: 6px;
+    background: #22c55e;
+    border-radius: 50%;
+    animation: blink 1.4s ease-in-out infinite;
+    box-shadow: 0 0 6px #22c55e;
+  }
+
+  @keyframes blink {
+    0%,100% { opacity:1; } 50% { opacity:0.3; }
+  }
+
+  /* ── HERO HEADING ── */
+  .hub-hero {
+    margin-bottom: 32px;
+  }
+
+  .hub-eyebrow {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #ff7800;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .hub-eyebrow::before {
+    content: '';
+    display: inline-block;
+    width: 24px;
+    height: 1px;
+    background: #ff7800;
+  }
+
+  .hub-h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 52px;
+    font-weight: 900;
+    line-height: 0.95;
+    letter-spacing: -0.01em;
+    text-transform: uppercase;
+    color: #ffffff;
+    margin: 0 0 10px;
+  }
+
+  .hub-h1 em {
+    font-style: normal;
+    color: #ff7800;
+    text-shadow: 0 0 24px rgba(255,120,0,0.4);
+  }
+
+  .hub-desc {
+    font-family: 'Barlow', sans-serif;
+    font-size: 13px;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 0.03em;
+  }
+
+  /* ── DIVIDER ── */
+  .hub-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .hub-divider-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.25);
+    white-space: nowrap;
+  }
+
+  .hub-divider-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(255,120,0,0.3), rgba(255,255,255,0.06));
+  }
+
+  /* ── LINE GRID ── */
+  .line-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+
+  /* ── LINE CARD ── */
+  .line-card {
+    position: relative;
+    display: block;
+    text-decoration: none;
+    background: #141720;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-top: 3px solid var(--lc-color);
+    border-radius: 6px;
+    padding: 22px 20px 18px;
+    overflow: hidden;
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+    cursor: pointer;
+  }
+
+  .line-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--lc-color);
+    box-shadow: 0 0 12px var(--lc-color);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  .line-card:hover {
+    background: #1a1e2a;
+    border-color: var(--lc-color);
+    box-shadow: 0 0 0 1px var(--lc-color), 0 8px 32px rgba(0,0,0,0.5), inset 0 0 40px rgba(255,255,255,0.02);
+    transform: translateY(-3px);
+  }
+
+  .line-card:hover::after { opacity: 1; }
+  .line-card:active { transform: translateY(0px); }
+
+  /* per-line colors */
+  .lc-02 { --lc-color: #3b82f6; }
+  .lc-03 { --lc-color: #ff7800; }
+  .lc-04 { --lc-color: #22c55e; }
+  .lc-05 { --lc-color: #ef4444; }
+  .lc-06 { --lc-color: #a855f7; }
+  .lc-07 { --lc-color: #06b6d4; }
+
+  /* indicator light */
+  .lc-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .lc-light {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--lc-color);
+    box-shadow: 0 0 8px var(--lc-color), 0 0 2px var(--lc-color);
+    animation: lamp 2.2s ease-in-out infinite;
+  }
+
+  @keyframes lamp {
+    0%,100% { opacity:1; } 50% { opacity:0.45; }
+  }
+
+  .lc-tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--lc-color);
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    padding: 2px 8px;
+    border-radius: 2px;
+  }
+
+  /* big number */
+  .lc-num {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 64px;
+    font-weight: 900;
+    line-height: 0.9;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+    color: #fff;
+    margin-bottom: 4px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .lc-num em {
+    font-style: normal;
+    color: var(--lc-color);
+    text-shadow: 0 0 20px var(--lc-color);
+  }
+
+  .lc-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.2);
+    margin-bottom: 18px;
+  }
+
+  /* ghost number bg */
+  .lc-ghost {
+    position: absolute;
+    right: -10px;
+    bottom: -18px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 120px;
+    font-weight: 900;
+    color: var(--lc-color);
+    opacity: 0.04;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    pointer-events: none;
+    user-select: none;
+    transition: opacity 0.15s ease;
+  }
+
+  .line-card:hover .lc-ghost { opacity: 0.08; }
+
+  /* footer bar */
+  .lc-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .lc-cta {
+    font-family: 'Barlow', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.35);
+    transition: color 0.15s ease;
+  }
+
+  .line-card:hover .lc-cta { color: var(--lc-color); }
+
+  .lc-arrow {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+    color: rgba(255,255,255,0.15);
+    transition: color 0.15s ease, transform 0.15s ease;
+  }
+
+  .line-card:hover .lc-arrow {
+    color: var(--lc-color);
+    transform: translateX(4px);
+    text-shadow: 0 0 8px var(--lc-color);
+  }
+
+  /* ── FOOTER USER ── */
+  .hub-footer {
+    margin-top: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 18px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .hub-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .hub-avatar {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: rgba(255,120,0,0.15);
+    border: 1px solid rgba(255,120,0,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+  }
+
+  .hub-user-name {
+    font-family: 'Barlow', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 0.02em;
+  }
+
+  .hub-user-role {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: rgba(255,120,0,0.6);
+    text-transform: uppercase;
+  }
+
+  .hub-line-count {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: rgba(255,255,255,0.15);
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .line-grid { grid-template-columns: repeat(2, 1fr); }
+    .hub-h1 { font-size: 40px; }
+    .lc-num { font-size: 52px; }
+  }
+
+  @media (max-width: 560px) {
+    .hub-wrap { padding: 18px 14px 28px; }
+    .line-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .hub-h1 { font-size: 32px; }
+    .lc-num { font-size: 44px; }
+    .lc-ghost { display: none; }
+    .hub-topbar { margin-bottom: 24px; }
+  }
+</style>
 </head>
 <body>
 
@@ -53,31 +460,150 @@
   </aside>
 
   <main class="main">
-    <div class="page-header">
-      <h1 class="page-title"><span class="eyebrow">Input</span>Pilih Line Produksi</h1>
-    </div>
-    <div class="machine-cards-grid">
-      <a href="machines/e-02.html" class="machine-card"><div class="machine-card-top"><span class="machine-card-name">E-02</span><span>⚙️</span></div><div class="hint">Welding</div></a>
-      <a href="machines/e-03.html" class="machine-card"><div class="machine-card-top"><span class="machine-card-name">E-03</span><span>⚙️</span></div><div class="hint">Welding</div></a>
-      <a href="machines/e-04.html" class="machine-card"><div class="machine-card-top"><span class="machine-card-name">E-04</span><span>⚙️</span></div><div class="hint">Welding</div></a>
-      <a href="machines/e-05.html" class="machine-card"><div class="machine-card-top"><span class="machine-card-name">E-05</span><span>⚙️</span></div><div class="hint">Welding</div></a>
-      <a href="machines/e-06.html" class="machine-card"><div class="machine-card-top"><span class="machine-card-name">E-06</span><span>⚙️</span></div><div class="hint">Welding</div></a>
-      <a href="machines/e-07.html" class="machine-card"><div class="machine-card-top"><span class="machine-card-name">E-07</span><span>⚙️</span></div><div class="hint">Welding</div></a>
+    <div class="hub-wrap">
+
+      <!-- TOP BAR -->
+      <div class="hub-topbar">
+        <div class="hub-brand">
+          <div class="hub-brand-icon">⚙</div>
+          <div>
+            <div class="hub-brand-text">Welding Exhaust</div>
+            <div class="hub-brand-sub">Production Control System</div>
+          </div>
+        </div>
+        <div class="hub-status-row">
+          <span class="hub-clock" x-text="clock"></span>
+          <span class="hub-online-pill"><span class="online-dot"></span>SYSTEM ONLINE</span>
+        </div>
+      </div>
+
+      <!-- HERO -->
+      <div class="hub-hero">
+        <div class="hub-eyebrow">Select Production Line</div>
+        <h1 class="hub-h1">Pilih <em>Line</em><br>Produksi</h1>
+        <p class="hub-desc">6 Welding Line aktif · Tap line untuk mulai input</p>
+      </div>
+
+      <!-- DIVIDER -->
+      <div class="hub-divider">
+        <span class="hub-divider-label">Active Lines</span>
+        <div class="hub-divider-line"></div>
+        <span class="hub-divider-label">06 / 06</span>
+      </div>
+
+      <!-- LINE GRID -->
+      <div class="line-grid">
+
+        <a href="machines/e-02.html" class="line-card lc-02">
+          <div class="lc-indicator">
+            <div class="lc-light"></div>
+            <span class="lc-tag">Welding</span>
+          </div>
+          <div class="lc-num">E-<em>02</em></div>
+          <div class="lc-sub">Line Produksi</div>
+          <div class="lc-footer">
+            <span class="lc-cta">Open Line</span>
+            <span class="lc-arrow">→</span>
+          </div>
+          <div class="lc-ghost">02</div>
+        </a>
+
+        <a href="machines/e-03.html" class="line-card lc-03">
+          <div class="lc-indicator">
+            <div class="lc-light"></div>
+            <span class="lc-tag">Welding</span>
+          </div>
+          <div class="lc-num">E-<em>03</em></div>
+          <div class="lc-sub">Line Produksi</div>
+          <div class="lc-footer">
+            <span class="lc-cta">Open Line</span>
+            <span class="lc-arrow">→</span>
+          </div>
+          <div class="lc-ghost">03</div>
+        </a>
+
+        <a href="machines/e-04.html" class="line-card lc-04">
+          <div class="lc-indicator">
+            <div class="lc-light"></div>
+            <span class="lc-tag">Welding</span>
+          </div>
+          <div class="lc-num">E-<em>04</em></div>
+          <div class="lc-sub">Line Produksi</div>
+          <div class="lc-footer">
+            <span class="lc-cta">Open Line</span>
+            <span class="lc-arrow">→</span>
+          </div>
+          <div class="lc-ghost">04</div>
+        </a>
+
+        <a href="machines/e-05.html" class="line-card lc-05">
+          <div class="lc-indicator">
+            <div class="lc-light"></div>
+            <span class="lc-tag">Welding</span>
+          </div>
+          <div class="lc-num">E-<em>05</em></div>
+          <div class="lc-sub">Line Produksi</div>
+          <div class="lc-footer">
+            <span class="lc-cta">Open Line</span>
+            <span class="lc-arrow">→</span>
+          </div>
+          <div class="lc-ghost">05</div>
+        </a>
+
+        <a href="machines/e-06.html" class="line-card lc-06">
+          <div class="lc-indicator">
+            <div class="lc-light"></div>
+            <span class="lc-tag">Welding</span>
+          </div>
+          <div class="lc-num">E-<em>06</em></div>
+          <div class="lc-sub">Line Produksi</div>
+          <div class="lc-footer">
+            <span class="lc-cta">Open Line</span>
+            <span class="lc-arrow">→</span>
+          </div>
+          <div class="lc-ghost">06</div>
+        </a>
+
+        <a href="machines/e-07.html" class="line-card lc-07">
+          <div class="lc-indicator">
+            <div class="lc-light"></div>
+            <span class="lc-tag">Welding</span>
+          </div>
+          <div class="lc-num">E-<em>07</em></div>
+          <div class="lc-sub">Line Produksi</div>
+          <div class="lc-footer">
+            <span class="lc-cta">Open Line</span>
+            <span class="lc-arrow">→</span>
+          </div>
+          <div class="lc-ghost">07</div>
+        </a>
+
+      </div>
+
+      <!-- FOOTER -->
+      <div class="hub-footer">
+        <div class="hub-user">
+          <div class="hub-avatar">👤</div>
+          <div>
+            <div class="hub-user-name" x-text="profile?.full_name || '...'"></div>
+            <div class="hub-user-role" x-text="profile?.jabatan || profile?.role || '...'"></div>
+          </div>
+        </div>
+        <div class="hub-line-count">WELDING DEPT · 6 LINES ACTIVE</div>
+      </div>
+
     </div>
   </main>
 </div>
-<script>
 
+<script>
 function baseInputPage() {
   return {
     session: null, profile: null, mobileNavOpen: false, sidebarCollapsed: true,
     theme: localStorage.getItem("theme_v1") || "light",
     msg: "", msgError: false,
     isLeaderOrAdmin() { return this.profile && ["admin", "leader"].includes(this.profile.role); },
-    flash(m, isErr) {
-      this.msg = m; this.msgError = !!isErr;
-      setTimeout(() => { this.msg = ""; }, 4000);
-    },
+    flash(m, isErr) { this.msg = m; this.msgError = !!isErr; setTimeout(() => { this.msg = ""; }, 4000); },
     async initBase() {
       this.session = await requireAuth();
       if (!this.session) return false;
@@ -88,13 +614,24 @@ function baseInputPage() {
     logout,
   };
 }
-function fmtNum(n) {
-  if (n === null || n === undefined || Number.isNaN(Number(n))) return "-";
-  return Number(n).toLocaleString("en-US", { maximumFractionDigits: 1 });
-}
 
 function produksiHub() {
-  return { ...baseInputPage(), async init() { await this.initBase(); } };
+  return {
+    ...baseInputPage(),
+    clock: "",
+    async init() {
+      await this.initBase();
+      this.updateClock();
+      setInterval(() => this.updateClock(), 1000);
+    },
+    updateClock() {
+      const now = new Date();
+      const days = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
+      const d = days[now.getDay()];
+      const t = now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+      this.clock = `${d}  ${t}`;
+    },
+  };
 }
 </script>
 </body>
