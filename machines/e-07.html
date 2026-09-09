@@ -376,7 +376,7 @@
               </div>
 
               <!-- FINISHED: konfirmasi Qty Aktual, baru pilih Setup atau Non-Produksi -->
-              <div class="classification-box" x-show="lines[st.id].afterFinishChoice" x-cloak>
+              <div class="classification-box" x-show="lines[st.id].afterFinishChoice && lines[st.id].state !== 'nonproduksi_running'" x-cloak>
                 <p class="classification-title">Selesai jam <span x-text="fmtClock(lines[st.id].entryEnd)"></span> — <span x-text="lines[st.id].form.part_number"></span></p>
                 <div class="field" style="max-width:240px;margin-bottom:6px;">
                   <label>Qty Aktual <span class="req">*</span></label>
@@ -394,7 +394,7 @@
               </div>
 
               <!-- NONPRODUKSI_RUNNING -->
-              <div class="classification-box" x-show="lines[st.id].state === 'nonproduksi_running'" x-cloak>
+              <div class="classification-box" x-show="lines[st.id].state === 'nonproduksi_running' && !lines[st.id].afterFinishChoice" x-cloak>
                 <p class="classification-title">⏱ Non-Produksi sejak <span x-text="fmtClock(lines[st.id].nonProdActiveStart)"></span></p>
                 <div class="form-grid">
                   <div class="field">

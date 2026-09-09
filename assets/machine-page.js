@@ -716,12 +716,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         this.flash("Qty Aktual wajib diisi sebelum lanjut.", true);
         return;
       }
-      await this.commitProductionRow(stationId);
       const endTime = line.entryEnd || new Date().toISOString();
+      // Pindah state dulu supaya UI tidak stuck, commit jalan di background
       line.afterFinishChoice = false;
       line.state = "nonproduksi_running";
       line.nonProdActiveStart = endTime;
       line.nonProdForm = { nama: "" };
+      await this.commitProductionRow(stationId);
     },
 
     async finalizeNonProduksi(stationId, now) {
