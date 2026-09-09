@@ -1489,8 +1489,6 @@ tr.row-qty-warn td { background: rgba(217,119,6,0.07) !important; }
     transition: width 0.18s ease, box-shadow 0.18s ease;
     border-right: none;
   }
-  /* Area hover transparan di tepi kiri supaya sidebar bisa dipicu tanpa kursor
-     harus tepat di atas elemen yang lebarnya 0 */
   .sidebar.sidebar-collapsed::before {
     content: '';
     position: fixed;
