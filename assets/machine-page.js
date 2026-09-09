@@ -708,9 +708,11 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         this.flash("Qty Aktual wajib diisi sebelum lanjut.", true);
         return;
       }
-      await this.commitProductionRow(stationId);
+      const endTime = line.entryEnd || new Date().toISOString();
+      // Pindah state dulu supaya UI tidak stuck, commit jalan di background
       line.afterFinishChoice = false;
-      this.openPartSelection(stationId, line.entryEnd || new Date().toISOString());
+      this.openPartSelection(stationId, endTime);
+      await this.commitProductionRow(stationId);
     },
     async chooseNonProduksiNext(stationId) {
       const line = this.lines[stationId];
