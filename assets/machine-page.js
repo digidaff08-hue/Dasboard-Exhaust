@@ -555,6 +555,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         entryStart: null, entryEnd: null,
         editingId: null,
         form: { part_number: "", qty: "", manpower: "", repair: "" },
+        editForm: { waktu_awal: "", waktu_akhir: "", part_number: "", qty: "", manpower: "", repair: "", dandori_menit: "", break_menit: "" },
         gapInfo: null, // {gapStart, gapEnd}
         gapForm: { nonproduksi_nama: "" },
         gapAddedList: [], // daftar nama non-produksi yang sudah ditambahkan berurutan (K -> B1 -> A)
