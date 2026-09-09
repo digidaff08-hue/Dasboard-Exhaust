@@ -708,11 +708,21 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         this.flash("Qty Aktual wajib diisi sebelum lanjut.", true);
         return;
       }
-      const endTime = line.entryEnd || new Date().toISOString();
-      // Pindah state dulu supaya UI tidak stuck, commit jalan di background
+      // Simpan snapshot data produksi sebelum state direset
+      const snapshot = {
+        entryStart: line.entryStart,
+        entryEnd: line.entryEnd || new Date().toISOString(),
+        actualStartConfirmedAt: line.actualStartConfirmedAt,
+        form: { ...line.form },
+        _planningId: line._planningId,
+        routingType: line.routingType,
+        routingNumbers: [...(line.routingNumbers || [])],
+      };
+      const endTime = snapshot.entryEnd;
       line.afterFinishChoice = false;
       this.openPartSelection(stationId, endTime);
-      await this.commitProductionRow(stationId);
+      // Commit pakai snapshot bukan line (karena line sudah direset oleh openPartSelection)
+      await this.commitProductionRowFromSnapshot(stationId, snapshot);
     },
     async chooseNonProduksiNext(stationId) {
       const line = this.lines[stationId];
@@ -757,6 +767,48 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       await this.saveNonProduksiRow(payload);
       this.lines[stationId] = this.freshLine();
       this.flash("Shift ditutup — mesin dianggap tidak beroperasi sampai Mulai Produksi ditekan lagi.");
+    },
+
+    async commitProductionRowFromSnapshot(stationId, snap) {
+      const dandoriMenit = snap.actualStartConfirmedAt && snap.entryStart
+        ? Math.round((new Date(snap.actualStartConfirmedAt) - new Date(snap.entryStart)) / 60000)
+        : 0;
+      const breakMenit = computeBreakMinutes(snap.entryStart, snap.entryEnd);
+      const extra = {};
+      this.extraFields.forEach((f) => { if (snap.form[f.key]) extra[f.key] = snap.form[f.key]; });
+      if (this.routingMax > 0) { extra.routing_type = snap.routingType; extra.routing_numbers = snap.routingNumbers; }
+
+      const payload = {
+        mesin: machineKey, stasiun: this.dbStasiun(stationId),
+        waktu_awal: snap.entryStart, waktu_akhir: snap.entryEnd,
+        part_number: snap.form.part_number, qty: snap.form.qty === "" ? null : Number(snap.form.qty),
+        manpower: snap.form.manpower === "" ? null : Number(snap.form.manpower),
+        repair: snap.form.repair === "" ? null : Number(snap.form.repair),
+        dandori_menit: dandoriMenit, downtime_menit: 0, break_menit: breakMenit,
+        ng: null, extra: extra,
+      };
+      if (snap.form.part_number) this.learnPartNumber(snap.form.part_number);
+
+      try {
+        if (!navigator.onLine) throw new Error("offline");
+        const { error } = await supabaseClient.from("production_log").insert(payload);
+        if (error) throw error;
+        if (snap._planningId) {
+          await supabaseClient.from("production_planning").update({ status: "selesai" }).eq("id", snap._planningId);
+        }
+        this.flash("Data produksi tersimpan.");
+        await Promise.all([this.fetchProduction(), this.fetchPlanning()]);
+        this.refreshLoadedPerf();
+      } catch (err) {
+        if (isNetworkError(err)) {
+          enqueueOffline("production_log", payload);
+          this.refreshPendingCount();
+          this.productionRows.unshift({ ...payload, id: "pending_" + Date.now(), _pending: true });
+          this.flash("Tidak ada jaringan — data disimpan di HP, disinkron otomatis nanti.");
+        } else {
+          this.flash("Gagal menyimpan produksi: " + (err.message || err), true);
+        }
+      }
     },
 
     // Break Edit form otomatis dihitung ulang dari jadwal break resmi shift
