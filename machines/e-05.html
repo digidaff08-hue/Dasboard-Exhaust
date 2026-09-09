@@ -24,8 +24,177 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="../assets/supabaseClient.js"></script>
 <script src="../assets/machine-page.js"></script>
+<style>
+  /* decor-bg-fix */
+  .app-shell { background: transparent !important; }
+  .main { background: transparent !important; }
+  .hub-decor {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+    background: #f6f7fb;
+  }
+
+  .hub-shell {
+    position: relative;
+    z-index: 1;
+  }
+
+  .hub-decor .decor-gear {
+    position: absolute;
+    left: -20px;
+    top: 5%;
+    width: 160px;
+    opacity: 0.18;
+    animation: spinGear 24s linear infinite;
+  }
+
+  .hub-decor .decor-gear-sm {
+    position: absolute;
+    right: -16px;
+    bottom: 15%;
+    width: 100px;
+    opacity: 0.15;
+    animation: spinGear 18s linear infinite reverse;
+  }
+
+  .hub-decor .decor-spark {
+    position: absolute;
+    right: 6%;
+    top: 6%;
+    width: 80px;
+    opacity: 0.18;
+    animation: floatSpark 8s ease-in-out infinite;
+  }
+
+  .hub-decor .decor-gauge {
+    position: absolute;
+    right: 2%;
+    top: 35%;
+    width: 160px;
+    opacity: 0.14;
+    animation: floatSpark 10s ease-in-out 2s infinite;
+  }
+
+  .hub-decor .decor-factory {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%);
+    width: 480px;
+    opacity: 0.12;
+  }
+
+  .hub-decor .decor-bolt {
+    position: absolute;
+    left: 5%;
+    bottom: 20%;
+    width: 60px;
+    opacity: 0.18;
+    animation: floatSpark 12s ease-in-out 1s infinite;
+  }
+
+  .hub-decor .decor-circuit {
+    position: absolute;
+    left: 30%;
+    top: -20px;
+    width: 200px;
+    opacity: 0.10;
+  }
+
+  @keyframes spinGear {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+
+  @keyframes floatSpark {
+    0%,100% { transform: translateY(0) rotate(0deg); }
+    50%      { transform: translateY(-10px) rotate(5deg); }
+  }
+
+  /* konten di atas dekorasi */
+  .hub-shell { position: relative; z-index: 1; }
+
+  /* panel transparent */
+  .panel { background: rgba(255,255,255,0.4) !important; box-shadow: 0 2px 12px rgba(99,102,241,0.06) !important; border: 1.5px solid rgba(99,102,241,0.2) !important; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+  .page-header { background: transparent !important; }
+</style>
 </head>
 <body>
+<div class="hub-decor" aria-hidden="true">
+
+      <!-- Gear besar kiri -->
+      <svg class="decor-gear" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="26" stroke="#6366f1" stroke-width="2.5"/>
+        <circle cx="50" cy="50" r="9" stroke="#6366f1" stroke-width="2.5"/>
+        <g stroke="#6366f1" stroke-width="2.5" stroke-linecap="round">
+          <path d="M50 16 L50 4"/><path d="M50 84 L50 96"/>
+          <path d="M16 50 L4 50"/><path d="M84 50 L96 50"/>
+          <path d="M27 27 L19 19"/><path d="M73 73 L81 81"/>
+          <path d="M73 27 L81 19"/><path d="M27 73 L19 81"/>
+        </g>
+      </svg>
+
+      <!-- Gear kecil kanan bawah -->
+      <svg class="decor-gear-sm" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="26" stroke="#6366f1" stroke-width="2.5"/>
+        <circle cx="50" cy="50" r="9" stroke="#6366f1" stroke-width="2.5"/>
+        <g stroke="#6366f1" stroke-width="2.5" stroke-linecap="round">
+          <path d="M50 16 L50 4"/><path d="M50 84 L50 96"/>
+          <path d="M16 50 L4 50"/><path d="M84 50 L96 50"/>
+          <path d="M27 27 L19 19"/><path d="M73 73 L81 81"/>
+          <path d="M73 27 L81 19"/><path d="M27 73 L19 81"/>
+        </g>
+      </svg>
+
+      <!-- Percikan las kanan atas -->
+      <svg class="decor-spark" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g stroke="#6366f1" stroke-width="2.4" stroke-linecap="round">
+          <path d="M40 40 L40 6"/><path d="M40 40 L64 14"/>
+          <path d="M40 40 L70 40"/><path d="M40 40 L64 66"/>
+          <path d="M40 40 L40 74"/><path d="M40 40 L16 66"/>
+          <path d="M40 40 L10 40"/><path d="M40 40 L16 14"/>
+        </g>
+        <circle cx="40" cy="40" r="7" stroke="#6366f1" stroke-width="2.4"/>
+      </svg>
+
+      <!-- Gauge kanan tengah -->
+      <svg class="decor-gauge" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="60" cy="60" r="46" stroke="#6366f1" stroke-width="2.4"/>
+        <path d="M60 60 L82 38" stroke="#6366f1" stroke-width="2.6" stroke-linecap="round"/>
+        <circle cx="60" cy="60" r="5" stroke="#6366f1" stroke-width="2.4"/>
+        <g stroke="#6366f1" stroke-width="2.2" stroke-linecap="round">
+          <path d="M60 18 L60 26"/><path d="M60 94 L60 102"/>
+          <path d="M18 60 L26 60"/><path d="M94 60 L102 60"/>
+          <path d="M30 30 L36 36"/><path d="M90 30 L84 36"/>
+        </g>
+      </svg>
+
+      <!-- Factory silhouette bawah -->
+      <svg class="decor-factory" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M20 260 L20 160 L70 190 L70 140 L120 170 L120 120 L170 150 L170 100 L230 100 L230 260 Z" stroke="#6366f1" stroke-width="2" stroke-linejoin="round"/>
+        <rect x="90" y="70" width="16" height="50" stroke="#6366f1" stroke-width="2"/>
+        <rect x="150" y="50" width="16" height="70" stroke="#6366f1" stroke-width="2"/>
+        <path d="M98 70 C 94 55, 104 55, 100 40" stroke="#6366f1" stroke-width="2" stroke-linecap="round"/>
+        <path d="M158 50 C 154 35, 164 35, 160 20" stroke="#6366f1" stroke-width="2" stroke-linecap="round"/>
+        <g stroke="#6366f1" stroke-width="2.2" stroke-linecap="round">
+          <path d="M300 150 L300 110"/><path d="M300 150 L332 130"/>
+          <path d="M300 150 L336 158"/><path d="M300 150 L326 186"/>
+          <path d="M300 150 L268 186"/><path d="M300 150 L264 158"/>
+          <path d="M300 150 L268 130"/>
+        </g>
+        <circle cx="300" cy="150" r="6" stroke="#6366f1" stroke-width="2"/>
+      </svg>
+
+      <!-- Bolt kiri bawah -->
+      <svg class="decor-bolt" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M40 4 L70 22 L70 58 L40 76 L10 58 L10 22 Z" stroke="#6366f1" stroke-width="2.4" stroke-linejoin="round"/>
+        <circle cx="40" cy="40" r="15" stroke="#6366f1" stroke-width="2.4"/>
+      </svg>
+
+    </div>
 <div class="app-shell"
      x-data='machinePage("E-05", "E-05", [], 0, ["MACHINE", "MATERIAL", "METHODE", "MAN"], {"mode": "none"})'
      x-init="init()">
