@@ -553,13 +553,14 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       return {
         state: "idle", // idle | awaiting_gap | awaiting_actual_start | running | nonproduksi_running | edit
         entryStart: null, entryEnd: null,
+        actualStartConfirmedAt: null,
         editingId: null,
         form: { part_number: "", qty: "", manpower: "", repair: "" },
         editForm: { waktu_awal: "", waktu_akhir: "", part_number: "", qty: "", manpower: "", repair: "", dandori_menit: "", break_menit: "" },
-        gapInfo: null, // {gapStart, gapEnd}
+        gapInfo: null,
         gapForm: { nonproduksi_nama: "" },
-        gapAddedList: [], // daftar nama non-produksi yang sudah ditambahkan berurutan (K -> B1 -> A)
-        afterFinishChoice: false, // munculkan pilihan Setup / Non-Produksi
+        gapAddedList: [],
+        afterFinishChoice: false,
         nonProdForm: { nama: "" },
         nonProdActiveStart: null,
         routingType: null, routingNumbers: [],
@@ -769,7 +770,9 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
 
     async commitProductionRow(stationId) {
       const line = this.lines[stationId];
-      const dandoriMenit = Math.round((new Date(line.actualStartConfirmedAt) - new Date(line.entryStart)) / 60000);
+      const dandoriMenit = line.actualStartConfirmedAt && line.entryStart
+        ? Math.round((new Date(line.actualStartConfirmedAt) - new Date(line.entryStart)) / 60000)
+        : 0;
       const breakMenit = computeBreakMinutes(line.entryStart, line.entryEnd);
       const extra = {};
       this.extraFields.forEach((f) => { if (line.form[f.key]) extra[f.key] = line.form[f.key]; });
