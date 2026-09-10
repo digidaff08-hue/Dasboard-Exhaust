@@ -1,0 +1,1651 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Mentah — Welding Exhaust</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#f4f5f7">
+<link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+  (function () {
+    var t = localStorage.getItem("theme_v1") || "light";
+    document.documentElement.setAttribute("data-theme", t);
+  })();
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="assets/supabaseClient.js"></script>
+<style>
+/* ═══════════════════════════════════════════
+   DATA MENTAH — Local styles
+═══════════════════════════════════════════ */
+
+.dm-shell {
+  padding: 16px 12px 60px;
+}
+
+/* Override khusus halaman Data Mentah */
+.main {
+  padding: 16px 10px 16px 10px !important;
+  gap: 0 !important;
+}
+
+/* ── Page header ── */
+.dm-page-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.dm-page-icon {
+  width: 38px; height: 38px;
+  background: linear-gradient(135deg, var(--primary), #e87c2b);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  box-shadow: 0 3px 8px rgba(194,96,12,.22);
+}
+.dm-page-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0;
+  letter-spacing: -.02em;
+}
+
+/* ── Tab bar ── */
+.dm-tabbar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: 6px 6px 0;
+  border-bottom: none;
+}
+.dm-tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+  transition: color .15s, background .15s, border-color .15s;
+  font-family: var(--font-body);
+  white-space: nowrap;
+}
+.dm-tab:hover { color: var(--text); background: var(--panel-2); }
+.dm-tab.active {
+  color: var(--primary);
+  background: var(--panel-2);
+  border-bottom-color: var(--primary);
+}
+.dm-tab-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dot-nippo { background: #0ea5e9; }
+.dot-prod  { background: #6366f1; }
+.dot-dt    { background: #ef4444; }
+.dot-ng    { background: #f59e0b; }
+.dot-rep   { background: #10b981; }
+
+/* ── Section wrapper ── */
+.dm-section {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+  padding: 12px 10px 16px;
+}
+
+/* ── Filter bar ── */
+.dm-filter {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.dm-filter-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.dm-filter-cell:last-child { border-right: none; }
+.dm-filter-cell.grow { flex: 1; justify-content: flex-end; }
+
+.dm-filter-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  white-space: nowrap;
+}
+.dm-filter-label svg { opacity: .6; }
+
+/* Input bulan dengan placeholder custom */
+.dm-month-wrap {
+  position: relative;
+}
+.dm-month-wrap input[type="month"] {
+  padding: 6px 10px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-family: var(--font-body);
+  min-width: 150px;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+}
+.dm-month-wrap input[type="month"]:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(194,96,12,.12);
+}
+/* Placeholder saat kosong */
+.dm-month-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  pointer-events: none;
+  background: var(--panel);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--field-border);
+}
+
+input[type="date"],
+input[type="month"] {
+  padding: 6px 10px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+}
+input[type="date"]:focus,
+input[type="month"]:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(194,96,12,.12);
+}
+
+/* Line select */
+.dm-line-select {
+  padding: 6px 28px 6px 10px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  min-width: 130px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  transition: border-color .15s, box-shadow .15s;
+}
+.dm-line-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(194,96,12,.12);
+}
+
+/* Export button */
+.btn-export {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--primary);
+  background: transparent;
+  color: var(--primary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  font-family: var(--font-body);
+  white-space: nowrap;
+}
+.btn-export:hover { background: var(--primary); color: #fff; }
+.btn-export:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ── Info strip ── */
+.dm-info-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 8px 14px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.dm-badge-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+.dm-badge-count b {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.dm-info-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--border);
+}
+.dm-filter-active-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 20px;
+  background: var(--amber-dim);
+  color: var(--primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid rgba(194,96,12,.2);
+}
+
+/* ── Loading ── */
+.dm-loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+  padding: 56px 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.spinner {
+  width: 22px; height: 22px;
+  border: 2.5px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Empty state ── */
+.dm-empty {
+  text-align: center;
+  padding: 56px 0 48px;
+  color: var(--muted);
+}
+.dm-empty-icon { font-size: 2.2rem; margin-bottom: 10px; }
+.dm-empty-text { font-size: 0.9rem; font-weight: 500; }
+.dm-empty-sub  { font-size: 0.8rem; margin-top: 4px; color: var(--muted); opacity: .7; }
+
+/* ── Table ── */
+.dm-table-wrap {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: calc(100vh - 280px); /* tinggi viewport dikurangi header+filter+info */
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.dm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.dm-table thead tr {
+  background: linear-gradient(to bottom, var(--panel-2), #f1f5f9);
+}
+[data-theme="dark"] .dm-table thead tr {
+  background: var(--panel-2);
+}
+.dm-table th {
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.69rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding: 7px 7px;
+  text-align: left;
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--panel-2);
+}
+.dm-table td {
+  padding: 6px 7px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  white-space: nowrap;
+  vertical-align: middle;
+  font-size: 0.79rem;
+}
+.dm-table tbody tr:last-child td { border-bottom: none; }
+.dm-table tbody tr:hover td { background: rgba(194,96,12,.03); }
+.dm-table .mono { font-family: var(--font-mono); font-size: 0.75rem; }
+.dm-table .muted { color: var(--muted); }
+.dm-table .num { text-align: right; }
+
+/* Kolom teks panjang — truncate + tooltip on hover */
+.dm-table td.cell-trunc {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+/* Row striping subtle */
+.dm-table tbody tr:nth-child(even) td { background: rgba(0,0,0,.013); }
+.dm-table tbody tr:nth-child(even):hover td { background: rgba(194,96,12,.03); }
+
+/* ── Line badge ── */
+.line-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 0.71rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  background: var(--amber-dim);
+  color: var(--amber);
+  border: 1.5px solid rgba(194,96,12,.3);
+  letter-spacing: .02em;
+}
+
+/* ── Kategori badges ── */
+.kat-machine  { background:#fde8e8; color:#b91c1c; border:1px solid #fca5a5; }
+.kat-material { background:#fef9e7; color:#92400e; border:1px solid #fcd34d; }
+.kat-methode  { background:#ede9fe; color:#5b21b6; border:1px solid #c4b5fd; }
+.kat-man      { background:#e0f2fe; color:#075985; border:1px solid #7dd3fc; }
+
+/* ── Status badges ── */
+.status-tmp  { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; }
+.badge-malam { background:#1e293b; color:#94a3b8; border:1px solid #334155; }
+.status-perm { background:#d1fae5; color:#065f46; border:1px solid #6ee7b7; }
+
+/* ── Column filter ── */
+.cf-th {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+.cf-th:hover { background: color-mix(in srgb, var(--primary) 8%, var(--panel-2)) !important; }
+.cf-th.cf-active { background: color-mix(in srgb, var(--primary) 12%, var(--panel-2)) !important; }
+.cf-th-inner {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cf-th.cf-active { color: var(--primary) !important; }
+
+/* Dropdown panel */
+.cf-dropdown {
+  position: fixed;
+  z-index: 9990;
+  background: var(--panel);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0,0,0,.14);
+  min-width: 200px;
+  max-width: 280px;
+  overflow: hidden;
+  animation: cfFadeIn .12s ease both;
+}
+@keyframes cfFadeIn {
+  from { opacity:0; transform:translateY(-4px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.cf-search {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 0.82rem;
+  font-family: var(--font-body);
+  outline: none;
+  box-sizing: border-box;
+}
+.cf-actions {
+  display: flex;
+  gap: 6px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-2);
+}
+.cf-btn {
+  flex: 1;
+  padding: 4px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: background .12s;
+}
+.cf-btn:hover { background: var(--panel-2); border-color: var(--primary); color: var(--primary); }
+.cf-list {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+.cf-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: var(--text);
+  transition: background .1s;
+}
+.cf-item:hover { background: var(--panel-2); }
+.cf-item input[type="checkbox"] {
+  width: 14px; height: 14px;
+  accent-color: var(--primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.cf-item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+.cf-empty {
+  padding: 12px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+/* ── Flash ── */
+.dm-flash {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--text);
+  color: var(--bg);
+  padding: 11px 22px;
+  border-radius: 40px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  z-index: 9999;
+  pointer-events: none;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+}
+.dm-flash.error { background: var(--red); color: #fff; }
+
+/* ── Access denied ── */
+.dm-denied {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 80px 40px; text-align: center;
+}
+
+@media (max-width: 640px) {
+  .dm-shell { padding: 16px 12px 56px; }
+  .dm-tab { padding: 9px 12px; font-size: 0.82rem; }
+  .dm-filter { flex-direction: column; align-items: stretch; }
+  .dm-filter-cell { border-right: none; border-bottom: 1px solid var(--border); }
+  .dm-filter-cell.grow { justify-content: flex-start; }
+}
+</style>
+</head>
+<body>
+
+<div class="app-shell" x-data="dataMentah()" x-init="init()" @click="cfClose()" @keydown.escape.window="cfClose()">
+  <div class="mobile-topbar">
+    <button class="hamburger" @click="mobileNavOpen = true">☰</button>
+    <span class="mobile-title">Data Mentah</span>
+  </div>
+  <div class="sidebar-overlay" x-show="mobileNavOpen" @click="mobileNavOpen = false" x-cloak></div>
+
+  <aside class="sidebar" :class="[mobileNavOpen ? 'sidebar-open' : '', sidebarCollapsed ? 'sidebar-collapsed' : '']">
+    <button class="sidebar-collapse-btn" @click="sidebarCollapsed = !sidebarCollapsed">
+      <span x-show="!sidebarCollapsed">‹</span><span x-show="sidebarCollapsed">›</span>
+    </button>
+    <div class="sidebar-brand" x-show="!sidebarCollapsed">WELDING EXHAUST<span>·</span>SYSTEM</div>
+    <nav class="sidebar-nav" @click="mobileNavOpen = false">
+      <a href="dashboard-exhaust.html" class="sidebar-link" title="Dashboard Exhaust"><span>📊</span><span x-show="!sidebarCollapsed">Dashboard Exhaust</span></a>
+      <a href="index.html" class="sidebar-link" title="Dashboard"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a>
+      <a href="plan-produksi.html" class="sidebar-link" title="Plan Produksi"><span>📅</span><span x-show="!sidebarCollapsed">Plan Produksi</span></a>
+      <a href="input-produksi.html" class="sidebar-link" title="Input Produksi"><span>⚙️</span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="input-attendance.html" class="sidebar-link" title="Attendance"><span>👥</span><span x-show="!sidebarCollapsed">Attendance</span></a>
+      </template>
+      <template x-if="isAdmin()">
+        <a href="data-mentah.html" class="sidebar-link active" title="Data Mentah"><span>🗃️</span><span x-show="!sidebarCollapsed">Data Mentah</span></a>
+      </template>
+      <template x-if="isLeaderOrAdmin()">
+        <a href="master-data.html" class="sidebar-link" title="Master Data"><span>🗂️</span><span x-show="!sidebarCollapsed">Master Data</span></a>
+      </template>
+    </nav>
+    <div class="sidebar-foot" x-show="!sidebarCollapsed">
+      <div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
+      <span class="badge" :class="profile?.role === 'admin' ? 'role-admin' : ''" x-text="profile?.jabatan || profile?.role || '...'"></span>
+      <button class="btn-ghost btn-sm" @click="doLogout()">Keluar</button>
+    </div>
+    <button class="sidebar-logout-collapsed" x-show="sidebarCollapsed" @click="doLogout()" title="Keluar">⏻</button>
+  </aside>
+
+  <main class="main">
+
+    <!-- Akses ditolak -->
+    <template x-if="ready && !isAdmin()">
+      <div class="dm-denied">
+        <div style="font-size:3rem;margin-bottom:16px;opacity:.4;">🔒</div>
+        <p style="font-size:1.1rem;font-weight:700;color:var(--text);margin:0 0 6px;">Akses Terbatas</p>
+        <p style="font-size:0.85rem;color:var(--muted);margin:0;">Halaman ini hanya bisa diakses oleh Admin.</p>
+      </div>
+    </template>
+
+    <template x-if="ready && isAdmin()">
+      <div class="dm-shell">
+
+        <!-- Page header -->
+        <div class="dm-page-header">
+          <div class="dm-page-icon">🗃️</div>
+          <h1 class="dm-page-title">Data Mentah</h1>
+        </div>
+
+        <!-- ── Tab bar ── -->
+        <div class="dm-tabbar">
+          <button class="dm-tab" :class="tab==='nippo'     ? 'active':''" @click="tab='nippo'">
+            <span class="dm-tab-dot dot-nippo"></span> Nippo
+            <span class="count" x-show="data.nippo.length > 0" x-text="data.nippo.length" style="font-size:.72rem;margin-left:2px;opacity:.7;"></span>
+          </button>
+          <button class="dm-tab" :class="tab==='produksi'  ? 'active':''" @click="tab='produksi'">
+            <span class="dm-tab-dot dot-prod"></span> Produksi
+            <span class="count" x-show="data.produksi.length > 0" x-text="data.produksi.length" style="font-size:.72rem;margin-left:2px;opacity:.7;"></span>
+          </button>
+          <button class="dm-tab" :class="tab==='downtime'  ? 'active':''" @click="tab='downtime'">
+            <span class="dm-tab-dot dot-dt"></span> Downtime
+            <span class="count" x-show="data.downtime.length > 0" x-text="data.downtime.length" style="font-size:.72rem;margin-left:2px;opacity:.7;"></span>
+          </button>
+          <button class="dm-tab" :class="tab==='ng_inline' ? 'active':''" @click="tab='ng_inline'">
+            <span class="dm-tab-dot dot-ng"></span> NG Inline
+            <span class="count" x-show="data.ng_inline.length > 0" x-text="data.ng_inline.length" style="font-size:.72rem;margin-left:2px;opacity:.7;"></span>
+          </button>
+          <button class="dm-tab" :class="tab==='repair'    ? 'active':''" @click="tab='repair'">
+            <span class="dm-tab-dot dot-rep"></span> Repair
+            <span class="count" x-show="data.repair.length > 0" x-text="data.repair.length" style="font-size:.72rem;margin-left:2px;opacity:.7;"></span>
+          </button>
+        </div>
+
+        <!-- ══════════════════ NIPPO ══════════════════ -->
+        <div class="dm-section" x-show="tab==='nippo'" x-cloak>
+          <div class="dm-filter">
+            <div class="dm-filter-cell">
+              <span class="dm-filter-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Bulan</span>
+              <div class="dm-month-wrap">
+                <input type="month" x-model="f.nippo.bulan" @change="onBulanChange('nippo')">
+                <div class="dm-month-placeholder" x-show="!f.nippo.bulan">Pilih bulan</div>
+              </div>
+            </div>
+            <div class="dm-filter-cell">
+              <span class="dm-filter-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><circle cx="12" cy="16" r="1.5" fill="currentColor"/></svg>Tanggal</span>
+              <input type="date" x-model="f.nippo.tanggal" @change="onTanggalChange('nippo')">
+            </div>
+            <div class="dm-filter-cell">
+              <span class="dm-filter-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>Line</span>
+              <select class="dm-line-select" x-model="f.nippo.line" @change="fetchSection('nippo')">
+                <option value="">Semua Line</option>
+                <template x-for="ln in LINES" :key="ln"><option :value="ln" x-text="ln"></option></template>
+              </select>
+            </div>
+            <div class="dm-filter-cell grow">
+              <button class="btn-export" @click="exportExcel('nippo')" :disabled="loading.nippo">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                Export Excel
+              </button>
+            </div>
+          </div>
+
+          <div class="dm-info-strip" x-show="!loading.nippo">
+            <span class="dm-badge-count"><b x-text="cfFiltered('nippo').length + ' / ' + data.nippo.length"></b> baris</span>
+            <span class="dm-info-dot"></span>
+            <template x-if="f.nippo.bulan"><span class="dm-filter-active-tag">📅 <span x-text="fmtBulan(f.nippo.bulan)"></span></span></template>
+            <template x-if="f.nippo.tanggal"><span class="dm-filter-active-tag">📆 <span x-text="f.nippo.tanggal"></span></span></template>
+            <template x-if="f.nippo.line"><span class="dm-filter-active-tag">🏭 <span x-text="f.nippo.line"></span></span></template>
+            <template x-if="!f.nippo.bulan && !f.nippo.tanggal && !f.nippo.line"><span style="font-size:.78rem;color:var(--muted);">Semua data</span></template>
+          </div>
+
+          <div class="dm-loading" x-show="loading.nippo"><div class="spinner"></div><span>Memuat data nippo...</span></div>
+
+          <template x-if="!loading.nippo">
+            <div>
+              <template x-if="data.nippo.length === 0">
+                <div class="dm-empty"><div class="dm-empty-icon">📭</div><div class="dm-empty-text">Tidak ada data nippo</div><div class="dm-empty-sub">Coba ubah filter bulan, tanggal, atau line</div></div>
+              </template>
+              <template x-if="data.nippo.length > 0">
+                <div class="dm-table-wrap">
+                  <table class="dm-table">
+                    <thead>
+                      <tr>
+                        <th class="cf-th" :class="cfActive('nippo','shift')?'cf-active':''" @click.stop="cfOpen('nippo','shift',$el)"><div class="cf-th-inner">Sift</div></th>
+                        <th class="cf-th" :class="cfActive('nippo','bulan')?'cf-active':''" @click.stop="cfOpen('nippo','bulan',$el)"><div class="cf-th-inner">Month</div></th>
+                        <th class="cf-th" :class="cfActive('nippo','hari')?'cf-active':''" @click.stop="cfOpen('nippo','hari',$el)"><div class="cf-th-inner">Day</div></th>
+                        <th class="cf-th" :class="cfActive('nippo','tahun')?'cf-active':''" @click.stop="cfOpen('nippo','tahun',$el)"><div class="cf-th-inner">Year</div></th>
+                        <th class="cf-th" :class="cfActive('nippo','proses')?'cf-active':''" @click.stop="cfOpen('nippo','proses',$el)"><div class="cf-th-inner">Proses</div></th>
+                        <th class="cf-th" :class="cfActive('nippo','mesin')?'cf-active':''" @click.stop="cfOpen('nippo','mesin',$el)"><div class="cf-th-inner">Line</div></th>
+                        <th class="cf-th" :class="cfActive('nippo','work_class')?'cf-active':''" @click.stop="cfOpen('nippo','work_class',$el)"><div class="cf-th-inner">Work Class</div></th>
+                        <th class="cf-th" :class="cfActive('nippo','no_parts')?'cf-active':''" @click.stop="cfOpen('nippo','no_parts',$el)"><div class="cf-th-inner">No Parts</div></th>
+                        <th class="num cf-th" :class="cfActive('nippo','count_stroke')?'cf-active':''" @click.stop="cfOpen('nippo','count_stroke',$el)"><div class="cf-th-inner">Count Stroke</div></th>
+                        <th class="num cf-th" :class="cfActive('nippo','start_h')?'cf-active':''" @click.stop="cfOpen('nippo','start_h',$el)"><div class="cf-th-inner">Start (H)</div></th>
+                        <th class="num cf-th" :class="cfActive('nippo','start_m')?'cf-active':''" @click.stop="cfOpen('nippo','start_m',$el)"><div class="cf-th-inner">Start (M)</div></th>
+                        <th class="num cf-th" :class="cfActive('nippo','finish_h')?'cf-active':''" @click.stop="cfOpen('nippo','finish_h',$el)"><div class="cf-th-inner">Finish (H)</div></th>
+                        <th class="num cf-th" :class="cfActive('nippo','finish_m')?'cf-active':''" @click.stop="cfOpen('nippo','finish_m',$el)"><div class="cf-th-inner">Finish (M)</div></th>
+                        <th class="num cf-th" :class="cfActive('nippo','manpower')?'cf-active':''" @click.stop="cfOpen('nippo','manpower',$el)"><div class="cf-th-inner">Manpower</div></th>
+                        <th class="cf-th" :class="cfActive('nippo','routing')?'cf-active':''" @click.stop="cfOpen('nippo','routing',$el)"><div class="cf-th-inner">Routing</div></th>
+                        <th class="cf-th" :class="cfActive('nippo','no_machine')?'cf-active':''" @click.stop="cfOpen('nippo','no_machine',$el)"><div class="cf-th-inner">No. Machine</div></th>
+                        <th class="num cf-th" :class="cfActive('nippo','dandori')?'cf-active':''" @click.stop="cfOpen('nippo','dandori',$el)"><div class="cf-th-inner">Dandori</div></th>
+                        <th class="num cf-th" :class="cfActive('nippo','stockout')?'cf-active':''" @click.stop="cfOpen('nippo','stockout',$el)"><div class="cf-th-inner">Stockout</div></th>
+                        <th class="num cf-th" :class="cfActive('nippo','forklift_crane')?'cf-active':''" @click.stop="cfOpen('nippo','forklift_crane',$el)"><div class="cf-th-inner">Forklift/Crane</div></th>
+                        <th class="num cf-th" :class="cfActive('nippo','die_jig')?'cf-active':''" @click.stop="cfOpen('nippo','die_jig',$el)"><div class="cf-th-inner">Die/Jig</div></th>
+                        <th class="num cf-th" :class="cfActive('nippo','machine_late')?'cf-active':''" @click.stop="cfOpen('nippo','machine_late',$el)"><div class="cf-th-inner">Machine Late</div></th>
+                        <th class="num cf-th" :class="cfActive('nippo','lima_s')?'cf-active':''" @click.stop="cfOpen('nippo','lima_s',$el)"><div class="cf-th-inner">5S</div></th>
+                        <th class="num cf-th" :class="cfActive('nippo','break_menit')?'cf-active':''" @click.stop="cfOpen('nippo','break_menit',$el)"><div class="cf-th-inner">Break</div></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="(r, i) in cfFiltered('nippo')" :key="i">
+                        <tr>
+                          <td><span class="badge" :class="r.shift==='FRONT'?'':'badge-malam'" x-text="r.shift"></span></td>
+                          <td class="mono" x-text="r.bulan"></td>
+                          <td class="mono" x-text="r.hari"></td>
+                          <td class="mono" x-text="r.tahun"></td>
+                          <td x-text="r.proses"></td>
+                          <td><span class="line-badge" x-text="r.mesin"></span></td>
+                          <td class="mono" x-text="r.work_class ?? '-'"></td>
+                          <td class="cell-trunc" :title="r.no_parts||''" x-text="r.no_parts||'-'"></td>
+                          <td class="num mono" x-text="r.count_stroke ?? '-'"></td>
+                          <td class="num mono" x-text="r.start_h ?? '-'"></td>
+                          <td class="num mono" x-text="r.start_m ?? '-'"></td>
+                          <td class="num mono" x-text="r.finish_h ?? '-'"></td>
+                          <td class="num mono" x-text="r.finish_m ?? '-'"></td>
+                          <td class="num mono" x-text="r.manpower ?? '-'"></td>
+                          <td x-text="r.routing||'-'"></td>
+                          <td><span class="line-badge" x-text="r.no_machine"></span></td>
+                          <td class="num mono" x-text="fmtMnt(r.dandori)"></td>
+                          <td class="num mono" x-text="fmtMnt(r.stockout)"></td>
+                          <td class="num mono" x-text="fmtMnt(r.forklift_crane)"></td>
+                          <td class="num mono" x-text="fmtMnt(r.die_jig)"></td>
+                          <td class="num mono" x-text="fmtMnt(r.machine_late)"></td>
+                          <td class="num mono" x-text="fmtMnt(r.lima_s)"></td>
+                          <td class="num mono" x-text="fmtMnt(r.break_menit)"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <!-- ══════════════════ PRODUKSI ══════════════════ -->
+        <div class="dm-section" x-show="tab==='produksi'" x-cloak>
+          <div class="dm-filter">
+            <!-- Bulan -->
+            <div class="dm-filter-cell">
+              <span class="dm-filter-label">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                Bulan
+              </span>
+              <div class="dm-month-wrap">
+                <input type="month" x-model="f.produksi.bulan" @change="onBulanChange('produksi')"
+                  style="color: var(--text);">
+                <div class="dm-month-placeholder" x-show="!f.produksi.bulan" style="pointer-events:none;">Pilih bulan</div>
+              </div>
+            </div>
+            <!-- Tanggal -->
+            <div class="dm-filter-cell">
+              <span class="dm-filter-label">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><circle cx="12" cy="16" r="1.5" fill="currentColor"/></svg>
+                Tanggal
+              </span>
+              <input type="date" x-model="f.produksi.tanggal" @change="onTanggalChange('produksi')">
+            </div>
+            <!-- Line -->
+            <div class="dm-filter-cell">
+              <span class="dm-filter-label">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+                Line
+              </span>
+              <select class="dm-line-select" x-model="f.produksi.line" @change="fetchSection('produksi')">
+                <option value="">Semua Line</option>
+                <template x-for="ln in LINES" :key="ln"><option :value="ln" x-text="ln"></option></template>
+              </select>
+            </div>
+            <div class="dm-filter-cell grow">
+              <button class="btn-export" @click="exportExcel('produksi')" :disabled="loading.produksi">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                Export Excel
+              </button>
+            </div>
+          </div>
+
+          <!-- Info strip -->
+          <div class="dm-info-strip" x-show="!loading.produksi">
+            <span class="dm-badge-count"><b x-text="cfFiltered('produksi').length + ' / ' + data.produksi.length"></b> baris</span>
+            <span class="dm-info-dot"></span>
+            <template x-if="f.produksi.bulan">
+              <span class="dm-filter-active-tag">📅 <span x-text="fmtBulan(f.produksi.bulan)"></span></span>
+            </template>
+            <template x-if="f.produksi.tanggal">
+              <span class="dm-filter-active-tag">📆 <span x-text="f.produksi.tanggal"></span></span>
+            </template>
+            <template x-if="f.produksi.line">
+              <span class="dm-filter-active-tag">🏭 <span x-text="f.produksi.line"></span></span>
+            </template>
+            <template x-if="!f.produksi.bulan && !f.produksi.tanggal && !f.produksi.line">
+              <span style="font-size:.78rem;color:var(--muted);">Semua data</span>
+            </template>
+          </div>
+
+          <div class="dm-loading" x-show="loading.produksi">
+            <div class="spinner"></div><span>Memuat data produksi...</span>
+          </div>
+
+          <template x-if="!loading.produksi">
+            <div>
+              <template x-if="data.produksi.length === 0">
+                <div class="dm-empty">
+                  <div class="dm-empty-icon">📭</div>
+                  <div class="dm-empty-text">Tidak ada data produksi</div>
+                  <div class="dm-empty-sub">Coba ubah filter bulan, tanggal, atau line</div>
+                </div>
+              </template>
+              <template x-if="data.produksi.length > 0">
+                <div class="dm-table-wrap">
+                  <table class="dm-table">
+                    <thead>
+                      <tr>
+                        <th class="cf-th" :class="cfActive('produksi','mesin')?'cf-active':''" @click.stop="cfOpen('produksi','mesin',$el)"><div class="cf-th-inner">Line</div></th>
+                        <th class="cf-th" :class="cfActive('produksi','waktu_awal')?'cf-active':''" @click.stop="cfOpen('produksi','waktu_awal',$el)"><div class="cf-th-inner">Waktu Awal</div></th>
+                        <th class="cf-th" :class="cfActive('produksi','waktu_akhir')?'cf-active':''" @click.stop="cfOpen('produksi','waktu_akhir',$el)"><div class="cf-th-inner">Waktu Akhir</div></th>
+                        <th class="cf-th" :class="cfActive('produksi','_part')?'cf-active':''" @click.stop="cfOpen('produksi','_part',$el)"><div class="cf-th-inner">Part / Jenis</div></th>
+                        <th class="num cf-th" :class="cfActive('produksi','qty')?'cf-active':''" @click.stop="cfOpen('produksi','qty',$el)"><div class="cf-th-inner">Qty</div></th>
+                        <th class="num cf-th" :class="cfActive('produksi','ng_inline_qty')?'cf-active':''" @click.stop="cfOpen('produksi','ng_inline_qty',$el)"><div class="cf-th-inner">NG Inline</div></th>
+                        <th class="num cf-th" :class="cfActive('produksi','repair')?'cf-active':''" @click.stop="cfOpen('produksi','repair',$el)"><div class="cf-th-inner">Repair</div></th>
+                        <th class="num cf-th" :class="cfActive('produksi','dandori_menit')?'cf-active':''" @click.stop="cfOpen('produksi','dandori_menit',$el)"><div class="cf-th-inner">Dandori</div></th>
+                        <th class="num cf-th" :class="cfActive('produksi','downtime_menit')?'cf-active':''" @click.stop="cfOpen('produksi','downtime_menit',$el)"><div class="cf-th-inner">Downtime</div></th>
+                        <th class="num cf-th" :class="cfActive('produksi','break_menit')?'cf-active':''" @click.stop="cfOpen('produksi','break_menit',$el)"><div class="cf-th-inner">Break</div></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="(r, i) in cfFiltered('produksi')" :key="i">
+                        <tr :style="r._tipe === 'nonproduksi' ? 'background:rgba(99,102,241,.04)' : ''">
+                          <td><span class="line-badge" x-text="r.mesin"></span></td>
+                          <td class="mono" x-text="fmtDT(r.waktu_awal)"></td>
+                          <td class="mono" x-text="fmtDT(r.waktu_akhir)"></td>
+                          <td class="cell-trunc" style="font-weight:500;" :title="r._tipe==='produksi'?(r.part_number||''):(r.part_ke||r.keterangan||r.part_dari||'')" x-text="r._tipe === 'produksi' ? (r.part_number || '-') : (r.part_ke || r.keterangan || r.part_dari || '-')"></td>
+                          <td class="num mono" x-text="r._tipe === 'produksi' ? (r.qty ?? '-') : '-'"></td>
+                          <td class="num mono" x-text="r._tipe === 'produksi' ? (r.ng_inline_qty ?? 0) : '-'"></td>
+                          <td class="num mono" x-text="r._tipe === 'produksi' ? (r.repair ?? 0) : '-'"></td>
+                          <td class="num mono" x-text="r._tipe === 'produksi' ? fmtMnt(r.dandori_menit) : '-'"></td>
+                          <td class="num mono" x-text="r._tipe === 'produksi' ? fmtMnt(r.downtime_menit) : '-'"></td>
+                          <td class="num mono" x-text="r._tipe === 'produksi' ? fmtMnt(r.break_menit) : '-'"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <!-- ══════════════════ DOWNTIME ══════════════════ -->
+        <div class="dm-section" x-show="tab==='downtime'" x-cloak>
+          <div class="dm-filter">
+            <div class="dm-filter-cell">
+              <span class="dm-filter-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Bulan</span>
+              <div class="dm-month-wrap">
+                <input type="month" x-model="f.downtime.bulan" @change="onBulanChange('downtime')">
+                <div class="dm-month-placeholder" x-show="!f.downtime.bulan">Pilih bulan</div>
+              </div>
+            </div>
+            <div class="dm-filter-cell">
+              <span class="dm-filter-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><circle cx="12" cy="16" r="1.5" fill="currentColor"/></svg>Tanggal</span>
+              <input type="date" x-model="f.downtime.tanggal" @change="onTanggalChange('downtime')">
+            </div>
+            <div class="dm-filter-cell">
+              <span class="dm-filter-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>Line</span>
+              <select class="dm-line-select" x-model="f.downtime.line" @change="fetchSection('downtime')">
+                <option value="">Semua Line</option>
+                <template x-for="ln in LINES" :key="ln"><option :value="ln" x-text="ln"></option></template>
+              </select>
+            </div>
+            <div class="dm-filter-cell grow">
+              <button class="btn-export" @click="exportExcel('downtime')" :disabled="loading.downtime">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                Export Excel
+              </button>
+            </div>
+          </div>
+          <div class="dm-info-strip" x-show="!loading.downtime">
+            <span class="dm-badge-count"><b x-text="cfFiltered('downtime').length + ' / ' + data.downtime.length"></b> baris</span>
+            <span class="dm-info-dot"></span>
+            <template x-if="f.downtime.bulan"><span class="dm-filter-active-tag">📅 <span x-text="fmtBulan(f.downtime.bulan)"></span></span></template>
+            <template x-if="f.downtime.tanggal"><span class="dm-filter-active-tag">📆 <span x-text="f.downtime.tanggal"></span></span></template>
+            <template x-if="f.downtime.line"><span class="dm-filter-active-tag">🏭 <span x-text="f.downtime.line"></span></span></template>
+            <template x-if="!f.downtime.bulan && !f.downtime.tanggal && !f.downtime.line"><span style="font-size:.78rem;color:var(--muted);">Semua data</span></template>
+          </div>
+          <div class="dm-loading" x-show="loading.downtime"><div class="spinner"></div><span>Memuat data downtime...</span></div>
+          <template x-if="!loading.downtime">
+            <div>
+              <template x-if="data.downtime.length === 0">
+                <div class="dm-empty"><div class="dm-empty-icon">📭</div><div class="dm-empty-text">Tidak ada data downtime</div><div class="dm-empty-sub">Coba ubah filter bulan, tanggal, atau line</div></div>
+              </template>
+              <template x-if="data.downtime.length > 0">
+                <div class="dm-table-wrap">
+                  <table class="dm-table">
+                    <thead>
+                      <tr>
+                        <th class="cf-th" :class="cfActive('downtime','mesin')?'cf-active':''" @click.stop="cfOpen('downtime','mesin',$el)"><div class="cf-th-inner">Line</div></th>
+                        <th class="cf-th" :class="cfActive('downtime','waktu_awal')?'cf-active':''" @click.stop="cfOpen('downtime','waktu_awal',$el)"><div class="cf-th-inner">Waktu Awal</div></th>
+                        <th class="cf-th" :class="cfActive('downtime','waktu_akhir')?'cf-active':''" @click.stop="cfOpen('downtime','waktu_akhir',$el)"><div class="cf-th-inner">Waktu Akhir</div></th>
+                        <th class="num cf-th" :class="cfActive('downtime','_durasi')?'cf-active':''" @click.stop="cfOpen('downtime','_durasi',$el)"><div class="cf-th-inner">Durasi</div></th>
+                        <th class="cf-th" :class="cfActive('downtime','kategori')?'cf-active':''" @click.stop="cfOpen('downtime','kategori',$el)"><div class="cf-th-inner">Kategori</div></th>
+                        <th class="cf-th" :class="cfActive('downtime','pic')?'cf-active':''" @click.stop="cfOpen('downtime','pic',$el)"><div class="cf-th-inner">PIC</div></th>
+                        <th class="cf-th" :class="cfActive('downtime','waktu_tunggu')?'cf-active':''" @click.stop="cfOpen('downtime','waktu_tunggu',$el)"><div class="cf-th-inner">Wkt Tunggu</div></th>
+                        <th class="cf-th" :class="cfActive('downtime','ket')?'cf-active':''" @click.stop="cfOpen('downtime','ket',$el)"><div class="cf-th-inner">Ket</div></th>
+                        <th class="cf-th" :class="cfActive('downtime','problem')?'cf-active':''" @click.stop="cfOpen('downtime','problem',$el)"><div class="cf-th-inner">Problem Kat.</div></th>
+                        <th class="cf-th" :class="cfActive('downtime','penyebab')?'cf-active':''" @click.stop="cfOpen('downtime','penyebab',$el)"><div class="cf-th-inner">Problem Det.</div></th>
+                        <th class="cf-th" :class="cfActive('downtime','area')?'cf-active':''" @click.stop="cfOpen('downtime','area',$el)"><div class="cf-th-inner">Area</div></th>
+                        <th class="cf-th" :class="cfActive('downtime','countermeasure')?'cf-active':''" @click.stop="cfOpen('downtime','countermeasure',$el)"><div class="cf-th-inner">Countermeasure</div></th>
+                        <th class="num cf-th" :class="cfActive('downtime','_losstime')?'cf-active':''" @click.stop="cfOpen('downtime','_losstime',$el)"><div class="cf-th-inner">Losstime</div></th>
+                        <th class="cf-th" :class="cfActive('downtime','status')?'cf-active':''" @click.stop="cfOpen('downtime','status',$el)"><div class="cf-th-inner">Status</div></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="(r, i) in cfFiltered('downtime')" :key="i">
+                        <tr>
+                          <td><span class="line-badge" x-text="r.mesin"></span></td>
+                          <td class="mono" x-text="fmtDT(r.waktu_awal)"></td>
+                          <td class="mono" x-text="fmtDT(r.waktu_akhir)"></td>
+                          <td class="num mono" x-text="durasiMnt(r.waktu_awal, r.waktu_akhir)"></td>
+                          <td>
+                            <span class="badge"
+                              :class="r.kategori==='MACHINE'?'kat-machine':r.kategori==='MATERIAL'?'kat-material':r.kategori==='METHODE'?'kat-methode':r.kategori==='MAN'?'kat-man':''"
+                              x-text="r.kategori||'-'"></span>
+                          </td>
+                          <td x-text="r.pic||'-'"></td>
+                          <td class="mono" x-text="r.waktu_tunggu??'-'"></td>
+                          <td class="muted cell-trunc" :title="r.ket||''" x-text="r.ket||'-'"></td>
+                          <td class="cell-trunc" :title="r.problem||''" x-text="r.problem||'-'"></td>
+                          <td class="cell-trunc" :title="r.penyebab||''" x-text="r.penyebab||'-'"></td>
+                          <td x-text="r.area||'-'"></td>
+                          <td class="cell-trunc" :title="r.countermeasure||''" x-text="r.countermeasure||'-'"></td>
+                          <td class="num mono" x-text="durasiMnt(r.waktu_awal, r.waktu_akhir)"></td>
+                          <td>
+                            <span class="badge"
+                              :class="r.status==='Permanent Action'?'status-perm':'status-tmp'"
+                              x-text="r.status||'-'"></span>
+                          </td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <!-- ══════════════════ NG INLINE ══════════════════ -->
+        <div class="dm-section" x-show="tab==='ng_inline'" x-cloak>
+          <div class="dm-filter">
+            <div class="dm-filter-cell">
+              <span class="dm-filter-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Bulan</span>
+              <div class="dm-month-wrap">
+                <input type="month" x-model="f.ng_inline.bulan" @change="onBulanChange('ng_inline')">
+                <div class="dm-month-placeholder" x-show="!f.ng_inline.bulan">Pilih bulan</div>
+              </div>
+            </div>
+            <div class="dm-filter-cell">
+              <span class="dm-filter-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><circle cx="12" cy="16" r="1.5" fill="currentColor"/></svg>Tanggal</span>
+              <input type="date" x-model="f.ng_inline.tanggal" @change="onTanggalChange('ng_inline')">
+            </div>
+            <div class="dm-filter-cell">
+              <span class="dm-filter-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>Line</span>
+              <select class="dm-line-select" x-model="f.ng_inline.line" @change="fetchSection('ng_inline')">
+                <option value="">Semua Line</option>
+                <template x-for="ln in LINES" :key="ln"><option :value="ln" x-text="ln"></option></template>
+              </select>
+            </div>
+            <div class="dm-filter-cell grow">
+              <button class="btn-export" @click="exportExcel('ng_inline')" :disabled="loading.ng_inline">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                Export Excel
+              </button>
+            </div>
+          </div>
+          <div class="dm-info-strip" x-show="!loading.ng_inline">
+            <span class="dm-badge-count"><b x-text="cfFiltered('ng_inline').length + ' / ' + data.ng_inline.length"></b> baris</span>
+            <span class="dm-info-dot"></span>
+            <template x-if="f.ng_inline.bulan"><span class="dm-filter-active-tag">📅 <span x-text="fmtBulan(f.ng_inline.bulan)"></span></span></template>
+            <template x-if="f.ng_inline.tanggal"><span class="dm-filter-active-tag">📆 <span x-text="f.ng_inline.tanggal"></span></span></template>
+            <template x-if="f.ng_inline.line"><span class="dm-filter-active-tag">🏭 <span x-text="f.ng_inline.line"></span></span></template>
+            <template x-if="!f.ng_inline.bulan && !f.ng_inline.tanggal && !f.ng_inline.line"><span style="font-size:.78rem;color:var(--muted);">Semua data</span></template>
+          </div>
+          <div class="dm-loading" x-show="loading.ng_inline"><div class="spinner"></div><span>Memuat data NG Inline...</span></div>
+          <template x-if="!loading.ng_inline">
+            <div>
+              <template x-if="data.ng_inline.length === 0">
+                <div class="dm-empty"><div class="dm-empty-icon">📭</div><div class="dm-empty-text">Tidak ada data NG Inline</div><div class="dm-empty-sub">Coba ubah filter bulan, tanggal, atau line</div></div>
+              </template>
+              <template x-if="data.ng_inline.length > 0">
+                <div class="dm-table-wrap">
+                  <table class="dm-table">
+                    <thead>
+                      <tr>
+                        <th class="cf-th" :class="cfActive('ng_inline','mesin')?'cf-active':''" @click.stop="cfOpen('ng_inline','mesin',$el)"><div class="cf-th-inner">Line</div></th>
+                        <th class="cf-th" :class="cfActive('ng_inline','tanggal')?'cf-active':''" @click.stop="cfOpen('ng_inline','tanggal',$el)"><div class="cf-th-inner">Tanggal</div></th>
+                        <th class="cf-th" :class="cfActive('ng_inline','type_ng')?'cf-active':''" @click.stop="cfOpen('ng_inline','type_ng',$el)"><div class="cf-th-inner">Type</div></th>
+                        <th class="cf-th" :class="cfActive('ng_inline','model')?'cf-active':''" @click.stop="cfOpen('ng_inline','model',$el)"><div class="cf-th-inner">Model</div></th>
+                        <th class="cf-th" :class="cfActive('ng_inline','pic')?'cf-active':''" @click.stop="cfOpen('ng_inline','pic',$el)"><div class="cf-th-inner">PIC</div></th>
+                        <th class="cf-th" :class="cfActive('ng_inline','part_number')?'cf-active':''" @click.stop="cfOpen('ng_inline','part_number',$el)"><div class="cf-th-inner">Part No</div></th>
+                        <th class="cf-th" :class="cfActive('ng_inline','area')?'cf-active':''" @click.stop="cfOpen('ng_inline','area',$el)"><div class="cf-th-inner">Area</div></th>
+                        <th class="cf-th" :class="cfActive('ng_inline','ng_proses')?'cf-active':''" @click.stop="cfOpen('ng_inline','ng_proses',$el)"><div class="cf-th-inner">NG Proses</div></th>
+                        <th class="num cf-th" :class="cfActive('ng_inline','qty')?'cf-active':''" @click.stop="cfOpen('ng_inline','qty',$el)"><div class="cf-th-inner">Qty</div></th>
+                        <th class="num cf-th" :class="cfActive('ng_inline','value')?'cf-active':''" @click.stop="cfOpen('ng_inline','value',$el)"><div class="cf-th-inner">Value</div></th>
+                        <th class="cf-th" :class="cfActive('ng_inline','ng_kategori')?'cf-active':''" @click.stop="cfOpen('ng_inline','ng_kategori',$el)"><div class="cf-th-inner">Kategori</div></th>
+                        <th class="cf-th" :class="cfActive('ng_inline','reason')?'cf-active':''" @click.stop="cfOpen('ng_inline','reason',$el)"><div class="cf-th-inner">Reason</div></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="(r, i) in cfFiltered('ng_inline')" :key="i">
+                        <tr>
+                          <td><span class="line-badge" x-text="r.mesin"></span></td>
+                          <td class="mono" x-text="r.tanggal||'-'"></td>
+                          <td x-text="r.type_ng||'-'"></td>
+                          <td x-text="r.model||'-'"></td>
+                          <td x-text="r.pic||'-'"></td>
+                          <td style="font-weight:500;" x-text="r.part_number||'-'"></td>
+                          <td x-text="r.area||'-'"></td>
+                          <td x-text="r.ng_proses||'-'"></td>
+                          <td class="num mono" x-text="r.qty??'-'"></td>
+                          <td class="num mono" x-text="r.value!=null?Number(r.value).toLocaleString('id-ID'):'-'"></td>
+                          <td x-text="r.ng_kategori||'-'"></td>
+                          <td class="muted" x-text="r.reason||'-'"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <!-- ══════════════════ REPAIR ══════════════════ -->
+        <div class="dm-section" x-show="tab==='repair'" x-cloak>
+          <div class="dm-filter">
+            <div class="dm-filter-cell">
+              <span class="dm-filter-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Bulan</span>
+              <div class="dm-month-wrap">
+                <input type="month" x-model="f.repair.bulan" @change="onBulanChange('repair')">
+                <div class="dm-month-placeholder" x-show="!f.repair.bulan">Pilih bulan</div>
+              </div>
+            </div>
+            <div class="dm-filter-cell">
+              <span class="dm-filter-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><circle cx="12" cy="16" r="1.5" fill="currentColor"/></svg>Tanggal</span>
+              <input type="date" x-model="f.repair.tanggal" @change="onTanggalChange('repair')">
+            </div>
+            <div class="dm-filter-cell">
+              <span class="dm-filter-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>Line</span>
+              <select class="dm-line-select" x-model="f.repair.line" @change="fetchSection('repair')">
+                <option value="">Semua Line</option>
+                <template x-for="ln in LINES" :key="ln"><option :value="ln" x-text="ln"></option></template>
+              </select>
+            </div>
+            <div class="dm-filter-cell grow">
+              <button class="btn-export" @click="exportExcel('repair')" :disabled="loading.repair">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                Export Excel
+              </button>
+            </div>
+          </div>
+          <div class="dm-info-strip" x-show="!loading.repair">
+            <span class="dm-badge-count"><b x-text="cfFiltered('repair').length + ' / ' + data.repair.length"></b> baris</span>
+            <span class="dm-info-dot"></span>
+            <template x-if="f.repair.bulan"><span class="dm-filter-active-tag">📅 <span x-text="fmtBulan(f.repair.bulan)"></span></span></template>
+            <template x-if="f.repair.tanggal"><span class="dm-filter-active-tag">📆 <span x-text="f.repair.tanggal"></span></span></template>
+            <template x-if="f.repair.line"><span class="dm-filter-active-tag">🏭 <span x-text="f.repair.line"></span></span></template>
+            <template x-if="!f.repair.bulan && !f.repair.tanggal && !f.repair.line"><span style="font-size:.78rem;color:var(--muted);">Semua data</span></template>
+          </div>
+          <div class="dm-loading" x-show="loading.repair"><div class="spinner"></div><span>Memuat data repair...</span></div>
+          <template x-if="!loading.repair">
+            <div>
+              <template x-if="data.repair.length === 0">
+                <div class="dm-empty"><div class="dm-empty-icon">📭</div><div class="dm-empty-text">Tidak ada data repair</div><div class="dm-empty-sub">Coba ubah filter bulan, tanggal, atau line</div></div>
+              </template>
+              <template x-if="data.repair.length > 0">
+                <div class="dm-table-wrap">
+                  <table class="dm-table">
+                    <thead>
+                      <tr>
+                        <th class="cf-th" :class="cfActive('repair','mesin')?'cf-active':''" @click.stop="cfOpen('repair','mesin',$el)"><div class="cf-th-inner">Line</div></th>
+                        <th class="cf-th" :class="cfActive('repair','tanggal')?'cf-active':''" @click.stop="cfOpen('repair','tanggal',$el)"><div class="cf-th-inner">Tanggal</div></th>
+                        <th class="cf-th" :class="cfActive('repair','point_label')?'cf-active':''" @click.stop="cfOpen('repair','point_label',$el)"><div class="cf-th-inner">Point</div></th>
+                        <th class="cf-th" :class="cfActive('repair','model')?'cf-active':''" @click.stop="cfOpen('repair','model',$el)"><div class="cf-th-inner">Model</div></th>
+                        <th class="cf-th" :class="cfActive('repair','part_number')?'cf-active':''" @click.stop="cfOpen('repair','part_number',$el)"><div class="cf-th-inner">Part No</div></th>
+                        <th class="num cf-th" :class="cfActive('repair','qty')?'cf-active':''" @click.stop="cfOpen('repair','qty',$el)"><div class="cf-th-inner">Qty</div></th>
+                        <th class="cf-th" :class="cfActive('repair','kategori_repair')?'cf-active':''" @click.stop="cfOpen('repair','kategori_repair',$el)"><div class="cf-th-inner">Kategori</div></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="(r, i) in cfFiltered('repair')" :key="i">
+                        <tr>
+                          <td><span class="line-badge" x-text="r.mesin"></span></td>
+                          <td class="mono" x-text="r.tanggal||'-'"></td>
+                          <td x-text="r.point_label||'-'"></td>
+                          <td x-text="r.model||'-'"></td>
+                          <td style="font-weight:500;" x-text="r.part_number||'-'"></td>
+                          <td class="num mono" x-text="r.qty??'-'"></td>
+                          <td x-text="r.kategori_repair||'-'"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+      </div>
+    </template>
+  </main>
+
+  <!-- ── Column filter dropdown (harus di dalam x-data scope) ── -->
+  <div class="cf-dropdown" x-show="cf.open" x-cloak
+    :style="`top:${cf.y}px;left:${cf.x}px;position:fixed;z-index:9990`"
+    @click.stop>
+    <input class="cf-search" type="text" placeholder="Cari nilai..."
+      x-model="cf.search" @click.stop>
+    <div class="cf-actions">
+      <button class="cf-btn" @click.stop="cfSelectAll()">Pilih Semua</button>
+      <button class="cf-btn" @click.stop="cfClearAll()">Kosongkan</button>
+      <button class="cf-btn" style="flex:0;padding:4px 10px;" @click.stop="cfClose()">✕</button>
+    </div>
+    <div class="cf-list">
+      <template x-if="cfDropdownItems().length === 0">
+        <div class="cf-empty">Tidak ada nilai</div>
+      </template>
+      <template x-for="item in cfDropdownItems()" :key="item">
+        <label class="cf-item" @click.stop>
+          <input type="checkbox" :checked="cfIsChecked(item)" @change.stop="cfToggle(item)">
+          <span class="cf-item-label" :title="item" x-text="item === '-' ? '(kosong)' : item"></span>
+        </label>
+      </template>
+    </div>
+  </div>
+
+  <div class="dm-flash" x-show="flashMsg" x-cloak :class="flashErr?'error':''" x-text="flashMsg"></div>
+</div>
+
+<script>
+function localDateStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function fmtDTLocal(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  if (isNaN(d)) return iso;
+  return `${localDateStr(d)} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+const BULAN_NAMA = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+function durasiMntRaw(a, b) {
+  if (!a || !b) return '';
+  const d = (new Date(b) - new Date(a)) / 60000;
+  return d >= 0 ? Number(d.toFixed(1)) : '';
+}
+function exportToExcel(filename, rows) {
+  if (!window.XLSX) { alert('Fitur Export Excel belum siap, coba lagi.'); return; }
+  if (!rows || rows.length === 0) { alert('Tidak ada data untuk di-export.'); return; }
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const colWidths = Object.keys(rows[0]).map(k => {
+    const maxLen = rows.reduce((m, r) => Math.max(m, String(r[k]??'').length), k.length);
+    return { wch: Math.min(Math.max(maxLen+2, 10), 45) };
+  });
+  ws['!cols'] = colWidths;
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Data');
+  XLSX.writeFile(wb, `${filename}_${localDateStr(new Date())}.xlsx`);
+}
+
+function dataMentah() {
+  const SECTIONS = ['nippo','produksi','downtime','ng_inline','repair'];
+  function bulanBerjalan() {
+    const now = new Date();
+    return now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  }
+  function emptyFilter() { return { bulan: bulanBerjalan(), tanggal:'', line:'' }; }
+  return {
+    session:null, profile:null, ready:false,
+    sidebarCollapsed:true, mobileNavOpen:false,
+    tab:'nippo',
+    LINES:['E-02','E-03','E-04','E-05','E-06','E-07'],
+    f:{ nippo:emptyFilter(), produksi:emptyFilter(), downtime:emptyFilter(), ng_inline:emptyFilter(), repair:emptyFilter() },
+    data:{ nippo:[], produksi:[], downtime:[], ng_inline:[], repair:[] },
+    loading:{ nippo:false, produksi:false, downtime:false, ng_inline:false, repair:false },
+    flashMsg:'', flashErr:false, flashTimer:null,
+
+    // ── Column filter state ──
+    cf: {
+      open: false,
+      section: '',   // 'produksi' | 'downtime' | 'ng_inline' | 'repair'
+      col: '',       // nama field
+      search: '',
+      x: 0, y: 0,
+    },
+    // colFilters[section][col] = Set of checked values (null = semua)
+    colFilters: { nippo:{}, produksi:{}, downtime:{}, ng_inline:{}, repair:{} },
+
+    async init() {
+      const { data:{ session } } = await supabaseClient.auth.getSession();
+      if (!session) { window.location.href='login.html'; return; }
+      this.session = session;
+      const { data:prof } = await supabaseClient.from('profiles').select('*').eq('id',session.user.id).maybeSingle();
+      this.profile = prof;
+      this.ready = true;
+      if (!this.isAdmin()) return;
+      await Promise.all(SECTIONS.map(s => this.fetchSection(s)));
+    },
+
+    isAdmin()        { return this.profile?.role === 'admin'; },
+    isLeaderOrAdmin(){ return this.profile && ['admin','leader'].includes(this.profile.role); },
+    async doLogout() { await supabaseClient.auth.signOut(); window.location.href='login.html'; },
+
+    onBulanChange(s)  { this.f[s].tanggal=''; this.cfResetSection(s); this.fetchSection(s); },
+    onTanggalChange(s){ this.f[s].bulan='';   this.cfResetSection(s); this.fetchSection(s); },
+
+    sectionRange(s) {
+      const f = this.f[s];
+      if (f.tanggal) {
+        const dari=new Date(f.tanggal+'T00:00:00'), sampai=new Date(f.tanggal+'T00:00:00');
+        sampai.setDate(sampai.getDate()+1);
+        return { dari:dari.toISOString(), sampai:sampai.toISOString(), tglDari:f.tanggal, tglSampai:f.tanggal };
+      }
+      if (f.bulan) {
+        const [y,m]=f.bulan.split('-').map(Number);
+        const dari=new Date(y,m-1,1), sampai=new Date(y,m,1);
+        return { dari:dari.toISOString(), sampai:sampai.toISOString(),
+                 tglDari:localDateStr(dari), tglSampai:localDateStr(new Date(y,m,0)) };
+      }
+      return { dari:null, sampai:null, tglDari:null, tglSampai:null };
+    },
+
+    async fetchSection(s) {
+      if (s==='nippo')     return this.fetchNippo();
+      if (s==='produksi')  return this.fetchProduksi();
+      if (s==='downtime')  return this.fetchDowntime();
+      if (s==='ng_inline') return this.fetchNgInline();
+      if (s==='repair')    return this.fetchRepair();
+    },
+
+    async fetchNippo() {
+      this.loading.nippo = true;
+      try {
+        const { dari, sampai } = this.sectionRange('nippo');
+        const lines = this.f.nippo.line ? [this.f.nippo.line] : this.LINES;
+
+        // Fetch production_log & dandori_log paralel — SAMA PERSIS dengan section Produksi
+        const [prodResults, npResults] = await Promise.all([
+          Promise.all(lines.map(ln => {
+            let q = supabaseClient.from('production_log')
+              .select('id,mesin,stasiun,waktu_awal,waktu_akhir,part_number,qty,manpower,repair,dandori_menit,downtime_menit,break_menit,extra')
+              .eq('mesin', ln).order('waktu_awal', {ascending: false}).limit(5000);
+            if (dari)   q = q.gte('waktu_awal', dari);
+            if (sampai) q = q.lt('waktu_awal', sampai);
+            return q;
+          })),
+          Promise.all(lines.map(ln => {
+            let q = supabaseClient.from('dandori_log')
+              .select('id,mesin,stasiun,waktu_awal,waktu_akhir,part_ke,keterangan,part_dari,kategori')
+              .eq('mesin', ln).order('waktu_awal', {ascending: false}).limit(5000);
+            if (dari)   q = q.gte('waktu_awal', dari);
+            if (sampai) q = q.lt('waktu_awal', sampai);
+            return q;
+          }))
+        ]);
+
+        let prodAll = [], npAll = [];
+        for (const {data, error} of prodResults) {
+          if (error) { this.flash('Error Nippo: ' + error.message, true); continue; }
+          prodAll = prodAll.concat(data || []);
+        }
+        for (const {data, error} of npResults) {
+          if (!error) npAll = npAll.concat(data || []);
+        }
+
+        // Helper: shift dari jam lokal
+        function getShift(iso) {
+          if (!iso) return 'FRONT';
+          const d = new Date(iso);
+          const h = d.getHours(), m = d.getMinutes();
+          if (h >= 7 && (h < 19 || (h === 19 && m < 30))) return 'FRONT';
+          return 'AFTER';
+        }
+
+        // Helper: pad 2 digit
+        function pad2(n) { return String(n).padStart(2, '0'); }
+
+        // Helper: info dari waktu_awal
+        function dtInfo(iso) {
+          const d = new Date(iso);
+          return {
+            shift:   getShift(iso),
+            tahun:   d.getFullYear(),
+            bulan:   d.getMonth() + 1,
+            hari:    d.getDate(),
+            start_h: pad2(d.getHours()),
+            start_m: pad2(d.getMinutes()),
+          };
+        }
+        function finishInfo(iso) {
+          if (!iso) return { finish_h: '-', finish_m: '-' };
+          const d = new Date(iso);
+          return { finish_h: pad2(d.getHours()), finish_m: pad2(d.getMinutes()) };
+        }
+
+        // Baris produksi → work_class = 0
+        const prodRows = prodAll.map(r => {
+          const dt = dtInfo(r.waktu_awal);
+          const fi = finishInfo(r.waktu_akhir);
+          return {
+            _tipe: 'produksi',
+            shift:         dt.shift,
+            tahun:         dt.tahun,
+            bulan:         dt.bulan,
+            hari:          dt.hari,
+            proses:        'C',
+            mesin:         r.mesin,
+            work_class:    0,
+            no_parts:      r.part_number || '-',
+            count_stroke:  r.qty ?? '-',
+            start_h:       dt.start_h,
+            start_m:       dt.start_m,
+            finish_h:      fi.finish_h,
+            finish_m:      fi.finish_m,
+            manpower:      r.manpower ?? '-',
+            routing:       r.extra?.routing_type || '-',
+            no_machine:    r.mesin,
+            dandori:       r.dandori_menit ?? 0,
+            stockout:      0,
+            forklift_crane: 0,
+            die_jig:       0,
+            machine_late:  0,
+            lima_s:        0,
+            break_menit:   r.break_menit ?? 0,
+            waktu_awal:    r.waktu_awal, // untuk sort
+          };
+        });
+
+        // Baris non-produksi → work_class = 3
+        const npRows = npAll.map(r => {
+          const dt = dtInfo(r.waktu_awal);
+          const fi = finishInfo(r.waktu_akhir);
+          return {
+            _tipe: 'nonproduksi',
+            shift:         dt.shift,
+            tahun:         dt.tahun,
+            bulan:         dt.bulan,
+            hari:          dt.hari,
+            proses:        'C',
+            mesin:         r.mesin,
+            work_class:    3,
+            no_parts:      r.part_ke || r.keterangan || r.part_dari || '-',
+            count_stroke:  '-',
+            start_h:       dt.start_h,
+            start_m:       dt.start_m,
+            finish_h:      fi.finish_h,
+            finish_m:      fi.finish_m,
+            manpower:      '-',
+            routing:       '-',
+            no_machine:    r.mesin,
+            dandori:       0,
+            stockout:      0,
+            forklift_crane: 0,
+            die_jig:       0,
+            machine_late:  0,
+            lima_s:        0,
+            break_menit:   0,
+            waktu_awal:    r.waktu_awal, // untuk sort
+          };
+        });
+
+        // Gabung & sort: tanggal terbaru → line order → kronologis (sama seperti section Produksi)
+        const LINE_ORDER = {'E-02':0,'E-03':1,'E-04':2,'E-05':3,'E-06':4,'E-07':5};
+        const all = [...prodRows, ...npRows];
+        all.sort((a, b) => {
+          const dayA = a.waktu_awal.slice(0, 10), dayB = b.waktu_awal.slice(0, 10);
+          if (dayA !== dayB) return dayB.localeCompare(dayA);       // hari terbaru dulu
+          const la = LINE_ORDER[a.mesin] ?? 99, lb = LINE_ORDER[b.mesin] ?? 99;
+          if (la !== lb) return la - lb;                             // E-02 sebelum E-03 dst
+          return new Date(a.waktu_awal) - new Date(b.waktu_awal);   // kronologis dalam line+hari
+        });
+
+        this.data.nippo = all;
+      } finally {
+        this.loading.nippo = false;
+      }
+    },
+
+    async fetchProduksi() {
+      this.loading.produksi=true;
+      try {
+        const{dari,sampai}=this.sectionRange('produksi');
+        const lines=this.f.produksi.line?[this.f.produksi.line]:this.LINES;
+
+        // Fetch production_log & dandori_log paralel per line
+        const [prodResults, npResults] = await Promise.all([
+          Promise.all(lines.map(ln=>{
+            let q=supabaseClient.from('production_log')
+              .select('id,mesin,stasiun,waktu_awal,waktu_akhir,part_number,qty,repair,dandori_menit,downtime_menit,break_menit')
+              .eq('mesin',ln).order('waktu_awal',{ascending:false}).limit(5000);
+            if(dari)   q=q.gte('waktu_awal',dari);
+            if(sampai) q=q.lt('waktu_awal',sampai);
+            return q;
+          })),
+          Promise.all(lines.map(ln=>{
+            let q=supabaseClient.from('dandori_log')
+              .select('id,mesin,stasiun,waktu_awal,waktu_akhir,part_ke,part_dari,keterangan,kategori')
+              .eq('mesin',ln).order('waktu_awal',{ascending:false}).limit(5000);
+            if(dari)   q=q.gte('waktu_awal',dari);
+            if(sampai) q=q.lt('waktu_awal',sampai);
+            return q;
+          }))
+        ]);
+
+        let prodAll=[];
+        for(const{data,error}of prodResults){ if(error){this.flash('Error Produksi: '+error.message,true);continue;} prodAll=prodAll.concat(data||[]); }
+
+        // Join NG Inline qty ke production_log
+        const ids=prodAll.map(r=>r.id).filter(Boolean);
+        let ngByRow={};
+        if(ids.length>0){
+          const{data:ngData}=await supabaseClient.from('ng_inline_log').select('production_log_id,qty').in('production_log_id',ids);
+          (ngData||[]).forEach(r=>{ ngByRow[r.production_log_id]=(ngByRow[r.production_log_id]||0)+(Number(r.qty)||0); });
+        }
+        prodAll=prodAll.map(r=>({...r,_tipe:'produksi',ng_inline_qty:ngByRow[r.id]||0}));
+
+        let npAll=[];
+        for(const{data,error}of npResults){ if(error){this.flash('Error Non-Produksi: '+error.message,true);continue;} npAll=npAll.concat(data||[]); }
+        npAll=npAll.map(r=>({...r,_tipe:'nonproduksi'}));
+
+        // Gabung & sort: hari terbaru dulu → dalam hari yang sama: per line (E-02..E-07) → kronologis
+        const LINE_ORDER = {'E-02':0,'E-03':1,'E-04':2,'E-05':3,'E-06':4,'E-07':5};
+        let all=[...prodAll,...npAll];
+        all.sort((a,b)=>{
+          const dayA=a.waktu_awal.slice(0,10), dayB=b.waktu_awal.slice(0,10);
+          if(dayA!==dayB) return dayB.localeCompare(dayA);          // hari terbaru dulu
+          const la=(LINE_ORDER[a.mesin]??99), lb=(LINE_ORDER[b.mesin]??99);
+          if(la!==lb) return la-lb;                                  // E-02 sebelum E-03 dst
+          return new Date(a.waktu_awal)-new Date(b.waktu_awal);     // kronologis dalam line+hari
+        });
+        this.data.produksi=all;
+      } finally { this.loading.produksi=false; }
+    },
+
+    async fetchDowntime() {
+      this.loading.downtime=true;
+      try {
+        const{dari,sampai}=this.sectionRange('downtime');
+        const lines=this.f.downtime.line?[this.f.downtime.line]:this.LINES;
+        const results=await Promise.all(lines.map(ln=>{
+          let q=supabaseClient.from('downtime_log').select('*').eq('mesin',ln).order('waktu_awal',{ascending:false}).limit(5000);
+          if(dari)   q=q.gte('waktu_awal',dari);
+          if(sampai) q=q.lt('waktu_awal',sampai);
+          return q;
+        }));
+        let all=[];
+        for(const{data,error}of results){ if(error){this.flash('Error: '+error.message,true);continue;} all=all.concat(data||[]); }
+        all.sort((a,b)=>new Date(b.waktu_awal)-new Date(a.waktu_awal));
+        this.data.downtime=all;
+      } finally { this.loading.downtime=false; }
+    },
+
+    async fetchNgInline() {
+      this.loading.ng_inline=true;
+      try {
+        const{tglDari,tglSampai}=this.sectionRange('ng_inline');
+        const lines=this.f.ng_inline.line?[this.f.ng_inline.line]:this.LINES;
+        const results=await Promise.all(lines.map(ln=>{
+          let q=supabaseClient.from('ng_inline_log').select('*').eq('mesin',ln).order('tanggal',{ascending:false}).limit(5000);
+          if(tglDari)   q=q.gte('tanggal',tglDari);
+          if(tglSampai) q=q.lte('tanggal',tglSampai);
+          return q;
+        }));
+        let all=[];
+        for(const{data,error}of results){ if(error){this.flash('Error: '+error.message,true);continue;} all=all.concat(data||[]); }
+        all.sort((a,b)=>b.tanggal>a.tanggal?1:b.tanggal<a.tanggal?-1:0);
+        this.data.ng_inline=all;
+      } finally { this.loading.ng_inline=false; }
+    },
+
+    async fetchRepair() {
+      this.loading.repair=true;
+      try {
+        const{tglDari,tglSampai}=this.sectionRange('repair');
+        const lines=this.f.repair.line?[this.f.repair.line]:this.LINES;
+        const results=await Promise.all(lines.map(ln=>{
+          let q=supabaseClient.from('repair_log').select('*').eq('mesin',ln).order('tanggal',{ascending:false}).limit(5000);
+          if(tglDari)   q=q.gte('tanggal',tglDari);
+          if(tglSampai) q=q.lte('tanggal',tglSampai);
+          return q;
+        }));
+        let all=[];
+        for(const{data,error}of results){ if(error){this.flash('Error: '+error.message,true);continue;} all=all.concat(data||[]); }
+        all.sort((a,b)=>b.tanggal>a.tanggal?1:b.tanggal<a.tanggal?-1:0);
+        this.data.repair=all;
+      } finally { this.loading.repair=false; }
+    },
+
+    exportExcel(s) {
+      const f=this.f[s], label=f.tanggal||f.bulan||'semua', line=f.line||'Semua_Line';
+      if(s==='nippo') exportToExcel(`DataMentah_Nippo_${f.line||'Semua_Line'}_${label}`,
+        this.data.nippo.map(r=>({
+          'Sift': r.shift,
+          'Month': r.bulan, 'Day': r.hari, 'Year': r.tahun,
+          'Proses': r.proses, 'Line': r.mesin,
+          'Work Class': r.work_class??'-',
+          'No Parts': r.no_parts||'-',
+          'Count Stroke': r.count_stroke??'',
+          'Start (H)': r.start_h??'', 'Start (M)': r.start_m??'',
+          'Finish (H)': r.finish_h??'', 'Finish (M)': r.finish_m??'',
+          'Manpower': r.manpower??'', 'Routing': r.routing||'-',
+          'No. Machine': r.no_machine||'-',
+          'Dandori': r.dandori??'',
+          'Stockout': r.stockout??'', 'Forklift/Crane': r.forklift_crane??'',
+          'Die/Jig': r.die_jig??'', 'Machine Late': r.machine_late??'',
+          '5S': r.lima_s??'', 'Break': r.break_menit??'',
+        })));
+      else if(s==='produksi') exportToExcel(`DataMentah_Produksi_${line}_${label}`, this.data.produksi.map(r=>({'Line':r.mesin||'-','Waktu Awal':fmtDTLocal(r.waktu_awal),'Waktu Akhir':fmtDTLocal(r.waktu_akhir),'Part / Jenis':r._tipe==='produksi'?(r.part_number||'-'):(r.part_ke||r.keterangan||r.part_dari||'-'),'Qty':r._tipe==='produksi'?(r.qty??''):'-','NG Inline':r._tipe==='produksi'?(r.ng_inline_qty??0):'-','Repair':r._tipe==='produksi'?(r.repair??0):'-','Dandori (mnt)':r._tipe==='produksi'?(r.dandori_menit??''):'-','Downtime (mnt)':r._tipe==='produksi'?(r.downtime_menit??''):'-','Break (mnt)':r._tipe==='produksi'?(r.break_menit??''):'-'})));
+      else if(s==='downtime') exportToExcel(`DataMentah_Downtime_${line}_${label}`, this.data.downtime.map(r=>({'Line':r.mesin||'-','Waktu Awal':fmtDTLocal(r.waktu_awal),'Waktu Akhir':fmtDTLocal(r.waktu_akhir),'Durasi (menit)':durasiMntRaw(r.waktu_awal,r.waktu_akhir),'Kategori':r.kategori||'-','PIC':r.pic||'-','Waktu Tunggu':r.waktu_tunggu??'-','Keterangan':r.ket||'-','Problem Kategori':r.problem||'-','Problem Detail':r.penyebab||'-','Area':r.area||'-','Countermeasure':r.countermeasure||'-','Total Losstime':durasiMntRaw(r.waktu_awal,r.waktu_akhir),'Status':r.status||'-'})));
+      else if(s==='ng_inline') exportToExcel(`DataMentah_NG_Inline_${line}_${label}`, this.data.ng_inline.map(r=>({'Line':r.mesin||'-','Tanggal':r.tanggal||'-','Type':r.type_ng||'-','Model':r.model||'-','PIC':r.pic||'-','Part No':r.part_number||'-','Area':r.area||'-','NG Proses':r.ng_proses||'-','Qty':r.qty??'','Value (Rp)':r.value??'','Kategori':r.ng_kategori||'-','Reason':r.reason||'-'})));
+      else if(s==='repair') exportToExcel(`DataMentah_Repair_${line}_${label}`, this.data.repair.map(r=>({'Line':r.mesin||'-','Tanggal':r.tanggal||'-','Point':r.point_label||'-','Model':r.model||'-','Part No':r.part_number||'-','Qty':r.qty??'','Kategori Repair':r.kategori_repair||'-'})));
+    },
+
+    fmtDT(iso){ return fmtDTLocal(iso); },
+    durasiMnt(a,b){
+      if(!a||!b) return '-';
+      const d=(new Date(b)-new Date(a))/60000;
+      return d>=0 ? d.toFixed(1)+' mnt' : '-';
+    },
+    fmtMnt(v){ if(v===null||v===undefined||v==='') return '-'; return Number(v).toLocaleString('en-US',{maximumFractionDigits:1}); },
+    fmtBulan(ym) {
+      if(!ym) return '';
+      const [y,m]=ym.split('-');
+      return `${BULAN_NAMA[parseInt(m)-1]} ${y}`;
+    },
+    // ── Column filter methods ──
+    // Ambil nilai display per baris per kolom
+    cfCellVal(section, row, col) {
+      if (section === 'nippo') {
+        const v = row[col];
+        if (v === null || v === undefined) return '-';
+        return String(v);
+      }
+      if (col === '_part') return row._tipe==='produksi' ? (row.part_number||'-') : (row.part_ke||row.keterangan||row.part_dari||'-');
+      if (col === '_durasi') return this.durasiMnt(row.waktu_awal, row.waktu_akhir);
+      if (col === '_losstime') return this.durasiMnt(row.waktu_awal, row.waktu_akhir);
+      if (col === 'waktu_awal' || col === 'waktu_akhir') return this.fmtDT(row[col]);
+      const v = row[col];
+      if (v === null || v === undefined) return '-';
+      return String(v);
+    },
+
+    // Semua unique values untuk kolom aktif
+    cfAllValues() {
+      const rows = this.data[this.cf.section] || [];
+      const seen = new Set();
+      rows.forEach(r => seen.add(this.cfCellVal(this.cf.section, r, this.cf.col)));
+      return Array.from(seen).sort((a,b) => a.localeCompare(b, 'id', {numeric:true}));
+    },
+
+    // Values yang cocok dengan search
+    cfDropdownItems() {
+      const q = (this.cf.search||'').toLowerCase();
+      return this.cfAllValues().filter(v => !q || v.toLowerCase().includes(q));
+    },
+
+    // Apakah filter aktif untuk kolom ini
+    cfActive(section, col) {
+      return !!this.colFilters[section]?.[col];
+    },
+
+    // Apakah value ini dicentang
+    cfIsChecked(val) {
+      const f = this.colFilters[this.cf.section]?.[this.cf.col];
+      if (!f) return true;
+      return f.has(val);
+    },
+
+    cfToggle(val) {
+      const s = this.cf.section, c = this.cf.col;
+      if (!this.colFilters[s][c]) {
+        // Mulai dari semua dicentang, baru uncheck yang ini
+        const all = new Set(this.cfAllValues());
+        all.delete(val);
+        this.colFilters[s][c] = all;
+      } else {
+        const f = this.colFilters[s][c];
+        if (f.has(val)) f.delete(val); else f.add(val);
+        // Kalau sudah sama dengan semua nilai → hapus filter (null = semua)
+        const allVals = this.cfAllValues();
+        if (f.size === allVals.length) delete this.colFilters[s][c];
+      }
+      // Trigger Alpine reactivity
+      this.colFilters = { ...this.colFilters };
+    },
+
+    cfSelectAll() {
+      const s = this.cf.section, c = this.cf.col;
+      delete this.colFilters[s][c];
+      this.colFilters = { ...this.colFilters };
+    },
+
+    cfClearAll() {
+      const s = this.cf.section, c = this.cf.col;
+      this.colFilters[s][c] = new Set();
+      this.colFilters = { ...this.colFilters };
+    },
+
+    cfOpen(section, col, el) {
+      // Kalau dropdown sudah buka untuk kolom yang sama → tutup
+      if (this.cf.open && this.cf.section === section && this.cf.col === col) {
+        this.cf.open = false; return;
+      }
+      const rect = el.getBoundingClientRect();
+      // Hitung posisi — jaga biar tidak keluar layar kanan
+      let x = rect.left;
+      if (x + 260 > window.innerWidth) x = window.innerWidth - 270;
+      this.cf = { open:true, section, col, search:'', x, y: rect.bottom + 2 };
+    },
+
+    cfClose() { this.cf.open = false; },
+
+    // Rows yang sudah difilter per section
+    cfFiltered(section) {
+      const rows = this.data[section] || [];
+      const filters = this.colFilters[section] || {};
+      const activeCols = Object.keys(filters).filter(c => filters[c] && filters[c].size > 0);
+      if (activeCols.length === 0) return rows;
+      return rows.filter(row =>
+        activeCols.every(col => {
+          const f = filters[col];
+          const v = this.cfCellVal(section, row, col);
+          return f.has(v);
+        })
+      );
+    },
+
+    // Reset semua filter kolom untuk satu section
+    cfResetSection(section) {
+      this.colFilters[section] = {};
+      this.colFilters = { ...this.colFilters };
+    },
+
+    flash(msg,isErr=false){ this.flashMsg=msg; this.flashErr=isErr; clearTimeout(this.flashTimer); this.flashTimer=setTimeout(()=>{this.flashMsg='';},3500); },
+  };
+}
+</script>
+
+</body>
+</html>

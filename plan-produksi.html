@@ -42,7 +42,10 @@
       <template x-if="isLeaderOrAdmin()">
         <a href="input-attendance.html" class="sidebar-link" title="Attendance"><span>👥</span><span x-show="!sidebarCollapsed">Attendance</span></a>
       </template>
-      <template x-if="isLeaderOrAdmin()">
+            <template x-if="isAdmin()">
+        <a href="data-mentah.html" class="sidebar-link" title="Data Mentah"><span>🗃️</span><span x-show="!sidebarCollapsed">Data Mentah</span></a>
+      </template>
+<template x-if="isLeaderOrAdmin()">
         <a href="master-data.html" class="sidebar-link" title="Master Data"><span>🗂️</span><span x-show="!sidebarCollapsed">Master Data</span></a>
       </template>
     </nav>
@@ -301,6 +304,8 @@ function planProduksi() {
     chart: null,
     form: { part_number: "", mesin: "E-02", shift: "1", qty_rencana: "" },
     backlogForm: { part_number: "", backlog: "" },
+
+        isAdmin() { return this.profile?.role === "admin"; },
 
     isLeaderOrAdmin() { return this.profile && ["admin", "leader"].includes(this.profile.role); },
     toggleTheme() {

@@ -370,6 +370,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       harian: { anchor: localDateStr(new Date()), loading: false, loaded: false, data: null, trend: [], chart: null, pieChart: null, top5: [], byCategory: [] },
     },
 
+    isAdmin() {
+      return this.profile?.role === "admin";
+    },
+
     isLeaderOrAdmin() {
       return this.profile && ["admin", "leader"].includes(this.profile.role);
     },

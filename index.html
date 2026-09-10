@@ -43,7 +43,10 @@
       <template x-if="isLeaderOrAdmin()">
         <a href="input-attendance.html" class="sidebar-link" title="Attendance"><span>👥</span><span x-show="!sidebarCollapsed">Attendance</span></a>
       </template>
-      <template x-if="isLeaderOrAdmin()">
+            <template x-if="isAdmin()">
+        <a href="data-mentah.html" class="sidebar-link" title="Data Mentah"><span>🗃️</span><span x-show="!sidebarCollapsed">Data Mentah</span></a>
+      </template>
+<template x-if="isLeaderOrAdmin()">
         <a href="master-data.html" class="sidebar-link" title="Master Data"><span>🗂️</span><span x-show="!sidebarCollapsed">Master Data</span></a>
       </template>
     </nav>
@@ -649,6 +652,8 @@ function dashboard() {
     absenForm: { tanggal: localDateStr(new Date()), shift: "1", total_orang: "", hadir: "", cuti: "", absen: "", overtime_jam: "" },
     achievementPct: 0,
     ngRatePct: 0, downtimePct: 0,
+        isAdmin() { return this.profile?.role === "admin"; },
+
     isLeaderOrAdmin() { return this.profile && ["admin", "leader"].includes(this.profile.role); },
     cardStatus(val, greenAt, amberAt) {
       const v = Number(val) || 0;
