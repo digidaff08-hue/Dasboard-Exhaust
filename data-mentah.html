@@ -348,7 +348,7 @@ input[type="month"]:focus {
   text-transform: uppercase;
   letter-spacing: .04em;
   padding: 7px 7px;
-  text-align: left;
+  text-align: center;
   border-bottom: 2px solid var(--border);
   white-space: nowrap;
   position: sticky;
@@ -363,12 +363,13 @@ input[type="month"]:focus {
   white-space: nowrap;
   vertical-align: middle;
   font-size: 0.79rem;
+  text-align: center;
 }
 .dm-table tbody tr:last-child td { border-bottom: none; }
 .dm-table tbody tr:hover td { background: rgba(194,96,12,.03); }
 .dm-table .mono { font-family: var(--font-mono); font-size: 0.75rem; }
 .dm-table .muted { color: var(--muted); }
-.dm-table .num { text-align: right; }
+.dm-table .num { text-align: center; }
 
 /* Kolom teks panjang — truncate + tooltip on hover */
 .dm-table td.cell-trunc {
@@ -707,24 +708,24 @@ input[type="month"]:focus {
                           <td class="mono" x-text="r.hari"></td>
                           <td class="mono" x-text="r.tahun"></td>
                           <td x-text="r.proses"></td>
-                          <td><span class="line-badge" x-text="r.mesin"></span></td>
-                          <td class="mono" x-text="r.work_class ?? '-'"></td>
-                          <td class="cell-trunc" :title="r.no_parts||''" x-text="r.no_parts||'-'"></td>
-                          <td class="num mono" x-text="r.count_stroke ?? '-'"></td>
-                          <td class="num mono" x-text="r.start_h ?? '-'"></td>
-                          <td class="num mono" x-text="r.start_m ?? '-'"></td>
-                          <td class="num mono" x-text="r.finish_h ?? '-'"></td>
-                          <td class="num mono" x-text="r.finish_m ?? '-'"></td>
-                          <td class="num mono" x-text="r.manpower ?? '-'"></td>
-                          <td x-text="r.routing||'-'"></td>
-                          <td><span class="line-badge" x-text="r.no_machine"></span></td>
-                          <td class="num mono" x-text="fmtMnt(r.dandori)"></td>
-                          <td class="num mono" x-text="fmtMnt(r.stockout)"></td>
-                          <td class="num mono" x-text="fmtMnt(r.forklift_crane)"></td>
-                          <td class="num mono" x-text="fmtMnt(r.die_jig)"></td>
-                          <td class="num mono" x-text="fmtMnt(r.machine_late)"></td>
-                          <td class="num mono" x-text="fmtMnt(r.lima_s)"></td>
-                          <td class="num mono" x-text="fmtMnt(r.break_menit)"></td>
+                          <td x-text="r.mesin"></td>
+                          <td class="mono" x-text="r.work_class !== '' ? r.work_class : ''"></td>
+                          <td class="cell-trunc" :title="r.no_parts||''" x-text="r.no_parts"></td>
+                          <td class="num mono" x-text="r.count_stroke !== '' ? r.count_stroke : ''"></td>
+                          <td class="num mono" x-text="r.start_h"></td>
+                          <td class="num mono" x-text="r.start_m"></td>
+                          <td class="num mono" x-text="r.finish_h"></td>
+                          <td class="num mono" x-text="r.finish_m"></td>
+                          <td class="num mono" x-text="r.manpower !== '' ? r.manpower : ''"></td>
+                          <td x-text="r.routing"></td>
+                          <td x-text="r.no_machine"></td>
+                          <td class="num mono" x-text="r.dandori !== '' && Number(r.dandori) !== 0 ? r.dandori : ''"></td>
+                          <td class="num mono" x-text="r.stockout !== '' && Number(r.stockout) !== 0 ? r.stockout : ''"></td>
+                          <td class="num mono" x-text="r.forklift_crane !== '' && Number(r.forklift_crane) !== 0 ? r.forklift_crane : ''"></td>
+                          <td class="num mono" x-text="r.die_jig !== '' && Number(r.die_jig) !== 0 ? r.die_jig : ''"></td>
+                          <td class="num mono" x-text="r.machine_late !== '' && Number(r.machine_late) !== 0 ? r.machine_late : ''"></td>
+                          <td class="num mono" x-text="r.lima_s !== '' && Number(r.lima_s) !== 0 ? r.lima_s : ''"></td>
+                          <td class="num mono" x-text="r.break_menit !== '' && Number(r.break_menit) !== 0 ? r.break_menit : ''"></td>
                         </tr>
                       </template>
                     </tbody>
@@ -1245,11 +1246,26 @@ function dataMentah() {
         const { dari, sampai } = this.sectionRange('nippo');
         const lines = this.f.nippo.line ? [this.f.nippo.line] : this.LINES;
 
-        // Fetch production_log & dandori_log paralel — SAMA PERSIS dengan section Produksi
-        const [prodResults, npResults] = await Promise.all([
+        // 1. Ambil std_mp rata-rata per line dari part_numbers
+        const mpByLine = {};
+        const mpRes = await supabaseClient
+          .from('part_numbers').select('mesin,std_mp')
+          .in('mesin', lines).not('std_mp', 'is', null);
+        if (!mpRes.error) {
+          const sums = {}, counts = {};
+          for (const r of mpRes.data || []) {
+            sums[r.mesin]   = (sums[r.mesin]   || 0) + Number(r.std_mp);
+            counts[r.mesin] = (counts[r.mesin] || 0) + 1;
+          }
+          for (const ln of lines)
+            mpByLine[ln] = counts[ln] ? Math.round(sums[ln] / counts[ln]) : '';
+        }
+
+        // 2. Fetch production_log + dandori_log + downtime_log paralel
+        const [prodResults, npResults, dtResults] = await Promise.all([
           Promise.all(lines.map(ln => {
             let q = supabaseClient.from('production_log')
-              .select('id,mesin,stasiun,waktu_awal,waktu_akhir,part_number,qty,manpower,repair,dandori_menit,downtime_menit,break_menit,extra')
+              .select('id,mesin,waktu_awal,waktu_akhir,part_number,qty,manpower,dandori_menit,downtime_menit,break_menit,extra')
               .eq('mesin', ln).order('waktu_awal', {ascending: false}).limit(5000);
             if (dari)   q = q.gte('waktu_awal', dari);
             if (sampai) q = q.lt('waktu_awal', sampai);
@@ -1257,24 +1273,92 @@ function dataMentah() {
           })),
           Promise.all(lines.map(ln => {
             let q = supabaseClient.from('dandori_log')
-              .select('id,mesin,stasiun,waktu_awal,waktu_akhir,part_ke,keterangan,part_dari,kategori')
+              .select('id,mesin,waktu_awal,waktu_akhir,part_ke,keterangan,part_dari,kategori')
               .eq('mesin', ln).order('waktu_awal', {ascending: false}).limit(5000);
+            if (dari)   q = q.gte('waktu_awal', dari);
+            if (sampai) q = q.lt('waktu_awal', sampai);
+            return q;
+          })),
+          Promise.all(lines.map(ln => {
+            let q = supabaseClient.from('downtime_log')
+              .select('mesin,waktu_awal,waktu_akhir,pic')
+              .eq('mesin', ln).order('waktu_awal', {ascending: true}).limit(5000);
             if (dari)   q = q.gte('waktu_awal', dari);
             if (sampai) q = q.lt('waktu_awal', sampai);
             return q;
           }))
         ]);
 
-        let prodAll = [], npAll = [];
-        for (const {data, error} of prodResults) {
-          if (error) { this.flash('Error Nippo: ' + error.message, true); continue; }
-          prodAll = prodAll.concat(data || []);
-        }
-        for (const {data, error} of npResults) {
-          if (!error) npAll = npAll.concat(data || []);
+        let prodAll = [], npAll = [], dtAll = [];
+        for (const {data,error} of prodResults) { if (!error) prodAll = prodAll.concat(data||[]); }
+        for (const {data,error} of npResults)   { if (!error) npAll   = npAll.concat(data||[]); }
+        for (const {data,error} of dtResults)   { if (!error) dtAll   = dtAll.concat(data||[]); }
+
+        // 3. Mapping PIC → kolom Nippo
+        // PC-SUPP → stockout | PRESS,QC → forklift_crane | PE → die_jig | MESIN,PROD → machine_late
+        function picToKolom(pic) {
+          if (!pic) return null;
+          const p = pic.toUpperCase().trim();
+          if (p === 'PC-SUPP')              return 'stockout';
+          if (p === 'PRESS' || p === 'QC')  return 'forklift_crane';
+          if (p === 'PE')                   return 'die_jig';
+          if (p === 'MESIN' || p === 'PROD')return 'machine_late';
+          return null;
         }
 
-        // Helper: shift dari jam lokal
+        // 4. Untuk tiap baris produksi, cari downtime yang overlap waktu di mesin yang sama
+        //    lalu ambil downtime_menit dari production_log dan kelompokkan per kolom PIC
+        function getDowntimeCols(prodRow) {
+          const cols = { stockout:'', forklift_crane:'', die_jig:'', machine_late:'', lima_s:'' };
+          if (!prodRow.downtime_menit || Number(prodRow.downtime_menit) === 0) return cols;
+
+          const pStart = new Date(prodRow.waktu_awal).getTime();
+          const pEnd   = new Date(prodRow.waktu_akhir).getTime();
+
+          // Cari semua downtime yang overlap dengan baris produksi ini
+          // Toleransi 60 detik untuk menangani batas waktu yang persis sama
+          const TOLERANSI_MS = 60 * 1000;
+          const matched = dtAll.filter(dt => {
+            if (dt.mesin !== prodRow.mesin) return false;
+            const dStart = new Date(dt.waktu_awal).getTime();
+            const dEnd   = new Date(dt.waktu_akhir).getTime();
+            // Overlap: downtime mulai sebelum produksi selesai DAN downtime selesai setelah produksi mulai
+            // Dengan toleransi: perluas sedikit window produksi
+            return dStart < (pEnd + TOLERANSI_MS) && dEnd > (pStart - TOLERANSI_MS);
+          });
+
+          if (matched.length === 0) {
+            // Tidak ada downtime match → kosongkan semua (jangan fallback ke machine_late)
+            return cols;
+          }
+
+          const totMenit = Number(prodRow.downtime_menit) || 0;
+
+          // Hitung total durasi downtime yang match (pakai kalkulasi waktu)
+          const totalDurasi = matched.reduce((sum, dt) => {
+            const durs = (new Date(dt.waktu_akhir) - new Date(dt.waktu_awal)) / 60000;
+            return sum + (durs > 0 ? durs : 0);
+          }, 0);
+
+          // Akumulasi per kolom PIC, proporsional terhadap durasi masing-masing
+          const kolAcc = { stockout:0, forklift_crane:0, die_jig:0, machine_late:0, lima_s:0 };
+          for (const dt of matched) {
+            const kol = picToKolom(dt.pic);
+            if (!kol) continue;
+            const durasi = (new Date(dt.waktu_akhir) - new Date(dt.waktu_awal)) / 60000;
+            const prop   = totalDurasi > 0 ? durasi / totalDurasi : 1 / matched.length;
+            kolAcc[kol] += totMenit * prop;
+          }
+
+          // Bulatkan 1 desimal, kosongkan kalau 0
+          for (const k of Object.keys(kolAcc)) {
+            const v = Math.round(kolAcc[k] * 10) / 10;
+            cols[k] = v > 0 ? v : '';
+          }
+          return cols;
+        }
+
+        // 5. Helper waktu
         function getShift(iso) {
           if (!iso) return 'FRONT';
           const d = new Date(iso);
@@ -1282,105 +1366,82 @@ function dataMentah() {
           if (h >= 7 && (h < 19 || (h === 19 && m < 30))) return 'FRONT';
           return 'AFTER';
         }
-
-        // Helper: pad 2 digit
-        function pad2(n) { return String(n).padStart(2, '0'); }
-
-        // Helper: info dari waktu_awal
+        function pad2(n) { return String(n ?? '').padStart(2, '0'); }
         function dtInfo(iso) {
           const d = new Date(iso);
           return {
-            shift:   getShift(iso),
-            tahun:   d.getFullYear(),
-            bulan:   d.getMonth() + 1,
-            hari:    d.getDate(),
-            start_h: pad2(d.getHours()),
-            start_m: pad2(d.getMinutes()),
+            shift: getShift(iso), tahun: d.getFullYear(),
+            bulan: d.getMonth()+1, hari: d.getDate(),
+            start_h: pad2(d.getHours()), start_m: pad2(d.getMinutes()),
           };
         }
         function finishInfo(iso) {
-          if (!iso) return { finish_h: '-', finish_m: '-' };
+          if (!iso) return { finish_h:'', finish_m:'' };
           const d = new Date(iso);
           return { finish_h: pad2(d.getHours()), finish_m: pad2(d.getMinutes()) };
         }
+        function isRealPartNo(val) {
+          return !!(val && val.trim().length > 2);
+        }
 
-        // Baris produksi → work_class = 0
+        // 6. Baris produksi
         const prodRows = prodAll.map(r => {
           const dt = dtInfo(r.waktu_awal);
           const fi = finishInfo(r.waktu_akhir);
+          const hasPart = isRealPartNo(r.part_number);
+          const dtCols = getDowntimeCols(r);
           return {
-            _tipe: 'produksi',
-            shift:         dt.shift,
-            tahun:         dt.tahun,
-            bulan:         dt.bulan,
-            hari:          dt.hari,
-            proses:        'C',
-            mesin:         r.mesin,
-            work_class:    0,
-            no_parts:      r.part_number || '-',
-            count_stroke:  r.qty ?? '-',
-            start_h:       dt.start_h,
-            start_m:       dt.start_m,
-            finish_h:      fi.finish_h,
-            finish_m:      fi.finish_m,
-            manpower:      r.manpower ?? '-',
-            routing:       r.extra?.routing_type || '-',
-            no_machine:    r.mesin,
-            dandori:       r.dandori_menit ?? 0,
-            stockout:      0,
-            forklift_crane: 0,
-            die_jig:       0,
-            machine_late:  0,
-            lima_s:        0,
-            break_menit:   r.break_menit ?? 0,
-            waktu_awal:    r.waktu_awal, // untuk sort
+            _tipe: 'produksi', waktu_awal: r.waktu_awal,
+            shift: dt.shift, tahun: dt.tahun, bulan: dt.bulan, hari: dt.hari,
+            proses: 'C', mesin: r.mesin,
+            work_class:    hasPart ? 0 : 3,
+            no_parts:      r.part_number || '',
+            count_stroke:  r.qty != null ? r.qty : '',
+            start_h: dt.start_h, start_m: dt.start_m,
+            finish_h: fi.finish_h, finish_m: fi.finish_m,
+            manpower:      hasPart ? (r.manpower != null ? r.manpower : '') : (mpByLine[r.mesin] ?? ''),
+            routing:       r.extra?.routing_type || '',
+            no_machine:    hasPart ? r.mesin : '',
+            dandori:       r.dandori_menit || '',
+            stockout:      dtCols.stockout,
+            forklift_crane:dtCols.forklift_crane,
+            die_jig:       dtCols.die_jig,
+            machine_late:  dtCols.machine_late,
+            lima_s:        dtCols.lima_s,
+            break_menit:   r.break_menit || '',
           };
         });
 
-        // Baris non-produksi → work_class = 3
+        // 7. Baris non-produksi
         const npRows = npAll.map(r => {
           const dt = dtInfo(r.waktu_awal);
           const fi = finishInfo(r.waktu_akhir);
           return {
-            _tipe: 'nonproduksi',
-            shift:         dt.shift,
-            tahun:         dt.tahun,
-            bulan:         dt.bulan,
-            hari:          dt.hari,
-            proses:        'C',
-            mesin:         r.mesin,
-            work_class:    3,
-            no_parts:      r.part_ke || r.keterangan || r.part_dari || '-',
-            count_stroke:  '-',
-            start_h:       dt.start_h,
-            start_m:       dt.start_m,
-            finish_h:      fi.finish_h,
-            finish_m:      fi.finish_m,
-            manpower:      '-',
-            routing:       '-',
-            no_machine:    r.mesin,
-            dandori:       0,
-            stockout:      0,
-            forklift_crane: 0,
-            die_jig:       0,
-            machine_late:  0,
-            lima_s:        0,
-            break_menit:   0,
-            waktu_awal:    r.waktu_awal, // untuk sort
+            _tipe: 'nonproduksi', waktu_awal: r.waktu_awal,
+            shift: dt.shift, tahun: dt.tahun, bulan: dt.bulan, hari: dt.hari,
+            proses: 'C', mesin: r.mesin,
+            work_class: 3,
+            no_parts:      r.part_ke || r.keterangan || r.part_dari || '',
+            count_stroke:  '',
+            start_h: dt.start_h, start_m: dt.start_m,
+            finish_h: fi.finish_h, finish_m: fi.finish_m,
+            manpower:      mpByLine[r.mesin] ?? '',
+            routing: '', no_machine: '',
+            dandori: '', stockout: '', forklift_crane: '',
+            die_jig: '', machine_late: '', lima_s: '', break_menit: '',
           };
         });
 
-        // Gabung & sort: tanggal terbaru → line order → kronologis (sama seperti section Produksi)
+        // 8. Gabung & sort
         const LINE_ORDER = {'E-02':0,'E-03':1,'E-04':2,'E-05':3,'E-06':4,'E-07':5};
         const all = [...prodRows, ...npRows];
-        all.sort((a, b) => {
-          const dayA = a.waktu_awal.slice(0, 10), dayB = b.waktu_awal.slice(0, 10);
-          if (dayA !== dayB) return dayB.localeCompare(dayA);       // hari terbaru dulu
-          const la = LINE_ORDER[a.mesin] ?? 99, lb = LINE_ORDER[b.mesin] ?? 99;
-          if (la !== lb) return la - lb;                             // E-02 sebelum E-03 dst
-          return new Date(a.waktu_awal) - new Date(b.waktu_awal);   // kronologis dalam line+hari
+        all.sort((a,b) => {
+          const dayA = a.waktu_awal.slice(0,10), dayB = b.waktu_awal.slice(0,10);
+          if (dayA !== dayB) return dayB.localeCompare(dayA);
+          const la = LINE_ORDER[a.mesin]??99, lb = LINE_ORDER[b.mesin]??99;
+          if (la !== lb) return la - lb;
+          return new Date(a.waktu_awal) - new Date(b.waktu_awal);
         });
-
         this.data.nippo = all;
       } finally {
         this.loading.nippo = false;
