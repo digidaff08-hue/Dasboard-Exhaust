@@ -1407,9 +1407,9 @@ tr.row-qty-warn td { background: rgba(217,119,6,0.07) !important; }
 @media (max-width: 800px) {
   .app-shell { flex-direction: column; }
   /* Padding konten untuk fixed topbar 1 baris (non-mesin ~52px) */
-  .app-shell > .main { padding-top: 60px; }
+  .app-shell > .main { padding: 16px; padding-top: 70px !important; }
   /* Padding konten untuk fixed topbar 2 baris (mesin ~96px) */
-  .app-shell:has(.machine-topbar) > .main { padding-top: 100px; }
+  .app-shell:has(.machine-topbar) > .main { padding-top: 110px !important; }
 
   .mobile-topbar {
     display: flex;
@@ -1569,7 +1569,7 @@ tr.row-qty-warn td { background: rgba(217,119,6,0.07) !important; }
     z-index: 9400;
   }
 
-  .main { padding: 16px; padding-top: 56px; } /* ruang untuk fixed topbar */
+  /* padding-top diatur oleh rule di atas (app-shell > .main) */
   .page-header .page-title { font-size: 21px; }
 
   /* target sentuh lebih besar untuk operator di lapangan */
