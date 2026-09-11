@@ -1572,6 +1572,17 @@ tr.row-qty-warn td { background: rgba(217,119,6,0.07) !important; }
   /* padding-top diatur oleh rule di atas (app-shell > .main) */
   .page-header .page-title { font-size: 21px; }
 
+  /* Optimasi tab switch di mobile:
+     contain: strict → browser tidak perlu recalculate layout
+     section yang hidden saat tab switch */
+  .hub-shell > div[x-show] {
+    contain: layout style paint;
+  }
+  /* Section yang tidak aktif → benar-benar tidak dirender oleh GPU */
+  .hub-shell > div[x-show][style*="display: none"] {
+    content-visibility: hidden;
+    pointer-events: none;
+  }
   /* target sentuh lebih besar untuk operator di lapangan */
   .field input, .field select, .field textarea { padding: 12px 12px; font-size: 16px; }
   /* select/option teksnya dikecilkan lagi -- 16px di atas cuma perlu buat

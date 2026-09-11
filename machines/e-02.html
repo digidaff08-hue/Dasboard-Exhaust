@@ -114,6 +114,9 @@
     50%      { transform: translateY(-10px) rotate(5deg); }
   }
 
+
+
+
   /* konten di atas dekorasi */
   .hub-shell { position: relative; z-index: 1; }
 
@@ -291,7 +294,7 @@
     <template x-if="!loading">
       <div>
         <!-- ===================== TAB PRODUKSI ===================== -->
-        <div x-show="tab === 'produksi_new'">
+        <div x-show="tab === 'produksi_new'" :style="tab !== 'produksi_new' ? 'content-visibility:hidden' : 'content-visibility:visible'">
 
           <div class="panel" x-show="editingNonProduksiId" x-cloak>
             <p class="panel-title">Edit Data Non-Produksi</p>
@@ -584,7 +587,7 @@
         </div>
 
         <!-- ===================== TAB INPUT PRODUKSI (BARU) ===================== -->
-        <div x-show="tab === 'produksi'">
+        <div x-show="tab === 'produksi'" :style="tab !== 'produksi' ? 'content-visibility:hidden' : 'content-visibility:visible'">
           <div class="panel">
             <p class="panel-title" x-text="produksiNewEditingId ? 'Edit Input Produksi' : 'Input Produksi'"></p>
             <form @submit.prevent="saveProduksiNew">
@@ -682,7 +685,7 @@
         </div>
 
         <!-- ===================== TAB RIWAYAT PRODUKSI ===================== -->
-        <div x-show="tab === 'riwayat'">
+        <div x-show="tab === 'riwayat'" :style="tab !== 'riwayat' ? 'content-visibility:hidden' : 'content-visibility:visible'">
 
           <div class="panel" x-show="editingNonProduksiId" x-cloak>
             <p class="panel-title">Edit Data Non-Produksi</p>
@@ -775,7 +778,7 @@
         </div>
 
         <!-- ===================== TAB PERFORMANCE ===================== -->
-        <div x-show="tab === 'performance'">
+        <div x-show="tab === 'performance'" :style="tab !== 'performance' ? 'content-visibility:hidden' : 'content-visibility:visible'">
           <div class="perf-toggle-row">
             <button type="button" class="chip chip-lg" :class="activePerfSection==='tahunan' ? 'chip-active' : ''" @click="setActivePerfSection('tahunan')">Tahunan</button>
             <button type="button" class="chip chip-lg" :class="activePerfSection==='bulanan' ? 'chip-active' : ''" @click="setActivePerfSection('bulanan')">Bulanan</button>
@@ -1151,7 +1154,7 @@
         </div>
 
         <!-- ===================== TAB DOWNTIME ===================== -->
-        <div x-show="tab === 'downtime'">
+        <div x-show="tab === 'downtime'" :style="tab !== 'downtime' ? 'content-visibility:hidden' : 'content-visibility:visible'">
           <div class="panel">
             <p class="panel-title" x-text="editingDowntimeId ? 'Edit Data Downtime' : 'Catat Downtime'"></p>
             <div class="timer-row" x-show="!editingDowntimeId">
@@ -1318,7 +1321,7 @@
         </div>
 
         <!-- ===================== TAB NG INLINE ===================== -->
-        <div x-show="tab === 'ng_inline'">
+        <div x-show="tab === 'ng_inline'" :style="tab !== 'ng_inline' ? 'content-visibility:hidden' : 'content-visibility:visible'">
           <div class="panel">
             <p class="panel-title">Input NG Inline</p>
             <form @submit.prevent="saveNgInline">
@@ -1443,7 +1446,7 @@
         </div>
 
         <!-- ===================== TAB REPAIR ===================== -->
-        <div x-show="tab === 'repair'">
+        <div x-show="tab === 'repair'" :style="tab !== 'repair' ? 'content-visibility:hidden' : 'content-visibility:visible'">
           <div class="panel">
             <p class="empty-state" x-show="repairViews.length === 0">Belum ada model 3D Repair. Admin bisa upload lewat tab Master Data.</p>
             <div class="repair-part-switcher" x-show="repairViews.length > 1" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
@@ -1556,7 +1559,7 @@
         </div>
 
         <!-- ===================== TAB MASTER DATA ===================== -->
-        <div x-show="tab === 'master'">
+        <div x-show="tab === 'master'" :style="tab !== 'master' ? 'content-visibility:hidden' : 'content-visibility:visible'">
           <div class="panel">
             <p class="panel-title">Target GSPH</p>
             <p class="hint" style="margin-bottom:14px;">Garis target di grafik Performance. Operator cuma bisa lihat, admin/leader yang bisa atur.</p>
