@@ -1409,12 +1409,22 @@ tr.row-qty-warn td { background: rgba(217,119,6,0.07) !important; }
 
   .mobile-topbar {
     display: flex;
-    flex-direction: column;
-    gap: 0;
-    padding: 0;
-    background: #0f172a;
-    border-bottom: 1px solid #1e3a5f;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: var(--page-bg, #f4f5f7);
+    border-bottom: 1px solid var(--border);
     position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+  /* Warna khusus topbar halaman mesin */
+  .machine-topbar {
+    flex-direction: column !important;
+    padding: 0 !important;
+    background: #1a3c34 !important;
+    border-bottom: 1px solid #2d6a5a !important;
     top: 0;
     z-index: 20;
   }
@@ -1429,30 +1439,41 @@ tr.row-qty-warn td { background: rgba(217,119,6,0.07) !important; }
   }
   .mobile-topbar .theme-toggle {
     background: transparent;
-    border: 1px solid #1e3a5f;
-    color: #e2e8f0;
+    border: 1px solid var(--border);
+    color: var(--text);
     font-size: 16px;
     padding: 5px 9px;
     border-radius: 6px;
     cursor: pointer;
     flex-shrink: 0;
   }
+  .machine-topbar .theme-toggle {
+    border-color: #2d6a5a !important;
+    color: #e2e8f0 !important;
+  }
 
   .mobile-topbar button.hamburger {
     background: transparent;
-    border: 1px solid #1e3a5f;
-    color: #e2e8f0;
+    border: 1px solid var(--border);
+    color: var(--text);
     font-size: 18px;
     padding: 6px 12px;
     line-height: 1;
     flex-shrink: 0;
   }
+  .machine-topbar button.hamburger {
+    border-color: #2d6a5a !important;
+    color: #e2e8f0 !important;
+  }
   .mobile-topbar .mobile-title {
     font-family: var(--font-display);
     font-size: 15px;
     font-weight: 700;
-    color: #f1f5f9;
+    color: var(--text);
     flex: 1;
+  }
+  .machine-topbar .mobile-title {
+    color: #f1f5f9 !important;
   }
   /* Baris bawah: tab buttons scroll horizontal */
   .mobile-topbar-tabs {
@@ -1475,7 +1496,7 @@ tr.row-qty-warn td { background: rgba(217,119,6,0.07) !important; }
     font-size: 11px;
     padding: 5px 10px;
     border-radius: 6px;
-    border: 1px solid #1e3a5f;
+    border: 1px solid #2d6a5a;
     background: rgba(255,255,255,0.07);
     color: #94a3b8;
     cursor: pointer;

@@ -841,8 +841,8 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
 <div class="app-shell" x-data="dashboardExhaust()" x-init="init()">
   <div class="mobile-topbar">
     <button class="hamburger" @click="mobileNavOpen = true">☰</button>
-    <span class="mobile-title">Dashboard Exhaust</span>
   </div>
+
   <div class="sidebar-overlay" x-show="mobileNavOpen" @click="mobileNavOpen = false" x-cloak></div>
   <aside class="sidebar" :class="[mobileNavOpen ? 'sidebar-open' : '', sidebarCollapsed ? 'sidebar-collapsed' : '']">
     <button class="sidebar-collapse-btn" @click="sidebarCollapsed = !sidebarCollapsed">

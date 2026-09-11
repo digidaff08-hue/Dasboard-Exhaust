@@ -631,8 +631,8 @@ input[type="month"]:focus {
 <div class="app-shell" x-data="dataMentah()" x-init="init()" @click="cfClose()" @keydown.escape.window="cfClose()">
   <div class="mobile-topbar">
     <button class="hamburger" @click="mobileNavOpen = true">☰</button>
-    <span class="mobile-title">Data Mentah</span>
   </div>
+
   <div class="sidebar-overlay" x-show="mobileNavOpen" @click="mobileNavOpen = false" x-cloak></div>
 
   <aside class="sidebar" :class="[mobileNavOpen ? 'sidebar-open' : '', sidebarCollapsed ? 'sidebar-collapsed' : '']">
