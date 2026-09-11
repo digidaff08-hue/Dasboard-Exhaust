@@ -100,6 +100,7 @@
   flex-shrink: 0;
 }
 .dot-nippo { background: #0ea5e9; }
+.dot-tp    { background: #8b5cf6; }
 .dot-prod  { background: #6366f1; }
 .dot-dt    { background: #ef4444; }
 .dot-ng    { background: #f59e0b; }
@@ -511,6 +512,87 @@ input[type="month"]:focus {
   font-size: 0.8rem;
 }
 
+/* ── Total Produksi table ── */
+.tp-table-wrap {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: calc(100vh - 280px);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.tp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+.tp-table th {
+  background: var(--panel-2);
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.69rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding: 7px 5px;
+  text-align: center;
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.tp-table th.tp-sticky-col {
+  left: 0;
+  z-index: 2;
+  text-align: left;
+  padding-left: 10px;
+  min-width: 130px;
+  max-width: 180px;
+}
+.tp-table td {
+  padding: 6px 5px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  white-space: nowrap;
+  vertical-align: middle;
+  font-size: 0.78rem;
+  text-align: center;
+}
+.tp-table td.tp-sticky-col {
+  position: sticky;
+  left: 0;
+  background: var(--panel);
+  z-index: 1;
+  text-align: left;
+  padding-left: 10px;
+  font-weight: 600;
+  border-right: 2px solid var(--border);
+}
+.tp-table tbody tr:hover td { background: rgba(194,96,12,.03); }
+.tp-table tbody tr:hover td.tp-sticky-col { background: var(--panel-2); }
+.tp-table td.tp-total {
+  font-weight: 700;
+  color: var(--primary);
+  border-left: 2px solid var(--border);
+}
+.tp-table td.tp-zero { color: var(--border); }
+.tp-table thead th.tp-today {
+  background: color-mix(in srgb, var(--primary) 15%, var(--panel-2));
+  color: var(--primary);
+}
+.tp-table td.tp-today { background: color-mix(in srgb, var(--primary) 5%, var(--panel)); }
+.tp-table tfoot td {
+  font-weight: 700;
+  background: var(--panel-2);
+  border-top: 2px solid var(--border);
+  position: sticky;
+  bottom: 0;
+}
+.tp-table tfoot td.tp-sticky-col {
+  z-index: 2;
+  left: 0;
+}
+
 /* ── Flash ── */
 .dm-flash {
   position: fixed;
@@ -622,6 +704,9 @@ input[type="month"]:focus {
           <button class="dm-tab" :class="tab==='repair'    ? 'active':''" @click="tab='repair'">
             <span class="dm-tab-dot dot-rep"></span> Repair
             <span class="count" x-show="data.repair.length > 0" x-text="data.repair.length" style="font-size:.72rem;margin-left:2px;opacity:.7;"></span>
+          </button>
+          <button class="dm-tab" :class="tab==='total_produksi' ? 'active':''" @click="tab='total_produksi'">
+            <span class="dm-tab-dot dot-tp"></span> Total Produksi
           </button>
         </div>
 
@@ -1109,6 +1194,105 @@ input[type="month"]:focus {
           </template>
         </div>
 
+
+        <!-- ══════════════════ TOTAL PRODUKSI ══════════════════ -->
+        <div class="dm-section" x-show="tab==='total_produksi'" x-cloak>
+          <div class="dm-filter">
+            <div class="dm-filter-cell">
+              <span class="dm-filter-label">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                Bulan
+              </span>
+              <div class="dm-month-wrap">
+                <input type="month" x-model="f.total_produksi.bulan" @change="onBulanChange('total_produksi')">
+                <div class="dm-month-placeholder" x-show="!f.total_produksi.bulan">Pilih bulan</div>
+              </div>
+            </div>
+            <div class="dm-filter-cell">
+              <span class="dm-filter-label">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+                Line
+              </span>
+              <select class="dm-line-select" x-model="f.total_produksi.line" @change="fetchSection('total_produksi')">
+                <option value="">Semua Line</option>
+                <template x-for="ln in LINES" :key="ln"><option :value="ln" x-text="ln"></option></template>
+              </select>
+            </div>
+            <div class="dm-filter-cell grow">
+              <button class="btn-export" @click="exportExcel('total_produksi')" :disabled="loading.total_produksi">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                Export Excel
+              </button>
+            </div>
+          </div>
+
+          <!-- Info strip -->
+          <div class="dm-info-strip" x-show="!loading.total_produksi">
+            <span class="dm-badge-count">
+              <b x-text="tpRows().length"></b> part number
+            </span>
+            <span class="dm-info-dot"></span>
+            <template x-if="f.total_produksi.bulan">
+              <span class="dm-filter-active-tag">📅 <span x-text="fmtBulan(f.total_produksi.bulan)"></span></span>
+            </template>
+            <template x-if="f.total_produksi.line">
+              <span class="dm-filter-active-tag">🏭 <span x-text="f.total_produksi.line"></span></span>
+            </template>
+          </div>
+
+          <div class="dm-loading" x-show="loading.total_produksi">
+            <div class="spinner"></div><span>Memuat total produksi...</span>
+          </div>
+
+          <template x-if="!loading.total_produksi">
+            <div>
+              <template x-if="data.total_produksi.length === 0">
+                <div class="dm-empty">
+                  <div class="dm-empty-icon">📭</div>
+                  <div class="dm-empty-text">Tidak ada data produksi</div>
+                  <div class="dm-empty-sub">Pilih bulan terlebih dahulu</div>
+                </div>
+              </template>
+              <template x-if="data.total_produksi.length > 0">
+                <div class="tp-table-wrap">
+                  <table class="tp-table">
+                    <thead>
+                      <tr>
+                        <th class="tp-sticky-col">Part No</th>
+                        <template x-for="d in tpDays()" :key="d">
+                          <th :class="tpIsToday(d) ? 'tp-today' : ''" x-text="d"></th>
+                        </template>
+                        <th class="tp-total">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="row in tpRows()" :key="row.part_number">
+                        <tr>
+                          <td class="tp-sticky-col" :title="row.part_number" x-text="row.part_number"></td>
+                          <template x-for="d in tpDays()" :key="d">
+                            <td :class="[tpIsToday(d)?'tp-today':'', (!row.days[d] || row.days[d]===0)?'tp-zero':'']"
+                                x-text="row.days[d] || ''"></td>
+                          </template>
+                          <td class="tp-total" x-text="row.total"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <td class="tp-sticky-col">TOTAL</td>
+                        <template x-for="d in tpDays()" :key="d">
+                          <td :class="tpIsToday(d)?'tp-today':''" x-text="tpDayTotal(d) || ''"></td>
+                        </template>
+                        <td class="tp-total" x-text="tpGrandTotal()"></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
       </div>
     </template>
   </main>
@@ -1171,7 +1355,7 @@ function exportToExcel(filename, rows) {
 }
 
 function dataMentah() {
-  const SECTIONS = ['nippo','produksi','downtime','ng_inline','repair'];
+  const SECTIONS = ['nippo','produksi','downtime','ng_inline','repair','total_produksi'];
   function bulanBerjalan() {
     const now = new Date();
     return now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
@@ -1182,9 +1366,9 @@ function dataMentah() {
     sidebarCollapsed:true, mobileNavOpen:false,
     tab:'nippo',
     LINES:['E-02','E-03','E-04','E-05','E-06','E-07'],
-    f:{ nippo:emptyFilter(), produksi:emptyFilter(), downtime:emptyFilter(), ng_inline:emptyFilter(), repair:emptyFilter() },
-    data:{ nippo:[], produksi:[], downtime:[], ng_inline:[], repair:[] },
-    loading:{ nippo:false, produksi:false, downtime:false, ng_inline:false, repair:false },
+    f:{ nippo:emptyFilter(), produksi:emptyFilter(), downtime:emptyFilter(), ng_inline:emptyFilter(), repair:emptyFilter(), total_produksi:emptyFilter() },
+    data:{ nippo:[], produksi:[], downtime:[], ng_inline:[], repair:[], total_produksi:[] },
+    loading:{ nippo:false, produksi:false, downtime:false, ng_inline:false, repair:false, total_produksi:false },
     flashMsg:'', flashErr:false, flashTimer:null,
 
     // ── Column filter state ──
@@ -1196,7 +1380,7 @@ function dataMentah() {
       x: 0, y: 0,
     },
     // colFilters[section][col] = Set of checked values (null = semua)
-    colFilters: { nippo:{}, produksi:{}, downtime:{}, ng_inline:{}, repair:{} },
+    colFilters: { nippo:{}, produksi:{}, downtime:{}, ng_inline:{}, repair:{}, total_produksi:{} },
 
     async init() {
       const { data:{ session } } = await supabaseClient.auth.getSession();
@@ -1233,7 +1417,8 @@ function dataMentah() {
     },
 
     async fetchSection(s) {
-      if (s==='nippo')     return this.fetchNippo();
+      if (s==='nippo')          return this.fetchNippo();
+      if (s==='total_produksi') return this.fetchTotalProduksi();
       if (s==='produksi')  return this.fetchProduksi();
       if (s==='downtime')  return this.fetchDowntime();
       if (s==='ng_inline') return this.fetchNgInline();
@@ -1558,6 +1743,84 @@ function dataMentah() {
       } finally { this.loading.repair=false; }
     },
 
+    async fetchTotalProduksi() {
+      this.loading.total_produksi = true;
+      try {
+        const f = this.f.total_produksi;
+        if (!f.bulan) { this.data.total_produksi = []; return; }
+
+        const [y, m] = f.bulan.split('-').map(Number);
+        const dari   = new Date(y, m-1, 1).toISOString();
+        const sampai = new Date(y, m,   1).toISOString();
+        const lines  = f.line ? [f.line] : this.LINES;
+
+        const results = await Promise.all(lines.map(ln =>
+          supabaseClient.from('production_log')
+            .select('waktu_awal,part_number,qty')
+            .eq('mesin', ln)
+            .gte('waktu_awal', dari)
+            .lt('waktu_awal', sampai)
+            .not('part_number', 'is', null)
+            .limit(5000)
+        ));
+
+        // Agregasi: { part_number → { day → qty } }
+        const agg = {};
+        for (const { data, error } of results) {
+          if (error) { this.flash('Error Total Produksi: ' + error.message, true); continue; }
+          for (const r of data || []) {
+            if (!r.part_number || r.part_number.trim().length <= 2) continue; // skip kode pendek
+            const day = new Date(r.waktu_awal).getDate();
+            const qty = Number(r.qty) || 0;
+            if (!agg[r.part_number]) agg[r.part_number] = {};
+            agg[r.part_number][day] = (agg[r.part_number][day] || 0) + qty;
+          }
+        }
+
+        // Simpan sebagai array terurut per part number
+        this.data.total_produksi = Object.keys(agg).sort().map(pn => ({
+          part_number: pn,
+          days: agg[pn],
+          total: Object.values(agg[pn]).reduce((s, v) => s + v, 0),
+        }));
+      } finally {
+        this.loading.total_produksi = false;
+      }
+    },
+
+    // Jumlah hari dalam bulan yang dipilih
+    tpDays() {
+      const f = this.f.total_produksi;
+      if (!f.bulan) return [];
+      const [y, m] = f.bulan.split('-').map(Number);
+      const jumlahHari = new Date(y, m, 0).getDate();
+      return Array.from({ length: jumlahHari }, (_, i) => i + 1);
+    },
+
+    // Baris yang sudah difilter (untuk tabel)
+    tpRows() {
+      return this.data.total_produksi;
+    },
+
+    // Apakah kolom hari ini (highlight)
+    tpIsToday(day) {
+      const f = this.f.total_produksi;
+      if (!f.bulan) return false;
+      const now = new Date();
+      const [y, m] = f.bulan.split('-').map(Number);
+      return now.getFullYear() === y && (now.getMonth()+1) === m && now.getDate() === day;
+    },
+
+    // Total per hari (footer)
+    tpDayTotal(day) {
+      return this.data.total_produksi.reduce((s, row) => s + (row.days[day] || 0), 0) || 0;
+    },
+
+    // Grand total
+    tpGrandTotal() {
+      return this.data.total_produksi.reduce((s, row) => s + row.total, 0);
+    },
+
     exportExcel(s) {
       const f=this.f[s], label=f.tanggal||f.bulan||'semua', line=f.line||'Semua_Line';
       if(s==='nippo') exportToExcel(`DataMentah_Nippo_${f.line||'Semua_Line'}_${label}`,
@@ -1580,6 +1843,23 @@ function dataMentah() {
       else if(s==='produksi') exportToExcel(`DataMentah_Produksi_${line}_${label}`, this.data.produksi.map(r=>({'Line':r.mesin||'-','Waktu Awal':fmtDTLocal(r.waktu_awal),'Waktu Akhir':fmtDTLocal(r.waktu_akhir),'Part / Jenis':r._tipe==='produksi'?(r.part_number||'-'):(r.part_ke||r.keterangan||r.part_dari||'-'),'Qty':r._tipe==='produksi'?(r.qty??''):'-','NG Inline':r._tipe==='produksi'?(r.ng_inline_qty??0):'-','Repair':r._tipe==='produksi'?(r.repair??0):'-','Dandori (mnt)':r._tipe==='produksi'?(r.dandori_menit??''):'-','Downtime (mnt)':r._tipe==='produksi'?(r.downtime_menit??''):'-','Break (mnt)':r._tipe==='produksi'?(r.break_menit??''):'-'})));
       else if(s==='downtime') exportToExcel(`DataMentah_Downtime_${line}_${label}`, this.data.downtime.map(r=>({'Line':r.mesin||'-','Waktu Awal':fmtDTLocal(r.waktu_awal),'Waktu Akhir':fmtDTLocal(r.waktu_akhir),'Durasi (menit)':durasiMntRaw(r.waktu_awal,r.waktu_akhir),'Kategori':r.kategori||'-','PIC':r.pic||'-','Waktu Tunggu':r.waktu_tunggu??'-','Keterangan':r.ket||'-','Problem Kategori':r.problem||'-','Problem Detail':r.penyebab||'-','Area':r.area||'-','Countermeasure':r.countermeasure||'-','Total Losstime':durasiMntRaw(r.waktu_awal,r.waktu_akhir),'Status':r.status||'-'})));
       else if(s==='ng_inline') exportToExcel(`DataMentah_NG_Inline_${line}_${label}`, this.data.ng_inline.map(r=>({'Line':r.mesin||'-','Tanggal':r.tanggal||'-','Type':r.type_ng||'-','Model':r.model||'-','PIC':r.pic||'-','Part No':r.part_number||'-','Area':r.area||'-','NG Proses':r.ng_proses||'-','Qty':r.qty??'','Value (Rp)':r.value??'','Kategori':r.ng_kategori||'-','Reason':r.reason||'-'})));
+      else if(s==='total_produksi') {
+        const days = this.tpDays();
+        const rows = this.tpRows().map(row => {
+          const obj = { 'Part No': row.part_number };
+          days.forEach(d => { obj[String(d)] = row.days[d] || ''; });
+          obj['Total'] = row.total;
+          return obj;
+        });
+        // Tambah baris footer total
+        const footer = { 'Part No': 'TOTAL' };
+        days.forEach(d => { footer[String(d)] = this.tpDayTotal(d) || ''; });
+        footer['Total'] = this.tpGrandTotal();
+        rows.push(footer);
+        const label = this.f.total_produksi.bulan || 'semua';
+        const line  = this.f.total_produksi.line || 'Semua_Line';
+        exportToExcel(`TotalProduksi_${line}_${label}`, rows);
+      }
       else if(s==='repair') exportToExcel(`DataMentah_Repair_${line}_${label}`, this.data.repair.map(r=>({'Line':r.mesin||'-','Tanggal':r.tanggal||'-','Point':r.point_label||'-','Model':r.model||'-','Part No':r.part_number||'-','Qty':r.qty??'','Kategori Repair':r.kategori_repair||'-'})));
     },
 

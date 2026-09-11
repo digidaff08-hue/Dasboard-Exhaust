@@ -207,8 +207,25 @@
      x-data='machinePage("E-07", "E-07", [], 0, ["MACHINE", "MATERIAL", "METHODE", "MAN"], {"mode": "none"})'
      x-init="init()">
   <div class="mobile-topbar">
-    <button class="hamburger" @click="mobileNavOpen = true">☰</button>
-    <span class="mobile-title">E-07</span>
+    <div class="mobile-topbar-top">
+      <button class="hamburger" @click="mobileNavOpen = true">☰</button>
+      <span class="mobile-title">E-07</span>
+      <button class="theme-toggle" @click="toggleTheme()" :title="theme === 'dark' ? 'Ke mode terang' : 'Ke mode gelap'">
+        <span x-text="theme === 'dark' ? '☀️' : '🌙'"></span>
+      </button>
+    </div>
+    <div class="mobile-topbar-tabs">
+      <button class="btn-secondary btn-sm" :class="tab==='produksi_new' ? 'btn-primary' : ''" @click="tab='produksi_new'">Input Produksi NEW</button>
+      <button class="btn-secondary btn-sm" :class="tab==='downtime' ? 'btn-primary' : ''" @click="tab='downtime'">Downtime</button>
+      <button class="btn-secondary btn-sm" :class="tab==='ng_inline' ? 'btn-primary' : ''" @click="tab='ng_inline'; syncNgPartFromProduction()">NG Inline</button>
+      <button class="btn-secondary btn-sm" :class="tab==='repair' ? 'btn-primary' : ''" @click="tab='repair'">Repair</button>
+      <button class="btn-secondary btn-sm" :class="tab==='produksi' ? 'btn-primary' : ''" @click="tab='produksi'">Input Produksi</button>
+      <button class="btn-secondary btn-sm" :class="tab==='riwayat' ? 'btn-primary' : ''" @click="tab='riwayat'">Riwayat Produksi</button>
+      <button class="btn-secondary btn-sm" :class="tab==='performance' ? 'btn-primary' : ''" @click="openPerformanceTab()">Performance</button>
+      <template x-if="isLeaderOrAdmin()">
+        <button class="btn-secondary btn-sm" :class="tab==='master' ? 'btn-primary' : ''" @click="tab='master'">Master Data</button>
+      </template>
+    </div>
   </div>
   <div class="sidebar-overlay" x-show="mobileNavOpen" @click="mobileNavOpen = false" x-cloak></div>
   <aside class="sidebar" :class="[mobileNavOpen ? 'sidebar-open' : '', sidebarCollapsed ? 'sidebar-collapsed' : '']">
@@ -246,7 +263,7 @@
   <main class="main">
     <div class="page-header">
       <h1 class="page-title"><span class="eyebrow">Mesin</span>E-07</h1>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <button class="btn-secondary btn-sm" :class="tab==='produksi_new' ? 'btn-primary' : ''" @click="tab='produksi_new'">Input Produksi NEW</button>
         <button class="btn-secondary btn-sm" :class="tab==='downtime' ? 'btn-primary' : ''" @click="tab='downtime'">Downtime</button>
         <button class="btn-secondary btn-sm" :class="tab==='ng_inline' ? 'btn-primary' : ''" @click="tab='ng_inline'; syncNgPartFromProduction()">NG Inline</button>
