@@ -1555,7 +1555,7 @@ tr.row-qty-warn td { background: rgba(217,119,6,0.07) !important; }
     position: fixed;
     top: 0; left: 0; bottom: 0;
     width: 260px;
-    z-index: 40;
+    z-index: 9500;
     transform: translateX(-100%);
     transition: transform 0.22s ease;
     box-shadow: 2px 0 24px rgba(0,0,0,0.4);
@@ -1566,7 +1566,7 @@ tr.row-qty-warn td { background: rgba(217,119,6,0.07) !important; }
     position: fixed;
     inset: 0;
     background: rgba(0,0,0,0.5);
-    z-index: 30;
+    z-index: 9400;
   }
 
   .main { padding: 16px; padding-top: 56px; } /* ruang untuk fixed topbar */
