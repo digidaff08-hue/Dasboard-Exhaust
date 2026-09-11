@@ -851,18 +851,14 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
     <div class="sidebar-brand" x-show="!sidebarCollapsed">WELDING EXHAUST<span>·</span>SYSTEM</div>
     <nav class="sidebar-nav" @click="mobileNavOpen = false">
       <a href="dashboard-exhaust.html" class="sidebar-link active" title="Dashboard Exhaust"><span>📊</span><span x-show="!sidebarCollapsed">Dashboard Exhaust</span></a>
-      <a href="index.html" class="sidebar-link" title="Dashboard"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a>
-      <a href="plan-produksi.html" class="sidebar-link" title="Plan Produksi"><span>📅</span><span x-show="!sidebarCollapsed">Plan Produksi</span></a>
+      <template x-if="isAdmin()"><a href="index.html" class="sidebar-link" title="Dashboard"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a></template>
+      <template x-if="isAdmin()"><a href="plan-produksi.html" class="sidebar-link" title="Plan Produksi"><span>📅</span><span x-show="!sidebarCollapsed">Plan Produksi</span></a></template>
       <a href="input-produksi.html" class="sidebar-link" title="Input Produksi"><span>⚙️</span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
-      <template x-if="isLeaderOrAdmin()">
-        <a href="input-attendance.html" class="sidebar-link" title="Attendance"><span>👥</span><span x-show="!sidebarCollapsed">Attendance</span></a>
-      </template>
+      <template x-if="isAdmin()"><a href="input-attendance.html" class="sidebar-link" title="Attendance"><span>👥</span><span x-show="!sidebarCollapsed">Attendance</span></a></template>
             <template x-if="isAdmin()">
         <a href="data-mentah.html" class="sidebar-link" title="Data Mentah"><span>🗃️</span><span x-show="!sidebarCollapsed">Data Mentah</span></a>
       </template>
-<template x-if="isLeaderOrAdmin()">
-        <a href="master-data.html" class="sidebar-link" title="Master Data"><span>🗂️</span><span x-show="!sidebarCollapsed">Master Data</span></a>
-      </template>
+<template x-if="isAdmin()"><a href="master-data.html" class="sidebar-link" title="Master Data"><span>🗂️</span><span x-show="!sidebarCollapsed">Master Data</span></a></template>
     </nav>
     <div class="sidebar-foot" x-show="!sidebarCollapsed">
       <div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
@@ -890,6 +886,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
       <button class="btn-secondary btn-sm" :class="activeTab==='bulanan' ? 'btn-primary' : ''" @click="setTab('bulanan')">Kontrol Downtime</button>
       <button class="btn-secondary btn-sm" :class="activeTab==='kualitas' ? 'btn-primary' : ''" @click="setTab('kualitas')">Kontrol Kualitas</button>
       <button class="btn-secondary btn-sm" :class="activeTab==='attendance' ? 'btn-primary' : ''" @click="setTab('attendance')">Kontrol Attendance</button>
+      <button class="btn-secondary btn-sm" :class="activeTab==='plan_harian' ? 'btn-primary' : ''" @click="setTab('plan_harian')">Plan Harian</button>
     </div>
 
     <!-- ===== TAB: BULANAN (harian, tanggal 1-31) ===== -->
@@ -1761,6 +1758,102 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
         </div>
       </div>
     </template>
+
+    <!-- ===== TAB: PLAN HARIAN ===== -->
+    <template x-if="activeTab === 'plan_harian'">
+      <div style="padding:16px 0;">
+        <!-- Filter tanggal -->
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+          <label style="font-size:.85rem;font-weight:600;color:var(--muted);">📅 Tanggal</label>
+          <input type="date" x-model="planTanggal" @change="fetchPlanHarian()"
+            style="padding:6px 10px;border:1px solid var(--field-border);border-radius:var(--radius-sm);background:var(--panel);color:var(--text);font-size:.85rem;">
+          <template x-if="isAdmin()">
+            <a href="plan-produksi.html" class="btn-secondary btn-sm" style="text-decoration:none;">✏️ Edit Plan</a>
+          </template>
+        </div>
+
+        <div x-show="planLoading" style="text-align:center;padding:40px;color:var(--muted);">
+          <div style="display:inline-block;width:20px;height:20px;border:2.5px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite;margin-right:8px;"></div>
+          Memuat plan harian...
+        </div>
+
+        <template x-if="!planLoading">
+          <div>
+            <!-- Tabel utama plan harian -->
+            <div style="overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);margin-bottom:16px;">
+              <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+                <thead>
+                  <tr style="background:var(--panel-2);">
+                    <th style="padding:9px 12px;text-align:left;border-bottom:2px solid var(--border);white-space:nowrap;position:sticky;left:0;background:var(--panel-2);">Part Number</th>
+                    <template x-for="mk in ['E-02','E-03','E-04','E-05','E-06','E-07']" :key="mk">
+                      <th style="padding:9px 8px;text-align:center;border-bottom:2px solid var(--border);" x-text="mk"></th>
+                    </template>
+                    <th style="padding:9px 8px;text-align:center;border-bottom:2px solid var(--border);">Backlog</th>
+                    <th style="padding:9px 8px;text-align:center;border-bottom:2px solid var(--border);color:var(--primary);font-weight:700;">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-if="planPartList.length === 0">
+                    <tr><td colspan="10" style="text-align:center;padding:32px;color:var(--muted);">Belum ada plan untuk tanggal ini.</td></tr>
+                  </template>
+                  <template x-for="part in planPartList" :key="part">
+                    <tr>
+                      <td style="padding:8px 12px;border-bottom:1px solid var(--border);font-weight:500;position:sticky;left:0;background:var(--panel);" x-text="part"></td>
+                      <template x-for="mk in ['E-02','E-03','E-04','E-05','E-06','E-07']" :key="mk">
+                        <td style="padding:8px 8px;text-align:center;border-bottom:1px solid var(--border);font-family:var(--font-mono);" x-text="planCell(part,mk)||''"></td>
+                      </template>
+                      <td style="padding:8px 8px;text-align:center;border-bottom:1px solid var(--border);font-family:var(--font-mono);color:var(--muted);" x-text="planBacklog(part)||''"></td>
+                      <td style="padding:8px 8px;text-align:center;border-bottom:1px solid var(--border);font-family:var(--font-mono);font-weight:700;color:var(--primary);" x-text="planRowTotal(part)"></td>
+                    </tr>
+                  </template>
+                  <tr x-show="planPartList.length > 0" style="background:var(--panel-2);">
+                    <td style="padding:9px 12px;font-weight:700;position:sticky;left:0;background:var(--panel-2);">TOTAL</td>
+                    <template x-for="mk in ['E-02','E-03','E-04','E-05','E-06','E-07']" :key="mk">
+                      <td style="padding:9px 8px;text-align:center;font-family:var(--font-mono);font-weight:700;" x-text="planColTotal(mk)||''"></td>
+                    </template>
+                    <td style="padding:9px 8px;text-align:center;font-family:var(--font-mono);font-weight:700;" x-text="planBacklogTotal()||''"></td>
+                    <td style="padding:9px 8px;text-align:center;font-family:var(--font-mono);font-weight:700;color:var(--primary);" x-text="planGrandTotal()"></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Shift 1 & Shift 2 -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+              <template x-for="shift in ['1','2']" :key="shift">
+                <div style="overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);">
+                  <div style="padding:10px 14px;background:var(--panel-2);border-bottom:1px solid var(--border);font-weight:600;font-size:.85rem;" x-text="'Shift ' + shift"></div>
+                  <table style="width:100%;border-collapse:collapse;font-size:.79rem;">
+                    <thead>
+                      <tr style="background:var(--panel-2);">
+                        <th style="padding:7px 10px;text-align:left;border-bottom:1px solid var(--border);">Part</th>
+                        <template x-for="mk in ['E-02','E-03','E-04','E-05','E-06','E-07']" :key="mk">
+                          <th style="padding:7px 5px;text-align:center;border-bottom:1px solid var(--border);font-size:.72rem;" x-text="mk.replace('E-','')"></th>
+                        </template>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-if="planShiftParts(shift).length === 0">
+                        <tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted);">Tidak ada plan shift ini.</td></tr>
+                      </template>
+                      <template x-for="part in planShiftParts(shift)" :key="part">
+                        <tr>
+                          <td style="padding:7px 10px;border-bottom:1px solid var(--border);font-weight:500;white-space:nowrap;" x-text="part"></td>
+                          <template x-for="mk in ['E-02','E-03','E-04','E-05','E-06','E-07']" :key="mk">
+                            <td style="padding:7px 5px;text-align:center;border-bottom:1px solid var(--border);font-family:var(--font-mono);" x-text="planShiftCell(part,mk,shift)||''"></td>
+                          </template>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+    </template>
+
   </main>
 
   <!-- Dropdown filter per-kolom (Rekap NG Inline / NG Trial / Repair) --
@@ -1946,6 +2039,7 @@ function dashboardExhaust() {
       if (this.activeTab === "kualitas" && tab !== "kualitas") this.destroyKualitasCharts();
       if (this.activeTab === "attendance" && tab !== "attendance") this.destroyAttendanceCharts();
       this.activeTab = tab;
+      if (tab === "plan_harian") { await this.fetchPlanHarian(); return; }
       if (tab === "bulanan") {
         await this.fetchBulanan();
         this.$nextTick(() => this.renderBulananCharts());
@@ -6063,6 +6157,64 @@ function dashboardExhaust() {
         console.error("Gagal render chart Rekap Tahunan Attendance:", e);
       }
     },
+    // ══════════════════════════════════════
+    // PLAN HARIAN
+    // ══════════════════════════════════════
+    planTanggal: new Date().toISOString().slice(0,10),
+    planRows: [],
+    planBacklogRows: [],
+    planLoading: false,
+
+    async fetchPlanHarian() {
+      this.planLoading = true;
+      try {
+        const [planRes, backlogRes] = await Promise.all([
+          supabaseClient.from('production_plan_harian').select('*').eq('tanggal', this.planTanggal),
+          supabaseClient.from('production_plan_backlog').select('*').eq('tanggal', this.planTanggal),
+        ]);
+        this.planRows    = planRes.data    || [];
+        this.planBacklogRows = backlogRes.data || [];
+      } finally {
+        this.planLoading = false;
+      }
+    },
+
+    get planPartList() {
+      return [...new Set(this.planRows.map(r => r.part_number))].sort();
+    },
+    planCell(part, mesin) {
+      const sum = this.planRows.filter(r => r.part_number === part && r.mesin === mesin)
+        .reduce((a,r) => a + (Number(r.qty_rencana)||0), 0);
+      return sum > 0 ? sum.toLocaleString('id-ID') : '';
+    },
+    planRowTotal(part) {
+      const sum = this.planRows.filter(r => r.part_number === part).reduce((a,r) => a+(Number(r.qty_rencana)||0),0);
+      return sum > 0 ? sum.toLocaleString('id-ID') : '0';
+    },
+    planColTotal(mesin) {
+      const sum = this.planRows.filter(r => r.mesin === mesin).reduce((a,r) => a+(Number(r.qty_rencana)||0),0);
+      return sum > 0 ? sum.toLocaleString('id-ID') : '';
+    },
+    planBacklog(part) {
+      const r = this.planBacklogRows.find(b => b.part_number === part);
+      return r && r.backlog > 0 ? r.backlog.toLocaleString('id-ID') : '';
+    },
+    planBacklogTotal() {
+      const sum = this.planBacklogRows.reduce((a,r) => a+(Number(r.backlog)||0),0);
+      return sum > 0 ? sum.toLocaleString('id-ID') : '';
+    },
+    planGrandTotal() {
+      const sum = this.planRows.reduce((a,r) => a+(Number(r.qty_rencana)||0),0);
+      return sum.toLocaleString('id-ID');
+    },
+    planShiftParts(shift) {
+      return [...new Set(this.planRows.filter(r => r.shift == shift).map(r => r.part_number))].sort();
+    },
+    planShiftCell(part, mesin, shift) {
+      const r = this.planRows.find(r => r.part_number===part && r.mesin===mesin && r.shift==shift);
+      return r && r.qty_rencana > 0 ? Number(r.qty_rencana).toLocaleString('id-ID') : '';
+    },
+
     logout,
   };
 }
