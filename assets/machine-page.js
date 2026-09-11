@@ -2792,6 +2792,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
         renderer.setSize(width, height);
+        renderer.setClearColor(0x000000, 0); // transparan
         container.appendChild(renderer.domElement);
 
         scene.add(new THREE.AmbientLight(0xffffff, 0.75));

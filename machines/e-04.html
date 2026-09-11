@@ -210,9 +210,10 @@
     <div class="mobile-topbar-top">
       <button class="hamburger" @click="mobileNavOpen = true">☰</button>
       <span class="mobile-title">E-04</span>
-      <button class="theme-toggle" @click="toggleTheme()" :title="theme === 'dark' ? 'Ke mode terang' : 'Ke mode gelap'">
-        <span x-text="theme === 'dark' ? '☀️' : '🌙'"></span>
-      </button>
+      <div class="topbar-clock">
+        <span class="topbar-clock-time" x-text="new Date(nowTick).toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit',second:'2-digit'})"></span>
+        <span class="topbar-clock-date" x-text="new Date(nowTick).toLocaleDateString('id-ID', {weekday:'short',day:'numeric',month:'short',year:'numeric'})"></span>
+      </div>
     </div>
     <div class="mobile-topbar-tabs">
       <button class="btn-secondary btn-sm" :class="tab==='produksi_new' ? 'btn-primary' : ''" @click="tab='produksi_new'">Input Produksi NEW</button>

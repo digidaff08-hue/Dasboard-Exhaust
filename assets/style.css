@@ -1434,8 +1434,11 @@ tr.row-qty-warn td { background: rgba(217,119,6,0.07) !important; }
   .mobile-topbar-top {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 12px;
     padding: 10px 16px;
+    width: 100%;
+    box-sizing: border-box;
   }
   .mobile-topbar .theme-toggle {
     background: transparent;
@@ -1474,6 +1477,28 @@ tr.row-qty-warn td { background: rgba(217,119,6,0.07) !important; }
   }
   .machine-topbar .mobile-title {
     color: #f1f5f9 !important;
+  }
+
+  /* Clock di topbar mesin — posisi kanan */
+  .topbar-clock {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    margin-left: auto;
+    line-height: 1.2;
+  }
+  .topbar-clock-time {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    letter-spacing: .03em;
+  }
+  .topbar-clock-date {
+    font-size: 0.65rem;
+    color: #94d3b8;
+    font-weight: 500;
+    white-space: nowrap;
   }
   /* Baris bawah: tab buttons scroll horizontal */
   .mobile-topbar-tabs {
@@ -2474,7 +2499,7 @@ body, .sqcpm-col, .dash-panel, .kpi-card, .perf-card, .panel,
 .repair-3d-wrap { position: relative; width: 100%; max-width: 900px; margin: 0 auto; }
 .repair-3d-canvas {
   width: 100%; height: 320px; border-radius: 10px; overflow: hidden;
-  background: var(--panel-2, #eef0f3); touch-action: none;
+  background: transparent; touch-action: none;
 }
 .repair-3d-canvas canvas { display: block; width: 100% !important; height: 100% !important; }
 .repair-edit-toggle {
