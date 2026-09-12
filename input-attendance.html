@@ -235,7 +235,7 @@
       <a href="index.html" class="sidebar-link" title="Dashboard" x-show="isAdmin()"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a>
       <a href="plan-produksi.html" class="sidebar-link" title="Plan Produksi" x-show="isAdmin()"><span>📅</span><span x-show="!sidebarCollapsed">Plan Produksi</span></a>
       <a href="input-produksi.html" class="sidebar-link" title="Input Produksi"><span>⚙️</span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
-      <a href="input-attendance.html" class="sidebar-link active" title="Attendance" x-show="isLeaderOrAdmin()"><span>👥</span><span x-show="!sidebarCollapsed">Attendance</span></a>
+      <a href="input-attendance.html" class="sidebar-link active" title="Attendance"><span>👥</span><span x-show="!sidebarCollapsed">Attendance</span></a>
             <a href="data-mentah.html" class="sidebar-link" title="Data Mentah" x-show="isAdmin()"><span>🗃️</span><span x-show="!sidebarCollapsed">Data Mentah</span></a>
 <a href="master-data.html" class="sidebar-link" title="Master Data" x-show="isAdmin()"><span>🗂️</span><span x-show="!sidebarCollapsed">Master Data</span></a>
     </nav>
@@ -251,12 +251,13 @@
     <div class="page-header">
       <h1 class="page-title"><span class="eyebrow">Data</span>Ketidakhadiran</h1>
     </div>
-    <template x-if="!isLeaderOrAdmin() && profile">
-      <div class="error-msg">Halaman ini khusus admin/leader.</div>
-    </template>
     <template x-if="msg"><div :class="msgError ? 'error-msg' : 'success-msg'" x-text="msg"></div></template>
 
-    <template x-if="isLeaderOrAdmin()">
+    <!-- Halaman ini terbuka untuk SEMUA user yang sudah login.
+         Batasan siapa yang boleh mengubah apa ditangani oleh RLS di
+         database (lihat perbaikan_rls_attendance_leave.sql), bukan
+         dengan menyembunyikan halamannya. -->
+    <template x-if="profile">
       <div>
         <!-- ===== Form Izin / Sakit / Cuti / Mangkir (per-orang) =====
              Ketik NIK -> Nama otomatis muncul dari master karyawan
