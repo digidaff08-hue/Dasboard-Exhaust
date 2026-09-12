@@ -4,13 +4,20 @@
 // sinyal di lapangan lemah. Data tetap butuh koneksi (via Supabase),
 // ini cuma men-cache HTML/CSS/JS-nya, bukan data produksi.
 // =========================================================
-const CACHE_NAME = "produksi-downtime-shell-v3-welding";
+// Naikkan versi ini tiap ada perubahan besar supaya cache lama dibuang.
+const CACHE_NAME = "produksi-downtime-shell-v4-welding";
 
 const SHELL_FILES = [
   "/login.html",
   "/index.html",
   "/dashboard-exhaust.html",
   "/plan-produksi.html",
+  "/input-produksi.html",
+  "/input-attendance.html",
+  "/master-data.html",
+  "/data-mentah.html",
+  "/reset-password.html",
+  "/manifest.json",
   "/assets/style.css",
   "/assets/supabaseClient.js",
   "/assets/machine-page.js",
@@ -54,10 +61,17 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        // Cuma simpan respons sukses penuh (200). Dulu halaman error (404/500)
+        // ikut tersimpan dan bisa muncul saat offline; respons 206 (partial,
+        // mis. file .stl dimuat sebagian) juga bikin cache.put() error.
+        if (response.ok && response.status === 200 && response.type === "basic") {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy)).catch(() => {});
+        }
         return response;
       })
-      .catch(() => caches.match(event.request))
+      .catch(() =>
+        caches.match(event.request).then((cached) => cached || Response.error())
+      )
   );
 });

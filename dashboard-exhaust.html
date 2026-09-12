@@ -838,7 +838,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
 </head>
 <body>
 
-<div class="app-shell" x-data="dashboardExhaust()" x-init="init()">
+<div class="app-shell" x-data="dashboardExhaust()">
   <div class="mobile-topbar">
     <button class="hamburger" @click="mobileNavOpen = true">☰</button>
   </div>
@@ -851,14 +851,12 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
     <div class="sidebar-brand" x-show="!sidebarCollapsed">WELDING EXHAUST<span>·</span>SYSTEM</div>
     <nav class="sidebar-nav" @click="mobileNavOpen = false">
       <a href="dashboard-exhaust.html" class="sidebar-link active" title="Dashboard Exhaust"><span>📊</span><span x-show="!sidebarCollapsed">Dashboard Exhaust</span></a>
-      <template x-if="isAdmin()"><a href="index.html" class="sidebar-link" title="Dashboard"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a></template>
-      <template x-if="isAdmin()"><a href="plan-produksi.html" class="sidebar-link" title="Plan Produksi"><span>📅</span><span x-show="!sidebarCollapsed">Plan Produksi</span></a></template>
+      <a href="index.html" class="sidebar-link" title="Dashboard" x-show="isAdmin()"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a>
+      <a href="plan-produksi.html" class="sidebar-link" title="Plan Produksi" x-show="isAdmin()"><span>📅</span><span x-show="!sidebarCollapsed">Plan Produksi</span></a>
       <a href="input-produksi.html" class="sidebar-link" title="Input Produksi"><span>⚙️</span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
-      <template x-if="isAdmin()"><a href="input-attendance.html" class="sidebar-link" title="Attendance"><span>👥</span><span x-show="!sidebarCollapsed">Attendance</span></a></template>
-            <template x-if="isAdmin()">
-        <a href="data-mentah.html" class="sidebar-link" title="Data Mentah"><span>🗃️</span><span x-show="!sidebarCollapsed">Data Mentah</span></a>
-      </template>
-<template x-if="isAdmin()"><a href="master-data.html" class="sidebar-link" title="Master Data"><span>🗂️</span><span x-show="!sidebarCollapsed">Master Data</span></a></template>
+      <a href="input-attendance.html" class="sidebar-link" title="Attendance" x-show="isLeaderOrAdmin()"><span>👥</span><span x-show="!sidebarCollapsed">Attendance</span></a>
+            <a href="data-mentah.html" class="sidebar-link" title="Data Mentah" x-show="isAdmin()"><span>🗃️</span><span x-show="!sidebarCollapsed">Data Mentah</span></a>
+<a href="master-data.html" class="sidebar-link" title="Master Data" x-show="isAdmin()"><span>🗂️</span><span x-show="!sidebarCollapsed">Master Data</span></a>
     </nav>
     <div class="sidebar-foot" x-show="!sidebarCollapsed">
       <div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
@@ -1762,93 +1760,113 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
     <!-- ===== TAB: PLAN HARIAN ===== -->
     <template x-if="activeTab === 'plan_harian'">
       <div style="padding:16px 0;">
-        <!-- Filter tanggal -->
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
-          <label style="font-size:.85rem;font-weight:600;color:var(--muted);">📅 Tanggal</label>
-          <input type="date" x-model="planTanggal" @change="fetchPlanHarian()"
-            style="padding:6px 10px;border:1px solid var(--field-border);border-radius:var(--radius-sm);background:var(--panel);color:var(--text);font-size:.85rem;">
-          <template x-if="isAdmin()">
-            <a href="plan-produksi.html" class="btn-secondary btn-sm" style="text-decoration:none;">✏️ Edit Plan</a>
-          </template>
+
+        <!-- Header + filter tanggal -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+          <div>
+            <p style="margin:0;font-weight:700;font-size:1rem;">Rencana Produksi Harian per Part Number</p>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <input type="date" x-model="planTanggal" @change="fetchPlanHarian()"
+              style="padding:6px 10px;border:1px solid var(--field-border);border-radius:var(--radius-sm);background:var(--panel);color:var(--text);font-size:.85rem;">
+            <template x-if="isAdmin()">
+              <a href="plan-produksi.html" class="btn-secondary btn-sm" style="text-decoration:none;">✏️ Edit Plan</a>
+            </template>
+          </div>
         </div>
 
-        <div x-show="planLoading" style="text-align:center;padding:40px;color:var(--muted);">
-          <div style="display:inline-block;width:20px;height:20px;border:2.5px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite;margin-right:8px;"></div>
-          Memuat plan harian...
-        </div>
+        <template x-if="planLoading">
+          <p style="text-align:center;padding:32px;color:var(--muted);">Memuat data...</p>
+        </template>
 
         <template x-if="!planLoading">
-          <div>
-            <!-- Tabel utama plan harian -->
-            <div style="overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);margin-bottom:16px;">
-              <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
-                <thead>
-                  <tr style="background:var(--panel-2);">
-                    <th style="padding:9px 12px;text-align:left;border-bottom:2px solid var(--border);white-space:nowrap;position:sticky;left:0;background:var(--panel-2);">Part Number</th>
-                    <template x-for="mk in ['E-02','E-03','E-04','E-05','E-06','E-07']" :key="mk">
-                      <th style="padding:9px 8px;text-align:center;border-bottom:2px solid var(--border);" x-text="mk"></th>
-                    </template>
-                    <th style="padding:9px 8px;text-align:center;border-bottom:2px solid var(--border);">Backlog</th>
-                    <th style="padding:9px 8px;text-align:center;border-bottom:2px solid var(--border);color:var(--primary);font-weight:700;">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <template x-if="planPartList.length === 0">
-                    <tr><td colspan="10" style="text-align:center;padding:32px;color:var(--muted);">Belum ada plan untuk tanggal ini.</td></tr>
-                  </template>
-                  <template x-for="part in planPartList" :key="part">
+          <div class="dash-body">
+
+            <!-- Baris atas: tabel Plan Harian -->
+            <div class="dash-panel" style="overflow-x:auto;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                <p class="dash-panel-title" style="margin:0;">Plan Harian</p>
+                <span class="plan-date-badge" x-text="'Plan Date: ' + planTanggal.slice(8,10)"></span>
+              </div>
+              <div class="table-wrap">
+                <table class="plan-table">
+                  <thead>
                     <tr>
-                      <td style="padding:8px 12px;border-bottom:1px solid var(--border);font-weight:500;position:sticky;left:0;background:var(--panel);" x-text="part"></td>
-                      <template x-for="mk in ['E-02','E-03','E-04','E-05','E-06','E-07']" :key="mk">
-                        <td style="padding:8px 8px;text-align:center;border-bottom:1px solid var(--border);font-family:var(--font-mono);" x-text="planCell(part,mk)||''"></td>
-                      </template>
-                      <td style="padding:8px 8px;text-align:center;border-bottom:1px solid var(--border);font-family:var(--font-mono);color:var(--muted);" x-text="planBacklog(part)||''"></td>
-                      <td style="padding:8px 8px;text-align:center;border-bottom:1px solid var(--border);font-family:var(--font-mono);font-weight:700;color:var(--primary);" x-text="planRowTotal(part)"></td>
+                      <th>Item</th>
+                      <template x-for="mk in ['E-02','E-03','E-04','E-05','E-06','E-07']" :key="mk"><th x-text="mk"></th></template>
+                      <th>Backlog</th>
+                      <th>Plan Awal</th>
                     </tr>
-                  </template>
-                  <tr x-show="planPartList.length > 0" style="background:var(--panel-2);">
-                    <td style="padding:9px 12px;font-weight:700;position:sticky;left:0;background:var(--panel-2);">TOTAL</td>
-                    <template x-for="mk in ['E-02','E-03','E-04','E-05','E-06','E-07']" :key="mk">
-                      <td style="padding:9px 8px;text-align:center;font-family:var(--font-mono);font-weight:700;" x-text="planColTotal(mk)||''"></td>
+                  </thead>
+                  <tbody>
+                    <template x-for="part in planPartList" :key="part">
+                      <tr>
+                        <td x-text="part"></td>
+                        <template x-for="mk in ['E-02','E-03','E-04','E-05','E-06','E-07']" :key="mk">
+                          <td x-text="planCell(part, mk) || ''"></td>
+                        </template>
+                        <td x-text="planBacklog(part) || ''"></td>
+                        <td><b x-text="planRowTotal(part)"></b></td>
+                      </tr>
                     </template>
-                    <td style="padding:9px 8px;text-align:center;font-family:var(--font-mono);font-weight:700;" x-text="planBacklogTotal()||''"></td>
-                    <td style="padding:9px 8px;text-align:center;font-family:var(--font-mono);font-weight:700;color:var(--primary);" x-text="planGrandTotal()"></td>
-                  </tr>
-                </tbody>
-              </table>
+                    <tr x-show="planPartList.length === 0">
+                      <td colspan="10" class="empty-state">Belum ada plan untuk tanggal ini.</td>
+                    </tr>
+                    <tr class="plan-total-row" x-show="planPartList.length > 0">
+                      <td>TOTAL PLAN HARIAN</td>
+                      <template x-for="mk in ['E-02','E-03','E-04','E-05','E-06','E-07']" :key="mk">
+                        <td x-text="planColTotal(mk)"></td>
+                      </template>
+                      <td x-text="planBacklogTotal()"></td>
+                      <td x-text="planGrandTotal()"></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             <!-- Shift 1 & Shift 2 -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div class="plan-shift-grid">
               <template x-for="shift in ['1','2']" :key="shift">
-                <div style="overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);">
-                  <div style="padding:10px 14px;background:var(--panel-2);border-bottom:1px solid var(--border);font-weight:600;font-size:.85rem;" x-text="'Shift ' + shift"></div>
-                  <table style="width:100%;border-collapse:collapse;font-size:.79rem;">
-                    <thead>
-                      <tr style="background:var(--panel-2);">
-                        <th style="padding:7px 10px;text-align:left;border-bottom:1px solid var(--border);">Part</th>
-                        <template x-for="mk in ['E-02','E-03','E-04','E-05','E-06','E-07']" :key="mk">
-                          <th style="padding:7px 5px;text-align:center;border-bottom:1px solid var(--border);font-size:.72rem;" x-text="mk.replace('E-','')"></th>
-                        </template>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <template x-if="planShiftParts(shift).length === 0">
-                        <tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted);">Tidak ada plan shift ini.</td></tr>
-                      </template>
-                      <template x-for="part in planShiftParts(shift)" :key="part">
+                <div class="dash-panel">
+                  <p class="dash-panel-title" x-text="'Shift ' + shift"></p>
+                  <div class="table-wrap">
+                    <table class="plan-shift-table">
+                      <thead>
                         <tr>
-                          <td style="padding:7px 10px;border-bottom:1px solid var(--border);font-weight:500;white-space:nowrap;" x-text="part"></td>
+                          <th rowspan="2">Item</th>
                           <template x-for="mk in ['E-02','E-03','E-04','E-05','E-06','E-07']" :key="mk">
-                            <td style="padding:7px 5px;text-align:center;border-bottom:1px solid var(--border);font-family:var(--font-mono);" x-text="planShiftCell(part,mk,shift)||''"></td>
+                            <th colspan="2" x-text="mk"></th>
+                          </template>
+                          <th rowspan="2">Balance</th>
+                        </tr>
+                        <tr>
+                          <template x-for="col in ['E-02','E-03','E-04','E-05','E-06','E-07'].flatMap((mk) => [{ mk, kind: 'plan' }, { mk, kind: 'act' }])" :key="col.mk + col.kind">
+                            <th x-text="col.kind === 'plan' ? 'Plan' : 'Act'"></th>
                           </template>
                         </tr>
-                      </template>
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        <template x-for="part in planShiftParts(shift)" :key="part">
+                          <tr>
+                            <td x-text="part"></td>
+                            <template x-for="col in ['E-02','E-03','E-04','E-05','E-06','E-07'].flatMap((mk) => [{ mk, kind: 'plan' }, { mk, kind: 'act' }])" :key="col.mk + col.kind">
+                              <td x-text="(col.kind === 'plan' ? planShiftCell(part, col.mk, shift) : planActCell(part, col.mk, shift)) || ''"></td>
+                            </template>
+                            <td :class="planBalanceClass(part, shift)" x-text="planBalance(part, shift)"></td>
+                          </tr>
+                        </template>
+                        <tr x-show="planShiftParts(shift).length === 0">
+                          <td :colspan="['E-02','E-03','E-04','E-05','E-06','E-07'].length * 2 + 2" class="empty-state"
+                            x-text="'Belum ada plan Shift ' + shift + '.'"></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </template>
             </div>
+
           </div>
         </template>
       </div>
@@ -1958,17 +1976,6 @@ function fmtTglID(s) {
   const [y, m, d] = s.split("-");
   return `${d}/${m}/${y}`;
 }
-// Gabungkan tanggal mulai & selesai cuti jadi 1 label -- tidak dipakai
-// lagi di tabel Cuti (sekarang tabel Cuti nampilin tanggal yang lagi
-// dibuka di date picker, bukan rentangnya), tapi disimpan di sini kalau
-// suatu saat perlu lagi (mis. laporan cetak/export).
-function fmtCutiTanggal(row) {
-  const mulai = row.tanggal;
-  const selesai = row.tanggalSelesai || row.tanggal;
-  if (!mulai) return "-";
-  if (selesai === mulai) return fmtTglID(mulai);
-  return `${fmtTglID(mulai)} - ${fmtTglID(selesai)}`;
-}
 // Angka utuh (TIDAK dibagi 1000) tapi dikasih titik pemisah ribuan --
 // dipakai buat kolom Value NG Inline/NG Trial di tabel Rekap & NG Terbesar.
 function fmtRibuan(n) {
@@ -2008,7 +2015,7 @@ function dashboardExhaust() {
     fmtNum,
         isAdmin() { return this.profile?.role === "admin"; },
 
-    isLeaderOrAdmin() { return this.profile && ["admin", "leader"].includes(this.profile.role); },
+    isLeaderOrAdmin() { if (!this.profile) return false; const r = (this.profile.role||"").toLowerCase(); const j = (this.profile.jabatan||"").toLowerCase(); return ["admin","leader"].includes(r) || ["admin","leader"].includes(j); },
     destroyBulananCharts() {
       Object.keys(this.bulananCharts).forEach((id) => {
         try { this.bulananCharts[id].destroy(); } catch (e) { /* noop */ }
@@ -2134,7 +2141,9 @@ function dashboardExhaust() {
     // Tanggal yang lagi dipilih untuk daftar Izin/Sakit/Cuti/Mangkir (4
     // kolom di bawah). Default = HARI INI (format YYYY-MM-DD, dipakai
     // langsung oleh <input type="date">).
-    attendanceDate: new Date().toISOString().slice(0, 10),
+    // localDateStr (bukan toISOString) -- toISOString pakai UTC, jadi jam
+    // 00:00-06:59 WIB tanggalnya mundur ke hari kemarin.
+    attendanceDate: localDateStr(new Date()),
     attendance: {
       rate: 0, total: 0, hadir: 0, cuti: 0, absen: 0, ot: 0, shift1: 0, shift2: 0,
       // Trend kehadiran harian (tanggal 1-31), diisi oleh fetchAttendance().
@@ -2464,10 +2473,6 @@ function dashboardExhaust() {
     // { ngInline: { "E-02": { qtyByMonth: [12], valueByMonth: [12] }, ... }, ngTrial: {...}, repair: {...} }
     qcLineMonthMap: { ngInline: {}, ngTrial: {}, repair: {} },
     qcLineModelMapLoaded: false,
-    get qcRekapMonthLabel() {
-      const bulanId = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
-      return bulanId[this.qcMonth - 1] + " " + this.qcYear;
-    },
     // Nama bulan singkat (tanpa tahun) -- dipakai sebagai overlay teks di
     // field tanggal panel Rekap selama mode "sebulan" masih aktif, biar
     // fieldnya nggak keliatan kosong melompong.
@@ -3361,14 +3366,11 @@ function dashboardExhaust() {
       if (this.tahunanLoaded) return;
       if (!opts.silent) this.tahunanLoading = true;
       try {
-        const now = new Date();
         // Fiscal year: April -> Maret. Tahun mulai FY dipilih dari dropdown Tahunan.
         const fyStartYear = this.tahunanYear;
         const fyStart = new Date(fyStartYear, 3, 1);
         const fyEnd = new Date(fyStartYear + 1, 3, 1);
         const prevFyStart = new Date(fyStartYear - 1, 3, 1);
-        const bulanIni = new Date(now.getFullYear(), now.getMonth(), 1);
-        const bulanDepan = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
         const [prodRes, ngRes, planByPicRes, lineRes, repairMonthRes] = await Promise.all([
           supabaseClient.rpc("dashboard_bulanan_produksi", { p_start: prevFyStart.toISOString(), p_end: fyEnd.toISOString() }),
@@ -3619,32 +3621,9 @@ function dashboardExhaust() {
     // ---- Helper baru khusus redesign Tahunan (Smart Narrative) ----
     // Semua fungsi di bawah ini murni presentasi: membaca this.tahunan yang
     // sudah di-fetch, tidak melakukan query/RPC baru sama sekali.
-    dxyDelta(arr, isCount) {
-      const valid = (arr || []).filter((v) => v !== null && v !== undefined && !Number.isNaN(Number(v))).map(Number);
-      if (valid.length < 2) return { dir: "flat", text: "–" };
-      const last = valid[valid.length - 1];
-      const prev = valid[valid.length - 2];
-      if (isCount) {
-        const pct = prev === 0 ? (last > 0 ? 100 : 0) : ((last - prev) / prev) * 100;
-        const dir = pct > 1 ? "up" : pct < -1 ? "down" : "flat";
-        return { dir, text: (pct >= 0 ? "▲ +" : "▼ ") + Math.abs(Math.round(pct)) + "%" };
-      }
-      const diff = last - prev;
-      const dir = diff > 0.05 ? "up" : diff < -0.05 ? "down" : "flat";
-      return { dir, text: (diff >= 0 ? "▲ +" : "▼ ") + Math.abs(diff).toFixed(1) + "%" };
-    },
     dxyPicColor(pic) {
       const map = { PE: "#2563EB", MESIN: "#F97316", QC: "#8B5CF6", PROD: "#10B981", PRESS: "#EF4444", "PC-SUPP": "#14B8A6" };
       return map[pic] || "#6B7280";
-    },
-    dxyRankBadgeColor(i) {
-      return ["#EF4444", "#F97316", "#F59E0B"][i] || "#2563EB";
-    },
-    dxyMinuteBadgeStyle(value) {
-      const v = Number(value) || 0;
-      if (v >= 60) return "background:rgba(239,68,68,.14); color:#000000";
-      if (v >= 30) return "background:rgba(249,115,22,.14); color:#000000";
-      return "background:rgba(16,185,129,.14); color:#000000";
     },
     // Status downtime terbesar: OPEN (merah) / PROGRESS (kuning) / CLOSE (hijau)
     dxyStatusClass(status) {
@@ -4346,34 +4325,6 @@ function dashboardExhaust() {
       flat.sort((a, c) => (Number(c.qty) || 0) - (Number(a.qty) || 0));
       return this.dxyPadMin(flat, { mesin: "", kategori: "", qty: "" }, 12);
     },
-    dxyExportCsv() {
-      const b = this.tahunan;
-      const months = b.monthLabels.slice(2);
-      const header = ["Bulan", "Productivity(%)", "Availability(%)", "NG Qty", "NG Value", "Straight Pass(%)", "Downtime(menit)"];
-      const rows = [header];
-      months.forEach((lbl, i) => {
-        const idx = i + 2;
-        rows.push([
-          lbl,
-          b.productivity.actual[idx] ?? "",
-          b.availability.actual[idx] ?? "",
-          b.ngInline.qtyByMonth[idx] ?? "",
-          b.ngInline.valueByMonth[idx] ?? "",
-          b.straightpass.actual[idx] ?? "",
-          b.downtimeExhaust.values[idx] ?? "",
-        ]);
-      });
-      const csv = rows.map((r) => r.join(",")).join("\n");
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `dashboard-exhaust-tahunan-FY${this.tahunanYear}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    },
     computeTahunanInsights() {
       const b = this.tahunan;
       const insights = [];
@@ -4980,42 +4931,8 @@ function dashboardExhaust() {
         },
       });
 
-      // Label angka DI ATAS tiap titik garis (line) -- dipakai buat Value
-      // NG (Rp), ditampilkan dibagi 1000 lewat formatter yang dikirim.
-      const lineValueLabels = (formatter, datasetIndex = 1) => ({
-        id: "dxyLineValueLabels",
-        afterDatasetsDraw(chart) {
-          const { ctx, chartArea } = chart;
-          const meta = chart.getDatasetMeta(datasetIndex);
-          const dataset = chart.data.datasets[datasetIndex];
-          if (!meta || !dataset || meta.type !== "line" || !meta.data) return;
-          ctx.save();
-          ctx.font = "700 9.5px Inter, sans-serif";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "bottom";
-          ctx.fillStyle = "#000000";
-          let lastRightEdge = -Infinity;
-          meta.data.forEach((point, i) => {
-            const raw = dataset.data[i];
-            if (raw === null || raw === undefined) return;
-            const val = Number(raw);
-            if (Number.isNaN(val)) return;
-            const label = formatter(val);
-            const { x, y } = point.getProps(["x", "y"], true);
-            // Jarak aman minimum dari dasar chart -- supaya label garis
-            // tidak ketimpa label angka batang (Qty) yang digambar dekat
-            // sumbu-x (lihat barValueLabels pos "base").
-            const labelY = chartArea ? Math.min(y - 6, chartArea.bottom - 18) : y - 6;
-            const halfW = ctx.measureText(label).width / 2 + 2;
-            if (x - halfW < lastRightEdge) return;
-            ctx.fillText(label, x, labelY);
-            lastRightEdge = x + halfW;
-          });
-          ctx.restore();
-        },
-      });
 
-      // Varian lineValueLabels TAPI TIDAK PERNAH skip label (semua angka
+      // Label angka di atas titik garis yang TIDAK PERNAH skip label (semua angka
       // selalu ditampilkan, tidak boleh ada yang hilang gara-gara
       // mekanisme anti-tabrakan). Supaya tidak saling tumpuk, tinggi
       // label diselang-seling (zig-zag) antara baris genap & ganjil --
@@ -5118,8 +5035,7 @@ function dashboardExhaust() {
       // "% Straightpass" (kanan) + garis merah putus-putus "Target".
       // Konfigurasi (termasuk axis "grace" & plugin label) SAMA PERSIS
       // dengan qcRepairStraightpassBar (Perline/Model) di tab Kontrol
-      // Kualitas -- termasuk lineValueLabels versi ASLI (anti-tabrakan
-      // dengan skip), BUKAN versi custom lain.
+      // Kualitas -- termasuk plugin label garis lineValueLabelsAll.
       const bigStraightpassDual = (canvasId, labels, repairQty, pctActual, target, hex) => {
         destroy(canvasId);
         const canvas = document.getElementById(canvasId);
@@ -5281,19 +5197,6 @@ function dashboardExhaust() {
       });
       const legend = (show) => ({ display: show, position: "bottom", labels: { color: "#000000", boxWidth: 5, boxHeight: 5, usePointStyle: true, pointStyle: "circle", font: { size: 7.5 }, padding: 3 } });
       const tooltip = () => ({ backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"), borderColor: cssVar("--border"), borderWidth: 1, padding: 10, cornerRadius: 8, displayColors: true, usePointStyle: true });
-      const grad = (canvas, hex, alphaTop = 0.85, alphaBottom = 0.05) => {
-        const ctx = canvas.getContext("2d");
-        const h = canvas.height || 200;
-        const g = ctx.createLinearGradient(0, 0, 0, h);
-        const toRgba = (a) => {
-          const n = parseInt(hex.replace("#", ""), 16);
-          const r = (n >> 16) & 255, gg = (n >> 8) & 255, bl = n & 255;
-          return `rgba(${r},${gg},${bl},${a})`;
-        };
-        g.addColorStop(0, toRgba(alphaTop));
-        g.addColorStop(1, toRgba(alphaBottom));
-        return g;
-      };
       // Bar SOLID (tanpa gradasi) -- gradasi dihapus atas permintaan.
       const barBg = (canvas, hex, len) => Array.from({ length: len }, () => hex);
       // Varian barBg KHUSUS chart *Perline -- warna batang line yang lagi
@@ -5392,59 +5295,12 @@ function dashboardExhaust() {
         },
       });
 
-      // Sama seperti barValueLabels, tapi buat dataset garis (line) --
-      // dipakai buat nampilin angka di atas tiap titik, misal "% Straightpass".
-      // Selalu digambar DI ATAS titik/garisnya -- tidak pernah dibalik ke
-      // bawah. Jarak aman ke judul sumbu ("Qty"/"Value" di axisUnitLabels)
-      // sudah dijaga lewat kombinasi: axisUnitLabels digeser tinggi ke atas
-      // + sumbu diberi headroom ("grace") di atas nilai data tertinggi --
-      // jadi titik data jarang mepet betul ke puncak chart.
-      const lineValueLabels = (formatter, datasetIndex = 1) => ({
-        id: "dxyQcLineValueLabels_" + datasetIndex + "_" + Math.random(),
-        afterDatasetsDraw(chart) {
-          const { ctx, chartArea } = chart;
-          const meta = chart.getDatasetMeta(datasetIndex);
-          const dataset = chart.data.datasets[datasetIndex];
-          if (!meta || !dataset || meta.type !== "line" || !meta.data) return;
-          const textColor = "#000000";
-          const n = meta.data.length;
-          const slotWidth = chartArea && n ? chartArea.width / n : 30;
-          // Turunkan lagi ambang batasnya (tambah tingkatan 6px) supaya di
-          // chart sempit (banyak kategori + dual axis) teksnya tetap muat.
-          const fontSize = slotWidth < 18 ? 6 : slotWidth < 24 ? 7 : slotWidth < 34 ? 8 : slotWidth < 46 ? 9 : 10;
-          ctx.save();
-          ctx.font = `700 ${fontSize}px Inter, sans-serif`;
-          ctx.textAlign = "center";
-          ctx.textBaseline = "bottom";
-          ctx.fillStyle = textColor;
-          const bottomSafe = chartArea ? chartArea.bottom - 18 : Infinity;
-          // Hindari tabrakan: kalau bounding-box label ini masih tumpang
-          // tindih dengan label terakhir yang berhasil digambar, lewati
-          // (skip) -- daripada dipaksa gambar & saling menimpa jadi tidak
-          // terbaca sama sekali.
-          let lastRightEdge = -Infinity;
-          meta.data.forEach((point, i) => {
-            const raw = dataset.data[i];
-            if (raw === null || raw === undefined) return;
-            const val = Number(raw);
-            if (Number.isNaN(val)) return;
-            const label = formatter(val);
-            const { x, y } = point.getProps(["x", "y"], true);
-            const labelY = Math.min(y - 6, bottomSafe);
-            const halfW = ctx.measureText(label).width / 2 + 2;
-            if (x - halfW < lastRightEdge) return; // akan tabrakan, lewati
-            ctx.fillText(label, x, labelY);
-            lastRightEdge = x + halfW;
-          });
-          ctx.restore();
-        },
-      });
 
-      // Varian lineValueLabels TAPI TIDAK PERNAH skip label -- dipakai
+      // Label angka di atas titik garis yang TIDAK PERNAH skip label -- dipakai
       // khusus buat chart "% Straightpass" (Perline/Model) supaya SEMUA
       // model/line selalu tampil angkanya, walaupun kategorinya banyak dan
-      // ada dua label yang berdekatan. Bedanya dengan versi skip di atas:
-      // di sini kalau 2 label bakal tabrakan horizontal, label kedua
+      // ada dua label yang berdekatan. Kalau 2 label bakal tabrakan
+      // horizontal, label kedua
       // digeser naik (zig-zag antara baris genap & ganjil) alih-alih
       // dihilangkan. bottomSafe tetap dijaga supaya tidak numpuk dengan
       // label batang "Qty Repair" (barValueLabels pos "base") di dekat
@@ -5598,7 +5454,7 @@ function dashboardExhaust() {
       // Perline/Model -- bar "Qty Repair" (kiri) + garis hijau
       // "% Straightpass" (kanan) + garis merah putus-putus "Target".
       // Label bar di DASAR batang & label garis % pakai anti-tumpuk
-      // (lineValueLabels sudah skip label yang bertabrakan), sama persis
+      // (lineValueLabelsAll, label digeser zig-zag), sama persis
       // mekanismenya dengan qcRepairStraightpassBar (Perline/Model).
       // Kalau Line picker != ALL: bar "Qty Repair" dialihkan ke data akurat
       // per-line (this.qcLineMonthMap.repair) -- tapi garis "% Straightpass"
@@ -5636,31 +5492,6 @@ function dashboardExhaust() {
         });
       }, "qcStraightpassMonth");
 
-      // --- Perline & Model: 6 chart bar sederhana (E-02..E-07 / daftar
-      // model) untuk 3 kolom. NG Inline sudah pakai data asli; NG Trial &
-      // Straightpass masih dikosongkan dulu (belum ada RPC-nya). ---
-      const qcSimpleBar = (canvasId, categories, hex, dataQty) => {
-        safe(() => {
-          destroy(canvasId);
-          const canvas = document.getElementById(canvasId);
-          if (!canvas) return;
-          const values = dataQty || categories.map(() => null);
-          this.qcCharts[canvasId] = new Chart(canvas, {
-            type: "bar",
-            data: {
-              labels: categories,
-              datasets: [{ label: "Qty", data: values, backgroundColor: barBg(canvas, hex, categories.length), borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 }],
-            },
-            options: {
-              responsive: true, maintainAspectRatio: false, animation: noAnim,
-              layout: { padding: { top: 32 } },
-              plugins: { legend: legend(false), tooltip: tooltip() },
-              scales: baseScales(),
-            },
-            plugins: [barValueLabels((v) => fmtNum(v), 0), barBevelInset(0)],
-          });
-        }, canvasId);
-      };
       // Dual-axis: bar "Qty Repair" (kiri) + garis "% Straightpass" (kanan,
       // 0-100) -- dipakai di chart Straightpass Perline & Model.
       const qcRepairStraightpassBar = (canvasId, categories, qtyData, pctData, highlightKey = null) => {
@@ -5849,10 +5680,6 @@ function dashboardExhaust() {
       // Label angka di TENGAH tiap segmen batang -- cuma muncul kalau
       // nilainya > 0 (biar nggak numpuk angka "0" di semua batang kosong).
       const dl = { display: (ctx) => (ctx.dataset.data[ctx.dataIndex] || 0) > 0, color: "#fff", anchor: "center", align: "center", font: { size: 8, weight: "bold" }, formatter: (v) => v };
-      // Label angka Hadir (garis) -- ditaruh di ATAS titik, bukan di
-      // tengah batang seperti dl (dl dipakai buat Izin/Sakit/Cuti/Mangkir
-      // yang masih batang bertumpuk).
-      const dlLine = { display: (ctx) => (ctx.dataset.data[ctx.dataIndex] || 0) > 0, color: "#2563EB", anchor: "end", align: "top", offset: 4, font: { size: 8, weight: "bold" }, formatter: (v) => v };
       // Label angka % Kehadiran (garis hijau, sumbu kanan y1) -- ditaruh
       // di atas titik juga, warna hijau senada garisnya.
       const dlPersen = { display: (ctx) => ctx.dataset.data[ctx.dataIndex] !== null && ctx.dataset.data[ctx.dataIndex] !== undefined, color: "#10B981", anchor: "end", align: "top", offset: 4, font: { size: 8, weight: "bold" }, formatter: (v) => v + "%" };
@@ -6160,20 +5987,23 @@ function dashboardExhaust() {
     // ══════════════════════════════════════
     // PLAN HARIAN
     // ══════════════════════════════════════
-    planTanggal: new Date().toISOString().slice(0,10),
+    planTanggal: localDateStr(new Date()), // tanggal lokal WIB, bukan UTC
     planRows: [],
     planBacklogRows: [],
+    planActualRows: [],
     planLoading: false,
 
     async fetchPlanHarian() {
       this.planLoading = true;
       try {
-        const [planRes, backlogRes] = await Promise.all([
+        const [planRes, backlogRes, actRes] = await Promise.all([
           supabaseClient.from('production_plan_harian').select('*').eq('tanggal', this.planTanggal),
           supabaseClient.from('production_plan_backlog').select('*').eq('tanggal', this.planTanggal),
+          supabaseClient.rpc('plan_produksi_actual', { p_tanggal: this.planTanggal }),
         ]);
-        this.planRows    = planRes.data    || [];
+        this.planRows        = planRes.data   || [];
         this.planBacklogRows = backlogRes.data || [];
+        this.planActualRows  = actRes.data    || [];
       } finally {
         this.planLoading = false;
       }
@@ -6213,6 +6043,21 @@ function dashboardExhaust() {
     planShiftCell(part, mesin, shift) {
       const r = this.planRows.find(r => r.part_number===part && r.mesin===mesin && r.shift==shift);
       return r && r.qty_rencana > 0 ? Number(r.qty_rencana).toLocaleString('id-ID') : '';
+    },
+    planActCell(part, mesin, shift) {
+      const r = this.planActualRows.find(r => r.part_number===part && r.mesin===mesin && r.shift==shift);
+      return r && r.qty_aktual > 0 ? Number(r.qty_aktual).toLocaleString('id-ID') : '';
+    },
+    planBalance(part, shift) {
+      const plan = this.planRows.filter(r => r.part_number===part && r.shift==shift).reduce((a,r)=>a+(Number(r.qty_rencana)||0),0);
+      const act  = this.planActualRows.filter(r => r.part_number===part && r.shift==shift).reduce((a,r)=>a+(Number(r.qty_aktual)||0),0);
+      return (act - plan).toLocaleString('id-ID');
+    },
+    planBalanceClass(part, shift) {
+      const plan = this.planRows.filter(r => r.part_number===part && r.shift==shift).reduce((a,r)=>a+(Number(r.qty_rencana)||0),0);
+      const act  = this.planActualRows.filter(r => r.part_number===part && r.shift==shift).reduce((a,r)=>a+(Number(r.qty_aktual)||0),0);
+      if (plan===0 && act===0) return '';
+      return act >= plan ? 'balance-ok' : 'balance-bad';
     },
 
     logout,

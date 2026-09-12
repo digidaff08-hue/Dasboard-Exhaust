@@ -2,7 +2,11 @@
 
 Aplikasi web (HTML + Alpine.js + Supabase) untuk mencatat data produksi dan
 downtime **6 line Welding: E-02, E-03, E-04, E-05, E-06, E-07**. Bisa
-diinstall di HP (PWA) dan tetap bisa dipakai tanpa sinyal (mode offline).
+diinstall di HP (PWA). Tampilan app tetap bisa dibuka tanpa sinyal, dan
+simpan data **Input Produksi** (alur lama & baru) serta **Downtime** saat
+sinyal putus akan diantrekan di HP lalu disinkron otomatis begitu online.
+NG Inline (ada foto), Repair (titik 3D), dan semua proses edit/hapus tetap
+butuh koneksi.
 
 Project ini awalnya adaptasi dari sistem serupa milik dept Press, sudah
 direstrukturisasi total untuk Welding (line flat, tanpa sub-stasiun).
@@ -17,8 +21,9 @@ direstrukturisasi total untuk Welding (line flat, tanpa sub-stasiun).
 ├── plan-produksi.html                            # Plan Produksi Harian (di bawah Dashboard)
 ├── input-produksi.html                           # Pilih line → catat produksi/downtime
 ├── input-attendance.html                         # Absensi harian (admin/leader)
-├── input-scrap.html                              # Scrap Top End bulanan (admin/leader)
-├── input-safety.html                              # Catat insiden safety (admin/leader)
+├── master-data.html                              # Master data umum: Total Orang, OT, Shift, Hari Libur, Scrap, Safety (admin)
+├── data-mentah.html                              # Lihat & export data mentah (admin)
+├── reset-password.html                           # Halaman ganti password (dari link email)
 ├── manifest.json / service-worker.js             # PWA (install ke HP + cache offline)
 ├── machines/e-02.html ... e-07.html              # 6 halaman line Welding
 ├── assets/
@@ -43,6 +48,7 @@ direstrukturisasi total untuk Welding (line flat, tanpa sub-stasiun).
 ├── migration_repair_v8_part_color.sql              # 14) Warna custom per Part 3D (file .stl tidak simpan warna)
 ├── migration_plan_produksi.sql                     # 15) Tabel Plan Harian (per part/line/shift) + Backlog + RPC actual
 ├── migration_enable_realtime.sql                   # 16) Aktifkan Supabase Realtime (live update antar tab/HP)
+├── patch_security_profiles_role.sql                # WAJIB: kunci role/jabatan/NIK supaya user biasa tidak bisa jadi admin
 └── reset_welding.sql                              # Utilitas: reset total kalau setup gagal di tengah
 ```
 
@@ -178,8 +184,9 @@ library [SheetJS](https://sheetjs.com/) via CDN) di 4 tab, per bulan:
 - Repair
 
 File turun sebagai `.xlsx` (nama file: `<Jenis>_<Line>_<Bulan>.xlsx`).
-Dashboard Exhaust (ringkasan tahunan) juga punya export, tapi formatnya
-**CSV** (tombol export tahunan), bukan `.xlsx`.
+Halaman **Data Mentah** juga punya export `.xlsx`. Dashboard Exhaust
+belum punya tombol export (fungsi CSV lama yang tidak pernah punya tombol
+sudah dihapus).
 
 ---
 
@@ -188,7 +195,15 @@ Dashboard Exhaust (ringkasan tahunan) juga punya export, tapi formatnya
   dipindah/disesuaikan ke skema Welding ini.
 - **Export Excel di Plan Produksi** belum ada — `plan-produksi.html`
   belum punya tombol export (halaman per-line E-02..E-07 sudah punya,
-  lihat bagian "Export Excel" di bawah).
+  lihat bagian "Export Excel" di atas).
+- **Offline untuk NG Inline & Repair** belum ada (lihat catatan offline
+  di bagian atas).
+- **File SQL belum lengkap**: tabel `attendance_leave`,
+  `attendance_shift_weekly`, `hari_libur`, `karyawan_master` dan beberapa
+  RPC dashboard (`dashboard_harian_*`, `dashboard_qc_repair_*`,
+  `dashboard_qc_produksi_*`, `dashboard_tahunan_*`) dipakai aplikasi
+  tetapi definisinya tidak ada di folder ini (dibuat langsung di
+  Supabase). Setup dari nol belum bisa hanya pakai file di sini.
 
 > Catatan: dua poin lama di sini (Part Number combo box & Export Excel)
 > sudah selesai dikerjakan, sudah dihapus dari daftar per audit kode
@@ -215,3 +230,63 @@ seperti biasa, cuma tidak ada auto-update-nya).
 Cara cek: buka line yang sama di 2 tab/HP berbeda, simpan data (misal
 NG Inline) di salah satunya — tab satunya harus otomatis muncul data
 barunya dalam ±1 detik tanpa perlu di-refresh.
+
+---
+
+## Catatan perbaikan (audit kode, September 2026)
+
+**Bug yang diperbaiki**
+- `init()` dulu jalan 2x di semua halaman (atribut `x-init="init()"`
+  dobel dengan pemanggilan otomatis Alpine) -- fetch data, interval, dan
+  listener jadi dobel. Atribut `x-init="init()"` sudah dihapus.
+  **Jangan ditambahkan lagi**: Alpine otomatis memanggil `init()`.
+- `reset-password.html`: variabel `showPassword` belum dideklarasikan
+  sehingga kolom password tampil sebagai teks biasa.
+- Antrean offline (`assets/machine-page.js`): data baru yang masuk saat
+  sinkron bisa hilang, 2 tab bisa sinkron item yang sama (data dobel),
+  dan item yang ditolak server dicoba ulang selamanya. Sekarang: baca
+  ulang antrean sebelum simpan, kunci lintas tab (Web Locks), produksi
+  dikirim sebelum downtime, dan item yang ditolak 5x dipindah ke
+  localStorage `offline_queue_failed_v2`.
+- Tabel Shift 1/Shift 2 di Plan Produksi & Plan Harian (Dashboard
+  Exhaust): kolom **Act** tidak pernah tampil karena `x-for` berisi 2
+  elemen root.
+- Field **Jumlah MP** (alur Input Produksi NEW) sekarang muncul kalau Std
+  MP part belum diisi di Master Data (dulu selalu tersembunyi).
+- Tanggal default Attendance & Plan Harian di Dashboard Exhaust dulu
+  mundur 1 hari antara jam 00:00-07:00 WIB (pakai UTC).
+- Render 3D di tab Repair sekarang berhenti saat pindah tab (hemat
+  baterai HP).
+- Loading model 3D Repair dipercepat: file model part aktif mulai
+  diunduh di belakang layar setelah halaman line terbuka; library Three.js
+  & file model diunduh bersamaan (dulu berurutan); file hasil upload
+  disimpan permanen di HP (Cache Storage `repair-models-v1`, hanya di
+  https) sehingga cukup diunduh sekali; loader .3mf hanya dimuat kalau ada
+  part .3mf; overlay menampilkan tahap & persen unduhan; part yang sama
+  tidak lagi bisa dimuat 2x bersamaan. Prefetch dilewati kalau mode hemat
+  data browser aktif.
+- Tombol **▶ Mulai Produksi** sekarang menunggu riwayat produksi/
+  non-produksi selesai dimuat (di belakang layar) sebelum menghitung jeda,
+  supaya deteksi jeda Non-Produksi tidak meleset kalau diklik terlalu
+  cepat. Layar "Memuat data..." TIDAK ikut menunggu data ini (sempat
+  dicoba, bikin loading awal lebih lama).
+- Pesan notifikasi tidak lagi hilang lebih cepat dari 4 detik, link reset
+  password tidak terkirim dobel, service worker tidak menyimpan halaman
+  error, icon PWA sudah ukuran 192 & 512 yang benar.
+
+**Keamanan** -- jalankan `patch_security_profiles_role.sql` di Supabase.
+Masih terbuka (butuh keputusan): `email_for_nik` bisa dipanggil tanpa
+login, pendaftaran akun terbuka untuk umum, dan semua user login bisa
+tambah/ubah/hapus data produksi.
+
+**File yang dihapus**: `assets/repair/view-1.png` & `view-2.png` (sisa
+Repair 2D), `migration_cleanup_downtime_master_duplicates.sql` v1-v3
+(cukup pakai `_v4`, standalone), `cek_definisi_rpc_dashboard_qc_ng.sql`,
+`diagnostik_problem_kategori.sql`.
+
+**Perlu dicek**: rumus Straightpass di form Input Produksi baru
+(`1 - total_repair_menit / qty`), dan RPC `performance_aggregate` /
+`plan_produksi_actual` versi di folder ini baru membaca `production_log`
+(belum `production_log_new`). `performance_aggregate` didefinisikan di
+beberapa file migration -- jalankan sesuai urutan supaya versi terbaru
+tidak tertimpa.

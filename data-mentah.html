@@ -628,7 +628,7 @@ input[type="month"]:focus {
 </head>
 <body>
 
-<div class="app-shell" x-data="dataMentah()" x-init="init()" @click="cfClose()" @keydown.escape.window="cfClose()">
+<div class="app-shell" x-data="dataMentah()" @click="cfClose()" @keydown.escape.window="cfClose()">
   <div class="mobile-topbar">
     <button class="hamburger" @click="mobileNavOpen = true">☰</button>
   </div>
@@ -642,14 +642,12 @@ input[type="month"]:focus {
     <div class="sidebar-brand" x-show="!sidebarCollapsed">WELDING EXHAUST<span>·</span>SYSTEM</div>
     <nav class="sidebar-nav" @click="mobileNavOpen = false">
       <a href="dashboard-exhaust.html" class="sidebar-link" title="Dashboard Exhaust"><span>📊</span><span x-show="!sidebarCollapsed">Dashboard Exhaust</span></a>
-      <template x-if="isAdmin()"><a href="index.html" class="sidebar-link" title="Dashboard"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a></template>
-      <template x-if="isAdmin()"><a href="plan-produksi.html" class="sidebar-link" title="Plan Produksi"><span>📅</span><span x-show="!sidebarCollapsed">Plan Produksi</span></a></template>
+      <a href="index.html" class="sidebar-link" title="Dashboard" x-show="isAdmin()"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a>
+      <a href="plan-produksi.html" class="sidebar-link" title="Plan Produksi" x-show="isAdmin()"><span>📅</span><span x-show="!sidebarCollapsed">Plan Produksi</span></a>
       <a href="input-produksi.html" class="sidebar-link" title="Input Produksi"><span>⚙️</span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
-      <template x-if="isAdmin()"><a href="input-attendance.html" class="sidebar-link" title="Attendance"><span>👥</span><span x-show="!sidebarCollapsed">Attendance</span></a></template>
-      <template x-if="isAdmin()">
-        <a href="data-mentah.html" class="sidebar-link active" title="Data Mentah"><span>🗃️</span><span x-show="!sidebarCollapsed">Data Mentah</span></a>
-      </template>
-      <template x-if="isAdmin()"><a href="master-data.html" class="sidebar-link" title="Master Data"><span>🗂️</span><span x-show="!sidebarCollapsed">Master Data</span></a></template>
+      <a href="input-attendance.html" class="sidebar-link" title="Attendance" x-show="isLeaderOrAdmin()"><span>👥</span><span x-show="!sidebarCollapsed">Attendance</span></a>
+      <a href="data-mentah.html" class="sidebar-link active" title="Data Mentah" x-show="isAdmin()"><span>🗃️</span><span x-show="!sidebarCollapsed">Data Mentah</span></a>
+      <a href="master-data.html" class="sidebar-link" title="Master Data" x-show="isAdmin()"><span>🗂️</span><span x-show="!sidebarCollapsed">Master Data</span></a>
     </nav>
     <div class="sidebar-foot" x-show="!sidebarCollapsed">
       <div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
@@ -1390,7 +1388,7 @@ function dataMentah() {
     },
 
     isAdmin()        { return this.profile?.role === 'admin'; },
-    isLeaderOrAdmin(){ return this.profile && ['admin','leader'].includes(this.profile.role); },
+    isLeaderOrAdmin() { if (!this.profile) return false; const r = (this.profile.role||"").toLowerCase(); const j = (this.profile.jabatan||"").toLowerCase(); return ["admin","leader"].includes(r) || ["admin","leader"].includes(j); },
     async doLogout() { await supabaseClient.auth.signOut(); window.location.href='login.html'; },
 
     onBulanChange(s)  { this.f[s].tanggal=''; this.cfResetSection(s); this.fetchSection(s); },

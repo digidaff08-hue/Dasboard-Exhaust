@@ -54,13 +54,15 @@ $$;
 grant execute on function public.email_for_nik(text) to anon, authenticated;
 
 -- 4. Isi NIK buat akun admin yang SUDAH ADA sekarang
-update public.profiles set nik = '180801'
-where id = (select id from auth.users where email = 'digidaff08@gmail.com');
+-- (data asli dihapus dari file ini supaya email & NIK tidak ikut
+-- tersimpan di repo -- ganti <NIK> dan <EMAIL> sebelum dijalankan)
+-- update public.profiles set nik = '<NIK>'
+-- where id = (select id from auth.users where email = '<EMAIL>');
 
 -- Cek hasilnya
-select p.full_name, p.role, p.nik, u.email
-from public.profiles p join auth.users u on u.id = p.id
-where u.email = 'digidaff08@gmail.com';
+-- select p.full_name, p.role, p.nik, u.email
+-- from public.profiles p join auth.users u on u.id = p.id
+-- where u.email = '<EMAIL>';
 
 -- =========================================================
 -- SELESAI. Lanjut ganti login.html, lalu daftar 8 karyawan baru

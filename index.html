@@ -24,7 +24,7 @@
 </head>
 <body class="tv-mode-page">
 
-<div class="app-shell" x-data="dashboard()" x-init="init()">
+<div class="app-shell" x-data="dashboard()">
   <div class="mobile-topbar">
     <button class="hamburger" @click="mobileNavOpen = true">☰</button>
   </div>
@@ -38,13 +38,11 @@
     <nav class="sidebar-nav" @click="mobileNavOpen = false">
       <a href="dashboard-exhaust.html" class="sidebar-link" title="Dashboard Exhaust"><span>📊</span><span x-show="!sidebarCollapsed">Dashboard Exhaust</span></a>
       <a href="index.html" class="sidebar-link active" title="Dashboard"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a>
-      <template x-if="isAdmin()"><a href="plan-produksi.html" class="sidebar-link" title="Plan Produksi"><span>📅</span><span x-show="!sidebarCollapsed">Plan Produksi</span></a></template>
+      <a href="plan-produksi.html" class="sidebar-link" title="Plan Produksi" x-show="isAdmin()"><span>📅</span><span x-show="!sidebarCollapsed">Plan Produksi</span></a>
       <a href="input-produksi.html" class="sidebar-link" title="Input Produksi"><span>⚙️</span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
-      <template x-if="isAdmin()"><a href="input-attendance.html" class="sidebar-link" title="Attendance"><span>👥</span><span x-show="!sidebarCollapsed">Attendance</span></a></template>
-            <template x-if="isAdmin()">
-        <a href="data-mentah.html" class="sidebar-link" title="Data Mentah"><span>🗃️</span><span x-show="!sidebarCollapsed">Data Mentah</span></a>
-      </template>
-<template x-if="isAdmin()"><a href="master-data.html" class="sidebar-link" title="Master Data"><span>🗂️</span><span x-show="!sidebarCollapsed">Master Data</span></a></template>
+      <a href="input-attendance.html" class="sidebar-link" title="Attendance" x-show="isLeaderOrAdmin()"><span>👥</span><span x-show="!sidebarCollapsed">Attendance</span></a>
+            <a href="data-mentah.html" class="sidebar-link" title="Data Mentah" x-show="isAdmin()"><span>🗃️</span><span x-show="!sidebarCollapsed">Data Mentah</span></a>
+<a href="master-data.html" class="sidebar-link" title="Master Data" x-show="isAdmin()"><span>🗂️</span><span x-show="!sidebarCollapsed">Master Data</span></a>
     </nav>
     <div class="sidebar-foot" x-show="!sidebarCollapsed">
       <div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
@@ -645,21 +643,16 @@ function dashboard() {
         targetRasio: Number(row.target_rasio) || 0,
       };
     },
-    absenForm: { tanggal: localDateStr(new Date()), shift: "1", total_orang: "", hadir: "", cuti: "", absen: "", overtime_jam: "" },
     achievementPct: 0,
     ngRatePct: 0, downtimePct: 0,
         isAdmin() { return this.profile?.role === "admin"; },
 
-    isLeaderOrAdmin() { return this.profile && ["admin", "leader"].includes(this.profile.role); },
+    isLeaderOrAdmin() { if (!this.profile) return false; const r = (this.profile.role||"").toLowerCase(); const j = (this.profile.jabatan||"").toLowerCase(); return ["admin","leader"].includes(r) || ["admin","leader"].includes(j); },
     cardStatus(val, greenAt, amberAt) {
       const v = Number(val) || 0;
       if (v >= greenAt) return "good";
       if (v >= amberAt) return "warn";
       return "bad";
-    },
-    cardLabel(val, greenAt, amberAt) {
-      const s = this.cardStatus(val, greenAt, amberAt);
-      return s === "good" ? "GOOD" : s === "warn" ? "WARNING" : "CRITICAL";
     },
     async fetchAttendance() {
       // Absensi disimpan 1 baris per (tanggal, shift) -- rentang tanggalnya
@@ -720,20 +713,6 @@ function dashboard() {
         shift2: { hadir: Number(row2.hadir) || 0, total: Number(row2.total_orang) || 0 },
       };
     },
-    async saveAbsensi() {
-      const f = this.absenForm;
-      if (!f.tanggal || f.total_orang === "" || f.hadir === "") { alert("Tanggal, Total Orang, dan Hadir wajib diisi."); return; }
-      const payload = {
-        tanggal: f.tanggal, shift: f.shift,
-        total_orang: Number(f.total_orang) || 0, hadir: Number(f.hadir) || 0,
-        cuti: Number(f.cuti) || 0,
-        absen: Number(f.absen) || 0, overtime_jam: Number(f.overtime_jam) || 0,
-        updated_by: this.session.user.id,
-      };
-      const { error } = await supabaseClient.from("attendance_log").upsert(payload, { onConflict: "tanggal,shift" });
-      if (error) { alert("Gagal simpan absensi: " + error.message); return; }
-      this.fetchAttendance();
-    },
     applyBulan() {
       const d = new Date(this.tanggal + "T00:00:00");
       d.setDate(1);
@@ -780,13 +759,6 @@ function dashboard() {
       localStorage.setItem("theme_v1", this.theme);
       document.documentElement.setAttribute("data-theme", this.theme);
       this.$nextTick(() => this.renderAllCharts());
-    },
-
-    periodeLabel() {
-      const d = new Date(this.tanggal + "T00:00:00");
-      if (this.periodMode === "tahunan") return String(d.getFullYear());
-      if (this.periodMode === "bulanan") return d.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
-      return d.toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" });
     },
 
     bounds() {

@@ -207,8 +207,7 @@
 
     </div>
 <div class="app-shell"
-     x-data='machinePage("E-03", "E-03", [], 0, ["MACHINE", "MATERIAL", "METHODE", "MAN"], {"mode": "none"})'
-     x-init="init()">
+     x-data='machinePage("E-03", "E-03", [], 0, ["MACHINE", "MATERIAL", "METHODE", "MAN"], {"mode": "none"})'>
   <div class="mobile-topbar machine-topbar">
     <div class="mobile-topbar-top">
       <button class="hamburger" @click="mobileNavOpen = true">☰</button>
@@ -239,14 +238,12 @@
     <div class="sidebar-brand" x-show="!sidebarCollapsed">PRODUKSI<span>&amp;</span>DOWNTIME</div>
     <nav class="sidebar-nav" @click="mobileNavOpen = false">
       <a href="../dashboard-exhaust.html" class="sidebar-link" title="Dashboard Exhaust"><span>📊</span><span x-show="!sidebarCollapsed">Dashboard Exhaust</span></a>
-      <template x-if="isAdmin()"><a href="../index.html" class="sidebar-link" title="Dashboard"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a></template>
-      <template x-if="isAdmin()"><a href="../plan-produksi.html" class="sidebar-link" title="Plan Produksi"><span>📅</span><span x-show="!sidebarCollapsed">Plan Produksi</span></a></template>
+      <a href="../index.html" class="sidebar-link" title="Dashboard" x-show="isAdmin()"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a>
+      <a href="../plan-produksi.html" class="sidebar-link" title="Plan Produksi" x-show="isAdmin()"><span>📅</span><span x-show="!sidebarCollapsed">Plan Produksi</span></a>
       <a href="../input-produksi.html" class="sidebar-link active" title="Input Produksi"><span>⚙️</span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
-<template x-if="isAdmin()"><a href="../input-attendance.html" class="sidebar-link" title="Attendance"><span>👥</span><span x-show="!sidebarCollapsed">Attendance</span></a></template>
-            <template x-if="isAdmin()">
-        <a href="../data-mentah.html" class="sidebar-link" title="Data Mentah"><span>🗃️</span><span x-show="!sidebarCollapsed">Data Mentah</span></a>
-      </template>
-<template x-if="isAdmin()"><a href="../master-data.html" class="sidebar-link" title="Master Data"><span>🗂️</span><span x-show="!sidebarCollapsed">Master Data</span></a></template>
+<a href="../input-attendance.html" class="sidebar-link" title="Attendance" x-show="isLeaderOrAdmin()"><span>👥</span><span x-show="!sidebarCollapsed">Attendance</span></a>
+            <a href="../data-mentah.html" class="sidebar-link" title="Data Mentah" x-show="isAdmin()"><span>🗃️</span><span x-show="!sidebarCollapsed">Data Mentah</span></a>
+<a href="../master-data.html" class="sidebar-link" title="Master Data" x-show="isAdmin()"><span>🗂️</span><span x-show="!sidebarCollapsed">Master Data</span></a>
     </nav>
     <div class="sidebar-foot" x-show="!sidebarCollapsed">
       <div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
@@ -374,7 +371,7 @@
                   </div>
                   <div class="field"><label>Qty</label><input type="number" x-model="lines[st.id].form.qty"></div>
                   <!-- Jumlah MP SELALU disembunyikan dari form input, data auto-terisi dari Std MP Master Data Part Number lewat autofillManpower() -->
-                  <div class="field" style="display:none;"><label>Jumlah MP</label><input type="number" x-model="lines[st.id].form.manpower"></div>
+                  <div class="field" x-show="mpAutofillMissing(st.id)"><label>Jumlah MP</label><input type="number" x-model="lines[st.id].form.manpower"></div>
 
                 </div>
                 <div class="field" x-show="routingMax > 0" style="margin-bottom:16px;">
@@ -1450,12 +1447,12 @@
                 <button type="button" class="btn-secondary btn-sm" :class="v.id === repairActiveViewId ? 'btn-primary' : ''" @click="selectRepairView(v.id)" x-text="v.label"></button>
               </template>
             </div>
-            <div class="repair-3d-wrap" x-show="activeRepairView()" x-effect="tab === 'repair' && initRepair3DViewerIfNeeded()">
+            <div class="repair-3d-wrap" x-show="activeRepairView()" x-effect="tab; initRepair3DViewerIfNeeded()">
               <template x-if="isLeaderOrAdmin()">
                 <button type="button" class="btn-secondary btn-sm repair-edit-toggle" :class="repairEditMode ? 'btn-primary' : ''" @click="toggleRepairEditMode()" x-text="repairEditMode ? '✓ Mode Edit Point aktif' : '✏️ Mode Edit Point'"></button>
               </template>
               <div class="repair-3d-canvas" x-ref="repair3dCanvas"></div>
-              <div class="repair-3d-loading" x-show="repairModelLoading">Memuat model 3D...</div>
+              <div class="repair-3d-loading" x-show="repairModelLoading" x-text="repairModelStatus || 'Memuat model 3D...'">Memuat model 3D...</div>
               <p class="repair-3d-hint">Seret buat putar &middot; scroll/cubit buat zoom</p>
             </div>
             <div class="repair-shape-switcher" x-show="repairEditMode" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0;">

@@ -20,27 +20,77 @@ function enqueueOffline(table, payload) {
   q.push({ localId: "local_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8), table, payload, created_at: new Date().toISOString() });
   saveOfflineQueue(q);
 }
-async function trySyncOfflineQueue() {
-  let q = loadOfflineQueue();
-  if (q.length === 0) return { synced: 0 };
-  // Dulu ini kirim satu-satu berurutan (for...await), jadi kalau ada
-  // banyak item nyangkut di queue, waktu totalnya numpuk jadi lama
-  // banget (dan diulang tiap halaman mesin dibuka). Sekarang dikirim
-  // BARENGAN (paralel) -- waktunya ditentuin item paling lambat, bukan
-  // jumlah semua item dijumlahin.
-  const results = await Promise.allSettled(
-    q.map((item) => supabaseClient.from(item.table).insert(item.payload))
-  );
-  let synced = 0;
+// Batas percobaan untuk item yang DITOLAK server (bukan gagal jaringan),
+// mis. error validasi/trigger/constraint. Setelah batas ini item dipindah
+// ke "offline_queue_failed_v2" supaya tidak dicoba ulang selamanya tiap 20
+// detik (dan tidak menghalangi item lain). Isinya masih bisa dicek manual
+// lewat DevTools > Application > Local Storage.
+const OFFLINE_QUEUE_FAILED_KEY = "offline_queue_failed_v2";
+const OFFLINE_MAX_REJECTED_ATTEMPTS = 5;
+function moveToFailedQueue(items) {
+  if (!items.length) return;
+  try {
+    const raw = localStorage.getItem(OFFLINE_QUEUE_FAILED_KEY);
+    const failed = raw ? JSON.parse(raw) : [];
+    localStorage.setItem(OFFLINE_QUEUE_FAILED_KEY, JSON.stringify(failed.concat(items)));
+  } catch {}
+}
+async function runOfflineQueueSync() {
+  const q = loadOfflineQueue();
+  if (q.length === 0) return { synced: 0, dropped: 0 };
+  const syncedIds = new Set();
+  const rejected = new Map(); // localId -> pesan error (ditolak server)
+  // Dikirim paralel (bukan satu-satu) supaya antrean panjang tidak lama,
+  // tapi dalam 2 tahap: data produksi dulu, baru downtime. Trigger database
+  // (link_and_validate_downtime) mewajibkan baris produksi di jam yang sama
+  // sudah ada -- kalau dikirim barengan, downtime bisa ditolak duluan.
+  const phases = [
+    q.filter((item) => item.table !== "downtime_log"),
+    q.filter((item) => item.table === "downtime_log"),
+  ];
+  for (const items of phases) {
+    if (!items.length) continue;
+    const results = await Promise.allSettled(
+      items.map((item) => supabaseClient.from(item.table).insert(item.payload))
+    );
+    results.forEach((res, i) => {
+      const item = items[i];
+      if (res.status === "fulfilled" && !res.value.error) { syncedIds.add(item.localId); return; }
+      const err = res.status === "rejected" ? res.reason : res.value.error;
+      if (!isNetworkError(err)) rejected.set(item.localId, (err && err.message) || String(err));
+    });
+  }
+  // PENTING: baca ULANG antrean terbaru sebelum menyimpan. Selama request di
+  // atas berjalan, bisa saja ada data baru yang masuk antrean (operator simpan
+  // lagi saat sinyal putus) -- dulu antrean langsung ditimpa pakai sisa item
+  // lama, sehingga data baru itu HILANG. Sekarang yang dibuang cuma item yang
+  // benar-benar sudah tersinkron.
   const remaining = [];
-  results.forEach((res, i) => {
-    const item = q[i];
-    const gagal = res.status === "rejected" || (res.value && res.value.error);
-    if (gagal) remaining.push(item);
-    else synced++;
+  const dropped = [];
+  loadOfflineQueue().forEach((item) => {
+    if (syncedIds.has(item.localId)) return;
+    if (rejected.has(item.localId)) {
+      item.attempts = (item.attempts || 0) + 1;
+      item.lastError = rejected.get(item.localId);
+      if (item.attempts >= OFFLINE_MAX_REJECTED_ATTEMPTS) { dropped.push(item); return; }
+    }
+    remaining.push(item);
   });
   saveOfflineQueue(remaining);
-  return { synced };
+  moveToFailedQueue(dropped);
+  return { synced: syncedIds.size, dropped: dropped.length };
+}
+async function trySyncOfflineQueue() {
+  // Antrean offline dipakai bareng semua line (1 key localStorage). Kalau
+  // beberapa tab/line dibuka di HP yang sama, dulu semuanya bisa sync item
+  // yang SAMA bersamaan -> data masuk dobel ke database. Web Locks API bikin
+  // cuma 1 tab yang sync dalam satu waktu; tab lain cukup lewati giliran ini.
+  if (navigator.locks && navigator.locks.request) {
+    return navigator.locks.request("offline_queue_sync", { ifAvailable: true }, (lock) =>
+      lock ? runOfflineQueueSync() : { synced: 0, dropped: 0 }
+    );
+  }
+  return runOfflineQueueSync();
 }
 function isNetworkError(err) {
   if (!navigator.onLine) return true;
@@ -52,25 +102,6 @@ const MACHINE_OPTIONS = [
   { key: "E-04", label: "E-04" }, { key: "E-05", label: "E-05" },
   { key: "E-06", label: "E-06" }, { key: "E-07", label: "E-07" },
 ];
-
-// ---------- Combobox custom (ganti <datalist>) ----------
-document.addEventListener("alpine:init", () => {
-  Alpine.data("comboBox", (getOptions, getValue, setValue, onChange) => ({
-    open: false, query: "",
-    init() {
-      this.query = getValue() || "";
-      this.$watch(() => getValue(), (v) => { if (v !== this.query) this.query = v || ""; });
-    },
-    filtered() {
-      const q = (this.query || "").toLowerCase();
-      const opts = getOptions() || [];
-      if (!q) return opts.slice(0, 50);
-      return opts.filter((o) => o.toLowerCase().includes(q)).slice(0, 50);
-    },
-    select(opt) { this.query = opt; setValue(opt); if (onChange) onChange(opt); this.open = false; },
-    onInput() { setValue(this.query); if (onChange) onChange(this.query); this.open = true; },
-  }));
-});
 
 // ---------- Jadwal Shift & Break (tetap) ----------
 const SHIFT1_WEEKDAY = [[9,30,9,40],[12,5,12,45],[14,30,14,40],[16,0,16,15],[18,15,18,30]];
@@ -221,7 +252,7 @@ function exportRowsToExcel(filename, rows) {
 // foto ASLI tetap dipakai apa adanya -- jangan sampai gagal kompres
 // bikin user tidak bisa simpan NG Inline sama sekali.
 function compressImageFile(file, { maxDim = 1280, quality = 0.72 } = {}) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     if (!file || !file.type || !file.type.startsWith("image/")) {
       resolve(file); // bukan gambar (jarang terjadi, input accept="image/*") -- lewati saja
       return;
@@ -266,6 +297,20 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
   // buffer, dsb) punya property non-configurable yang bentrok kalau
   // dibungkus Proxy reaktif Alpine -> error "read-only ... proxy".
   let repairThreeState = null;
+  // Promise pemuatan riwayat produksi/non-produksi/planning (dimuat di
+  // belakang layar setelah form tampil). clickMulai() menunggu ini dulu
+  // kalau operator klik Mulai sebelum datanya sampai. Disimpan di closure,
+  // bukan properti reaktif Alpine.
+  let historyReadyPromise = null;
+  let historyReady = false;
+  // Download file model 3D yang sedang/sudah berjalan: url -> Promise<ArrayBuffer>.
+  // Dipakai bareng oleh prefetch di belakang layar & loadRepairModel, supaya
+  // file yang sama tidak pernah diunduh 2x bersamaan.
+  const repairModelBytesPromises = new Map();
+  // view.id yang sedang dimuat viewer-nya -- cegah loadRepairModel dobel
+  // (dulu x-effect + selectRepairView/addRepairView bisa sama-sama memicu
+  // load untuk part yang sama -> file 1,7 MB diunduh & di-parse 2x).
+  let repairLoadInFlightViewId = null;
   const repairGeometryCache = new Map(); // view.id -> { object: THREE.Mesh|THREE.Group, box: THREE.Box3 } (biar ganti part gak fetch ulang file 3D-nya)
   // Warna garis las (Point bentuk jalur/path) -- merah normal, oranye
   // saat digambar (drag berlangsung), oranye-terang saat kursor lagi
@@ -328,7 +373,6 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // ---- NG Inline (cascading: Line -> Model -> Part No / Area -> NG Proses) ----
     ngInlineRows: [], ngModelList: [], ngPartNoList: [], ngAreaOptions: [],
     ngTypeOptions: ["NG PRODUKSI", "NG TRIAL"],
-    ngPicOptions: ["AGUS WIBOWO", "IIN FAJRIN MUNIR", "DAFIT ARISTIANTO", "ASEP SUPRIYATNA", "IMAM BAROKAH", "LAMIJO"],
     ngKategoriOptions: [
       "BOLONG", "KERIPUT", "KEROPOS", "WELD MELESET", "UNDERCUT", "AKURASI",
       "DOUBLE WELDING", "WELDING KECIL", "WELDING KURANG", "WELDING OVER",
@@ -346,7 +390,6 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // ---- Repair (klik titik di gambar part -> popup Qty + Kategori) ----
     repairViews: [], repairActiveViewId: null, repairPoints: [],
     repairKategoriOptions: [], newRepairKategoriValue: "",
-    repairPartNoByModel: {},
     repairPartNoModelMap: {},
     repairLogRows: [],
     repairForm: { tanggal: localDateStr(new Date()), jam: localTimeStr(new Date()), part_number: "", qty: "", kategori_repair: "" },
@@ -362,6 +405,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     repairSelectedPointId: null, repairPointActionMode: null, // null | 'move' | 'reshape'
     // State viewer 3D (Three.js) -- diisi runtime, bukan reactive data biasa
     repairModelLoading: false,
+    repairModelStatus: "", // teks di overlay loading 3D (tahap + persen unduhan)
 
     // ---- Performance dashboard (3 seksi independen) ----
     perf: {
@@ -375,7 +419,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
 
     isLeaderOrAdmin() {
-      return this.profile && ["admin", "leader"].includes(this.profile.role);
+      if (!this.profile) return false;
+      const r = (this.profile.role || "").toLowerCase();
+      const j = (this.profile.jabatan || "").toLowerCase();
+      return ["admin","leader"].includes(r) || ["admin","leader"].includes(j);
     },
 
     async init() {
@@ -388,13 +435,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
 
       try {
         this.ensureLines();
-        // Cuma data yang BENERAN dibutuhin tab default "Input Produksi" yang
-        // ditunggu di sini, biar form-nya langsung kelihatan secepat mungkin.
-        // Data buat tab lain (Downtime, NG Inline, Repair, Riwayat gabungan,
-        // Non-Produksi, Planning, master Problem/Cause/Area) menyusul di
-        // belakang layar SETELAH tab default siap -- sama pola kayak data
-        // Performance yang sudah lebih dulu dibikin lazy (lihat komentar di
-        // bawah).
+        // Cuma data yang BENERAN dibutuhin buat nampilin form yang ditunggu di
+        // sini, biar layar "Memuat data..." hilang secepat mungkin.
+        // Riwayat produksi (production_log + NG Inline), non-produksi, dan
+        // planning SENGAJA tidak ditunggu -- fetchProduction() itu berat
+        // (500 baris + query kedua ke ng_inline_log), dan sempat bikin
+        // loading awal jadi lama. Data itu dimuat di belakang layar (lihat
+        // historyReadyPromise di bawah); tombol Mulai yang menunggunya.
         const [profileRes] = await Promise.all([
           supabaseClient.from("profiles").select("*").eq("id", this.session.user.id).maybeSingle(),
           this.fetchProduksiNew(), this.fetchPartNumbers(), this.fetchNonProduksiTypes(),
@@ -412,16 +459,27 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         // lagi buat matiin layar "Memuat data...".
         this.loading = false;
 
+        // Riwayat buat alur Mulai/Selesai (deteksi jeda di clickMulai & daftar
+        // rencana) -- di belakang layar, tapi tercatat promise-nya.
+        historyReadyPromise = Promise.all([
+          this.fetchProduction(), this.fetchNonProduksi(), this.fetchPlanning(),
+        ]).catch((err) => {
+          this.flash("Sebagian riwayat produksi gagal dimuat: " + (err.message || err), true);
+        }).finally(() => { historyReady = true; });
+
         // Data tab lain diambil di belakang layar, TIDAK memblokir form
         // utama. Kalau operator sempat buka tab itu sebelum datanya sampai,
         // tabelnya sebentar kosong lalu otomatis keisi sendiri (reaktivitas
         // Alpine) -- bukan error, cuma nunggu giliran.
         Promise.all([
-          this.fetchProduction(), this.fetchDowntime(), this.fetchNonProduksi(),
-          this.fetchPlanning(), this.fetchProblems(), this.fetchCauses(), this.fetchAreas(),
+          this.fetchDowntime(), this.fetchProblems(), this.fetchCauses(), this.fetchAreas(),
           this.fetchNgInline(), this.fetchRepairViews(), this.fetchRepairKategori(),
           this.fetchRepairLog(), this.fetchRepairPartNoOptions(),
-        ]).catch((err) => {
+        ]).then(() => {
+          // Mulai unduh file model 3D part aktif di belakang layar, sedikit
+          // ditunda supaya tidak rebutan jaringan dengan data utama.
+          setTimeout(() => this.prefetchActiveRepairModel(), 1500);
+        }).catch((err) => {
           this.flash("Sebagian data tab lain gagal dimuat: " + (err.message || err), true);
         });
 
@@ -520,9 +578,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       });
     },
 
+    _flashTimer: null,
     flash(msg, isError = false) {
       if (isError) { this.errorMsg = msg; this.successMsg = ""; } else { this.successMsg = msg; this.errorMsg = ""; }
-      setTimeout(() => { this.errorMsg = ""; this.successMsg = ""; }, 4000);
+      // Batalkan timer pesan sebelumnya -- kalau tidak, pesan baru bisa ikut
+      // terhapus sebelum 4 detik oleh timer pesan lama.
+      clearTimeout(this._flashTimer);
+      this._flashTimer = setTimeout(() => { this.errorMsg = ""; this.successMsg = ""; }, 4000);
     },
 
     refreshPendingCount() {
@@ -531,12 +593,24 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     async syncNow() {
       if (this.syncing || !navigator.onLine) return;
       this.syncing = true;
-      const { synced } = await trySyncOfflineQueue();
-      this.syncing = false;
+      let result = { synced: 0, dropped: 0 };
+      try {
+        result = await trySyncOfflineQueue();
+      } catch (err) {
+        console.error("Sync offline gagal:", err);
+      } finally {
+        // dulu kalau sync melempar error, flag ini nyangkut true selamanya
+        // dan sync offline tidak pernah jalan lagi sampai halaman di-reload
+        this.syncing = false;
+      }
       this.refreshPendingCount();
-      if (synced > 0) {
-        this.flash(synced + " data offline berhasil disinkron.");
-        await Promise.all([this.fetchProduction(), this.fetchDowntime(), this.fetchNonProduksi()]);
+      if (result.dropped > 0) {
+        this.flash(result.dropped + " data offline ditolak server berulang kali dan dikeluarkan dari antrean. Hubungi admin.", true);
+      } else if (result.synced > 0) {
+        this.flash(result.synced + " data offline berhasil disinkron.");
+      }
+      if (result.synced > 0) {
+        await Promise.all([this.fetchProduction(), this.fetchProduksiNew(), this.fetchDowntime(), this.fetchNonProduksi()]);
       }
     },
 
@@ -591,7 +665,18 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
 
     // ================= TOMBOL MULAI PRODUKSI =================
-    clickMulai(stationId) {
+    _mulaiWaiting: false,
+    async clickMulai(stationId) {
+      // Riwayat produksi/non-produksi dimuat di belakang layar setelah form
+      // tampil. Kalau belum sampai, tunggu dulu -- tanpa data itu, jeda
+      // sejak kegiatan terakhir (lastEventEnd) tidak bisa dihitung benar.
+      if (!historyReady && historyReadyPromise) {
+        if (this._mulaiWaiting) return; // cegah klik dobel selama menunggu
+        this._mulaiWaiting = true;
+        this.flash("Menyiapkan data riwayat, sebentar...");
+        try { await historyReadyPromise; } finally { this._mulaiWaiting = false; }
+        this.successMsg = "";
+      }
       const line = this.lines[stationId];
       const now = new Date();
 
@@ -1744,9 +1829,23 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         this.flash("Data downtime diperbarui, ter-link ke produksi otomatis. Cek lagi Qty di Input Produksi terkait, siapa tahu perlu disesuaikan.");
       } else {
         payload.created_by = this.session.user.id;
-        const { error } = await supabaseClient.from("downtime_log").insert(payload);
+        let error = null;
+        try {
+          if (!navigator.onLine) throw new Error("offline");
+          ({ error } = await supabaseClient.from("downtime_log").insert(payload));
+        } catch (err) {
+          error = err;
+        }
+        if (error && isNetworkError(error)) {
+          // Sinyal putus -> antrekan di HP, disinkron otomatis nanti.
+          enqueueOffline("downtime_log", payload);
+          this.refreshPendingCount();
+          this.cancelDowntime();
+          this.flash("Tidak ada jaringan — downtime disimpan di HP, disinkron otomatis nanti.");
+          return;
+        }
         if (error) {
-          this.flash("Gagal menyimpan downtime: " + error.message, true);
+          this.flash("Gagal menyimpan downtime: " + (error.message || error), true);
           return;
         }
         this.flash("Data downtime tersimpan, ter-link ke produksi otomatis. Cek lagi Qty di Input Produksi terkait, siapa tahu perlu disesuaikan.");
@@ -1855,7 +1954,6 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (!sel) return [];
       return this.causeList.filter((c) => c.problem_id === sel.id);
     },
-    problemPicLabel(item) { return item.pic ? "[" + item.pic + "] " : ""; },
     causeKategoriLabel(item) {
       const p = this.problemList.find((x) => x.id === item.problem_id);
       return p ? "[" + p.value + "] " : "[belum ada kategori] ";
@@ -2249,8 +2347,21 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           this.flash("Data Input Produksi diperbarui.");
         } else {
           payload.created_by = this.session.user.id;
-          const { error } = await supabaseClient.from("production_log_new").insert(payload);
-          if (error) throw error;
+          try {
+            if (!navigator.onLine) throw new Error("offline");
+            const { error } = await supabaseClient.from("production_log_new").insert(payload);
+            if (error) throw error;
+          } catch (insertErr) {
+            // Sinyal putus -> simpan di antrean offline HP, disinkron
+            // otomatis begitu online lagi (sama seperti alur produksi lama).
+            // Edit data tetap butuh koneksi (tidak diantrekan).
+            if (!isNetworkError(insertErr)) throw insertErr;
+            enqueueOffline("production_log_new", payload);
+            this.refreshPendingCount();
+            this.cancelEditProduksiNew();
+            this.flash("Tidak ada jaringan — data disimpan di HP, disinkron otomatis nanti.");
+            return;
+          }
           this.flash("Data Input Produksi tersimpan.");
         }
         this.cancelEditProduksiNew();
@@ -2514,36 +2625,21 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.repairKategoriOptions = data || [];
     },
     async fetchRepairPartNoOptions() {
-      // Part No di popup Repair diambil dari master NG Inline (Line -> Model -> Part No).
+      // Lookup Part No -> Model dari master NG Inline (Line -> Model -> Part No).
+      // Part No di popup Repair sendiri otomatis dari Input Produksi
+      // (lihat syncRepairPartFromProduction).
       const { data: models, error: modelErr } = await supabaseClient.from("ng_line_models").select("model").eq("mesin", machineKey);
       if (modelErr) { this.flash("Gagal memuat Model NG Inline: " + modelErr.message, true); return; }
       const modelNames = (models || []).map((m) => m.model);
-      if (modelNames.length === 0) { this.repairPartNoByModel = {}; this.repairPartNoModelMap = {}; return; }
+      if (modelNames.length === 0) { this.repairPartNoModelMap = {}; return; }
       const { data: parts, error: partErr } = await supabaseClient.from("ng_model_parts").select("part_no, model").in("model", modelNames);
       if (partErr) { this.flash("Gagal memuat Part No NG Inline: " + partErr.message, true); return; }
-      // Dikelompokkan PER MODEL -- dipakai buat filter dropdown Part No di
-      // popup Repair, biar cuma nampilin Part No punya model 3D yang lagi
-      // dibuka (mis. buka part "K15C" -> Part No yang muncul cuma punya K15C).
-      const byModel = {};
-      (parts || []).forEach((p) => {
-        if (!byModel[p.model]) byModel[p.model] = new Set();
-        byModel[p.model].add(p.part_no);
-      });
-      Object.keys(byModel).forEach((m) => { byModel[m] = [...byModel[m]].sort((a, b) => a.localeCompare(b)); });
-      this.repairPartNoByModel = byModel;
       // Lookup Part No -> Model, dipakai buat kolom "Model" di tabel Riwayat
       // Repair (otomatis, bukan isian manual). Kalau 1 part_no kepakai di
       // lebih dari 1 model, diambil yang pertama ketemu.
       const map = {};
       (parts || []).forEach((p) => { if (!map[p.part_no]) map[p.part_no] = p.model; });
       this.repairPartNoModelMap = map;
-    },
-    // Part No yang muncul di popup Repair -- ke-filter otomatis sesuai
-    // model 3D yang lagi aktif/dibuka (label part 3D-nya harus sama
-    // persis dengan nama Model di Master Data NG Inline).
-    repairPartNoOptionsForActiveView() {
-      const label = this.activeRepairView()?.label;
-      return (label && this.repairPartNoByModel[label]) || [];
     },
     async fetchRepairLog() {
       const { data, error } = await supabaseClient.from("repair_log").select("*").eq("mesin", machineKey).order("tanggal", { ascending: false }).order("created_at", { ascending: false }).limit(200);
@@ -2729,6 +2825,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         });
         repairGeometryCache.delete(id);
       }
+      const deletedView = this.repairViews.find((v) => v.id === id);
+      if (deletedView && deletedView.model_url) {
+        repairModelBytesPromises.delete(deletedView.model_url);
+        if (typeof caches !== "undefined") {
+          caches.open("repair-models-v1").then((c) => c.delete(deletedView.model_url)).catch(() => {});
+        }
+      }
       this.repairViews = this.repairViews.filter((v) => v.id !== id);
       if (this.repairActiveViewId === id) {
         this.repairActiveViewId = this.repairViews[0]?.id || null;
@@ -2747,10 +2850,11 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // kalau user tidak pernah buka tab Repair.
     async ensureThreeLib() {
       if (!window.__threeLib) {
-        const [THREE, loaderMod, mfMod, controlsMod] = await Promise.all([
+        // 3MFLoader (+ library unzip fflate) TIDAK ikut dimuat di sini --
+        // cuma dipakai kalau ada part .3mf, lihat ensureThreeMFLoader().
+        const [THREE, loaderMod, controlsMod] = await Promise.all([
           import("https://esm.sh/three@0.160.0"),
           import("https://esm.sh/three@0.160.0/examples/jsm/loaders/STLLoader.js"),
-          import("https://esm.sh/three@0.160.0/examples/jsm/loaders/3MFLoader.js"),
           // TrackballControls dipakai (bukan OrbitControls) SUPAYA rotasi
           // bener-bener bebas tanpa sumbu atas-bawah tetap -- OrbitControls
           // punya "kutub" (atas/bawah) yang bikin putaran vertikal mentok
@@ -2759,9 +2863,79 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           // ke A tanpa pernah kejeduk.
           import("https://esm.sh/three@0.160.0/examples/jsm/controls/TrackballControls.js"),
         ]);
-        window.__threeLib = { THREE, STLLoader: loaderMod.STLLoader, ThreeMFLoader: mfMod.ThreeMFLoader, TrackballControls: controlsMod.TrackballControls };
+        window.__threeLib = { THREE, STLLoader: loaderMod.STLLoader, TrackballControls: controlsMod.TrackballControls };
       }
       return window.__threeLib;
+    },
+    async ensureThreeMFLoader() {
+      const lib = await this.ensureThreeLib();
+      if (!lib.ThreeMFLoader) {
+        const mfMod = await import("https://esm.sh/three@0.160.0/examples/jsm/loaders/3MFLoader.js");
+        lib.ThreeMFLoader = mfMod.ThreeMFLoader;
+      }
+      return lib.ThreeMFLoader;
+    },
+    // Unduh file model 3D sebagai ArrayBuffer, dengan:
+    // - progress (persen) buat teks overlay loading,
+    // - cache PERMANEN di HP/browser (Cache Storage) khusus file hasil upload
+    //   Supabase Storage. Nama file upload selalu unik (timestamp + acak,
+    //   lihat addRepairView), jadi aman disimpan selamanya: buka tab Repair
+    //   berikutnya file diambil dari penyimpanan lokal, tidak unduh ulang.
+    //   Cache Storage cuma ada di https/localhost -- kalau dibuka lewat
+    //   file:// otomatis jatuh ke unduh biasa.
+    getRepairModelBytes(url) {
+      if (repairModelBytesPromises.has(url)) return repairModelBytesPromises.get(url);
+      const p = (async () => {
+        const persistent = typeof caches !== "undefined" && /\/storage\/v1\/object\/public\//.test(url);
+        let cache = null;
+        if (persistent) {
+          try {
+            cache = await caches.open("repair-models-v1");
+            const hit = await cache.match(url);
+            if (hit) return await hit.arrayBuffer();
+          } catch { cache = null; }
+        }
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status} saat mengunduh model 3D`);
+        const total = Number(res.headers.get("content-length")) || 0;
+        let buf;
+        if (res.body && res.body.getReader && total > 0) {
+          const reader = res.body.getReader();
+          const chunks = []; let loaded = 0;
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value); loaded += value.length;
+            if (this.repairModelLoading) {
+              this.repairModelStatus = `Mengunduh model 3D... ${Math.min(99, Math.round((loaded / total) * 100))}%`;
+            }
+          }
+          const all = new Uint8Array(loaded); let offset = 0;
+          chunks.forEach((c) => { all.set(c, offset); offset += c.length; });
+          buf = all.buffer;
+        } else {
+          buf = await res.arrayBuffer();
+        }
+        if (cache) {
+          cache.put(url, new Response(buf.slice(0), { headers: { "Content-Type": "application/octet-stream" } })).catch(() => {});
+        }
+        return buf;
+      })();
+      repairModelBytesPromises.set(url, p);
+      // kalau gagal, jangan disimpan -- biar bisa dicoba ulang
+      p.catch(() => repairModelBytesPromises.delete(url));
+      return p;
+    },
+    // Unduh file model part yang AKTIF di belakang layar setelah halaman
+    // selesai dimuat, supaya pas operator buka tab Repair tinggal
+    // menampilkan. Karena ada cache permanen di atas, unduhan beneran cuma
+    // terjadi SEKALI per HP per file. Dilewati kalau mode hemat data aktif.
+    prefetchActiveRepairModel() {
+      if (navigator.connection && navigator.connection.saveData) return;
+      const view = this.activeRepairView();
+      if (!view || view.kind !== "3d" || !view.model_url) return;
+      if (repairGeometryCache.has(view.id)) return;
+      this.getRepairModelBytes(view.model_url).catch(() => { /* dicoba lagi pas tab Repair dibuka */ });
     },
     // Dipanggil lewat x-effect tiap kali tab / view aktif berubah.
     async initRepair3DViewerIfNeeded() {
@@ -2775,13 +2949,58 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         this.resumeRepair3D();
         return;
       }
+      if (repairLoadInFlightViewId === view.id) return; // sudah sedang dimuat
       await this.loadRepairModel(container, view);
     },
     async loadRepairModel(container, view) {
       const cached = repairGeometryCache.get(view.id);
+      repairLoadInFlightViewId = view.id;
       this.repairModelLoading = !cached; // sudah pernah dibuka -> gak usah tampil "Memuat..." lagi
+      this.repairModelStatus = "Menyiapkan tampilan 3D...";
       try {
-        const { THREE, STLLoader, ThreeMFLoader, TrackballControls } = await this.ensureThreeLib();
+        // Library 3D & file model diambil BARENGAN (dulu berurutan: tunggu
+        // library selesai dulu, baru mulai unduh file model).
+        const bytesPromise = cached ? null : this.getRepairModelBytes(view.model_url);
+        if (bytesPromise) bytesPromise.catch(() => {}); // error ditangani di bawah
+        const { THREE, STLLoader, TrackballControls } = await this.ensureThreeLib();
+
+        let mesh, bbox;
+        if (cached) {
+          mesh = cached.object; bbox = cached.box;
+        } else {
+          const isThreeMF = /\.3mf(\?|$)/i.test(view.model_url);
+          if (isThreeMF) {
+            // .3mf SUDAH bawa warna asli dari file CAD-nya (beda sama .stl
+            // yang polos tanpa warna) -- jadi material-nya TIDAK disentuh
+            // sama sekali di sini, dipakai apa adanya dari file.
+            const [ThreeMFLoader, buf] = await Promise.all([this.ensureThreeMFLoader(), bytesPromise]);
+            this.repairModelStatus = "Memproses model 3D...";
+            mesh = new ThreeMFLoader().parse(buf);
+            bbox = new THREE.Box3().setFromObject(mesh);
+          } else {
+            const buf = await bytesPromise;
+            this.repairModelStatus = "Memproses model 3D...";
+            const geometry = new STLLoader().parse(buf);
+            geometry.computeVertexNormals();
+            geometry.computeBoundingBox();
+            const hasVertexColors = !!(geometry.attributes && geometry.attributes.color);
+            const material = new THREE.MeshStandardMaterial(
+              hasVertexColors
+                ? { vertexColors: true, metalness: 0.2, roughness: 0.6 }
+                : { color: view.color || "#9aa4ad", metalness: 0.2, roughness: 0.6 }
+            );
+            mesh = new THREE.Mesh(geometry, material);
+            bbox = geometry.boundingBox.clone();
+          }
+          repairGeometryCache.set(view.id, { object: mesh, box: bbox });
+          repairModelBytesPromises.delete(view.model_url); // sudah jadi mesh, bytes mentah tidak perlu disimpan
+        }
+
+        // Selama menunggu unduhan, operator bisa saja pindah part / pindah
+        // tab. Mesh sudah tersimpan di cache, tapi jangan bangun viewer
+        // untuk part yang sudah tidak dibuka (nanti ditimpa viewer lain).
+        if (this.tab !== "repair" || this.repairActiveViewId !== view.id) return;
+
         this.teardownRepair3D();
         container.innerHTML = "";
 
@@ -2800,39 +3019,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const dir2 = new THREE.DirectionalLight(0xffffff, 0.3); dir2.position.set(-1, -0.6, -1); scene.add(dir2);
 
         // Part yang sudah pernah dibuka sebelumnya (di line/sesi yang sama)
-        // dipakai lagi dari cache -- gak perlu download & parse ulang
-        // file-nya, makanya ganti-ganti tombol part jadi instan.
-        let mesh, bbox;
-        if (cached) {
-          mesh = cached.object; bbox = cached.box;
-        } else {
-          const isThreeMF = /\.3mf(\?|$)/i.test(view.model_url);
-          if (isThreeMF) {
-            // .3mf SUDAH bawa warna asli dari file CAD-nya (beda sama .stl
-            // yang polos tanpa warna) -- jadi material-nya TIDAK disentuh
-            // sama sekali di sini, dipakai apa adanya dari file.
-            const loader = new ThreeMFLoader();
-            mesh = await loader.loadAsync(view.model_url);
-            bbox = new THREE.Box3().setFromObject(mesh);
-          } else {
-            const loader = new STLLoader();
-            const geometry = await loader.loadAsync(view.model_url);
-            geometry.computeVertexNormals();
-            geometry.computeBoundingBox();
-            const hasVertexColors = !!(geometry.attributes && geometry.attributes.color);
-            const material = new THREE.MeshStandardMaterial(
-              hasVertexColors
-                ? { vertexColors: true, metalness: 0.2, roughness: 0.6 }
-                : { color: view.color || "#9aa4ad", metalness: 0.2, roughness: 0.6 }
-            );
-            mesh = new THREE.Mesh(geometry, material);
-            bbox = geometry.boundingBox.clone();
-          }
-          repairGeometryCache.set(view.id, { object: mesh, box: bbox });
-        }
+        // dipakai lagi dari cache (lihat di atas) -- gak perlu download &
+        // parse ulang file-nya, makanya ganti-ganti tombol part jadi instan.
         const center = new THREE.Vector3(); bbox.getCenter(center);
         const size = new THREE.Vector3(); bbox.getSize(size);
-        const maxDim = Math.max(size.x, size.y, size.z) || 1;
         // Geser mesh biar center-nya di titik (0,0,0) -- titik Repair TETAP
         // disimpan dalam koordinat asli STL (anak dari mesh ini), jadi ikut
         // pindah otomatis kalau transform mesh berubah.
@@ -2944,7 +3134,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       } catch (err) {
         this.flash("Gagal memuat model 3D: " + (err.message || err), true);
       } finally {
-        this.repairModelLoading = false;
+        // Cuma matikan overlay kalau tidak ada load part LAIN yang sedang
+        // berjalan (operator bisa ganti part selagi part ini masih diunduh).
+        if (repairLoadInFlightViewId === view.id || repairLoadInFlightViewId === null) {
+          repairLoadInFlightViewId = null;
+          this.repairModelLoading = false;
+          this.repairModelStatus = "";
+        }
       }
     },
     startRepair3DLoop() {
@@ -3379,7 +3575,6 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const onDown = (ev) => {
         downX = ev.clientX; downY = ev.clientY; downTime = Date.now();
         if (!this.repairEditMode) return;
-        const r = repairThreeState;
         // Sub-mode "Edit Titik" aktif & kena bola handle -> mulai geser
         // TITIK ITU SAJA (lihat startVertexDrag), jangan mulai apa-apa lagi.
         if (this.repairPointActionMode === "reshape" && this.repairSelectedPointId) {
@@ -3394,7 +3589,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           if (bHit && bHit.object.userData.isBBoxHandle) { this.startResizeDrag(bHit); return; }
           const markerHit = this.raycastRepairMarkers(ev, container);
           if (markerHit && markerHit.object.userData.pointId === this.repairSelectedPointId) {
-            this.startMoveDrag(ev, container);
+            this.startMoveDrag();
             return;
           }
         }
@@ -3490,7 +3685,6 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // part (bukan cuma bidang datar doang) -- kalau meleset (di luar tepi
     // part), titik mentahnya dipakai apa adanya.
     snapRepairToSurface(r, localPoint, normal) {
-      const THREE = r.THREE;
       const away = Math.max((r.maxDim || 1) * 0.6, 1);
       const originLocal = localPoint.clone().add(normal.clone().multiplyScalar(away));
       const originWorld = r.mesh.localToWorld(originLocal);
@@ -3647,7 +3841,6 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
 
       // ── OPSI B/C: lagi extend garis yang sudah ada ──────────────────────
       if (extendTarget) {
-        const THREE = r.THREE;
         const lastPt = rawPath[rawPath.length - 1];
         const smoothedSeg = this.smoothRepairPath(rawPath, false);
 
@@ -3855,7 +4048,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // digeser sebagai lapisan DATAR yang "mengambang" di atas part -- GAK
     // perlu nembak/ikut kontur permukaan model tiap gerakan, biar gesernya
     // selalu pasti ngikutin tangan walau kursor sempat keluar dari model. ----
-    startMoveDrag(ev, container) {
+    startMoveDrag() {
       const r = repairThreeState; if (!r) return;
       const pt = this.selectedRepairPointObj(); if (!pt) return;
       const THREE = r.THREE;
@@ -4011,7 +4204,6 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // Sama seperti Geser/Ukuran -- proyeksi ke bidang datar, GAK nembak
       // permukaan model, biar gesernya selalu pasti ngikutin tangan.
       const target = this.projectRepairToTangentPlane(r, r.vertexDragPlaneCenter, r.vertexDragNormalRef, ev, container);
-      const THREE = r.THREE;
       const idx = r.vertexDragIndex;
       const base = r.vertexDragBasePoints;
       const n = base.length;
