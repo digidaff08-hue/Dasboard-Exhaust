@@ -10,6 +10,48 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
 <style>
+  /* ---------- Dekorasi latar (sama seperti halaman Mesin) ----------
+     Gambar di belakang konten: gear yang berputar pelan, percikan las,
+     gauge, dan siluet pabrik. Murni hiasan -- aria-hidden, dan tidak
+     bisa diklik (pointer-events: none) supaya tidak mengganggu form.
+
+     Bedanya dari halaman Mesin: warna latar & border di sini ikut
+     variabel tema, jadi mode gelap tetap benar. Di halaman Mesin
+     warnanya masih dipatok #f6f7fb / #b0b8cc. */
+  .app-shell, .main { background: transparent !important; }
+  .hub-decor {
+    position: fixed; inset: 0; z-index: -1;
+    overflow: hidden; pointer-events: none;
+    background: #f6f7fb;
+  }
+  [data-theme="dark"] .hub-decor { background: var(--bg); }
+  /* Panel dibuat tembus pandang supaya dekorasinya terlihat,
+     bordernya dipertegas sebagai gantinya. */
+  .main .panel {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: 1.5px solid color-mix(in srgb, var(--border) 70%, var(--muted)) !important;
+  }
+  .page-header { background: transparent !important; }
+
+  .hub-decor .decor-gear     { position: absolute; left: -20px; top: 5%;      width: 160px; opacity: .18; animation: spinGear 24s linear infinite; }
+  .hub-decor .decor-gear-sm  { position: absolute; right: -16px; bottom: 15%; width: 100px; opacity: .15; animation: spinGear 18s linear infinite reverse; }
+  .hub-decor .decor-spark    { position: absolute; right: 6%; top: 6%;        width: 80px;  opacity: .18; animation: floatSpark 8s ease-in-out infinite; }
+  .hub-decor .decor-gauge    { position: absolute; right: 2%; top: 35%;       width: 160px; opacity: .14; animation: floatSpark 10s ease-in-out 2s infinite; }
+  .hub-decor .decor-factory  { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: 480px; opacity: .12; }
+  .hub-decor .decor-bolt     { position: absolute; left: 5%; bottom: 20%;     width: 60px;  opacity: .18; animation: floatSpark 12s ease-in-out 1s infinite; }
+
+  @keyframes spinGear { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes floatSpark {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50%      { transform: translateY(-10px) rotate(5deg); }
+  }
+  /* Hormati setelan "kurangi animasi" di sistem operasi pengguna */
+  @media (prefers-reduced-motion: reduce) {
+    .hub-decor * { animation: none !important; }
+  }
+
+
   /* ===== Scoped khusus halaman Ketidakhadiran =====
      Semua kelas di-prefix .la- (leave attendance) dan tidak ada yang
      menimpa kelas global, jadi assets/style.css & halaman lain aman.
@@ -19,31 +61,25 @@
      Warna di sini membawa arti, bukan hiasan, supaya operator bisa
      membaca tabel sekilas tanpa mengeja tiap barisnya. */
 
-  /* ---------- Pilihan jenis: tombol besar, bukan dropdown ----------
-     Halaman ini dipakai banyak orang dan pilihannya cuma empat.
-     Tombol langsung terlihat semua, sekali klik, tanpa buka dropdown. */
-  .la-jenis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-  @media (max-width: 640px) { .la-jenis { grid-template-columns: repeat(2, 1fr); } }
-  .la-chip {
-    appearance: none; cursor: pointer; text-align: center;
-    padding: 14px 10px; border-radius: 12px;
-    border: 1.5px solid var(--border); background: var(--panel);
-    color: var(--muted); font-size: 14px; font-weight: 600;
-    font-family: inherit; line-height: 1.2;
-    transition: border-color .12s, color .12s, background .12s;
+  /* ---------- Tab halaman ----------
+     Bentuknya segmented control, menempel di atas saat digulir supaya
+     tidak hilang waktu tabel riwayatnya panjang. */
+  .la-tabs {
+    display: flex; gap: 4px; flex-wrap: wrap;
+    padding: 4px; margin-bottom: 22px;
+    position: sticky; top: 0; z-index: 20;
+    background: var(--panel-2);
+    border: 1px solid var(--border); border-radius: 12px;
   }
-  .la-chip:hover { border-color: var(--c); color: var(--text); }
-  .la-chip:focus-visible { outline: 2px solid var(--c); outline-offset: 2px; }
-  .la-chip.is-on {
-    border-color: var(--c); color: var(--c);
-    background: color-mix(in srgb, var(--c) 10%, var(--panel));
-    box-shadow: inset 0 0 0 1px var(--c);
+  .la-tabs button {
+    appearance: none; border: 0; background: transparent; cursor: pointer;
+    padding: 9px 18px; border-radius: 9px;
+    font-family: inherit; font-size: 14px; font-weight: 600;
+    color: var(--muted); transition: color .12s, background .12s;
   }
-  .la-chip-dot {
-    display: block; width: 8px; height: 8px; border-radius: 50%;
-    background: var(--c); margin: 0 auto 8px; opacity: .45;
-  }
-  .la-chip.is-on .la-chip-dot { opacity: 1; }
+  .la-tabs button:hover { color: var(--text); background: var(--border); }
+  .la-tabs button.is-on { background: var(--amber); color: #fff; }
+  .la-tabs button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 
   /* ---------- Bagian form ---------- */
   .la-section { margin-bottom: 20px; }
@@ -95,6 +131,15 @@
   .la-table-wrap thead th { position: sticky; top: 0; z-index: 2; }
   .la-table-wrap tbody tr:nth-child(even) { background: var(--panel-2); }
   .la-table-wrap tbody tr:hover { background: color-mix(in srgb, var(--amber) 8%, var(--panel)); }
+
+  /* ---------- Kolom Jatah di tabel Sisa Cuti ---------- */
+  .la-jatah-input {
+    width: 92px; padding: 5px 8px; text-align: right;
+    font-family: var(--font-mono); font-size: 13px;
+    border: 1px solid var(--border); border-radius: 7px;
+    background: var(--panel); color: var(--text);
+  }
+  .la-jatah-input:focus { outline: 2px solid var(--amber); outline-offset: -1px; }
 </style>
 
 <script>
@@ -108,6 +153,79 @@
 <script src="assets/supabaseClient.js"></script>
 </head>
 <body>
+<div class="hub-decor" aria-hidden="true">
+
+      <!-- Gear besar kiri -->
+      <svg class="decor-gear" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="26" stroke="#6366f1" stroke-width="2.5"/>
+        <circle cx="50" cy="50" r="9" stroke="#6366f1" stroke-width="2.5"/>
+        <g stroke="#6366f1" stroke-width="2.5" stroke-linecap="round">
+          <path d="M50 16 L50 4"/><path d="M50 84 L50 96"/>
+          <path d="M16 50 L4 50"/><path d="M84 50 L96 50"/>
+          <path d="M27 27 L19 19"/><path d="M73 73 L81 81"/>
+          <path d="M73 27 L81 19"/><path d="M27 73 L19 81"/>
+        </g>
+      </svg>
+
+      <!-- Gear kecil kanan bawah -->
+      <svg class="decor-gear-sm" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="26" stroke="#6366f1" stroke-width="2.5"/>
+        <circle cx="50" cy="50" r="9" stroke="#6366f1" stroke-width="2.5"/>
+        <g stroke="#6366f1" stroke-width="2.5" stroke-linecap="round">
+          <path d="M50 16 L50 4"/><path d="M50 84 L50 96"/>
+          <path d="M16 50 L4 50"/><path d="M84 50 L96 50"/>
+          <path d="M27 27 L19 19"/><path d="M73 73 L81 81"/>
+          <path d="M73 27 L81 19"/><path d="M27 73 L19 81"/>
+        </g>
+      </svg>
+
+      <!-- Percikan las kanan atas -->
+      <svg class="decor-spark" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g stroke="#6366f1" stroke-width="2.4" stroke-linecap="round">
+          <path d="M40 40 L40 6"/><path d="M40 40 L64 14"/>
+          <path d="M40 40 L70 40"/><path d="M40 40 L64 66"/>
+          <path d="M40 40 L40 74"/><path d="M40 40 L16 66"/>
+          <path d="M40 40 L10 40"/><path d="M40 40 L16 14"/>
+        </g>
+        <circle cx="40" cy="40" r="7" stroke="#6366f1" stroke-width="2.4"/>
+      </svg>
+
+      <!-- Gauge kanan tengah -->
+      <svg class="decor-gauge" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="60" cy="60" r="46" stroke="#6366f1" stroke-width="2.4"/>
+        <path d="M60 60 L82 38" stroke="#6366f1" stroke-width="2.6" stroke-linecap="round"/>
+        <circle cx="60" cy="60" r="5" stroke="#6366f1" stroke-width="2.4"/>
+        <g stroke="#6366f1" stroke-width="2.2" stroke-linecap="round">
+          <path d="M60 18 L60 26"/><path d="M60 94 L60 102"/>
+          <path d="M18 60 L26 60"/><path d="M94 60 L102 60"/>
+          <path d="M30 30 L36 36"/><path d="M90 30 L84 36"/>
+        </g>
+      </svg>
+
+      <!-- Factory silhouette bawah -->
+      <svg class="decor-factory" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M20 260 L20 160 L70 190 L70 140 L120 170 L120 120 L170 150 L170 100 L230 100 L230 260 Z" stroke="#6366f1" stroke-width="2" stroke-linejoin="round"/>
+        <rect x="90" y="70" width="16" height="50" stroke="#6366f1" stroke-width="2"/>
+        <rect x="150" y="50" width="16" height="70" stroke="#6366f1" stroke-width="2"/>
+        <path d="M98 70 C 94 55, 104 55, 100 40" stroke="#6366f1" stroke-width="2" stroke-linecap="round"/>
+        <path d="M158 50 C 154 35, 164 35, 160 20" stroke="#6366f1" stroke-width="2" stroke-linecap="round"/>
+        <g stroke="#6366f1" stroke-width="2.2" stroke-linecap="round">
+          <path d="M300 150 L300 110"/><path d="M300 150 L332 130"/>
+          <path d="M300 150 L336 158"/><path d="M300 150 L326 186"/>
+          <path d="M300 150 L268 186"/><path d="M300 150 L264 158"/>
+          <path d="M300 150 L268 130"/>
+        </g>
+        <circle cx="300" cy="150" r="6" stroke="#6366f1" stroke-width="2"/>
+      </svg>
+
+      <!-- Bolt kiri bawah -->
+      <svg class="decor-bolt" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M40 4 L70 22 L70 58 L40 76 L10 58 L10 22 Z" stroke="#6366f1" stroke-width="2.4" stroke-linejoin="round"/>
+        <circle cx="40" cy="40" r="15" stroke="#6366f1" stroke-width="2.4"/>
+      </svg>
+
+    </div>
+
 
 <div class="app-shell" x-data="attendancePage()">
   <div class="mobile-topbar">
@@ -158,40 +276,43 @@
              Urutan field: Jenis, NIK, Nama, lalu Tanggal (Izin/Sakit/
              Mangkir) atau Tanggal Mulai/Selesai/Total Hari/Jenis Cuti
              (Cuti). Total Hari otomatis TIDAK menghitung Sabtu & Minggu. -->
+        <!-- ===== Dua tab: Form Ketidakhadiran & Sisa Cuti =====
+             Dipisah karena keduanya pekerjaan yang berbeda: yang satu
+             mencatat kejadian harian, yang satu mengatur jatah tahunan.
+             Menumpuknya dalam satu halaman panjang bikin keduanya
+             sama-sama susah dicari. -->
+        <div class="la-tabs">
+          <button type="button" :class="tab === 'form' ? 'is-on' : ''" @click="tab = 'form'">Form Ketidakhadiran</button>
+          <button type="button" :class="tab === 'sisa' ? 'is-on' : ''" @click="tab = 'sisa'">Sisa Cuti</button>
+        </div>
+
+        <template x-if="tab === 'form'">
+          <div>
         <div class="panel">
           <p class="panel-title">Form Ketidakhadiran</p>
 
           <div class="la-section">
             <p class="la-section-head">Siapa yang tidak hadir</p>
-
-            <!-- Jenis dibuat tombol (bukan dropdown): cuma 4 pilihan dan
-                 halaman ini dipakai banyak orang, jadi lebih cepat sekali
-                 klik daripada buka-pilih-tutup. Warnanya dipakai lagi di
-                 tabel riwayat supaya konsisten. -->
-            <div class="la-jenis" style="margin-bottom:14px;">
-              <template x-for="j in LEAVE_JENIS" :key="'j-'+j.key">
-                <button type="button" class="la-chip"
-                        :class="leaveForm.jenis === j.key ? 'is-on' : ''"
-                        :style="'--c: var(--' + j.warna + ')'"
-                        @click="leaveForm.jenis = j.key; onLeaveJenisChange()">
-                  <span class="la-chip-dot"></span>
-                  <span x-text="j.label"></span>
-                </button>
-              </template>
-            </div>
-
             <div class="form-grid">
+              <div class="field"><label>Jenis <span class="req">*</span></label>
+                <select x-model="leaveForm.jenis" @change="onLeaveJenisChange()">
+                  <template x-for="j in LEAVE_JENIS" :key="'j-'+j.key">
+                    <option :value="j.key" x-text="j.label"></option>
+                  </template>
+                </select>
+              </div>
               <div class="field">
-                <label>NIK</label>
+                <label>NIK <span class="req">*</span></label>
                 <input type="text" x-model="leaveForm.nik" @input="onLeaveNikInput()" placeholder="Ketik NIK karyawan">
-                <span class="la-hint">Nama muncul sendiri setelah NIK diketik</span>
               </div>
               <div class="field" style="grid-column: span 2;">
-                <label>Karyawan</label>
+                <label>Karyawan <span class="req">*</span></label>
                 <!-- Nama tidak ditampilkan sebagai kolom isian karena memang
                      tidak diketik -- ini hasil pencarian dari master karyawan. -->
                 <div class="la-emp" :class="leaveNikFound ? 'is-found' : (leaveForm.nik ? 'is-miss' : '')">
-                  <div class="la-emp-avatar" x-text="leaveNikFound && leaveForm.nama ? leaveForm.nama.trim().charAt(0).toUpperCase() : '?'"></div>
+                  <template x-if="leaveNikFound">
+                    <div class="la-emp-avatar" x-text="(leaveForm.nama || '').trim().charAt(0).toUpperCase()"></div>
+                  </template>
                   <div>
                     <template x-if="leaveNikFound">
                       <div>
@@ -206,7 +327,7 @@
                       </div>
                     </template>
                     <template x-if="!leaveForm.nik">
-                      <div>Ketik NIK di sebelah kiri untuk mencari karyawan.</div>
+                      <div>Nama karyawan (nama terisi otomatis setelah ketik NIK)</div>
                     </template>
                   </div>
                 </div>
@@ -217,9 +338,9 @@
           <div class="la-section">
             <p class="la-section-head" x-text="leaveForm.jenis === 'cuti' ? 'Periode cuti' : 'Kapan'"></p>
             <div class="form-grid">
-              <div class="field"><label x-text="leaveForm.jenis === 'cuti' ? 'Tanggal Mulai' : 'Tanggal'"></label><input type="date" x-model="leaveForm.tanggal"></div>
+              <div class="field"><label><span x-text="leaveForm.jenis === 'cuti' ? 'Tanggal Mulai' : 'Tanggal'"></span> <span class="req">*</span></label><input type="date" x-model="leaveForm.tanggal"></div>
               <template x-if="leaveForm.jenis === 'cuti'">
-                <div class="field"><label>Tanggal Selesai</label><input type="date" x-model="leaveForm.tanggal_selesai" :min="leaveForm.tanggal"></div>
+                <div class="field"><label>Tanggal Selesai <span class="req">*</span></label><input type="date" x-model="leaveForm.tanggal_selesai" :min="leaveForm.tanggal"></div>
               </template>
               <template x-if="leaveForm.jenis === 'cuti'">
                 <div class="field">
@@ -229,7 +350,7 @@
                 </div>
               </template>
               <template x-if="leaveForm.jenis === 'cuti'">
-                <div class="field"><label>Jenis Cuti</label>
+                <div class="field"><label>Jenis Cuti <span class="req">*</span></label>
                   <select x-model="leaveForm.jenis_cuti">
                     <option value="">Pilih jenis cuti...</option>
                     <option value="Cuti Tahunan">Cuti Tahunan</option>
@@ -246,7 +367,8 @@
             <p class="la-section-head">Keterangan</p>
             <div class="form-grid">
               <div class="field" style="grid-column: 1 / -1;">
-                <input type="text" x-model="leaveForm.keterangan" placeholder="Boleh dikosongkan">
+                <label>Alasan / keterangan <span class="req">*</span></label>
+                <input type="text" x-model="leaveForm.keterangan" placeholder="Tulis alasannya">
               </div>
             </div>
           </div>
@@ -259,6 +381,13 @@
 
         <div class="panel">
           <p class="panel-title">Riwayat Ketidakhadiran <span class="count" x-text="leaveRows.length + ' baris'"></span></p>
+          <p class="hint" style="margin-bottom:12px;">
+            <span x-show="!(leaveLihatSemua &amp;&amp; isAdmin())">Yang tampil hanya data yang kamu input sendiri.</span>
+            <span x-show="leaveLihatSemua &amp;&amp; isAdmin()">Menampilkan data dari semua orang.</span>
+            <button type="button" class="btn-secondary btn-sm" x-show="isAdmin()" style="margin-left:8px;"
+                    @click="leaveLihatSemua = !leaveLihatSemua; fetchLeaveRows()"
+                    x-text="leaveLihatSemua ? 'Tampilkan punya saya saja' : 'Tampilkan semua'"></button>
+          </p>
           <div class="table-wrap la-table-wrap">
             <table>
               <thead><tr><th>Jenis</th><th>NIK</th><th>Nama</th><th>Tanggal</th><th>Sampai</th><th>Total Hari</th><th>Jenis Cuti</th><th>Keterangan</th><th>Aksi</th></tr></thead>
@@ -284,6 +413,69 @@
             </table>
           </div>
         </div>
+          </div>
+        </template>
+
+        <template x-if="tab === 'sisa'">
+          <div>
+        
+        <div class="panel">
+          <p class="panel-title">Sisa Cuti
+            <span class="count" x-text="sisaRows().length + ' karyawan'"></span>
+          </p>
+          <p class="hint" style="margin-bottom:14px;">
+            Sisa dihitung otomatis: <b>Jatah − Terpakai</b>. Terpakai diambil dari
+            riwayat di atas, khusus yang jenisnya <b>Cuti Tahunan</b> — cuti besar,
+            melahirkan, dan lainnya tidak memotong jatah. Ubah angka di kolom
+            Jatah kalau ada yang berbeda, lalu simpan.
+          </p>
+
+          <div class="form-grid" style="margin-bottom:14px;">
+            <div class="field"><label>Tahun</label>
+              <select x-model.number="sisaTahun" @change="fetchSisaCuti()">
+                <template x-for="y in sisaTahunOptions" :key="'sc-th-'+y"><option :value="y" x-text="y"></option></template>
+              </select>
+            </div>
+            <div class="field" style="grid-column: span 2;"><label>Cari karyawan</label>
+              <input type="text" x-model="sisaCari" placeholder="Ketik NIK atau nama">
+            </div>
+          </div>
+
+          <p class="hint" x-show="sisaError" style="color:var(--red); font-weight:600; margin-bottom:10px;" x-text="sisaError"></p>
+
+          <div class="table-wrap la-table-wrap">
+            <table>
+              <thead><tr><th>NIK</th><th>Nama</th><th>Jatah (hari)</th><th>Terpakai</th><th>Sisa</th></tr></thead>
+              <tbody>
+                <template x-for="r in sisaRows()" :key="'sc-'+r.nik">
+                  <tr>
+                    <td class="mono" x-text="r.nik"></td>
+                    <td x-text="r.nama"></td>
+                    <td>
+                      <input type="number" min="0" step="0.5" class="la-jatah-input"
+                             :value="jatahEdit[r.nik]"
+                             @input="jatahEdit[r.nik] = $event.target.value">
+                    </td>
+                    <td class="mono" x-text="fmtHari(r.terpakai)"></td>
+                    <td class="mono">
+                      <span class="la-badge" :style="'--c: var(--' + (r.sisa < 0 ? 'red' : (r.sisa === 0 ? 'amber' : 'green')) + ')'"
+                            x-text="fmtHari(r.sisa) + ' hari'"></span>
+                    </td>
+                  </tr>
+                </template>
+                <tr x-show="sisaRows().length === 0"><td colspan="5" class="empty-state" x-text="sisaCari ? 'Tidak ada karyawan yang cocok.' : 'Belum ada karyawan di master.'"></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn-primary" @click="saveJatah()" :disabled="sisaSaving"
+                    x-text="sisaSaving ? 'Menyimpan...' : 'Simpan Jatah'"></button>
+            <button type="button" class="btn-secondary" @click="fetchSisaCuti()" :disabled="sisaSaving">Muat Ulang</button>
+          </div>
+        </div>
+          </div>
+        </template>
       </div>
     </template>
   </main>
@@ -337,10 +529,17 @@ function attendancePage() {
       if (!await this.initBase()) return;
       await this.fetchLeaveRows();
       await this.fetchHariLibur();
+      await this.fetchSisaCuti();
     },
     // ---- Izin/Sakit/Cuti/Mangkir ----
+    // Riwayat hanya menampilkan data yang DIINPUT oleh orang yang sedang
+    // login (kolom created_by). Jadi si A tidak melihat catatan si B.
+    // Admin bisa membuka tampilan semua lewat tombol di panel riwayat.
+    leaveLihatSemua: false,
     async fetchLeaveRows() {
-      const { data, error } = await supabaseClient.from("attendance_leave").select("*").order("tanggal", { ascending: false }).limit(200);
+      let q = supabaseClient.from("attendance_leave").select("*").order("tanggal", { ascending: false }).limit(200);
+      if (!(this.leaveLihatSemua && this.isAdmin())) q = q.eq("created_by", this.session.user.id);
+      const { data, error } = await q;
       if (!error && data) this.leaveRows = data;
     },
     // Daftar jenis ketidakhadiran + warnanya. Satu sumber dipakai
@@ -354,6 +553,106 @@ function attendancePage() {
       { key: "cuti",    label: "Cuti",    warna: "green" },
       { key: "mangkir", label: "Mangkir", warna: "red"   },
     ],
+    // ================= SISA CUTI =================
+    // Sisa = Jatah - Terpakai, dihitung ulang tiap kali ditampilkan.
+    // Tidak ada kolom "sisa" yang disimpan supaya angkanya tidak pernah
+    // basi kalau ada baris cuti yang diedit/dihapus.
+    tab: "form",          // "form" = Form Ketidakhadiran, "sisa" = Sisa Cuti
+    sisaTahun: new Date().getFullYear(),
+    sisaCari: "",
+    sisaSaving: false,
+    sisaError: "",
+    karyawanRows: [],      // daftar karyawan dari karyawan_master
+    jatahAwal: {},         // { nik: jatah } -- nilai dari server, buat bandingkan
+    jatahEdit: {},         // { nik: jatah } -- nilai yang lagi diketik di layar
+    terpakaiMap: {},       // { nik: total hari Cuti Tahunan tahun itu }
+    JATAH_DEFAULT: 12,     // dipakai kalau karyawan belum punya baris jatah
+    get sisaTahunOptions() {
+      const y = new Date().getFullYear();
+      const out = [];
+      for (let i = y + 1; i >= y - 5; i--) out.push(i);
+      return out;
+    },
+    async fetchSisaCuti() {
+      this.sisaError = "";
+      const th = Number(this.sisaTahun);
+      const [karyawanRes, jatahRes, cutiRes] = await Promise.all([
+        supabaseClient.from("karyawan_master").select("nik,nama").order("nama"),
+        supabaseClient.from("cuti_jatah").select("nik,jatah").eq("tahun", th),
+        // Semua baris cuti yang tanggal MULAI-nya jatuh di tahun itu
+        supabaseClient.from("attendance_leave").select("nik,jenis,jenis_cuti,jumlah_hari,tanggal")
+          .eq("jenis", "cuti").gte("tanggal", th + "-01-01").lte("tanggal", th + "-12-31"),
+      ]);
+      if (karyawanRes.error) { this.sisaError = "Gagal memuat karyawan: " + karyawanRes.error.message; return; }
+      if (jatahRes.error) {
+        this.sisaError = "Gagal memuat jatah cuti: " + jatahRes.error.message
+          + (String(jatahRes.error.message).toLowerCase().includes("cuti_jatah")
+              ? " — tabel cuti_jatah belum ada. Jalankan migration_cuti_jatah.sql di Supabase SQL Editor."
+              : "");
+        return;
+      }
+      if (cutiRes.error) { this.sisaError = "Gagal memuat data cuti: " + cutiRes.error.message; return; }
+
+      this.karyawanRows = karyawanRes.data || [];
+      const awal = {}, edit = {};
+      (jatahRes.data || []).forEach((r) => { awal[r.nik] = Number(r.jatah); });
+      this.karyawanRows.forEach((k) => {
+        const v = awal[k.nik] !== undefined ? awal[k.nik] : this.JATAH_DEFAULT;
+        edit[k.nik] = String(v);
+      });
+      this.jatahAwal = awal;
+      this.jatahEdit = edit;
+
+      // Hanya "Cuti Tahunan" yang memotong jatah
+      const pakai = {};
+      (cutiRes.data || []).forEach((r) => {
+        if (r.jenis_cuti !== "Cuti Tahunan") return;
+        pakai[r.nik] = (pakai[r.nik] || 0) + Number(r.jumlah_hari ?? 1);
+      });
+      this.terpakaiMap = pakai;
+    },
+    // Angka hari: tanpa desimal kalau bulat (12), 1 desimal kalau setengah
+    // hari (12,5) -- cuti setengah hari itu hal yang wajar.
+    fmtHari(n) {
+      const v = Number(n);
+      if (!Number.isFinite(v)) return "0";
+      return Number.isInteger(v) ? String(v) : v.toFixed(1).replace(".", ",");
+    },
+    sisaRows() {
+      const cari = (this.sisaCari || "").trim().toLowerCase();
+      return this.karyawanRows
+        .filter((k) => !cari || String(k.nik).toLowerCase().includes(cari) || String(k.nama || "").toLowerCase().includes(cari))
+        .map((k) => {
+          const jatah = Number(this.jatahEdit[k.nik] ?? this.JATAH_DEFAULT) || 0;
+          const terpakai = Number(this.terpakaiMap[k.nik] || 0);
+          return { nik: k.nik, nama: k.nama, jatah, terpakai, sisa: jatah - terpakai };
+        });
+    },
+    async saveJatah() {
+      if (!this.isLeaderOrAdmin()) { this.flash("Hanya admin/leader yang bisa menyimpan.", true); return; }
+      const th = Number(this.sisaTahun);
+      // Cuma baris yang angkanya berubah yang dikirim, biar tidak menulis
+      // ulang seluruh daftar karyawan tiap kali menyimpan.
+      const payload = [];
+      for (const k of this.karyawanRows) {
+        const baru = Number(this.jatahEdit[k.nik]);
+        if (!Number.isFinite(baru) || baru < 0) { this.sisaError = "Jatah " + (k.nama || k.nik) + " tidak valid."; return; }
+        const lama = this.jatahAwal[k.nik];
+        if (lama === undefined || Number(lama) !== baru) payload.push({ nik: k.nik, tahun: th, jatah: baru });
+      }
+      if (!payload.length) { this.flash("Tidak ada perubahan jatah."); return; }
+      this.sisaSaving = true;
+      this.sisaError = "";
+      try {
+        const { error } = await supabaseClient.from("cuti_jatah").upsert(payload, { onConflict: "nik,tahun" });
+        if (error) { this.sisaError = "Gagal simpan jatah: " + error.message; return; }
+        this.flash("Jatah cuti " + payload.length + " karyawan tersimpan.");
+        await this.fetchSisaCuti();
+      } finally {
+        this.sisaSaving = false;
+      }
+    },
+
     leaveJenisWarna(j) {
       const found = this.LEAVE_JENIS.find((x) => x.key === j);
       return found ? found.warna : "muted";
@@ -424,18 +723,24 @@ function attendancePage() {
       const f = this.leaveForm;
       const nik = (f.nik || "").trim();
       const nama = (f.nama || "").trim();
-      if (!f.tanggal || !nik) { this.flash("Tanggal dan NIK wajib diisi.", true); return; }
+      const keterangan = (f.keterangan || "").trim();
+      // Semua kolom wajib diisi. Dicek satu per satu supaya pesannya
+      // menyebut kolom mana yang kurang, bukan sekadar "ada yang kosong".
+      if (!f.jenis) { this.flash("Jenis wajib dipilih.", true); return; }
+      if (!nik) { this.flash("NIK wajib diisi.", true); return; }
       if (!this.leaveNikFound || !nama) { this.flash("NIK tidak terdaftar di master karyawan. Hubungi admin untuk menambahkannya.", true); return; }
+      if (!f.tanggal) { this.flash(f.jenis === "cuti" ? "Tanggal Mulai wajib diisi." : "Tanggal wajib diisi.", true); return; }
+      if (f.jenis === "cuti" && !f.tanggal_selesai) { this.flash("Tanggal Selesai wajib diisi.", true); return; }
       if (f.jenis === "cuti" && !f.jenis_cuti) { this.flash("Jenis Cuti wajib dipilih.", true); return; }
-      // Cuti multi-hari: tanggal_selesai wajib >= tanggal mulai. Kalau
-      // kosong, dianggap cuti 1 hari (tanggal_selesai = tanggal mulai).
-      const tanggalSelesai = f.jenis === "cuti" ? (f.tanggal_selesai || f.tanggal) : null;
+      if (!keterangan) { this.flash("Keterangan wajib diisi.", true); return; }
+
+      const tanggalSelesai = f.jenis === "cuti" ? f.tanggal_selesai : null;
       if (f.jenis === "cuti" && tanggalSelesai < f.tanggal) { this.flash("Tanggal Selesai tidak boleh sebelum Tanggal Mulai.", true); return; }
 
       const payload = {
         tanggal: f.tanggal, tanggal_selesai: tanggalSelesai, nik, nama, jenis: f.jenis,
         jenis_cuti: f.jenis === "cuti" ? f.jenis_cuti : null,
-        keterangan: f.keterangan || null,
+        keterangan,
         updated_by: this.session.user.id,
       };
       let error;
