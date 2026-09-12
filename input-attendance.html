@@ -492,12 +492,9 @@
           <!-- Tidak ada kotak pencarian: data yang tampil selalu milik akun
                yang sedang login, diambil lewat profiles.nik. Admin yang perlu
                melihat karyawan lain memakai Master Data > Cuti. -->
-          <p class="hint" style="margin-bottom:14px;">
-            <span x-show="!nikSendiri()">Akunmu belum dipasangkan ke NIK, jadi sisa cutimu belum
-              bisa ditampilkan. Minta admin mengisinya di tabel profiles.</span>
-            <span x-show="nikSendiri()">Sisa cuti dihitung untuk tahun
-              <span class="mono" x-text="new Date().getFullYear()"></span>.
-              Jatah cutinya diatur di <b>Master Data &rsaquo; Cuti</b>.</span>
+          <p class="hint" style="margin-bottom:14px;" x-show="!nikSendiri()">
+            Akunmu belum dipasangkan ke NIK, jadi sisa cutimu belum bisa
+            ditampilkan. Minta admin mengisinya di tabel profiles.
           </p>
 
           <template x-if="sisaLoading"><p class="empty-state">Memuat sisa cuti...</p></template>
