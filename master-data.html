@@ -730,6 +730,13 @@
              di sini dikurangi cuti yang sudah terpakai. -->
         <template x-if="activeTab === 'cuti'">
           <div>
+            <!-- Dua sub-tombol di dalam tab Cuti -->
+            <div class="md-subtab-nav" style="position:static;">
+              <button class="btn-secondary btn-sm" :class="ctSub === 'jatah' ? 'md-tab-on' : ''" @click="ctSub = 'jatah'">Jatah Cuti Tahunan</button>
+              <button class="btn-secondary btn-sm" :class="ctSub === 'rekap' ? 'md-tab-on' : ''" @click="setCutiSub('rekap')">Rekap Cuti</button>
+            </div>
+
+            <template x-if="ctSub === 'jatah'">
             <div class="panel">
               <p class="panel-title">Jatah Cuti Tahunan
                 <span class="count" x-text="cutiRows().length + ' karyawan'"></span>
@@ -790,6 +797,135 @@
                 <button type="button" class="btn-secondary" @click="fetchCuti()" :disabled="ctSaving">Muat Ulang</button>
               </div>
             </div>
+            </template>
+
+            <!-- ===== REKAP CUTI =====
+                 Semua inputan Izin / Sakit / Cuti / Mangkir dari SELURUH
+                 user, lengkap dengan siapa yang menginput. Admin bisa
+                 mengubah & menghapus dari sini. -->
+            <template x-if="ctSub === 'rekap'">
+            <div>
+              <div class="panel">
+                <p class="panel-title">Rekap Cuti
+                  <span class="count" x-text="rkRows.length + ' baris'"></span>
+                </p>
+                <p class="hint" style="margin-bottom:14px;">
+                  Menampilkan inputan semua orang. Kosongkan Bulan untuk melihat
+                  satu tahun penuh.
+                </p>
+
+                <div class="form-grid" style="margin-bottom:12px;">
+                  <div class="field"><label>Jenis</label>
+                    <select x-model="rkJenis" @change="fetchRekap()">
+                      <option value="">Semua jenis</option>
+                      <option value="izin">Izin</option>
+                      <option value="sakit">Sakit</option>
+                      <option value="cuti">Cuti</option>
+                      <option value="mangkir">Mangkir</option>
+                    </select>
+                  </div>
+                  <div class="field"><label>Bulan</label>
+                    <select x-model="rkBulan" @change="fetchRekap()">
+                      <option value="">Semua bulan</option>
+                      <template x-for="(nm, i) in BULAN_LABELS" :key="'rk-bl-'+i">
+                        <option :value="String(i+1)" x-text="nm"></option>
+                      </template>
+                    </select>
+                  </div>
+                  <div class="field"><label>Tahun</label>
+                    <select x-model.number="rkTahun" @change="fetchRekap()">
+                      <template x-for="y in kwYearOptions" :key="'rk-th-'+y"><option :value="y" x-text="y"></option></template>
+                    </select>
+                  </div>
+                  <div class="field"><label>Cari karyawan</label>
+                    <input type="text" x-model="rkCari" placeholder="NIK atau nama">
+                  </div>
+                </div>
+
+                <p class="hint" x-show="rkError" style="color:var(--danger, #DC2626); font-weight:600; margin-bottom:10px;" x-text="rkError"></p>
+
+                <template x-if="rkLoading"><p class="empty-state">Memuat rekap...</p></template>
+
+                <template x-if="!rkLoading">
+                  <div class="table-wrap">
+                    <table>
+                      <thead><tr><th>Jenis</th><th>NIK</th><th>Nama</th><th>Tanggal</th><th>Sampai</th><th>Total Hari</th><th>Jenis Cuti</th><th>Keterangan</th><th>Diinput oleh</th><th>Aksi</th></tr></thead>
+                      <tbody>
+                        <template x-for="r in rekapRows()" :key="'rk-'+r.id">
+                          <tr>
+                            <td x-text="rkLabel(r.jenis)"></td>
+                            <td class="mono" x-text="r.nik"></td>
+                            <td x-text="r.nama"></td>
+                            <td class="mono" x-text="r.tanggal"></td>
+                            <td class="mono" x-text="r.tanggal_selesai || '-'"></td>
+                            <td class="mono" x-text="r.jenis === 'cuti' ? (r.jumlah_hari ?? 1) : '-'"></td>
+                            <td x-text="r.jenis_cuti || '-'"></td>
+                            <td x-text="r.keterangan || '-'"></td>
+                            <td x-text="rkPenginput(r)"></td>
+                            <td>
+                              <button class="btn-secondary btn-sm" @click="editRekap(r)">Edit</button>
+                              <button class="btn-secondary btn-sm" @click="hapusRekap(r)">Hapus</button>
+                            </td>
+                          </tr>
+                        </template>
+                        <tr x-show="rekapRows().length === 0"><td colspan="10" class="empty-state">Tidak ada data.</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </template>
+              </div>
+
+              <!-- Form ubah, muncul kalau ada baris yang sedang diedit -->
+              <template x-if="rkEdit">
+                <div class="panel">
+                  <p class="panel-title">Ubah Data <span class="count" x-text="rkEdit.nama + ' (' + rkEdit.nik + ')'"></span></p>
+                  <div class="form-grid">
+                    <div class="field"><label>Jenis</label>
+                      <select x-model="rkEdit.jenis">
+                        <option value="izin">Izin</option>
+                        <option value="sakit">Sakit</option>
+                        <option value="cuti">Cuti</option>
+                        <option value="mangkir">Mangkir</option>
+                      </select>
+                    </div>
+                    <div class="field"><label x-text="rkEdit.jenis === 'cuti' ? 'Tanggal Mulai' : 'Tanggal'"></label>
+                      <input type="date" x-model="rkEdit.tanggal">
+                    </div>
+                    <template x-if="rkEdit.jenis === 'cuti'">
+                      <div class="field"><label>Tanggal Selesai</label>
+                        <input type="date" x-model="rkEdit.tanggal_selesai" :min="rkEdit.tanggal">
+                      </div>
+                    </template>
+                    <template x-if="rkEdit.jenis === 'cuti'">
+                      <div class="field"><label>Total Hari</label>
+                        <input type="text" disabled readonly :value="rkHitungHari() + ' hari'">
+                        <span class="hint">Sabtu, Minggu, dan tanggal merah tidak dihitung</span>
+                      </div>
+                    </template>
+                    <template x-if="rkEdit.jenis === 'cuti'">
+                      <div class="field"><label>Jenis Cuti</label>
+                        <select x-model="rkEdit.jenis_cuti">
+                          <option value="">Pilih jenis cuti...</option>
+                          <option value="Cuti Tahunan">Cuti Tahunan</option>
+                          <option value="Cuti Besar">Cuti Besar</option>
+                          <option value="Cuti Melahirkan">Cuti Melahirkan</option>
+                          <option value="Cuti Lainnya">Cuti Lainnya</option>
+                        </select>
+                      </div>
+                    </template>
+                    <div class="field" style="grid-column: 1 / -1;"><label>Keterangan</label>
+                      <input type="text" x-model="rkEdit.keterangan">
+                    </div>
+                  </div>
+                  <div class="form-actions">
+                    <button type="button" class="btn-primary" @click="simpanRekap()" :disabled="rkSaving"
+                            x-text="rkSaving ? 'Menyimpan...' : 'Simpan Perubahan'"></button>
+                    <button type="button" class="btn-secondary" @click="rkEdit = null" :disabled="rkSaving">Batal</button>
+                  </div>
+                </div>
+              </template>
+            </div>
+            </template>
           </div>
         </template>
       </div>
@@ -1673,6 +1809,136 @@ function masterDataPage() {
       } finally {
         this.ctSaving = false;
       }
+    },
+
+    // ================= REKAP CUTI =================
+    // Daftar seluruh inputan Izin/Sakit/Cuti/Mangkir dari semua user,
+    // untuk dilihat & diperbaiki admin. Penyaringan berat (jenis, bulan,
+    // tahun) dilakukan di server; pencarian nama/NIK disaring di layar
+    // supaya tidak menembak query tiap huruf.
+    ctSub: "jatah",        // sub-tab aktif: "jatah" | "rekap"
+    rkJenis: "",
+    rkBulan: "",
+    rkTahun: new Date().getFullYear(),
+    rkCari: "",
+    rkRows: [],
+    rkProfiles: {},        // { user_id: nama } -- untuk kolom "Diinput oleh"
+    rkHariLibur: [],
+    rkLoading: false,
+    rkSaving: false,
+    rkError: "",
+    rkLoaded: false,
+    rkEdit: null,          // salinan baris yang sedang diubah
+    setCutiSub(sub) {
+      this.ctSub = sub;
+      if (sub === "rekap" && !this.rkLoaded) { this.rkLoaded = true; this.fetchRekap(); }
+    },
+    rkLabel(j) {
+      return { izin: "Izin", sakit: "Sakit", cuti: "Cuti", mangkir: "Mangkir" }[j] || j;
+    },
+    rkPenginput(r) {
+      return this.rkProfiles[r.created_by] || "-";
+    },
+    async fetchRekap() {
+      this.rkLoading = true;
+      this.rkError = "";
+      try {
+        const th = Number(this.rkTahun);
+        let mulai, akhir;
+        if (this.rkBulan) {
+          const bl = Number(this.rkBulan);
+          const lastDay = new Date(th, bl, 0).getDate();
+          mulai = th + "-" + String(bl).padStart(2, "0") + "-01";
+          akhir = th + "-" + String(bl).padStart(2, "0") + "-" + String(lastDay).padStart(2, "0");
+        } else {
+          mulai = th + "-01-01";
+          akhir = th + "-12-31";
+        }
+        let q = supabaseClient.from("attendance_leave").select("*")
+          .gte("tanggal", mulai).lte("tanggal", akhir)
+          .order("tanggal", { ascending: false }).limit(500);
+        if (this.rkJenis) q = q.eq("jenis", this.rkJenis);
+
+        const [rowsRes, profRes, liburRes] = await Promise.all([
+          q,
+          supabaseClient.from("profiles").select("id,full_name,email"),
+          supabaseClient.from("hari_libur").select("tanggal"),
+        ]);
+        if (rowsRes.error) { this.rkError = "Gagal memuat rekap: " + rowsRes.error.message; return; }
+        this.rkRows = rowsRes.data || [];
+        const map = {};
+        (profRes.data || []).forEach((p) => { map[p.id] = p.full_name || p.email || "-"; });
+        this.rkProfiles = map;
+        this.rkHariLibur = (liburRes.data || []).map((r) => r.tanggal);
+      } finally {
+        this.rkLoading = false;
+      }
+    },
+    rekapRows() {
+      const cari = (this.rkCari || "").trim().toLowerCase();
+      if (!cari) return this.rkRows;
+      return this.rkRows.filter((r) =>
+        String(r.nik || "").toLowerCase().includes(cari) ||
+        String(r.nama || "").toLowerCase().includes(cari));
+    },
+    editRekap(r) {
+      this.rkEdit = { ...r };   // disalin, biar batal tidak mengubah tabel
+      this.rkError = "";
+    },
+    // Hari kerja antara 2 tanggal: Sabtu, Minggu, dan tanggal merah dilewati.
+    // Rumusnya sama persis dengan leaveTotalHari() di input-attendance.html.
+    rkHitungHari() {
+      const e = this.rkEdit;
+      if (!e || !e.tanggal) return 0;
+      const selesai = e.tanggal_selesai || e.tanggal;
+      let d = new Date(e.tanggal + "T00:00:00");
+      const akhir = new Date(selesai + "T00:00:00");
+      if (akhir < d) return 0;
+      let total = 0;
+      while (d <= akhir) {
+        const dow = d.getDay();   // 0 = Minggu, 6 = Sabtu
+        const ds = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+        if (dow !== 0 && dow !== 6 && !this.rkHariLibur.includes(ds)) total++;
+        d.setDate(d.getDate() + 1);
+      }
+      return total;
+    },
+    async simpanRekap() {
+      const e = this.rkEdit;
+      if (!e) return;
+      if (!e.tanggal) { this.rkError = "Tanggal wajib diisi."; return; }
+      if (e.jenis === "cuti" && !e.tanggal_selesai) { this.rkError = "Tanggal Selesai wajib diisi."; return; }
+      if (e.jenis === "cuti" && e.tanggal_selesai < e.tanggal) { this.rkError = "Tanggal Selesai tidak boleh sebelum Tanggal Mulai."; return; }
+      if (e.jenis === "cuti" && !e.jenis_cuti) { this.rkError = "Jenis Cuti wajib dipilih."; return; }
+      this.rkSaving = true;
+      this.rkError = "";
+      try {
+        // Kolom khusus cuti dikosongkan kalau jenisnya diubah jadi bukan cuti,
+        // supaya tidak ada sisa data yang menyesatkan.
+        const payload = {
+          jenis: e.jenis,
+          tanggal: e.tanggal,
+          tanggal_selesai: e.jenis === "cuti" ? e.tanggal_selesai : null,
+          jenis_cuti: e.jenis === "cuti" ? e.jenis_cuti : null,
+          jumlah_hari: e.jenis === "cuti" ? this.rkHitungHari() : 1,
+          keterangan: (e.keterangan || "").trim() || null,
+        };
+        const { error } = await supabaseClient.from("attendance_leave").update(payload).eq("id", e.id);
+        if (error) { this.rkError = "Gagal simpan: " + error.message; return; }
+        this.flash("Perubahan tersimpan.");
+        this.rkEdit = null;
+        await this.fetchRekap();
+      } finally {
+        this.rkSaving = false;
+      }
+    },
+    async hapusRekap(r) {
+      if (!confirm("Hapus data " + this.rkLabel(r.jenis) + " atas nama " + r.nama + " (" + r.tanggal + ")?")) return;
+      const { error } = await supabaseClient.from("attendance_leave").delete().eq("id", r.id);
+      if (error) { this.rkError = "Gagal hapus: " + error.message; return; }
+      if (this.rkEdit && this.rkEdit.id === r.id) this.rkEdit = null;
+      this.flash("Data dihapus.");
+      await this.fetchRekap();
     },
 
     // ---- Scrap Top End (Bulanan) ----
