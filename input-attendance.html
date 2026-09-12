@@ -490,13 +490,20 @@
         <div class="panel">
           <p class="panel-title">Sisa Cuti</p>
           <p class="hint" style="margin-bottom:14px;">
-            Ketik NIK atau nama karyawan, lalu tekan Cari. Sisa cuti dihitung
-            untuk tahun <span class="mono" x-text="new Date().getFullYear()"></span>.
+            <span x-show="sisaMilikSendiri">Ini sisa cuti kamu sendiri.</span>
+            <span x-show="!sisaMilikSendiri &amp;&amp; nikSendiri()">Menampilkan hasil pencarian.
+              <button type="button" class="btn-secondary btn-sm" style="margin-left:6px;"
+                      @click="muatSisaCutiSendiri()">Lihat punya saya</button>
+            </span>
+            <span x-show="!nikSendiri()">Akunmu belum dipasangkan ke NIK, jadi datamu tidak bisa
+              ditampilkan otomatis. Minta admin mengisinya, atau cari manual di bawah.</span>
+            <br>
+            Sisa cuti dihitung untuk tahun <span class="mono" x-text="new Date().getFullYear()"></span>.
             Jatah cutinya diatur di <b>Master Data &rsaquo; Cuti</b>.
           </p>
 
           <div class="form-grid" style="margin-bottom:4px;">
-            <div class="field la-span2"><label>Cari karyawan</label>
+            <div class="field la-span2"><label>Cari karyawan lain</label>
               <input type="text" x-model="sisaCari" placeholder="Ketik NIK atau nama"
                      @keydown.enter.prevent="cariSisaCuti()">
             </div>
@@ -619,6 +626,9 @@ function attendancePage() {
       await this.fetchLeaveRows();
       await this.fetchHariLibur();
       this.initRealtime();
+      // Tab Sisa Cuti langsung menampilkan milik yang sedang login,
+      // tanpa perlu mengetik NIK sendiri.
+      await this.muatSisaCutiSendiri();
     },
     // ---- Izin/Sakit/Cuti/Mangkir ----
     // Riwayat hanya menampilkan data yang DIINPUT oleh orang yang sedang
@@ -716,9 +726,21 @@ function attendancePage() {
     cutiRiwayat: [],
     JATAH_DEFAULT: 12,    // dipakai kalau karyawan belum diatur jatahnya
 
+    // NIK milik akun yang sedang login (kolom profiles.nik, dipakai juga
+    // untuk login pakai NIK). Kosong = akunnya belum dipasangkan ke NIK.
+    nikSendiri() { return (this.profile && this.profile.nik) ? String(this.profile.nik).trim() : ""; },
+    async muatSisaCutiSendiri() {
+      const nik = this.nikSendiri();
+      if (!nik) return;              // belum punya NIK -> biarkan kotak cari kosong
+      this.sisaCari = nik;
+      await this.cariSisaCuti();
+      this.sisaMilikSendiri = true;  // menandai hasil ini punya sendiri
+    },
+    sisaMilikSendiri: false,
     async cariSisaCuti() {
       const cari = (this.sisaCari || "").trim();
       this.sisaError = "";
+      this.sisaMilikSendiri = cari === this.nikSendiri() && cari !== "";
       if (!cari) { this.sisaError = "Ketik NIK atau nama dulu."; return; }
       this.sisaLoading = true;
       this.cutiPilih = null;
