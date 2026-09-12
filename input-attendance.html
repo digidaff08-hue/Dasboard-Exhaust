@@ -61,42 +61,31 @@
      Warna di sini membawa arti, bukan hiasan, supaya operator bisa
      membaca tabel sekilas tanpa mengeja tiap barisnya. */
 
-  /* ---------- Tab di topbar layar kecil ----------
-     Topbar-nya dibiarkan apa adanya (1 baris, terang). Tab-nya dibikin
-     ringkas dan bisa digeser mendatar kalau layarnya sempit. */
-  .la-tabs-mobile {
-    display: flex; gap: 4px; margin-left: auto;
-    padding: 3px; flex-wrap: nowrap;
-    overflow-x: auto; scrollbar-width: none;
-    background: var(--panel-2);
-    border: 1px solid var(--border); border-radius: 10px;
-  }
-  .la-tabs-mobile::-webkit-scrollbar { display: none; }
-  .la-tabs-mobile button { padding: 6px 12px; font-size: 12.5px; white-space: nowrap; }
+  /* ---------- Topbar layar kecil ----------
+     assets/style.css memberi .mobile-topbar latar terang (#f4f5f7).
+     Di sini ditimpa jadi hijau tua seperti topbar halaman Mesin, supaya
+     tidak ada kotak putih di atas. Bedanya dengan halaman Mesin: tetap
+     SATU baris (hamburger + tab), bukan dua baris dengan judul besar.
 
-  /* ---------- Tab halaman ----------
-     Duduk di baris judul (kanan atas), mengikuti pola halaman Mesin.
-     Tidak lagi sticky karena sekarang ikut menggulung bersama judul. */
-  .page-header .la-tabs {
-    display: flex; gap: 4px; flex-wrap: wrap;
-    padding: 4px; margin: 0;
-    align-self: center;
-    background: var(--panel-2);
-    border: 1px solid var(--border); border-radius: 12px;
-  }
-  .la-tabs button {
-    appearance: none; border: 0; background: transparent; cursor: pointer;
-    padding: 8px 16px; border-radius: 9px;
-    font-family: inherit; font-size: 13.5px; font-weight: 600;
-    color: var(--muted); transition: color .12s, background .12s;
-  }
-  .la-tabs button:hover { color: var(--text); background: var(--border); }
-  .la-tabs button.is-on { background: var(--amber); color: #fff; }
-  .la-tabs button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
-  /* Di layar sempit, tab turun ke bawah judul dan melebar penuh */
-  @media (max-width: 720px) {
-    .page-header .la-tabs { width: 100%; }
-    .la-tabs button { flex: 1; text-align: center; }
+     Tombol tabnya sengaja memakai kelas .mobile-topbar-tabs supaya ikut
+     gaya tombol kecil yang sudah ada di assets/style.css -- tidak ada
+     ukuran atau warna tombol yang saya bikin sendiri di sini. */
+  @media (max-width: 800px) {
+    .mobile-topbar {
+      background: #1a3c34 !important;
+      border-bottom: 1px solid #2d6a5a !important;
+    }
+    .mobile-topbar button.hamburger {
+      border-color: #2d6a5a !important;
+      color: #e2e8f0 !important;
+    }
+    /* Aturan bawaan .mobile-topbar-tabs dibuat untuk baris kedua
+       (lebar penuh + padding). Di sini cukup menempel ke kanan. */
+    .mobile-topbar .mobile-topbar-tabs {
+      width: auto;
+      padding: 0;
+      margin-left: auto;
+    }
   }
 
   /* ---------- Bagian form ---------- */
@@ -243,9 +232,9 @@
        jadi tab yang di baris judul ikut hilang. -->
   <div class="mobile-topbar">
     <button class="hamburger" @click="mobileNavOpen = true">☰</button>
-    <div class="la-tabs la-tabs-mobile" x-show="profile">
-      <button type="button" :class="tab === 'form' ? 'is-on' : ''" @click="tab = 'form'">Form Ketidakhadiran</button>
-      <button type="button" :class="tab === 'sisa' ? 'is-on' : ''" @click="tab = 'sisa'">Sisa Cuti</button>
+    <div class="mobile-topbar-tabs" x-show="profile">
+      <button type="button" class="btn-secondary btn-sm" :class="tab === 'form' ? 'btn-primary' : ''" @click="tab = 'form'">Form Ketidakhadiran</button>
+      <button type="button" class="btn-secondary btn-sm" :class="tab === 'sisa' ? 'btn-primary' : ''" @click="tab = 'sisa'">Sisa Cuti</button>
     </div>
   </div>
 
@@ -277,9 +266,9 @@
       <h1 class="page-title"><span class="eyebrow">Data</span>Ketidakhadiran</h1>
       <!-- Tab dipindah ke baris judul, mengikuti pola halaman Mesin.
            Isi tiap tab tidak berubah -- yang pindah hanya tombolnya. -->
-      <div class="la-tabs" x-show="profile">
-        <button type="button" :class="tab === 'form' ? 'is-on' : ''" @click="tab = 'form'">Form Ketidakhadiran</button>
-        <button type="button" :class="tab === 'sisa' ? 'is-on' : ''" @click="tab = 'sisa'">Sisa Cuti</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;" x-show="profile">
+        <button type="button" class="btn-secondary btn-sm" :class="tab === 'form' ? 'btn-primary' : ''" @click="tab = 'form'">Form Ketidakhadiran</button>
+        <button type="button" class="btn-secondary btn-sm" :class="tab === 'sisa' ? 'btn-primary' : ''" @click="tab = 'sisa'">Sisa Cuti</button>
       </div>
     </div>
     <template x-if="msg"><div :class="msgError ? 'error-msg' : 'success-msg'" x-text="msg"></div></template>
