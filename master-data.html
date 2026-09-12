@@ -115,9 +115,15 @@
   .pv-calc-row td { background: var(--panel-2); font-weight: 600; font-family: "IBM Plex Mono", monospace; font-size: 10px; padding: 5px 3px; }
   .pv-calc-row td.pv-sticky-1, .pv-calc-row td.pv-sticky-2 { font-family: inherit; font-size: 12px; }
 
+  /* Tabel Jatah Cuti: semua rata tengah supaya angka sejajar dengan
+     judul kolomnya. NIK & Nama tetap rata kiri karena itu teks. */
+  .ct-tbl th, .ct-tbl td { text-align: center; vertical-align: middle; }
+  .ct-tbl th:nth-child(1), .ct-tbl td:nth-child(1),
+  .ct-tbl th:nth-child(2), .ct-tbl td:nth-child(2) { text-align: left; }
+
   /* Kolom Jatah di tab Cuti */
   .ct-jatah {
-    width: 92px; padding: 5px 8px; text-align: right;
+    width: 84px; padding: 5px 8px; text-align: center; margin: 0 auto; display: block;
     font-family: "IBM Plex Mono", monospace; font-size: 13px;
     border: 1px solid var(--border); border-radius: 7px;
     background: var(--panel); color: var(--text);
@@ -743,7 +749,8 @@
               </p>
               <p class="hint" style="margin-bottom:14px;">
                 Tiap periode punya jatahnya sendiri karena member dapat cuti baru
-                setiap tahun. <b>Total Cuti</b> = jumlah keempat periode.
+                setiap tahun. Kolom periode sengaja <b>dikosongkan</b> — isi sendiri
+                sesuai jatah masing-masing. <b>Total Cuti</b> = jumlah keempat periode.
                 <b>Terpakai</b> hanya menghitung <b>Cuti Tahunan</b> — cuti besar,
                 melahirkan, dan lainnya tidak memotong jatah. Periode mengikuti
                 tahun fiskal, April sampai Maret.
@@ -763,14 +770,14 @@
 
               <template x-if="!ctLoading">
                 <div class="table-wrap">
-                  <table>
+                  <table class="ct-tbl">
                     <thead>
                       <tr>
                         <th>NIK</th><th>Nama</th>
                         <template x-for="pr in CT_PERIODE" :key="'ct-h-'+pr.key">
-                          <th class="num-col" x-text="pr.label"></th>
+                          <th x-text="pr.label"></th>
                         </template>
-                        <th class="num-col">Total Cuti</th><th class="num-col">Terpakai</th><th class="num-col">Sisa</th>
+                        <th>Total Cuti</th><th>Terpakai</th><th>Sisa</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1743,7 +1750,6 @@ function masterDataPage() {
     ctSaving: false,
     ctError: "",
     ctLoaded: false,
-    CT_DEFAULT: 12,        // jatah bawaan kalau periode itu belum pernah diatur
     ctKaryawan: [],
     ctJatahAwal: {},       // { nik: { tahun: jatah } } dari server
     ctJatahEdit: {},       // { nik: { tahun: jatah } } yang lagi diketik
@@ -1793,8 +1799,11 @@ function masterDataPage() {
         this.ctKaryawan.forEach((k) => {
           edit[k.nik] = {};
           tahunList.forEach((th) => {
-            const v = awal[k.nik] && awal[k.nik][th] !== undefined ? awal[k.nik][th] : this.CT_DEFAULT;
-            edit[k.nik][th] = String(v);
+            // Belum pernah diatur -> DIBIARKAN KOSONG, bukan diisi angka
+            // bawaan. Jatah tiap orang bisa beda, jadi lebih jelas kalau
+            // yang belum diisi memang terlihat kosong.
+            const v = awal[k.nik] && awal[k.nik][th] !== undefined ? awal[k.nik][th] : "";
+            edit[k.nik][th] = v === "" ? "" : String(v);
           });
         });
         this.ctJatahAwal = awal;
@@ -1826,23 +1835,36 @@ function masterDataPage() {
       // Cuma sel yang angkanya berubah yang dikirim, biar tidak menulis ulang
       // seluruh daftar (49 karyawan x 4 periode) tiap kali menyimpan.
       const payload = [];
+      const hapus = [];      // sel yang dikosongkan padahal sebelumnya ada isinya
       for (const k of this.ctKaryawan) {
         for (const p of this.CT_PERIODE) {
-          const baru = Number((this.ctJatahEdit[k.nik] || {})[p.key]);
+          const isi = String((this.ctJatahEdit[k.nik] || {})[p.key] ?? "").trim();
+          const lama = (this.ctJatahAwal[k.nik] || {})[p.key];
+          if (isi === "") {
+            // Dibiarkan kosong. Kalau dulu ada isinya, berarti sengaja dihapus.
+            if (lama !== undefined) hapus.push({ nik: k.nik, tahun: p.key });
+            continue;
+          }
+          const baru = Number(isi);
           if (!Number.isFinite(baru) || baru < 0) {
             this.ctError = "Jatah " + (k.nama || k.nik) + " periode " + p.label + " tidak valid."; return;
           }
-          const lama = (this.ctJatahAwal[k.nik] || {})[p.key];
           if (lama === undefined || Number(lama) !== baru) payload.push({ nik: k.nik, tahun: p.key, jatah: baru });
         }
       }
-      if (!payload.length) { this.flash("Tidak ada perubahan jatah."); return; }
+      if (!payload.length && !hapus.length) { this.flash("Tidak ada perubahan jatah."); return; }
       this.ctSaving = true;
       this.ctError = "";
       try {
-        const { error } = await supabaseClient.from("cuti_jatah").upsert(payload, { onConflict: "nik,tahun" });
-        if (error) { this.ctError = "Gagal simpan jatah: " + error.message; return; }
-        this.flash(payload.length + " jatah tersimpan.");
+        if (payload.length) {
+          const { error } = await supabaseClient.from("cuti_jatah").upsert(payload, { onConflict: "nik,tahun" });
+          if (error) { this.ctError = "Gagal simpan jatah: " + error.message; return; }
+        }
+        for (const h of hapus) {
+          const { error } = await supabaseClient.from("cuti_jatah").delete().eq("nik", h.nik).eq("tahun", h.tahun);
+          if (error) { this.ctError = "Gagal hapus jatah: " + error.message; return; }
+        }
+        this.flash(payload.length + " jatah tersimpan" + (hapus.length ? ", " + hapus.length + " dikosongkan" : "") + ".");
         await this.fetchCuti();
       } finally {
         this.ctSaving = false;
