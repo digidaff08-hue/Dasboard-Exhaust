@@ -1694,6 +1694,97 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     editRiwayat(row) {
       if (row._tipe === "produksi") this.editProduction(row); else this.editNonProduksiRow(row);
     },
+    // ================= PILIH BANYAK & HAPUS SEKALIGUS =================
+    // Dipakai oleh SEMUA tabel riwayat di halaman mesin. Tiap tabel punya
+    // "scope" sendiri supaya centangnya tidak tercampur antar tabel.
+    //
+    // Yang disimpan adalah OBJEK BARISNYA, bukan cuma id -- karena tabel
+    // Riwayat isinya campuran produksi & non-produksi (dibedakan lewat
+    // row._tipe), jadi waktu menghapus kita masih butuh tahu baris itu
+    // aslinya dari tabel mana.
+    bulkSel: {},     // bulkSel[scope] = { [id]: row }
+    bulkBusy: false,
+    BULK_CFG: {
+      riwayat_hari: {
+        tableOf: (row) => (row._tipe === "produksi" ? "production_log" : "dandori_log"),
+        refresh: async (self) => { await Promise.all([self.fetchProduction(), self.fetchNonProduksi()]); self.refreshLoadedPerf(); },
+      },
+      riwayat_gabungan: {
+        tableOf: (row) => (row._tipe === "produksi" ? "production_log" : "dandori_log"),
+        refresh: async (self) => { await Promise.all([self.fetchProduction(), self.fetchNonProduksi()]); self.refreshLoadedPerf(); },
+      },
+      produksi_new: {
+        tableOf: () => "production_log_new",
+        refresh: async (self) => { await self.fetchProduksiNew(); },
+      },
+      downtime: {
+        tableOf: () => "downtime_log",
+        refresh: async (self) => { await Promise.all([self.fetchDowntime(), self.fetchProduction()]); self.refreshLoadedPerf(); },
+      },
+      ng_inline: {
+        tableOf: () => "ng_inline_log",
+        refresh: async (self) => { await self.fetchNgInline(); self.refreshLoadedPerf(); },
+      },
+      repair: {
+        tableOf: () => "repair_log",
+        refresh: async (self) => { await self.fetchRepairLog(); },
+      },
+    },
+    bulkHas(scope, id) { return !!(this.bulkSel[scope] && this.bulkSel[scope][id]); },
+    bulkCount(scope) { return this.bulkSel[scope] ? Object.keys(this.bulkSel[scope]).length : 0; },
+    bulkToggle(scope, row) {
+      if (!this.bulkSel[scope]) this.bulkSel[scope] = {};
+      // objek diganti utuh, bukan diubah isinya -- biar Alpine ikut merender ulang
+      const cur = { ...this.bulkSel[scope] };
+      if (cur[row.id]) delete cur[row.id]; else cur[row.id] = row;
+      this.bulkSel[scope] = cur;
+    },
+    // Baris yang masih antre sinkron (id "pending_...") tidak bisa dihapus
+    // di server, jadi dilewati dari pilih-semua.
+    bulkSelectable(rows) { return (rows || []).filter((r) => r && r.id && !String(r.id).startsWith("pending_")); },
+    bulkAllChecked(scope, rows) {
+      const list = this.bulkSelectable(rows);
+      return list.length > 0 && list.every((r) => this.bulkHas(scope, r.id));
+    },
+    bulkToggleAll(scope, rows) {
+      const list = this.bulkSelectable(rows);
+      if (this.bulkAllChecked(scope, rows)) { this.bulkClear(scope); return; }
+      const cur = {};
+      list.forEach((r) => { cur[r.id] = r; });
+      this.bulkSel[scope] = cur;
+    },
+    bulkClear(scope) { this.bulkSel[scope] = {}; },
+    async bulkDelete(scope) {
+      const cfg = this.BULK_CFG[scope];
+      if (!cfg) return;
+      const rows = Object.values(this.bulkSel[scope] || {});
+      if (!rows.length) return;
+      if (!confirm("Hapus " + rows.length + " baris terpilih?\n\nTindakan ini tidak bisa dibatalkan.")) return;
+
+      // Dikelompokkan per tabel dulu, lalu dihapus sekali jalan per tabel
+      // pakai .in("id", [...]) -- jauh lebih cepat daripada satu per satu.
+      const perTabel = {};
+      for (const row of rows) {
+        if (String(row.id).startsWith("pending_")) continue;
+        const t = cfg.tableOf(row);
+        (perTabel[t] = perTabel[t] || []).push(row.id);
+      }
+      this.bulkBusy = true;
+      try {
+        let total = 0;
+        for (const [tabel, ids] of Object.entries(perTabel)) {
+          const { error } = await supabaseClient.from(tabel).delete().in("id", ids);
+          if (error) { this.flash("Gagal menghapus dari " + tabel + ": " + error.message, true); return; }
+          total += ids.length;
+        }
+        this.bulkClear(scope);
+        this.flash(total + " baris dihapus.");
+        if (cfg.refresh) await cfg.refresh(this);
+      } finally {
+        this.bulkBusy = false;
+      }
+    },
+
     deleteRiwayat(row) {
       if (row._tipe === "produksi") this.deleteProduction(row.id); else this.deleteNonProduksiRow(row.id);
     },

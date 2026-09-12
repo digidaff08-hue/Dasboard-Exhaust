@@ -521,10 +521,16 @@
           <div class="panel">
             <p class="panel-title">Riwayat Hari Ini <span class="count" x-text="riwayatHariIni().length + ' baris'"></span></p>
             <p class="hint" style="margin-bottom:12px;">Riwayat lengkap semua tanggal ada di tab "Riwayat Produksi".</p>
+            <div class="bulk-bar" x-show="bulkCount('riwayat_hari') > 0">
+              <span class="bulk-bar-count" x-text="bulkCount('riwayat_hari') + ' baris dipilih'"></span>
+              <button type="button" class="btn-danger btn-sm" @click="bulkDelete('riwayat_hari')" :disabled="bulkBusy" x-text="bulkBusy ? 'Menghapus...' : 'Hapus yang dipilih'"></button>
+              <button type="button" class="btn-secondary btn-sm" @click="bulkClear('riwayat_hari')">Batal pilih</button>
+            </div>
             <div class="table-wrap">
               <table>
                 <thead>
                   <tr>
+                    <th class="bulk-col"><input type="checkbox" class="bulk-box" title="Pilih semua" :checked="bulkAllChecked('riwayat_hari', riwayatHariIni())" @change="bulkToggleAll('riwayat_hari', riwayatHariIni())"></th>
                     <th>Kode</th>
                     <th x-show="stationConfig.mode !== 'none'">Stasiun</th>
                     <th>Waktu Awal</th><th>Waktu Akhir</th>
@@ -538,6 +544,7 @@
                 <tbody>
                   <template x-for="row in riwayatHariIni()" :key="row._tipe + '-' + row.id">
                     <tr :class="row._pending ? 'row-pending' : ''">
+                      <td class="bulk-col"><input type="checkbox" class="bulk-box" :checked="bulkHas('riwayat_hari', row.id)" @change="bulkToggle('riwayat_hari', row)" :disabled="String(row.id).startsWith('pending_')"></td>
                       <td class="mono" x-text="row._tipe === 'produksi' ? (row.kode || (row._pending ? '⏳' : '-')) : '-'"></td>
                       <td class="mono" x-show="stationConfig.mode !== 'none'" x-text="row.stasiun || '-'"></td>
                       <td class="mono" x-text="fmt(row.waktu_awal)"></td>
@@ -629,10 +636,16 @@
 
           <div class="panel">
             <p class="panel-title">Riwayat Input Produksi <span class="count" x-text="produksiNewRows.length + ' baris'"></span></p>
+            <div class="bulk-bar" x-show="bulkCount('produksi_new') > 0">
+              <span class="bulk-bar-count" x-text="bulkCount('produksi_new') + ' baris dipilih'"></span>
+              <button type="button" class="btn-danger btn-sm" @click="bulkDelete('produksi_new')" :disabled="bulkBusy" x-text="bulkBusy ? 'Menghapus...' : 'Hapus yang dipilih'"></button>
+              <button type="button" class="btn-secondary btn-sm" @click="bulkClear('produksi_new')">Batal pilih</button>
+            </div>
             <div class="table-wrap">
               <table>
                 <thead>
                   <tr>
+                    <th class="bulk-col"><input type="checkbox" class="bulk-box" title="Pilih semua" :checked="bulkAllChecked('produksi_new', produksiNewRows)" @change="bulkToggleAll('produksi_new', produksiNewRows)"></th>
                     <th>Kode</th><th>Waktu Awal</th><th>Waktu Akhir</th><th>Part Number</th><th>Qty</th>
                     <th>Break</th><th>Dandori</th><th>Wkt Problem</th><th>Total Repair</th>
                     <th>Earned</th><th>Operation</th><th>Workmin</th><th>P.Eff</th><th>P.Eff Seharusnya</th><th>Straightpass</th>
@@ -642,6 +655,7 @@
                 <tbody>
                   <template x-for="row in produksiNewRows" :key="row.id">
                     <tr :class="produksiNewQtyIssue(row) ? 'row-qty-warn' : ''">
+                      <td class="bulk-col"><input type="checkbox" class="bulk-box" :checked="bulkHas('produksi_new', row.id)" @change="bulkToggle('produksi_new', row)" :disabled="String(row.id).startsWith('pending_')"></td>
                       <td class="mono" x-text="row.kode || '-'"></td>
                       <td class="mono" x-text="fmt(row.waktu_awal)"></td>
                       <td class="mono" x-text="fmt(row.waktu_akhir)"></td>
@@ -709,10 +723,16 @@
               <template x-if="profile?.role === 'admin'"><input type="month" x-model="riwayatExportMonth" title="Pilih bulan buat export" style="max-width:150px;"></template>
               <template x-if="profile?.role === 'admin'"><button type="button" class="btn-secondary btn-sm" @click="exportRiwayatExcel()">⬇ Export Excel</button></template>
             </div>
+            <div class="bulk-bar" x-show="bulkCount('riwayat_gabungan') > 0">
+              <span class="bulk-bar-count" x-text="bulkCount('riwayat_gabungan') + ' baris dipilih'"></span>
+              <button type="button" class="btn-danger btn-sm" @click="bulkDelete('riwayat_gabungan')" :disabled="bulkBusy" x-text="bulkBusy ? 'Menghapus...' : 'Hapus yang dipilih'"></button>
+              <button type="button" class="btn-secondary btn-sm" @click="bulkClear('riwayat_gabungan')">Batal pilih</button>
+            </div>
             <div class="table-wrap">
               <table>
                 <thead>
                   <tr>
+                    <th class="bulk-col"><input type="checkbox" class="bulk-box" title="Pilih semua" :checked="bulkAllChecked('riwayat_gabungan', riwayatGabungan())" @change="bulkToggleAll('riwayat_gabungan', riwayatGabungan())"></th>
                     <th>Kode</th>
                     <th x-show="stationConfig.mode !== 'none'">Stasiun</th>
                     <th>Waktu Awal</th><th>Waktu Akhir</th>
@@ -725,6 +745,7 @@
                 <tbody>
                   <template x-for="row in riwayatGabungan()" :key="row._tipe + '-' + row.id">
                     <tr :class="row._pending ? 'row-pending' : ''">
+                      <td class="bulk-col"><input type="checkbox" class="bulk-box" :checked="bulkHas('riwayat_gabungan', row.id)" @change="bulkToggle('riwayat_gabungan', row)" :disabled="String(row.id).startsWith('pending_')"></td>
                       <td class="mono" x-text="row._tipe === 'produksi' ? (row.kode || (row._pending ? '⏳' : '-')) : '-'"></td>
                       <td class="mono" x-show="stationConfig.mode !== 'none'" x-text="row.stasiun || '-'"></td>
                       <td class="mono" x-text="fmt(row.waktu_awal)"></td>
@@ -1270,10 +1291,16 @@
               <span>Filter aktif: cuma downtime untuk <b x-text="downtimeFilterLabel"></b></span>
               <button type="button" class="btn-ghost btn-sm" @click="clearDowntimeFilter()">✕ Tampilkan semua</button>
             </div>
+            <div class="bulk-bar" x-show="bulkCount('downtime') > 0">
+              <span class="bulk-bar-count" x-text="bulkCount('downtime') + ' baris dipilih'"></span>
+              <button type="button" class="btn-danger btn-sm" @click="bulkDelete('downtime')" :disabled="bulkBusy" x-text="bulkBusy ? 'Menghapus...' : 'Hapus yang dipilih'"></button>
+              <button type="button" class="btn-secondary btn-sm" @click="bulkClear('downtime')">Batal pilih</button>
+            </div>
             <div class="table-wrap">
               <table>
                 <thead>
                   <tr>
+                    <th class="bulk-col"><input type="checkbox" class="bulk-box" title="Pilih semua" :checked="bulkAllChecked('downtime', downtimeRowsFiltered())" @change="bulkToggleAll('downtime', downtimeRowsFiltered())"></th>
                     <th x-show="stationConfig.mode !== 'none'">Stasiun</th>
                     <th>Waktu Awal</th><th>Waktu Akhir</th><th>Durasi</th>
                     <th>Kategori</th><th>PIC</th><th>Waktu Tunggu</th><th>Ket</th>
@@ -1284,6 +1311,7 @@
                 <tbody>
                   <template x-for="row in downtimeRowsFiltered()" :key="row.id">
                     <tr>
+                      <td class="bulk-col"><input type="checkbox" class="bulk-box" :checked="bulkHas('downtime', row.id)" @change="bulkToggle('downtime', row)" :disabled="String(row.id).startsWith('pending_')"></td>
                       <td class="mono" x-show="stationConfig.mode !== 'none'" x-text="row.stasiun || '-'"></td>
                       <td class="mono" x-text="fmt(row.waktu_awal)"></td>
                       <td class="mono" x-text="fmt(row.waktu_akhir)"></td>
@@ -1398,10 +1426,16 @@
                 <button type="button" class="btn-secondary btn-sm" @click="exportNgInlineExcel()">⬇ Export Excel</button>
               </span></template>
             </p>
+            <div class="bulk-bar" x-show="bulkCount('ng_inline') > 0">
+              <span class="bulk-bar-count" x-text="bulkCount('ng_inline') + ' baris dipilih'"></span>
+              <button type="button" class="btn-danger btn-sm" @click="bulkDelete('ng_inline')" :disabled="bulkBusy" x-text="bulkBusy ? 'Menghapus...' : 'Hapus yang dipilih'"></button>
+              <button type="button" class="btn-secondary btn-sm" @click="bulkClear('ng_inline')">Batal pilih</button>
+            </div>
             <div class="table-wrap">
               <table>
                 <thead>
                   <tr>
+                    <th class="bulk-col"><input type="checkbox" class="bulk-box" title="Pilih semua" :checked="bulkAllChecked('ng_inline', ngInlineRows)" @change="bulkToggleAll('ng_inline', ngInlineRows)"></th>
                     <th>Tanggal</th><th>Type</th><th>Model</th><th>PIC</th><th>Part No</th><th>Area</th>
                     <th>NG Proses</th><th class="num-col">Qty</th><th class="num-col">Value</th><th>Kategori</th><th>Reason</th><th>Foto</th><th>Aksi</th>
                   </tr>
@@ -1409,6 +1443,7 @@
                 <tbody>
                   <template x-for="row in ngInlineRows" :key="row.id">
                     <tr>
+                      <td class="bulk-col"><input type="checkbox" class="bulk-box" :checked="bulkHas('ng_inline', row.id)" @change="bulkToggle('ng_inline', row)" :disabled="String(row.id).startsWith('pending_')"></td>
                       <td class="mono" x-text="row.tanggal"></td>
                       <td><span class="badge" :class="row.type_ng === 'NG TRIAL' ? 'badge-trial' : ''" x-text="row.type_ng"></span></td>
                       <td x-text="row.model"></td>
@@ -1498,12 +1533,19 @@
                 <button type="button" class="btn-secondary btn-sm" @click="exportRepairExcel()">⬇ Export Excel</button>
               </span></template>
             </p>
+            <div class="bulk-bar" x-show="bulkCount('repair') > 0">
+              <span class="bulk-bar-count" x-text="bulkCount('repair') + ' baris dipilih'"></span>
+              <button type="button" class="btn-danger btn-sm" @click="bulkDelete('repair')" :disabled="bulkBusy" x-text="bulkBusy ? 'Menghapus...' : 'Hapus yang dipilih'"></button>
+              <button type="button" class="btn-secondary btn-sm" @click="bulkClear('repair')">Batal pilih</button>
+            </div>
             <div class="table-wrap">
               <table>
                 <thead><tr><th>Tanggal</th><th>Point</th><th>Model</th><th>Part No</th><th class="num-col">Qty</th><th>Kategori Repair</th><th>Aksi</th></tr></thead>
+                  <th class="bulk-col"><input type="checkbox" class="bulk-box" title="Pilih semua" :checked="bulkAllChecked('repair', repairLogRows)" @change="bulkToggleAll('repair', repairLogRows)"></th>
                 <tbody>
                   <template x-for="row in repairLogRows" :key="row.id">
                     <tr>
+                      <td class="bulk-col"><input type="checkbox" class="bulk-box" :checked="bulkHas('repair', row.id)" @change="bulkToggle('repair', row)" :disabled="String(row.id).startsWith('pending_')"></td>
                       <td class="mono" x-text="row.tanggal"></td>
                       <td class="mono" style="font-weight:600;" x-text="row.point_label || '-'"></td>
                       <td class="mono" x-text="repairPartNoModelMap[row.part_number] || '-'"></td>

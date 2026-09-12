@@ -10,43 +10,91 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
 <style>
-  /* ===== Scoped khusus Form Izin/Sakit/Cuti/Mangkir =====
-     Dikelompokkan per section (Data Karyawan / Periode / Keterangan)
-     supaya lebih enak dibaca dibanding satu grid rata semua field. */
-  .leave-form-section { margin-bottom: 18px; }
-  .leave-form-section:last-child { margin-bottom: 0; }
-  .leave-form-section-label {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin: 0 0 10px;
-    padding-bottom: 8px;
-    border-bottom: 1px dashed var(--border);
+  /* ===== Scoped khusus halaman Ketidakhadiran =====
+     Semua kelas di-prefix .la- (leave attendance) dan tidak ada yang
+     menimpa kelas global, jadi assets/style.css & halaman lain aman.
+
+     Prinsipnya: Jenis ketidakhadiran jadi PENANDA WARNA yang dipakai
+     konsisten -- di tombol pilihan, di ringkasan, dan di tabel riwayat.
+     Warna di sini membawa arti, bukan hiasan, supaya operator bisa
+     membaca tabel sekilas tanpa mengeja tiap barisnya. */
+
+  /* ---------- Pilihan jenis: tombol besar, bukan dropdown ----------
+     Halaman ini dipakai banyak orang dan pilihannya cuma empat.
+     Tombol langsung terlihat semua, sekali klik, tanpa buka dropdown. */
+  .la-jenis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  @media (max-width: 640px) { .la-jenis { grid-template-columns: repeat(2, 1fr); } }
+  .la-chip {
+    appearance: none; cursor: pointer; text-align: center;
+    padding: 14px 10px; border-radius: 12px;
+    border: 1.5px solid var(--border); background: var(--panel);
+    color: var(--muted); font-size: 14px; font-weight: 600;
+    font-family: inherit; line-height: 1.2;
+    transition: border-color .12s, color .12s, background .12s;
   }
-  .leave-field-hint {
-    display: block;
-    margin-top: 5px;
-    font-size: 11px;
-    color: var(--muted);
-    font-family: var(--font-body);
+  .la-chip:hover { border-color: var(--c); color: var(--text); }
+  .la-chip:focus-visible { outline: 2px solid var(--c); outline-offset: 2px; }
+  .la-chip.is-on {
+    border-color: var(--c); color: var(--c);
+    background: color-mix(in srgb, var(--c) 10%, var(--panel));
+    box-shadow: inset 0 0 0 1px var(--c);
   }
-  .leave-field-hint.is-error { color: var(--red); }
-  .leave-field-hint.is-ok { color: var(--green); font-weight: 600; }
-  /* Field yang keisi otomatis (readonly) -- dikasih background beda
-     biar user langsung ngeh ini bukan input manual. */
-  .field input.leave-readonly {
-    background: var(--panel-2);
-    color: var(--muted);
-    cursor: not-allowed;
+  .la-chip-dot {
+    display: block; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--c); margin: 0 auto 8px; opacity: .45;
   }
-  .field input.leave-computed {
-    background: var(--amber-dim);
-    color: var(--text);
-    font-weight: 600;
-    cursor: not-allowed;
+  .la-chip.is-on .la-chip-dot { opacity: 1; }
+
+  /* ---------- Bagian form ---------- */
+  .la-section { margin-bottom: 20px; }
+  .la-section:last-of-type { margin-bottom: 0; }
+  .la-section-head {
+    font-size: 13px; font-weight: 600; color: var(--text);
+    margin: 0 0 12px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
   }
+
+  /* ---------- Hasil pencarian NIK ----------
+     Menggantikan kotak "Nama" yang dikunci. Nama bukan sesuatu yang
+     diketik, jadi tidak perlu tampil sebagai kolom isian -- lebih jelas
+     ditampilkan sebagai hasil pencarian. */
+  .la-emp {
+    display: flex; align-items: center; gap: 12px;
+    min-height: 62px; padding: 12px 14px;
+    border: 1px dashed var(--border); border-radius: 12px;
+    background: var(--panel-2); color: var(--muted); font-size: 13px;
+  }
+  .la-emp.is-found { border-style: solid; border-color: var(--green); background: color-mix(in srgb, var(--green) 8%, var(--panel)); }
+  .la-emp.is-miss { border-style: solid; border-color: var(--red); background: color-mix(in srgb, var(--red) 8%, var(--panel)); }
+  .la-emp-avatar {
+    width: 38px; height: 38px; flex: none; border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--border); color: var(--muted);
+    font-weight: 700; font-size: 15px;
+  }
+  .la-emp.is-found .la-emp-avatar { background: var(--green); color: #fff; }
+  .la-emp.is-miss .la-emp-avatar { background: var(--red); color: #fff; }
+  .la-emp-nama { font-size: 15px; font-weight: 600; color: var(--text); line-height: 1.25; }
+  .la-emp-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  /* ---------- Kolom hitungan otomatis ---------- */
+  .field input.la-computed {
+    background: var(--amber-dim); color: var(--text);
+    font-weight: 700; cursor: not-allowed;
+  }
+  .la-hint { display: block; margin-top: 5px; font-size: 11px; color: var(--muted); }
+
+  /* ---------- Penanda jenis di tabel riwayat ---------- */
+  .la-badge {
+    display: inline-block; padding: 3px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; white-space: nowrap;
+    color: var(--c); background: color-mix(in srgb, var(--c) 13%, transparent);
+    border: 1px solid color-mix(in srgb, var(--c) 35%, transparent);
+  }
+  .la-table-wrap { max-height: 460px; overflow: auto; }
+  .la-table-wrap thead th { position: sticky; top: 0; z-index: 2; }
+  .la-table-wrap tbody tr:nth-child(even) { background: var(--panel-2); }
+  .la-table-wrap tbody tr:hover { background: color-mix(in srgb, var(--amber) 8%, var(--panel)); }
 </style>
 
 <script>
@@ -113,32 +161,61 @@
         <div class="panel">
           <p class="panel-title">Form Ketidakhadiran</p>
 
-          <div class="leave-form-section">
-            <p class="leave-form-section-label">Data Karyawan</p>
+          <div class="la-section">
+            <p class="la-section-head">Siapa yang tidak hadir</p>
+
+            <!-- Jenis dibuat tombol (bukan dropdown): cuma 4 pilihan dan
+                 halaman ini dipakai banyak orang, jadi lebih cepat sekali
+                 klik daripada buka-pilih-tutup. Warnanya dipakai lagi di
+                 tabel riwayat supaya konsisten. -->
+            <div class="la-jenis" style="margin-bottom:14px;">
+              <template x-for="j in LEAVE_JENIS" :key="'j-'+j.key">
+                <button type="button" class="la-chip"
+                        :class="leaveForm.jenis === j.key ? 'is-on' : ''"
+                        :style="'--c: var(--' + j.warna + ')'"
+                        @click="leaveForm.jenis = j.key; onLeaveJenisChange()">
+                  <span class="la-chip-dot"></span>
+                  <span x-text="j.label"></span>
+                </button>
+              </template>
+            </div>
+
             <div class="form-grid">
-              <div class="field"><label>Jenis</label>
-                <select x-model="leaveForm.jenis" @change="onLeaveJenisChange()">
-                  <option value="izin">Izin</option>
-                  <option value="sakit">Sakit</option>
-                  <option value="cuti">Cuti</option>
-                  <option value="mangkir">Mangkir</option>
-                </select>
-              </div>
               <div class="field">
                 <label>NIK</label>
-                <input type="text" x-model="leaveForm.nik" @input="onLeaveNikInput()" placeholder="Ketik NIK...">
+                <input type="text" x-model="leaveForm.nik" @input="onLeaveNikInput()" placeholder="Ketik NIK karyawan">
+                <span class="la-hint">Nama muncul sendiri setelah NIK diketik</span>
               </div>
-              <div class="field">
-                <label>Nama</label>
-                <input type="text" class="leave-readonly" x-model="leaveForm.nama" placeholder="Otomatis dari NIK" disabled readonly>
-                <span class="leave-field-hint is-ok" x-show="leaveNikFound">✓ Terisi otomatis dari master karyawan</span>
-                <span class="leave-field-hint is-error" x-show="leaveForm.nik && !leaveNikFound">NIK tidak terdaftar di master karyawan.</span>
+              <div class="field" style="grid-column: span 2;">
+                <label>Karyawan</label>
+                <!-- Nama tidak ditampilkan sebagai kolom isian karena memang
+                     tidak diketik -- ini hasil pencarian dari master karyawan. -->
+                <div class="la-emp" :class="leaveNikFound ? 'is-found' : (leaveForm.nik ? 'is-miss' : '')">
+                  <div class="la-emp-avatar" x-text="leaveNikFound && leaveForm.nama ? leaveForm.nama.trim().charAt(0).toUpperCase() : '?'"></div>
+                  <div>
+                    <template x-if="leaveNikFound">
+                      <div>
+                        <div class="la-emp-nama" x-text="leaveForm.nama"></div>
+                        <div class="la-emp-sub" x-text="'NIK ' + leaveForm.nik"></div>
+                      </div>
+                    </template>
+                    <template x-if="!leaveNikFound && leaveForm.nik">
+                      <div>
+                        <div class="la-emp-nama">NIK tidak terdaftar</div>
+                        <div class="la-emp-sub">Minta admin menambahkannya ke master karyawan dulu</div>
+                      </div>
+                    </template>
+                    <template x-if="!leaveForm.nik">
+                      <div>Ketik NIK di sebelah kiri untuk mencari karyawan.</div>
+                    </template>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <div class="leave-form-section">
-            <p class="leave-form-section-label" x-text="leaveForm.jenis === 'cuti' ? 'Periode Cuti' : 'Tanggal'"></p>
+          <div class="la-section">
+            <p class="la-section-head" x-text="leaveForm.jenis === 'cuti' ? 'Periode cuti' : 'Kapan'"></p>
             <div class="form-grid">
               <div class="field"><label x-text="leaveForm.jenis === 'cuti' ? 'Tanggal Mulai' : 'Tanggal'"></label><input type="date" x-model="leaveForm.tanggal"></div>
               <template x-if="leaveForm.jenis === 'cuti'">
@@ -147,8 +224,8 @@
               <template x-if="leaveForm.jenis === 'cuti'">
                 <div class="field">
                   <label>Total Hari</label>
-                  <input type="text" class="leave-computed" :value="leaveTotalHari() + ' hari'" disabled readonly>
-                  <span class="leave-field-hint">Tanpa Sabtu/Minggu/Tgl Merah</span>
+                  <input type="text" class="la-computed" :value="leaveTotalHari() + ' hari'" disabled readonly>
+                  <span class="la-hint">Sabtu, Minggu, dan tanggal merah tidak dihitung</span>
                 </div>
               </template>
               <template x-if="leaveForm.jenis === 'cuti'">
@@ -165,11 +242,11 @@
             </div>
           </div>
 
-          <div class="leave-form-section">
-            <p class="leave-form-section-label" x-text="leaveForm.jenis === 'cuti' ? 'Keterangan' : (leaveForm.jenis === 'mangkir' ? 'Keterangan' : 'Alasan')"></p>
+          <div class="la-section">
+            <p class="la-section-head">Keterangan</p>
             <div class="form-grid">
               <div class="field" style="grid-column: 1 / -1;">
-                <input type="text" x-model="leaveForm.keterangan" placeholder="Opsional...">
+                <input type="text" x-model="leaveForm.keterangan" placeholder="Boleh dikosongkan">
               </div>
             </div>
           </div>
@@ -182,13 +259,13 @@
 
         <div class="panel">
           <p class="panel-title">Riwayat Ketidakhadiran <span class="count" x-text="leaveRows.length + ' baris'"></span></p>
-          <div class="table-wrap">
+          <div class="table-wrap la-table-wrap">
             <table>
               <thead><tr><th>Jenis</th><th>NIK</th><th>Nama</th><th>Tanggal</th><th>Sampai</th><th>Total Hari</th><th>Jenis Cuti</th><th>Keterangan</th><th>Aksi</th></tr></thead>
               <tbody>
                 <template x-for="r in leaveRows" :key="r.id">
                   <tr>
-                    <td x-text="leaveJenisLabel(r.jenis)"></td>
+                    <td><span class="la-badge" :style="'--c: var(--' + leaveJenisWarna(r.jenis) + ')'" x-text="leaveJenisLabel(r.jenis)"></span></td>
                     <td class="mono" x-text="r.nik"></td>
                     <td x-text="r.nama"></td>
                     <td class="mono" x-text="r.tanggal"></td>
@@ -265,6 +342,21 @@ function attendancePage() {
     async fetchLeaveRows() {
       const { data, error } = await supabaseClient.from("attendance_leave").select("*").order("tanggal", { ascending: false }).limit(200);
       if (!error && data) this.leaveRows = data;
+    },
+    // Daftar jenis ketidakhadiran + warnanya. Satu sumber dipakai
+    // dua tempat: tombol pilihan di form, dan penanda warna di tabel
+    // riwayat -- supaya keduanya tidak pernah beda.
+    // `warna` merujuk ke nama variabel CSS di assets/style.css
+    // (--blue, --amber, --green, --red).
+    LEAVE_JENIS: [
+      { key: "izin",    label: "Izin",    warna: "blue"  },
+      { key: "sakit",   label: "Sakit",   warna: "amber" },
+      { key: "cuti",    label: "Cuti",    warna: "green" },
+      { key: "mangkir", label: "Mangkir", warna: "red"   },
+    ],
+    leaveJenisWarna(j) {
+      const found = this.LEAVE_JENIS.find((x) => x.key === j);
+      return found ? found.warna : "muted";
     },
     leaveJenisLabel(j) {
       return { izin: "Izin", sakit: "Sakit", cuti: "Cuti", mangkir: "Mangkir" }[j] || j;

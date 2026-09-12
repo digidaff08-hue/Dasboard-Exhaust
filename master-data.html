@@ -10,16 +10,82 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
 <style>
-  /* Tombol tab Master Data (Attendance, dan kategori lain di masa
-     depan) -- dibikin scoped biar nggak numpang ke .btn-secondary
-     global. */
-  .md-subtab-nav { margin: 0 0 20px !important; padding: 0 !important; display: flex; gap: 8px; flex-wrap: wrap; }
-  .md-subtab-nav button { margin: 0 !important; }
+  /* =========================================================
+     TAMPILAN HALAMAN MASTER DATA
+     Semua aturan di sini SENGAJA dibatasi ke halaman ini saja
+     (lewat kelas ber-prefix .md- / .pv-, atau selektor di dalam
+     .md-page). assets/style.css TIDAK disentuh supaya halaman
+     lain -- dashboard, input produksi, dll -- tidak ikut berubah.
 
-  /* ---- Grid input Productivity (tab Productivity) ----
+     Masalah yang dibereskan: halaman ini punya 14 panel yang
+     menumpuk lurus ke bawah, masing-masing dengan bayangan tebal.
+     Perbaikannya dua: (1) form dipasangkan berdampingan dengan
+     tabel riwayatnya, (2) bayangan tebal diganti garis tipis.
+     ========================================================= */
+
+  /* ---------- Bar kategori ---------- */
+  /* Nempel di atas saat digulir -- di halaman sepanjang ini, tab
+     yang ikut hilang ke atas bikin orang kehilangan konteks. */
+  .md-subtab-nav {
+    margin: 0 0 22px !important; padding: 4px !important;
+    display: flex; gap: 4px; flex-wrap: wrap;
+    position: sticky; top: 0; z-index: 20;
+    background: var(--panel-2);
+    border: 1px solid var(--border); border-radius: 12px;
+  }
+  .md-subtab-nav button {
+    margin: 0 !important; border: 0 !important; background: transparent !important;
+    box-shadow: none !important; color: var(--muted) !important;
+    padding: 8px 16px !important; border-radius: 9px !important;
+    font-weight: 600; transition: color .12s, background .12s;
+  }
+  .md-subtab-nav button:hover { color: var(--text) !important; background: var(--border) !important; }
+  .md-subtab-nav button.md-tab-on {
+    background: var(--primary) !important; color: #fff !important;
+  }
+
+  /* ---------- Panel ---------- */
+  /* Bayangan tebal bawaan (0 10px 26px) dihapus di halaman ini:
+     bagus untuk 2-3 kartu, tapi jadi berisik untuk 14 kartu. */
+  .md-page .panel {
+    box-shadow: none;
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-bottom: 18px;
+  }
+  /* Judul panel dapat garis rambut sebagai pemisah, bukan sekadar jarak */
+  .md-page .panel-title {
+    font-size: 14px; letter-spacing: -0.01em;
+    padding-bottom: 10px; margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .md-page .hint { font-size: 12px; line-height: 1.55; color: var(--muted); }
+
+  /* ---------- Form berdampingan dengan riwayatnya ---------- */
+  /* Form (kiri) lebih sempit dari tabel (kanan): tabel butuh lebar,
+     form tidak. Di layar sempit otomatis bertumpuk lagi. */
+  .md-pair { display: grid; grid-template-columns: minmax(300px, 5fr) 7fr; gap: 18px; align-items: start; }
+  .md-pair > .panel { margin-bottom: 18px; }
+  @media (max-width: 1180px) { .md-pair { grid-template-columns: 1fr; gap: 0; } }
+
+  /* ---------- Tabel riwayat ---------- */
+  /* Dibatasi tingginya: riwayat yang panjang tidak boleh mendorong
+     panel di bawahnya jauh ke bawah. Judul kolom ikut menempel. */
+  .md-page .table-wrap { max-height: 340px; overflow: auto; }
+  .md-page .table-wrap thead th {
+    position: sticky; top: 0; z-index: 2;
+    font-size: 11px; letter-spacing: 0.03em; color: var(--muted);
+  }
+  .md-page .table-wrap tbody tr:nth-child(even) { background: var(--panel-2); }
+  .md-page .table-wrap tbody tr:hover { background: color-mix(in srgb, var(--primary) 8%, var(--panel)); }
+  .md-page .table-wrap td { font-size: 13px; }
+  .md-page .empty-state { color: var(--muted); font-size: 13px; padding: 24px 0; text-align: center; }
+
+  /* ---------- Grid input Productivity ----------
      Matrix 6 baris x 31 kolom tanggal, meniru format Excel "Daily Peff".
      Semua di-prefix .pv- supaya tidak menimpa tabel lain di halaman ini. */
-  .pv-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+  .pv-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; max-height: none; }
   .pv-table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 12px; }
   .pv-table th, .pv-table td { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 0; text-align: center; white-space: nowrap; }
   .pv-table thead th { background: var(--panel-2); font-weight: 600; padding: 6px 4px; position: sticky; top: 0; z-index: 3; }
@@ -48,6 +114,13 @@
   /* 4 baris hasil hitung -- dibedakan supaya jelas ini bukan kolom isian */
   .pv-calc-row td { background: var(--panel-2); font-weight: 600; font-family: "IBM Plex Mono", monospace; font-size: 10px; padding: 5px 3px; }
   .pv-calc-row td.pv-sticky-1, .pv-calc-row td.pv-sticky-2 { font-family: inherit; font-size: 12px; }
+
+  /* Baris tombol: dipisah garis tipis supaya jelas ini akhir form */
+  .md-page .form-actions {
+    border-top: 1px solid var(--border);
+    padding-top: 14px; margin-top: 16px;
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
 </style>
 
 <script>
@@ -90,7 +163,7 @@
     <button class="sidebar-logout-collapsed" x-show="sidebarCollapsed" @click="logout()" title="Keluar">⏻</button>
   </aside>
 
-  <main class="main">
+  <main class="main md-page">
     <div class="page-header">
       <h1 class="page-title"><span class="eyebrow">Master</span>Data</h1>
     </div>
@@ -107,10 +180,10 @@
              kategori lain bisa ditambah di sini nanti pakai pola yang
              sama (tambah tombol + activeTab baru). -->
         <div class="md-subtab-nav">
-          <button class="btn-secondary btn-sm" :class="activeTab === 'attendance' ? 'btn-primary' : ''" @click="setTab('attendance')">Attendance</button>
-          <button class="btn-secondary btn-sm" :class="activeTab === 'scrap' ? 'btn-primary' : ''" @click="setTab('scrap')">Scrap</button>
-          <button class="btn-secondary btn-sm" :class="activeTab === 'safety' ? 'btn-primary' : ''" @click="setTab('safety')">Safety</button>
-          <button class="btn-secondary btn-sm" :class="activeTab === 'productivity' ? 'btn-primary' : ''" @click="setTab('productivity')">Productivity</button>
+          <button class="btn-secondary btn-sm" :class="activeTab === 'attendance' ? 'md-tab-on' : ''" @click="setTab('attendance')">Attendance</button>
+          <button class="btn-secondary btn-sm" :class="activeTab === 'scrap' ? 'md-tab-on' : ''" @click="setTab('scrap')">Scrap</button>
+          <button class="btn-secondary btn-sm" :class="activeTab === 'safety' ? 'md-tab-on' : ''" @click="setTab('safety')">Safety</button>
+          <button class="btn-secondary btn-sm" :class="activeTab === 'productivity' ? 'md-tab-on' : ''" @click="setTab('productivity')">Productivity</button>
         </div>
 
         <!-- ===== TAB: ATTENDANCE ===== -->
@@ -121,6 +194,7 @@
                  Tahun) -- nilainya disimpan di attendance_log dengan
                  tanggal = tanggal 1 bulan itu, lalu ikut carry-forward
                  dipakai untuk SEMUA tanggal di bulan itu di dashboard. -->
+            <div class="md-pair">
             <div class="panel">
               <p class="panel-title">Total Orang (Bulanan)</p>
               <div class="form-grid">
@@ -163,11 +237,13 @@
                 </table>
               </div>
             </div>
+            </div>
 
             <!-- ===== Overtime Harian =====
                  Beda dari Total Orang -- OT memang berubah tiap hari,
                  jadi tetap diinput per tanggal. Menyimpan OT TIDAK ikut
                  menimpa Total Orang di tanggal yang sama (lihat saveOt()). -->
+            <div class="md-pair">
             <div class="panel">
               <p class="panel-title">Overtime Harian</p>
               <div class="form-grid">
@@ -197,11 +273,13 @@
                 </table>
               </div>
             </div>
+            </div>
 
             <!-- ===== Form Kehadiran Shift Mingguan =====
                  Terpisah dari Absensi Harian -- Hadir Shift 1/2 diisi per
                  RENTANG TANGGAL bebas (biasanya 1 minggu), bukan per hari,
                  karena angkanya memang baru berubah tiap minggu. -->
+            <div class="md-pair">
             <div class="panel">
               <p class="panel-title">Form Kehadiran Shift Mingguan</p>
               <div class="form-grid">
@@ -241,6 +319,7 @@
                 </table>
               </div>
             </div>
+            </div>
 
             <!-- ===== Kelola Hari Libur / Tanggal Merah =====
                  Dipakai di halaman Attendance untuk exclude Sabtu/Minggu/
@@ -276,6 +355,7 @@
         <!-- ===== TAB: SCRAP ===== -->
         <template x-if="activeTab === 'scrap'">
           <div>
+            <div class="md-pair">
             <div class="panel">
               <p class="panel-title">Form Scrap Top End</p>
               <p class="hint" style="margin-bottom:12px;">Satuan mengikuti laporan asli: <b>K IDR</b> (ribuan Rupiah).</p>
@@ -318,12 +398,14 @@
                 </table>
               </div>
             </div>
+            </div>
           </div>
         </template>
 
         <!-- ===== TAB: SAFETY ===== -->
         <template x-if="activeTab === 'safety'">
           <div>
+            <div class="md-pair">
             <div class="panel">
               <p class="panel-title">Catat Insiden</p>
               <p class="hint" style="margin-bottom:12px;">Kalau tidak ada insiden, tidak perlu diisi — dashboard otomatis menghitung "hari tanpa kecelakaan".</p>
@@ -361,6 +443,7 @@
                   </tbody>
                 </table>
               </div>
+            </div>
             </div>
           </div>
         </template>
@@ -519,6 +602,7 @@
               </p>
             </div>
 
+            <div class="md-pair">
             <div class="panel">
               <p class="panel-title">Koefisien</p>
               <p class="hint" style="margin-bottom:12px;">
@@ -624,6 +708,7 @@
                   </tbody>
                 </table>
               </div>
+            </div>
             </div>
           </div>
         </template>
