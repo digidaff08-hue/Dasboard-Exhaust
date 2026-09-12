@@ -931,7 +931,15 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
             <!-- ===== Baris 2: Productivity & Availability, harian 1-31, dalam % ===== -->
             <div class="dxy-chart-grid">
               <div class="dxy-panel dxy-span-6">
-                <div class="dxy-panel-head"><span class="dxy-panel-title">📈 Productivity</span><span class="dxy-panel-sub" style="font-weight:700; color:var(--dxy-text);" x-text="'Rata-rata ' + fmtNum(bulanan.productivity.avg) + '%'"></span></div>
+                <div class="dxy-panel-head">
+                  <span class="dxy-panel-title">📈 Productivity</span>
+                  <span class="dxy-panel-sub" style="font-weight:700; color:var(--dxy-text); text-align:right; line-height:1.3;">
+                    <span style="display:block;" x-text="'Rata-rata ' + fmtNum(bulanan.productivity.avg) + '%'"></span>
+                    <!-- Target ikut bulan yang dipilih; kalau bulan itu belum
+                         diisi di Master Data, otomatis jadi 100% -->
+                    <span style="display:block; font-weight:600; color:#EF4444;" x-text="'Target : ' + fmtNum(bulanan.productivity.target) + ' %'"></span>
+                  </span>
+                </div>
                 <div class="dxy-chart-box"><canvas id="dxbProductivity"></canvas></div>
               </div>
               <div class="dxy-panel dxy-span-6">
@@ -3010,7 +3018,9 @@ function dashboardExhaust() {
     tahunanLoaded: false,
     tahunan: {
       monthLabels: [],
-      productivity: { value: 0, actual: [], target: 100 },
+      // target Productivity di tab Tahunan berupa ARRAY (per bulan), jadi
+      // nilai awalnya array kosong supaya .slice() aman sebelum data masuk
+      productivity: { value: 0, actual: [], target: null },   // target: null = tanpa garis Target
       availability: { value: 0, actual: [], target: 100 },
       ngInline: { qty: 0, value: 0, qtyByMonth: [], valueByMonth: [] },
       straightpass: { value: 0, actual: [], qty: [], repairQty: [], target: 95 },
@@ -3208,11 +3218,42 @@ function dashboardExhaust() {
         const dayKeyStr = (day) => localDateStr(new Date(year, month - 1, day));
         const findRow = (rows, day) => rows.find((r) => r.tanggal === dayKeyStr(day));
 
-        // Productivity & Availability per hari (%), null kalau belum ada data hari itu
+        // ===== Productivity harian: DIAMBIL DARI INPUT MANUAL =====
+        // Sumbernya tabel productivity_manual (diisi di Master Data > tab
+        // Productivity), BUKAN lagi dihitung dari target_std_menit/wh_menit.
+        // Rumusnya sama persis dengan yang tampil di form Master Data:
+        //   Efficiency   = Total Earned / Total Operation
+        //   Productivity = Efficiency / Koefisien tahun ybs * 100 (%)
+        // Angkanya gabungan semua line, jadi TIDAK ikut filter Line.
+        const pvLastDay = new Date(year, month, 0).getDate();
+        const [pvManualRes, koefRes, tgRes] = await Promise.all([
+          supabaseClient.from("productivity_manual").select("*")
+            .gte("tanggal", localDateStr(new Date(year, month - 1, 1)))
+            .lte("tanggal", localDateStr(new Date(year, month - 1, pvLastDay))),
+          supabaseClient.from("koefisien_kawat").select("tahun,nilai"),
+          supabaseClient.from("productivity_target").select("tahun,bulan,target"),
+        ]);
+        const pvManualRows = pvManualRes.data || [];
+        const koefTahun = ((koefRes.data || []).find((r) => Number(r.tahun) === Number(year)) || {}).nilai;
+        const PV_EARN = ["earned_massprod", "earned_semi_massprod", "earned_non_massprod"];
+        const PV_OPER = ["operation_massprod", "operation_semi_massprod", "operation_non_massprod"];
+        // Jumlah beberapa kolom dalam 1 baris; null kalau semuanya kosong
+        // (hari yang belum diisi jangan jadi 0 -- biar titiknya bolong di chart).
+        const pvSumCols = (row, cols) => {
+          let s = 0, ada = false;
+          for (const c of cols) {
+            const v = row[c];
+            if (v !== null && v !== undefined && Number.isFinite(Number(v))) { s += Number(v); ada = true; }
+          }
+          return ada ? s : null;
+        };
         const productivityActual = dayLabels.map((_, i) => {
-          const row = findRow(prodRows, i + 1);
-          if (!row || !row.wh_menit) return null;
-          return Number(((row.target_std_menit / row.wh_menit) * 100).toFixed(1));
+          const tgl = dayKeyStr(i + 1);
+          const row = pvManualRows.find((r) => String(r.tanggal).slice(0, 10) === tgl);
+          if (!row) return null;
+          const e = pvSumCols(row, PV_EARN), o = pvSumCols(row, PV_OPER);
+          if (e === null || !o || !koefTahun) return null;
+          return Number((((e / o) / Number(koefTahun)) * 100).toFixed(1));
         });
         const availabilityActual = dayLabels.map((_, i) => {
           const row = findRow(prodRows, i + 1);
@@ -3220,7 +3261,8 @@ function dashboardExhaust() {
           return Number((((row.wh_menit - row.downtime_menit) / row.wh_menit) * 100).toFixed(1));
         });
         const lastRow = [...prodRows].reverse().find((r) => r.wh_menit > 0) || null;
-        const productivityValue = lastRow ? Number(((lastRow.target_std_menit / lastRow.wh_menit) * 100).toFixed(1)) : 0;
+        // Nilai "terakhir" Productivity = hari terakhir yang sudah ada angkanya
+        const productivityValue = [...productivityActual].reverse().find((v) => v !== null) ?? 0;
         const availabilityValue = lastRow ? Number((((lastRow.wh_menit - lastRow.downtime_menit) / lastRow.wh_menit) * 100).toFixed(1)) : 0;
 
         // Downtime harian 1-31 (menit)
@@ -3316,7 +3358,24 @@ function dashboardExhaust() {
           if (!nums.length) return 0;
           return Number((nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(1));
         };
-        const productivityAvg = avgOf(productivityActual);
+        // Rata-rata Productivity SENGAJA tidak memakai avgOf(): dihitung dari
+        // TOTAL sebulan (jumlah Earned sebulan / jumlah Operation sebulan),
+        // sama persis dengan cara tab Tahunan menghitung angka per bulannya.
+        // Kalau pakai rata-rata angka harian, hari dengan produksi kecil jadi
+        // dianggap setara dengan hari besar -- angkanya beda dengan Tahunan.
+        // Target Productivity bulan ini (dari Master Data). Kalau belum
+        // diisi, tetap 100 seperti perilaku lama.
+        const tgRow = (tgRes.data || []).find((r) => Number(r.tahun) === Number(year) && Number(r.bulan) === Number(month));
+        const productivityTarget = tgRow && Number.isFinite(Number(tgRow.target)) ? Number(tgRow.target) : 100;
+        const productivityAvg = (() => {
+          let earned = 0, oper = 0, ada = false;
+          for (const row of pvManualRows) {
+            for (const c of PV_EARN) if (Number.isFinite(Number(row[c]))) { earned += Number(row[c]); ada = true; }
+            for (const c of PV_OPER) if (Number.isFinite(Number(row[c]))) { oper += Number(row[c]); ada = true; }
+          }
+          if (!ada || !oper || !koefTahun) return 0;
+          return Number((((earned / oper) / Number(koefTahun)) * 100).toFixed(1));
+        })();
         const availabilityAvg = avgOf(availabilityActual);
         const downtimeHarianTotal = downtimeHarianValues.reduce((a, b) => a + b, 0);
 
@@ -3344,7 +3403,7 @@ function dashboardExhaust() {
 
         this.bulanan = {
           dayLabels,
-          productivity: { value: productivityValue, actual: productivityActual, target: 100, avg: productivityAvg },
+          productivity: { value: productivityValue, actual: productivityActual, target: productivityTarget, avg: productivityAvg },
           availability: { value: availabilityValue, actual: availabilityActual, target: 100, avg: availabilityAvg },
           downtimeHarian: { labels: dayLabels, values: downtimeHarianValues, total: downtimeHarianTotal },
           downtimeExhaust,
@@ -3372,7 +3431,7 @@ function dashboardExhaust() {
         const fyEnd = new Date(fyStartYear + 1, 3, 1);
         const prevFyStart = new Date(fyStartYear - 1, 3, 1);
 
-        const [prodRes, ngRes, planByPicRes, lineRes, repairMonthRes] = await Promise.all([
+        const [prodRes, ngRes, planByPicRes, lineRes, repairMonthRes, pvManualRes, koefRes] = await Promise.all([
           supabaseClient.rpc("dashboard_bulanan_produksi", { p_start: prevFyStart.toISOString(), p_end: fyEnd.toISOString() }),
           // NG Inline: DISAMAKAN dengan sumber data tab Kontrol Kualitas
           // (dashboard_qc_ng_month, p_type_ng = 'NG PRODUKSI') supaya
@@ -3389,6 +3448,12 @@ function dashboardExhaust() {
           // atas) TIDAK dipakai lagi di rumus ini -- ngRes tetap dipakai
           // hanya untuk kartu "NG Inline" yang terpisah (tidak diubah).
           supabaseClient.rpc("dashboard_qc_repair_month", { p_start: prevFyStart.toISOString(), p_end: fyEnd.toISOString() }),
+          // Productivity manual harian (Master Data > tab Productivity),
+          // 1 FY penuh. Di chart Tahunan dijumlahkan per bulan dulu.
+          supabaseClient.from("productivity_manual").select("*")
+            .gte("tanggal", localDateStr(fyStart))
+            .lt("tanggal", localDateStr(fyEnd)),
+          supabaseClient.from("koefisien_kawat").select("tahun,nilai"),
         ]);
         // Downtime Terbesar: ikut 1 tahun fiskal yang dipilih (bukan bulan berjalan)
         const topRes = await Promise.all(MACHINES.map((m) =>
@@ -3422,6 +3487,11 @@ function dashboardExhaust() {
           planByPic: planByPicRes.data || [],
           actByPicPerLine: MACHINES.map((m, idx) => ({ mesin: m.key, rows: (downtimeActPerLineRes[idx] && downtimeActPerLineRes[idx].data) || [] })),
           lineRows: lineRes.data || [],
+          // Productivity manual (Master Data > tab Productivity) + koefisien
+          // per tahun. Dipakai chart Productivity di tab Tahunan: tiap bulan
+          // dihitung dari TOTAL sebulan, bukan rata-rata angka harian.
+          pvManualRows: pvManualRes.data || [],
+          koefRows: koefRes.data || [],
           fyStartYear, fyStart, fyEnd, prevFyStart,
         };
 
@@ -3522,12 +3592,37 @@ function dashboardExhaust() {
         rows.filter((r) => { const rd = new Date(r.bulan + "T00:00:00"); return rd >= start && rd < end; })
             .reduce((a, r) => a + (Number(r[field]) || 0), 0);
 
-      // Productivity & Availability & Straightpass per bulan (FY berjalan)
+      // ===== Productivity per bulan: DARI INPUT MANUAL =====
+      // Tiap bulan dihitung dari TOTAL sebulan (jumlah Earned sebulan dibagi
+      // jumlah Operation sebulan), BUKAN rata-rata angka harian -- supaya
+      // hari dengan produksi besar tidak dianggap setara dengan hari kecil.
+      //   Productivity = (Total Earned / Total Operation) / Koefisien * 100
+      // Koefisien diambil sesuai TAHUN KALENDER bulan itu (FY Apr..Mar
+      // melintasi 2 tahun, jadi Jan-Mar pakai koefisien tahun berikutnya).
+      // Angka manual ini gabungan semua line -> tidak ikut filter Line.
+      const PV_EARN = ["earned_massprod", "earned_semi_massprod", "earned_non_massprod"];
+      const PV_OPER = ["operation_massprod", "operation_semi_massprod", "operation_non_massprod"];
+      const pvManualRows = raw.pvManualRows || [];
+      const koefRows = raw.koefRows || [];
+      const koefFor = (th) => {
+        const r = koefRows.find((x) => Number(x.tahun) === Number(th));
+        return r && Number.isFinite(Number(r.nilai)) ? Number(r.nilai) : null;
+      };
       const productivityActual = fyMonths.map((d) => {
-        const row = findRow(prodRows, d);
-        if (!row || !row.wh_menit) return null;
-        return Number(((row.target_std_menit / row.wh_menit) * 100).toFixed(1));
+        const y = d.getFullYear(), m = d.getMonth() + 1;
+        let earned = 0, oper = 0, ada = false;
+        for (const row of pvManualRows) {
+          const t = String(row.tanggal).slice(0, 10);
+          if (Number(t.slice(0, 4)) !== y || Number(t.slice(5, 7)) !== m) continue;
+          for (const c of PV_EARN) if (Number.isFinite(Number(row[c]))) { earned += Number(row[c]); ada = true; }
+          for (const c of PV_OPER) if (Number.isFinite(Number(row[c]))) { oper += Number(row[c]); ada = true; }
+        }
+        const k = koefFor(y);
+        if (!ada || !oper || !k) return null;
+        return Number((((earned / oper) / k) * 100).toFixed(1));
       });
+      // Chart Productivity di tab Tahunan SENGAJA tanpa garis Target
+      // (target hanya dipakai di tab Kontrol Downtime, per bulan).
       const availabilityActual = fyMonths.map((d) => {
         const row = findRow(prodRows, d);
         if (!row || !row.wh_menit) return null;
@@ -3559,7 +3654,8 @@ function dashboardExhaust() {
       const lastRow = [...prodRows].reverse().find((r) => r.wh_menit > 0) || null;
       const lastNgRow = ngRows.length ? ngRows[ngRows.length - 1] : null;
       const lastRepairMonthRow = repairMonthRows.length ? repairMonthRows[repairMonthRows.length - 1] : null;
-      const productivityValue = lastRow ? Number(((lastRow.target_std_menit / lastRow.wh_menit) * 100).toFixed(1)) : 0;
+      // Nilai "terakhir" Productivity = bulan terakhir yang sudah ada angkanya
+      const productivityValue = [...productivityActual].reverse().find((v) => v !== null) ?? 0;
       const availabilityValue = lastRow ? Number((((lastRow.wh_menit - lastRow.downtime_menit) / lastRow.wh_menit) * 100).toFixed(1)) : 0;
       const straightpassValue = lastRow && lastRow.stroke
         ? Number((((lastRow.stroke - (lastRepairMonthRow ? Number(lastRepairMonthRow.qty) || 0 : 0)) / lastRow.stroke) * 100).toFixed(1))
@@ -3604,7 +3700,7 @@ function dashboardExhaust() {
       this.tahunan = {
         ...this.tahunan,
         monthLabels: dtExhaustLabels,
-        productivity: { value: productivityValue, actual: [null, null, ...productivityActual], target: 100 },
+        productivity: { value: productivityValue, actual: [null, null, ...productivityActual], target: null },
         availability: { value: availabilityValue, actual: [null, null, ...availabilityActual], target: 100 },
         ngInline: {
           qty: lastNgRow ? Number(lastNgRow.qty) : 0,
@@ -4509,12 +4605,32 @@ function dashboardExhaust() {
           ctx.save();
           ctx.font = `700 ${fontSize}px Inter, sans-serif`;
           ctx.textAlign = "center"; ctx.fillStyle = textColor;
+          // Kalau teksnya lebih lebar dari jatah 1 kolom, label diputar tegak
+          // supaya tidak saling timpa (kasusnya: 31 tanggal x "103.6%").
+          // Dicek sekali pakai label terpanjang, biar semua label seragam.
+          let terlebar = 0;
+          meta.data.forEach((bar, i) => {
+            const v = Number(dataset.data[i]);
+            if (v === null || v === undefined || Number.isNaN(v) || v === 0) return;
+            terlebar = Math.max(terlebar, ctx.measureText(formatter(v)).width);
+          });
+          const putar = terlebar > slotWidth - 2;
           meta.data.forEach((bar, i) => {
             const val = Number(dataset.data[i]);
             if (val === null || val === undefined || Number.isNaN(val) || val === 0) return;
             const { x, y } = bar.getProps(["x", "y"], true);
-            ctx.textBaseline = "bottom";
-            ctx.fillText(formatter(val), x, y - 3);
+            const txt = formatter(val);
+            if (putar) {
+              ctx.save();
+              ctx.translate(x, y - 4);
+              ctx.rotate(-Math.PI / 2);
+              ctx.textAlign = "left"; ctx.textBaseline = "middle";
+              ctx.fillText(txt, 0, 0);
+              ctx.restore();
+            } else {
+              ctx.textBaseline = "bottom";
+              ctx.fillText(txt, x, y - 3);
+            }
           });
           ctx.restore();
         },
@@ -4587,7 +4703,9 @@ function dashboardExhaust() {
           },
           options: {
             responsive: true, maintainAspectRatio: false, animation: noAnim,
-            layout: { padding: { top: 20 } },
+            // Padding atas dilebihkan: kalau label angkanya diputar tegak
+            // (31 tanggal), teksnya butuh ruang ke atas supaya tidak terpotong.
+            layout: { padding: { top: 42 } },
             plugins: { legend: legend(true), tooltip: tooltip() },
             scales: baseScales({ suggestedMax: 100, ticks: { callback: (v) => v + "%", color: "#000000", font: { size: 9 }, maxTicksLimit: 5 } }),
           },
@@ -5018,7 +5136,12 @@ function dashboardExhaust() {
             labels,
             datasets: [
               { order: 2, type: "bar", label: "Actual", data: actual, backgroundColor: barBg(canvas, hex, actual.length), borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7, borderSkipped: false },
-              { order: 1, type: "line", label: "Target", data: labels.map(() => target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0 },
+              // target = null -> garis Target TIDAK digambar sama sekali
+              // (dipakai chart Productivity Tahunan). Selain itu tetap
+              // seperti biasa: 1 angka -> garis datar.
+              ...(target === null || target === undefined ? [] : [
+                { order: 1, type: "line", label: "Target", data: labels.map(() => target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0 },
+              ]),
             ],
           },
           options: {
@@ -5069,7 +5192,7 @@ function dashboardExhaust() {
       // tahun fiskal). Untuk grafik-grafik lain kita buang 2 kolom ini,
       // cukup tampilkan 12 bulan (Apr..Mar). Ini murni di layer render,
       // data asli di this.tahunan tidak diubah.
-      safe(() => kpiBig("dxyBigProductivity", b.monthLabels.slice(2), b.productivity.actual.slice(2), b.productivity.target, "#2563EB"), "big-productivity");
+      safe(() => kpiBig("dxyBigProductivity", b.monthLabels.slice(2), b.productivity.actual.slice(2), null, "#2563EB"), "big-productivity");
       safe(() => kpiBig("dxyBigAvailability", b.monthLabels.slice(2), b.availability.actual.slice(2), b.availability.target, "#10B981", "above", 120), "big-availability");
       safe(() => bigStraightpassDual("dxyBigStraightpass", b.monthLabels.slice(2), b.straightpass.repairQty.slice(2), b.straightpass.actual.slice(2), b.straightpass.target, "#14B8A6"), "big-straightpass");
 

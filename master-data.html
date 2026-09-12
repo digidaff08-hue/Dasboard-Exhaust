@@ -15,6 +15,39 @@
      global. */
   .md-subtab-nav { margin: 0 0 20px !important; padding: 0 !important; display: flex; gap: 8px; flex-wrap: wrap; }
   .md-subtab-nav button { margin: 0 !important; }
+
+  /* ---- Grid input Productivity (tab Productivity) ----
+     Matrix 6 baris x 31 kolom tanggal, meniru format Excel "Daily Peff".
+     Semua di-prefix .pv- supaya tidak menimpa tabel lain di halaman ini. */
+  .pv-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+  .pv-table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 12px; }
+  .pv-table th, .pv-table td { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 0; text-align: center; white-space: nowrap; }
+  .pv-table thead th { background: var(--panel-2); font-weight: 600; padding: 6px 4px; position: sticky; top: 0; z-index: 3; }
+  /* 2 kolom kiri (Grup + Baris) & kolom Total dibikin nempel saat digeser */
+  .pv-table .pv-sticky-1 { position: sticky; left: 0; z-index: 2; background: var(--panel); min-width: 76px; padding: 6px 8px; text-align: left; font-weight: 600; }
+  .pv-table .pv-sticky-2 { position: sticky; left: 76px; z-index: 2; background: var(--panel); min-width: 112px; padding: 6px 8px; text-align: left; }
+  .pv-table thead .pv-sticky-1, .pv-table thead .pv-sticky-2 { z-index: 4; background: var(--panel-2); }
+  .pv-table .pv-total { position: sticky; right: 0; z-index: 2; background: var(--panel-2); min-width: 80px; padding: 6px 8px; text-align: right; font-weight: 600; }
+  .pv-table thead .pv-total { z-index: 4; }
+  /* 46px: teks terpanjang "207,25" (6 karakter x +-6,6px di font mono 11px
+     = +-40px) + padding, supaya tidak terpotong. 31 kolom x 46px + 268px
+     kolom tetap (Grup/Baris/Total) = +-1694px, masih muat di layar desktop. */
+  .pv-day { min-width: 46px; width: 46px; }
+  /* Kolom tanggal yang jatuh di hari Minggu ditandai tipis */
+  .pv-table th.pv-sunday { color: var(--danger, #DC2626); }
+  .pv-table thead th.pv-day { padding: 6px 2px; font-size: 11px; }
+  /* Input di dalam sel: tanpa border sendiri, biar kelihatan seperti sel Excel. */
+  .pv-cell-input { width: 100%; border: 0 !important; background: transparent; padding: 4px 3px !important; text-align: right; font-family: "IBM Plex Mono", monospace; font-size: 11px; border-radius: 0 !important; box-shadow: none !important; height: auto !important; min-height: 0 !important; }
+  .pv-cell-input:focus { outline: 2px solid var(--primary); outline-offset: -2px; background: var(--panel-2); }
+  .pv-cell-input:disabled { color: var(--muted); }
+  .pv-grup-earned td.pv-sticky-1, .pv-grup-earned td.pv-sticky-2 { background: color-mix(in srgb, var(--primary) 7%, var(--panel)); }
+  .pv-grup-operation td.pv-sticky-1, .pv-grup-operation td.pv-sticky-2 { background: color-mix(in srgb, var(--teal, #0EA5E9) 7%, var(--panel)); }
+  .pv-row-sep td { border-top: 2px solid var(--border); }
+  /* Sel yang lagi ke-blok (klik-tahan-geser / shift+klik) */
+  .pv-table td.pv-sel { background: color-mix(in srgb, var(--primary) 22%, var(--panel)); outline: 1px solid var(--primary); outline-offset: -1px; }
+  /* 4 baris hasil hitung -- dibedakan supaya jelas ini bukan kolom isian */
+  .pv-calc-row td { background: var(--panel-2); font-weight: 600; font-family: "IBM Plex Mono", monospace; font-size: 10px; padding: 5px 3px; }
+  .pv-calc-row td.pv-sticky-1, .pv-calc-row td.pv-sticky-2 { font-family: inherit; font-size: 12px; }
 </style>
 
 <script>
@@ -77,6 +110,7 @@
           <button class="btn-secondary btn-sm" :class="activeTab === 'attendance' ? 'btn-primary' : ''" @click="setTab('attendance')">Attendance</button>
           <button class="btn-secondary btn-sm" :class="activeTab === 'scrap' ? 'btn-primary' : ''" @click="setTab('scrap')">Scrap</button>
           <button class="btn-secondary btn-sm" :class="activeTab === 'safety' ? 'btn-primary' : ''" @click="setTab('safety')">Safety</button>
+          <button class="btn-secondary btn-sm" :class="activeTab === 'productivity' ? 'btn-primary' : ''" @click="setTab('productivity')">Productivity</button>
         </div>
 
         <!-- ===== TAB: ATTENDANCE ===== -->
@@ -330,6 +364,269 @@
             </div>
           </div>
         </template>
+
+        <!-- ===== TAB: PRODUCTIVITY (harian, gabungan semua line) =====
+             Format mengikuti laporan Excel "Daily Peff": 6 baris
+             (Earned x3, Operation x3) x tanggal 1-31. SEMUA DIISI
+             MANUAL -- tidak ada rumus, tidak diambil dari data
+             produksi. Angka ini gabungan semua line, bukan per line. -->
+        <template x-if="activeTab === 'productivity'">
+          <div>
+            <div class="panel">
+              <p class="panel-title">Input Productivity Harian</p>
+              <p class="hint" style="margin-bottom:12px;">
+                Semua angka diisi manual (satuan menit), gabungan semua line.
+                Tanggal yang memang kosong / libur biarkan saja kosong — tidak
+                perlu diisi 0. Kolom <b>Total</b> di kanan hanya penjumlahan
+                tampilan, tidak ikut disimpan.
+                <br>
+                <b>Bisa copy-paste langsung dari Excel:</b> blok selnya di Excel,
+                copy, lalu klik satu sel di sini dan tempel (Ctrl+V) — sel yang
+                kamu klik jadi titik awal, sisanya terisi sendiri ke bawah dan ke
+                kanan. Blok yang lewat dari 6 baris atau lewat tanggal terakhir
+                bulan ini diabaikan.
+                <br>
+                Yang diambil adalah <b>angka asli di dalam sel Excel</b>, bukan
+                versi bulat yang tampil di layar — jadi kalau sel Excel isinya
+                <span class="mono">21,9931428571429</span> tapi tampil
+                <span class="mono">22,0</span>, yang masuk tetap angka penuhnya.
+                Di tabel ini sel ditampilkan ringkas 2 desimal; klik selnya untuk
+                melihat angka penuh.
+                <br>
+                <b>Hapus banyak sel sekaligus:</b> klik-tahan lalu geser untuk
+                memblok (bisa juga klik sel awal, lalu Shift+klik sel akhir),
+                kemudian tekan <span class="mono">Delete</span> atau klik tombol
+                <b>Hapus sel terpilih</b>. Untuk mengosongkan satu bulan penuh,
+                pakai tombol <b>Kosongkan Bulan Ini</b>. Perubahan baru masuk ke
+                server setelah <b>Simpan</b> ditekan.
+              </p>
+
+              <div class="form-grid">
+                <div class="field"><label>Bulan</label>
+                  <select x-model.number="pvMonth" @change="fetchProductivity()">
+                    <template x-for="(nm, i) in BULAN_LABELS" :key="'pv-bln-'+i">
+                      <option :value="i+1" x-text="nm"></option>
+                    </template>
+                  </select>
+                </div>
+                <div class="field"><label>Tahun</label>
+                  <select x-model.number="pvYear" @change="fetchProductivity()">
+                    <template x-for="y in tahunOptions" :key="'pv-thn-'+y"><option :value="y" x-text="y"></option></template>
+                  </select>
+                </div>
+                <!-- Ikut tahun yang dipilih di sebelah kiri. Cuma tampilan
+                     (3 desimal), diisinya di panel Koefisien di bawah. -->
+                <div class="field"><label>Koefisien</label>
+                  <input type="text" class="mono" disabled
+                         :value="kwForYear(pvYear) === null ? 'Belum diisi' : kwDisplay(kwForYear(pvYear))">
+                </div>
+              </div>
+
+              <template x-if="pvLoading">
+                <p class="empty-state">Memuat data productivity...</p>
+              </template>
+
+              <template x-if="!pvLoading">
+                <div class="pv-wrap" @mouseup.window="pvSelEnd()" @keydown.window="pvSelKey($event)">
+                  <table class="pv-table">
+                    <thead>
+                      <tr>
+                        <th class="pv-sticky-1">Grup</th>
+                        <th class="pv-sticky-2">Baris</th>
+                        <template x-for="d in pvDays" :key="'pv-h-'+d">
+                          <th class="pv-day" :class="pvIsSunday(d) ? 'pv-sunday' : ''" x-text="d"></th>
+                        </template>
+                        <th class="pv-total">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="(r, i) in PV_ROWS" :key="'pv-r-'+r.key">
+                        <tr :class="(r.grup === 'Earned' ? 'pv-grup-earned' : 'pv-grup-operation') + (i === 3 ? ' pv-row-sep' : '')">
+                          <td class="pv-sticky-1" x-text="(i === 0 || i === 3) ? r.grup : ''"></td>
+                          <td class="pv-sticky-2" x-text="r.label"></td>
+                          <template x-for="d in pvDays" :key="'pv-c-'+r.key+'-'+d">
+                            <td :class="pvSelHas(i, d) ? 'pv-sel' : ''"
+                                @mousedown="pvSelStart(i, d, $event)"
+                                @mouseenter="pvSelEnter(i, d)">
+                              <input type="text" inputmode="decimal" class="pv-cell-input"
+                                     :disabled="!isLeaderOrAdmin()"
+                                     :value="pvCellValue(r.key, d)"
+                                     @focus="pvFocusKey = r.key + '-' + d"
+                                     @blur="pvFocusKey = ''"
+                                     @input="pvGrid[r.key][d] = pvSanitize($event.target.value); $event.target.value = pvGrid[r.key][d]"
+                                     @paste="pvPaste($event, i, d)">
+                            </td>
+                          </template>
+                          <td class="pv-total mono" x-text="pvRowTotal(r.key)"></td>
+                        </tr>
+                      </template>
+
+                      <!-- ===== 4 baris hasil hitung (otomatis, tidak disimpan) =====
+                           Total Earned    = Massprod + Semi massprod + Non massprod
+                           Total Operation = Masspro  + Semi masspro  + Non masspro
+                           Efficiency      = Total Earned / Total Operation
+                           Productivity    = Efficiency / Koefisien (tahun terpilih)
+                           Kolom TOTAL di kanan: Earned & Operation = jumlah sebulan;
+                           Efficiency & Productivity dihitung ulang dari total
+                           sebulan itu (bukan rata-rata angka harian). -->
+                      <tr class="pv-calc-row pv-row-sep">
+                        <td class="pv-sticky-1">Hasil</td>
+                        <td class="pv-sticky-2">Total Earned</td>
+                        <template x-for="d in pvDays" :key="'pv-te-'+d">
+                          <td class="mono" x-text="pvFmt(pvEarnedDay(d), 2)"></td>
+                        </template>
+                        <td class="pv-total mono" x-text="pvFmt(pvEarnedMonth(), 2)"></td>
+                      </tr>
+                      <tr class="pv-calc-row">
+                        <td class="pv-sticky-1"></td>
+                        <td class="pv-sticky-2">Total Operation</td>
+                        <template x-for="d in pvDays" :key="'pv-to-'+d">
+                          <td class="mono" x-text="pvFmt(pvOperationDay(d), 2)"></td>
+                        </template>
+                        <td class="pv-total mono" x-text="pvFmt(pvOperationMonth(), 2)"></td>
+                      </tr>
+                      <tr class="pv-calc-row">
+                        <td class="pv-sticky-1"></td>
+                        <td class="pv-sticky-2">Efficiency</td>
+                        <template x-for="d in pvDays" :key="'pv-ef-'+d">
+                          <td class="mono" x-text="pvFmt(pvEffDay(d), 3)"></td>
+                        </template>
+                        <td class="pv-total mono" x-text="pvFmt(pvEffMonth(), 3)"></td>
+                      </tr>
+                      <tr class="pv-calc-row">
+                        <td class="pv-sticky-1"></td>
+                        <td class="pv-sticky-2">Productivity</td>
+                        <template x-for="d in pvDays" :key="'pv-pr-'+d">
+                          <td class="mono" x-text="pvFmtPct(pvProdDay(d))"></td>
+                        </template>
+                        <td class="pv-total mono" x-text="pvFmtPct(pvProdMonth())"></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+
+              <div class="form-actions" x-show="isLeaderOrAdmin()">
+                <button type="button" class="btn-primary" @click="saveProductivity()" :disabled="pvSaving"
+                        x-text="pvSaving ? 'Menyimpan...' : 'Simpan Productivity'"></button>
+                <button type="button" class="btn-secondary" @click="pvSelDelete()" :disabled="pvSaving || pvSelCount() < 1"
+                        x-text="pvSelCount() > 1 ? ('Hapus ' + pvSelCount() + ' sel terpilih') : 'Hapus sel terpilih'"></button>
+                <button type="button" class="btn-danger" @click="pvClearMonth()" :disabled="pvSaving">Kosongkan Bulan Ini</button>
+                <button type="button" class="btn-secondary" @click="fetchProductivity()" :disabled="pvSaving">Muat Ulang</button>
+              </div>
+              <p class="hint" x-show="!isLeaderOrAdmin()" style="margin-top:12px;">
+                Hanya admin / leader yang bisa mengisi. Kamu tetap bisa melihat datanya.
+              </p>
+            </div>
+
+            <div class="panel">
+              <p class="panel-title">Koefisien</p>
+              <p class="hint" style="margin-bottom:12px;">
+                Nilainya berubah tiap tahun — pilih tahun, isi angkanya, lalu simpan.
+                Ketik angka penuhnya saja (mis. <span class="mono">0,441702442879684</span>);
+                yang ditampilkan di layar dibulatkan <b>3 angka di belakang koma</b>,
+                tapi yang tersimpan tetap angka penuh.
+              </p>
+
+              <div class="form-grid">
+                <div class="field"><label>Tahun</label>
+                  <select x-model.number="kwYear" @change="onKwYearChange()">
+                    <template x-for="y in kwYearOptions" :key="'kw-thn-'+y"><option :value="y" x-text="y"></option></template>
+                  </select>
+                </div>
+                <div class="field"><label>Koefisien</label>
+                  <input type="text" inputmode="decimal" class="mono"
+                         :disabled="!isLeaderOrAdmin()"
+                         :value="kwValue"
+                         @input="kwValue = pvSanitize($event.target.value); $event.target.value = kwValue"
+                         placeholder="0,441702442879684">
+                </div>
+                <div class="field"><label>Tampil di layar</label>
+                  <input type="text" class="mono" disabled :value="kwDisplay(kwValue)">
+                </div>
+              </div>
+
+              <div class="form-actions" x-show="isLeaderOrAdmin()">
+                <button type="button" class="btn-primary" @click="saveKoefisien()" :disabled="kwSaving"
+                        x-text="kwSaving ? 'Menyimpan...' : 'Simpan Koefisien'"></button>
+              </div>
+
+              <p class="hint" x-show="kwError" style="margin-top:10px; color:var(--danger, #DC2626); font-weight:600;" x-text="kwError"></p>
+
+              <div class="table-wrap" style="margin-top:14px;">
+                <table>
+                  <thead><tr><th>Tahun</th><th>Koefisien (3 desimal)</th><th>Nilai tersimpan</th><th x-show="isLeaderOrAdmin()">Aksi</th></tr></thead>
+                  <tbody>
+                    <template x-for="r in kwRows" :key="'kw-'+r.tahun">
+                      <tr>
+                        <td class="mono" x-text="r.tahun"></td>
+                        <td class="mono" x-text="kwDisplay(r.nilai)"></td>
+                        <td class="mono" style="color:var(--muted)" x-text="r.nilai"></td>
+                        <td x-show="isLeaderOrAdmin()"><button class="btn-secondary btn-sm" @click="editKoefisien(r)">Edit</button></td>
+                      </tr>
+                    </template>
+                    <tr x-show="kwRows.length === 0"><td colspan="4" class="empty-state">Belum ada koefisien tersimpan.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="panel">
+              <p class="panel-title">Target Productivity Bulanan</p>
+              <p class="hint" style="margin-bottom:12px;">
+                Ini angka garis merah putus-putus "Target" di grafik Productivity
+                (Dashboard Exhaust — tab Kontrol Downtime & Tahunan). Isi dalam
+                persen apa adanya, mis. <span class="mono">106,2</span> untuk 106,2%.
+                Bulan yang belum diisi memakai target <span class="mono">100</span>.
+              </p>
+
+              <div class="form-grid">
+                <div class="field"><label>Bulan</label>
+                  <select x-model.number="tgMonth" @change="onTgPeriodChange()">
+                    <template x-for="(nm, i) in BULAN_LABELS" :key="'tg-bln-'+i">
+                      <option :value="i+1" x-text="nm"></option>
+                    </template>
+                  </select>
+                </div>
+                <div class="field"><label>Tahun</label>
+                  <select x-model.number="tgYear" @change="onTgPeriodChange()">
+                    <template x-for="y in kwYearOptions" :key="'tg-thn-'+y"><option :value="y" x-text="y"></option></template>
+                  </select>
+                </div>
+                <div class="field"><label>Target (%)</label>
+                  <input type="text" inputmode="decimal" class="mono"
+                         :disabled="!isLeaderOrAdmin()"
+                         :value="tgValue"
+                         @input="tgValue = pvSanitize($event.target.value); $event.target.value = tgValue"
+                         placeholder="106,2">
+                </div>
+              </div>
+
+              <div class="form-actions" x-show="isLeaderOrAdmin()">
+                <button type="button" class="btn-primary" @click="saveTarget()" :disabled="tgSaving"
+                        x-text="tgSaving ? 'Menyimpan...' : 'Simpan Target'"></button>
+                <button type="button" class="btn-secondary" @click="hapusTarget()" :disabled="tgSaving || !tgAda()">Hapus Target Bulan Ini</button>
+              </div>
+
+              <p class="hint" x-show="tgError" style="margin-top:10px; color:var(--danger, #DC2626); font-weight:600;" x-text="tgError"></p>
+
+              <div class="table-wrap" style="margin-top:14px;">
+                <table>
+                  <thead><tr><th>Periode</th><th>Target</th><th x-show="isLeaderOrAdmin()">Aksi</th></tr></thead>
+                  <tbody>
+                    <template x-for="r in tgRows" :key="'tg-'+r.tahun+'-'+r.bulan">
+                      <tr>
+                        <td class="mono" x-text="BULAN_LABELS[r.bulan - 1] + ' ' + r.tahun"></td>
+                        <td class="mono" x-text="fmtNum(r.target) + '%'"></td>
+                        <td x-show="isLeaderOrAdmin()"><button class="btn-secondary btn-sm" @click="editTarget(r)">Edit</button></td>
+                      </tr>
+                    </template>
+                    <tr x-show="tgRows.length === 0"><td colspan="3" class="empty-state">Belum ada target tersimpan.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </template>
       </div>
     </template>
   </main>
@@ -369,6 +666,22 @@ function localDateStr(d) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
+// Grid kosong buat tab Productivity: 6 kolom tabel x tanggal 1-31, semua "".
+// Dibuat penuh sejak awal (tidak ditambah saat diketik) supaya Alpine tidak
+// kehilangan reaktivitas di sel yang belum pernah diisi.
+const PV_COLS = [
+  "earned_massprod", "earned_semi_massprod", "earned_non_massprod",
+  "operation_massprod", "operation_semi_massprod", "operation_non_massprod",
+];
+function pvBlankGrid() {
+  const g = {};
+  for (const c of PV_COLS) {
+    g[c] = {};
+    for (let d = 1; d <= 31; d++) g[c][d] = "";
+  }
+  return g;
+}
+
 function masterDataPage() {
   return {
     ...baseInputPage(),
@@ -377,7 +690,13 @@ function masterDataPage() {
     // sekarang, tapi ditulis sebagai activeTab supaya gampang nambah
     // kategori Master Data lain nanti tanpa ubah struktur.
     activeTab: "attendance",
-    setTab(tab) { this.activeTab = tab; },
+    setTab(tab) {
+      this.activeTab = tab;
+      // Data Productivity baru ditarik saat tabnya dibuka (bukan di init())
+      // supaya halaman Master Data tidak jadi lebih lambat waktu pertama load.
+      if (tab === "productivity" && this.pvLoadedKey !== this.pvYear + "-" + this.pvMonth) this.fetchProductivity();
+      if (tab === "productivity" && !this.kwLoaded) { this.kwLoaded = true; this.fetchKoefisien(); this.fetchTarget(); }
+    },
     // ---- Total Orang (Bulanan) ----
     // Dropdown Bulan pakai label yang sama dengan dashboard (BULAN_LABELS).
     BULAN_LABELS: ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"],
@@ -399,6 +718,50 @@ function masterDataPage() {
     // ---- Form Safety / Insiden ----
     safetyForm: { tanggal: localDateStr(new Date()), kategori: "ACCIDENT", keterangan: "" },
     safetyRows: [],
+    // ---- Productivity Harian (manual, gabungan semua line) ----
+    // 6 baris tetap, urutannya mengikuti laporan Excel "Daily Peff".
+    // `key` = nama kolom di tabel productivity_manual.
+    // `label` sengaja ditulis persis seperti di Excel (Earned pakai
+    // "Massprod", Operation pakai "Masspro" -- memang beda di sana).
+    PV_ROWS: [
+      { grup: "Earned",    key: "earned_massprod",         label: "Massprod" },
+      { grup: "Earned",    key: "earned_semi_massprod",    label: "Semi massprod" },
+      { grup: "Earned",    key: "earned_non_massprod",     label: "Non massprod" },
+      { grup: "Operation", key: "operation_massprod",      label: "Masspro" },
+      { grup: "Operation", key: "operation_semi_massprod", label: "Semi masspro" },
+      { grup: "Operation", key: "operation_non_massprod",  label: "Non masspro" },
+    ],
+    pvMonth: new Date().getMonth() + 1,
+    pvYear: new Date().getFullYear(),
+    // pvGrid[nama_kolom][tanggal] = string (dibiarkan string supaya "" bisa
+    // dibedakan dari 0, dan supaya user bisa ngetik koma desimal).
+    // Selalu dibuat penuh 1-31 di awal (bukan ditambah saat diketik) supaya
+    // reaktivitas Alpine tidak meleset di sel yang belum pernah disentuh.
+    pvGrid: pvBlankGrid(),
+    pvLoading: false,
+    // Sel yang lagi diklik ("namakolom-tanggal"). Sel yang sedang diklik
+    // menampilkan angka PENUH supaya bisa diedit; sel lain ditampilkan
+    // ringkas 2 desimal biar muat di kolom. Yang disimpan selalu yang penuh.
+    pvFocusKey: "",
+    pvSaving: false,
+    pvLoadedKey: "",   // "YYYY-M" bulan yang sedang termuat, biar tidak refetch percuma
+    // ---- Koefisien (per tahun, manual) ----
+    // kwValue disimpan sebagai STRING supaya angka panjang seperti
+    // 0,441702442879684 tidak berubah gara-gara dibolak-balik ke Number
+    // waktu diketik. Konversi ke angka cuma dilakukan pas mau disimpan.
+    kwYear: new Date().getFullYear(),
+    kwValue: "",
+    kwRows: [],
+    kwSaving: false,
+    kwLoaded: false,
+    kwError: "",
+    // ---- Target Productivity Bulanan ----
+    tgMonth: new Date().getMonth() + 1,
+    tgYear: new Date().getFullYear(),
+    tgValue: "",
+    tgRows: [],
+    tgSaving: false,
+    tgError: "",
     // Pilihan Tahun buat dropdown Total Orang (Bulanan) -- 2 tahun ke
     // belakang s/d 1 tahun ke depan, cukup buat kebutuhan input.
     get tahunOptions() {
@@ -547,6 +910,510 @@ function masterDataPage() {
       this.flash("Hari libur dihapus.");
       await this.fetchHariLibur();
     },
+    // =====================================================
+    // Productivity Harian (manual, gabungan semua line)
+    // =====================================================
+    // Jumlah hari di bulan yang dipilih (28/29/30/31). Tanggal 0 di bulan
+    // berikutnya = tanggal terakhir bulan ini.
+    get pvDays() {
+      const n = new Date(this.pvYear, this.pvMonth, 0).getDate();
+      return Array.from({ length: n }, (_, i) => i + 1);
+    },
+    pvIsSunday(d) {
+      return new Date(this.pvYear, this.pvMonth - 1, d).getDay() === 0;
+    },
+    // Bersihkan ketikan: cuma angka + 1 pemisah desimal. Koma dibiarkan
+    // apa adanya saat mengetik (kebiasaan format Indonesia/Excel), baru
+    // diubah jadi titik waktu disimpan.
+    pvSanitize(v) {
+      let s = String(v ?? "").replace(/[^0-9.,]/g, "");
+      const firstSep = s.search(/[.,]/);
+      if (firstSep !== -1) {
+        s = s.slice(0, firstSep + 1) + s.slice(firstSep + 1).replace(/[.,]/g, "");
+      }
+      return s;
+    },
+    // "12,5" / "12.5" -> 12.5 ; "" atau tidak valid -> null (artinya kosong)
+    pvNum(v) {
+      const s = String(v ?? "").trim().replace(",", ".");
+      if (s === "" || s === ".") return null;
+      const n = Number(s);
+      return Number.isFinite(n) ? n : null;
+    },
+    // Total 1 baris (kolom paling kanan) -- tampilan saja, tidak disimpan.
+    pvRowTotal(key) {
+      let sum = 0, ada = false;
+      for (const d of this.pvDays) {
+        const n = this.pvNum(this.pvGrid[key]?.[d]);
+        if (n !== null) { sum += n; ada = true; }
+      }
+      // 2 desimal, mengikuti kolom Total di laporan Excel (mis. 7.442,47).
+      // Tidak pakai fmtNum() karena fmtNum dibatasi 1 desimal.
+      // Baris yang belum ada isinya dibiarkan kosong (bukan "-").
+      return ada ? Number(sum.toFixed(2)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
+    },
+    // Ubah 1 sel hasil copy dari Excel jadi angka yang dipakai grid.
+    // Aturan pemisah (mengikuti format Excel Indonesia):
+    //  - kalau ada KOMA  -> koma = desimal, titik = pemisah ribuan
+    //      "7.442,47" -> "7442,47"
+    //  - kalau TIDAK ada koma -> 1 titik = desimal, >1 titik = ribuan
+    //      "207.25" -> "207,25"   |   "7.442" -> "7442"
+    // Karakter lain (spasi, Rp, dll) dibuang.
+    pvParsePasted(raw) {
+      let s = String(raw ?? "").replace(/[^0-9.,]/g, "");
+      if (!s) return "";
+      if (s.includes(",")) {
+        const i = s.lastIndexOf(",");
+        const depan = s.slice(0, i).replace(/[.,]/g, "");
+        const belakang = s.slice(i + 1).replace(/[.,]/g, "");
+        return belakang ? depan + "," + belakang : depan;
+      }
+      const titik = s.split(".").length - 1;
+      if (titik === 1) {
+        const [depan, belakang] = s.split(".");
+        return belakang ? depan + "," + belakang : depan;
+      }
+      return s.replace(/\./g, "");
+    },
+    // Excel menaruh 2 versi di clipboard saat copy:
+    //   1. text/plain -> angka SEPERTI YANG TAMPIL di layar ("22,0")
+    //   2. text/html  -> tiap sel bawa atribut x:num berisi ANGKA ASLINYA
+    //                    (<td x:num="21.9931428571429">22,0</td>)
+    // Fungsi ini baca versi HTML-nya dan ambil x:num kalau ada, supaya angka
+    // yang masuk sama persis dengan isi sel Excel -- bukan versi bulatnya.
+    // Balikannya array baris x kolom, atau null kalau HTML-nya bukan tabel.
+    pvParseHtmlTable(html) {
+      let doc;
+      try { doc = new DOMParser().parseFromString(html, "text/html"); } catch (e) { return null; }
+      const trs = doc.querySelectorAll("tr");
+      if (!trs.length) return null;
+      const matrix = [];
+      trs.forEach((tr) => {
+        const baris = [];
+        tr.querySelectorAll("td, th").forEach((td) => {
+          // x:num = angka asli dari Excel (selalu pakai titik sebagai desimal)
+          const xnum = td.getAttribute("x:num");
+          if (xnum !== null && xnum !== "" && Number.isFinite(Number(xnum))) {
+            // Disimpan sebagai string; titik diubah koma biar seragam dengan
+            // gaya ketik manual. Notasi ilmiah (1e-7) dibiarkan apa adanya.
+            baris.push(xnum.includes("e") || xnum.includes("E") ? xnum : xnum.replace(".", ","));
+          } else {
+            baris.push(this.pvParsePasted(td.textContent));
+          }
+        });
+        if (baris.length) matrix.push(baris);
+      });
+      return matrix.length ? matrix : null;
+    },
+    // Tempel blok dari Excel. Sel yang lagi diklik jadi titik kiri-atas,
+    // sisanya diisi ke bawah (antar baris) & ke kanan (antar tanggal).
+    pvPaste(ev, rowIdx, day) {
+      if (!this.isLeaderOrAdmin()) return;
+      const cd = ev.clipboardData || window.clipboardData;
+      if (!cd) return;
+      const html = cd.getData ? cd.getData("text/html") : "";
+      const text = cd.getData ? cd.getData("text") : "";
+      if (!html && !text) return;
+      ev.preventDefault();
+
+      // Utamakan versi HTML (bawa angka asli). Kalau tidak ada tabelnya
+      // -- misal copy dari Notepad, atau Excel versi web yang tidak kirim
+      // x:num -- jatuh balik ke teks biasa yang dipisah Tab & Enter.
+      let matrix = html ? this.pvParseHtmlTable(html) : null;
+      let dariExcel = !!matrix;
+      if (!matrix) {
+        const lines = String(text).replace(/\r\n?/g, "\n").split("\n");
+        while (lines.length && lines[lines.length - 1].trim() === "") lines.pop();
+        matrix = lines.map((line) => line.split("\t").map((c) => this.pvParsePasted(c)));
+      }
+
+      const days = this.pvDays;
+      let terisi = 0;
+      matrix.forEach((baris, ri) => {
+        const row = this.PV_ROWS[rowIdx + ri];
+        if (!row) return;  // blok lebih panjang dari 6 baris -> sisanya diabaikan
+        baris.forEach((cell, ci) => {
+          const d = day + ci;
+          if (!days.includes(d)) return;  // lewat tanggal terakhir bulan ini -> abaikan
+          this.pvGrid[row.key][d] = cell;
+          terisi++;
+        });
+      });
+      if (terisi) {
+        this.flash(terisi + " sel terisi" + (dariExcel ? " (angka asli dari Excel)" : "") + ". Jangan lupa Simpan.");
+      }
+    },
+    // Yang ditampilkan di sel. Sedang diklik -> angka penuh apa adanya.
+    // Tidak diklik -> dibulatkan 2 desimal supaya muat di kolom 46px
+    // (nilai di pvGrid TIDAK ikut berubah, cuma tampilannya).
+    pvCellValue(key, d) {
+      const raw = this.pvGrid[key]?.[d] ?? "";
+      if (this.pvFocusKey === key + "-" + d) return raw;
+      const n = this.pvNum(raw);
+      if (n === null) return raw;
+      return n.toFixed(2).replace(".", ",");
+    },
+    // ---- Blok & hapus banyak sel sekaligus ----
+    // pvSelA = sel awal (tempat mulai klik), pvSelB = sel akhir (tempat
+    // mouse berhenti / shift+klik). Yang terpilih = kotak di antara keduanya.
+    pvSelA: null,
+    pvSelB: null,
+    pvDrag: false,
+    pvSelStart(ri, d, ev) {
+      if (!this.isLeaderOrAdmin()) return;
+      if (ev.shiftKey && this.pvSelA) {
+        // Shift+klik: perlebar blok dari sel awal ke sel yang diklik
+        this.pvSelB = { r: ri, d };
+        ev.preventDefault();
+        return;
+      }
+      this.pvSelA = { r: ri, d };
+      this.pvSelB = { r: ri, d };
+      this.pvDrag = true;   // klik-tahan-geser buat blok beberapa sel
+    },
+    pvSelEnter(ri, d) {
+      if (!this.pvDrag) return;
+      if (this.pvSelB && this.pvSelB.r === ri && this.pvSelB.d === d) return;
+      this.pvSelB = { r: ri, d };
+      // Lepas fokus dari input supaya yang ke-blok tidak jadi seleksi teks
+      if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    },
+    pvSelEnd() { this.pvDrag = false; },
+    pvSelClear() { this.pvSelA = null; this.pvSelB = null; this.pvDrag = false; },
+    // Batas kotak terpilih -> { r1, r2, d1, d2 } atau null
+    pvSelBox() {
+      if (!this.pvSelA || !this.pvSelB) return null;
+      return {
+        r1: Math.min(this.pvSelA.r, this.pvSelB.r), r2: Math.max(this.pvSelA.r, this.pvSelB.r),
+        d1: Math.min(this.pvSelA.d, this.pvSelB.d), d2: Math.max(this.pvSelA.d, this.pvSelB.d),
+      };
+    },
+    pvSelHas(ri, d) {
+      const b = this.pvSelBox();
+      return !!b && ri >= b.r1 && ri <= b.r2 && d >= b.d1 && d <= b.d2;
+    },
+    pvSelCount() {
+      const b = this.pvSelBox();
+      return b ? (b.r2 - b.r1 + 1) * (b.d2 - b.d1 + 1) : 0;
+    },
+    // Delete/Backspace: kalau yang ke-blok lebih dari 1 sel, hapus semuanya.
+    // Kalau cuma 1 sel, dibiarkan -- supaya edit biasa di dalam sel tetap normal.
+    pvSelKey(ev) {
+      if (this.activeTab !== "productivity") return;
+      if (ev.key !== "Delete" && ev.key !== "Backspace") return;
+      if (this.pvSelCount() < 2) return;
+      ev.preventDefault();
+      this.pvSelDelete();
+    },
+    pvSelDelete() {
+      if (!this.isLeaderOrAdmin()) return;
+      const b = this.pvSelBox();
+      if (!b) return;
+      const days = this.pvDays;
+      let n = 0;
+      for (let ri = b.r1; ri <= b.r2; ri++) {
+        const row = this.PV_ROWS[ri];
+        if (!row) continue;
+        for (let d = b.d1; d <= b.d2; d++) {
+          if (!days.includes(d)) continue;
+          if (this.pvGrid[row.key][d] !== "") n++;
+          this.pvGrid[row.key][d] = "";
+        }
+      }
+      this.flash(n + " sel dikosongkan. Tekan Simpan supaya perubahannya tersimpan.");
+    },
+    // Kosongkan seluruh bulan yang sedang dibuka.
+    pvClearMonth() {
+      if (!this.isLeaderOrAdmin()) return;
+      const nm = this.BULAN_LABELS[this.pvMonth - 1] + " " + this.pvYear;
+      if (!window.confirm("Kosongkan SEMUA angka di " + nm + "?\n\nData di server baru benar-benar terhapus setelah kamu menekan Simpan.")) return;
+      this.pvGrid = pvBlankGrid();
+      this.pvSelClear();
+      this.flash("Semua sel " + nm + " dikosongkan. Tekan Simpan untuk menghapusnya di server.");
+    },
+    // ---- 4 baris hasil hitung di bawah grid ----
+    // Semua dihitung on-the-fly dari pvGrid, TIDAK ikut disimpan ke database
+    // (yang disimpan cuma 6 baris angka mentahnya).
+    PV_EARNED_KEYS: ["earned_massprod", "earned_semi_massprod", "earned_non_massprod"],
+    PV_OP_KEYS: ["operation_massprod", "operation_semi_massprod", "operation_non_massprod"],
+    // Jumlah beberapa baris di 1 tanggal. null = semua selnya kosong, biar
+    // hari yang belum diisi tidak tampil sebagai 0.
+    pvSumDay(keys, d) {
+      let sum = 0, ada = false;
+      for (const k of keys) {
+        const n = this.pvNum(this.pvGrid[k]?.[d]);
+        if (n !== null) { sum += n; ada = true; }
+      }
+      return ada ? sum : null;
+    },
+    pvSumMonth(keys) {
+      let sum = 0, ada = false;
+      for (const d of this.pvDays) {
+        const n = this.pvSumDay(keys, d);
+        if (n !== null) { sum += n; ada = true; }
+      }
+      return ada ? sum : null;
+    },
+    pvEarnedDay(d) { return this.pvSumDay(this.PV_EARNED_KEYS, d); },
+    pvOperationDay(d) { return this.pvSumDay(this.PV_OP_KEYS, d); },
+    pvEarnedMonth() { return this.pvSumMonth(this.PV_EARNED_KEYS); },
+    pvOperationMonth() { return this.pvSumMonth(this.PV_OP_KEYS); },
+    // Efficiency = Total Earned / Total Operation
+    pvEffDay(d) {
+      const e = this.pvEarnedDay(d), o = this.pvOperationDay(d);
+      if (e === null || o === null || o === 0) return null;  // bagi 0 -> dikosongkan
+      return e / o;
+    },
+    pvEffMonth() {
+      const e = this.pvEarnedMonth(), o = this.pvOperationMonth();
+      if (e === null || o === null || o === 0) return null;
+      return e / o;
+    },
+    // Productivity = Efficiency / Koefisien (tahun yang dipilih di atas).
+    // Koefisien dipakai angka PENUHnya, bukan versi bulat 3 desimal.
+    pvProdDay(d) {
+      const eff = this.pvEffDay(d);
+      const k = this.pvNum(this.kwForYear(this.pvYear));
+      if (eff === null || k === null || k === 0) return null;
+      return eff / k;
+    },
+    pvProdMonth() {
+      const eff = this.pvEffMonth();
+      const k = this.pvNum(this.kwForYear(this.pvYear));
+      if (eff === null || k === null || k === 0) return null;
+      return eff / k;
+    },
+    // null -> sel dibiarkan kosong (bukan "-" atau "0")
+    pvFmt(n, desimal) {
+      if (n === null || n === undefined || !Number.isFinite(n)) return "";
+      return n.toLocaleString("en-US", { minimumFractionDigits: desimal, maximumFractionDigits: desimal });
+    },
+    // Khusus Productivity: tampil sebagai persen 1 desimal (mis. 110,2%),
+    // mengikuti format di laporan Excel. Yang dihitung tetap angka desimalnya.
+    pvFmtPct(n) {
+      if (n === null || n === undefined || !Number.isFinite(n)) return "";
+      return (n * 100).toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
+    },
+    async fetchProductivity() {
+      this.pvLoading = true;
+      this.pvGrid = pvBlankGrid();
+      this.pvSelClear();
+      try {
+        const lastDay = new Date(this.pvYear, this.pvMonth, 0).getDate();
+        const start = localDateStr(new Date(this.pvYear, this.pvMonth - 1, 1));
+        const end = localDateStr(new Date(this.pvYear, this.pvMonth - 1, lastDay));
+        const { data, error } = await supabaseClient.from("productivity_manual")
+          .select("*").gte("tanggal", start).lte("tanggal", end).order("tanggal");
+        if (error) { this.flash("Gagal memuat productivity: " + error.message, true); return; }
+        for (const row of (data || [])) {
+          // row.tanggal = "YYYY-MM-DD" -- ambil tanggalnya langsung dari
+          // string, jangan lewat new Date() supaya tidak bergeser karena UTC.
+          const d = Number(String(row.tanggal).slice(8, 10));
+          if (!d || d < 1 || d > 31) continue;
+          for (const c of PV_COLS) {
+            this.pvGrid[c][d] = row[c] === null || row[c] === undefined ? "" : String(row[c]);
+          }
+        }
+        this.pvLoadedKey = this.pvYear + "-" + this.pvMonth;
+      } finally {
+        this.pvLoading = false;
+      }
+    },
+    async saveProductivity() {
+      if (!this.isLeaderOrAdmin()) { this.flash("Hanya admin/leader yang bisa menyimpan.", true); return; }
+      this.pvSaving = true;
+      try {
+        const payload = [];     // tanggal yang punya minimal 1 angka -> upsert
+        const kosong = [];      // tanggal yang dikosongkan semua -> hapus barisnya
+        for (const d of this.pvDays) {
+          const tanggal = localDateStr(new Date(this.pvYear, this.pvMonth - 1, d));
+          const row = { tanggal };
+          let ada = false;
+          for (const c of PV_COLS) {
+            const n = this.pvNum(this.pvGrid[c][d]);
+            row[c] = n;
+            if (n !== null) ada = true;
+          }
+          if (ada) payload.push(row); else kosong.push(tanggal);
+        }
+        if (payload.length) {
+          const { error } = await supabaseClient.from("productivity_manual")
+            .upsert(payload, { onConflict: "tanggal" });
+          if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
+        }
+        // Baris yang semua selnya dikosongkan ikut dihapus, supaya data di
+        // server tidak menyimpan baris sisa yang isinya null semua.
+        if (kosong.length) {
+          const { error } = await supabaseClient.from("productivity_manual")
+            .delete().in("tanggal", kosong);
+          if (error) { this.flash("Gagal hapus baris kosong: " + error.message, true); return; }
+        }
+        this.flash("Data productivity tersimpan (" + payload.length + " tanggal).");
+        await this.fetchProductivity();
+      } finally {
+        this.pvSaving = false;
+      }
+    },
+
+    // ---- Koefisien (per tahun) ----
+    // Rentang tahun dibikin lebih lebar dari tahunOptions (yang cuma
+    // 2 tahun ke belakang) karena koefisien lama masih sering dilihat.
+    // Sengaja BUKAN getter: kalau getter, arraynya dibuat ulang tiap kali
+    // dibaca, dan <select> yang isinya dari x-for bisa kehilangan nilai
+    // terpilihnya -- ini bikin tahun yang dikirim saat simpan jadi kacau.
+    kwYearOptions: (() => {
+      const y = new Date().getFullYear();
+      const out = [];
+      for (let i = y + 1; i >= y - 5; i--) out.push(i);
+      return out;
+    })(),
+    // Tampilan 3 angka di belakang koma. Nilai aslinya TIDAK diubah --
+    // ini murni buat dilihat.
+    kwDisplay(v) {
+      const n = this.pvNum(v);
+      if (n === null) return "-";
+      return n.toLocaleString("en-US", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+    },
+    // Koefisien buat tahun tertentu, diambil dari kwRows yang sudah dimuat.
+    // Dipakai juga oleh kolom Koefisien di atas grid Productivity.
+    kwForYear(tahun) {
+      const row = this.kwRows.find((r) => Number(r.tahun) === Number(tahun));
+      return row ? row.nilai : null;
+    },
+    async fetchKoefisien() {
+      const { data, error } = await supabaseClient.from("koefisien_kawat")
+        .select("*").order("tahun", { ascending: false });
+      if (error) {
+        // Ditampilkan menetap di panel (bukan cuma flash 4 detik) supaya
+        // penyebabnya kebaca -- paling sering: migration_productivity_manual.sql
+        // belum dijalankan ulang, jadi tabel koefisien_kawat belum ada.
+        this.kwError = "Gagal memuat koefisien: " + error.message
+          + (String(error.message).toLowerCase().includes("koefisien_kawat")
+              ? " — sepertinya tabel koefisien_kawat belum ada. Jalankan ulang migration_productivity_manual.sql di Supabase SQL Editor."
+              : "");
+        return;
+      }
+      this.kwError = "";
+      this.kwRows = data || [];
+      this.onKwYearChange();
+    },
+    // Ganti tahun -> tarik nilai yang sudah tersimpan buat tahun itu
+    // (kalau belum ada, kolomnya dikosongkan supaya jelas belum diisi).
+    onKwYearChange() {
+      const nilai = this.kwForYear(this.kwYear);
+      this.kwValue = nilai === null ? "" : String(nilai);
+    },
+    editKoefisien(r) {
+      this.kwYear = Number(r.tahun);
+      this.kwValue = String(r.nilai);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    async saveKoefisien() {
+      if (!this.isLeaderOrAdmin()) { this.flash("Hanya admin/leader yang bisa menyimpan.", true); return; }
+      const tahun = Number(this.kwYear);
+      // Tahun ikut divalidasi: kalau <select> sempat kehilangan nilainya,
+      // Number() bisa menghasilkan 0/NaN dan datanya tersimpan di tahun ngawur.
+      if (!Number.isInteger(tahun) || tahun < 2000 || tahun > 2100) {
+        this.kwError = "Tahun tidak valid (terbaca: " + JSON.stringify(this.kwYear) + "). Pilih ulang tahunnya.";
+        return;
+      }
+      const n = this.pvNum(this.kwValue);
+      if (n === null) { this.kwError = "Koefisien wajib diisi angka."; return; }
+      this.kwSaving = true;
+      this.kwError = "";
+      try {
+        // .select() dipakai supaya baris hasil simpan ikut dikembalikan --
+        // kalau RLS menolak diam-diam, data-nya kosong dan itu kebaca di sini.
+        const { data, error } = await supabaseClient.from("koefisien_kawat")
+          .upsert({ tahun, nilai: n }, { onConflict: "tahun" }).select();
+        if (error) { this.kwError = "Gagal simpan koefisien: " + error.message; return; }
+        if (!data || data.length === 0) {
+          this.kwError = "Tersimpan tapi tidak ada baris yang dikembalikan — biasanya karena hak akses (role kamu harus 'admin' atau 'leader' di tabel profiles).";
+          return;
+        }
+        await this.fetchKoefisien();
+        if (this.kwForYear(tahun) === null) {
+          this.kwError = "Baris tahun " + tahun + " tidak muncul setelah disimpan. Coba muat ulang halaman.";
+          return;
+        }
+        this.flash("Koefisien " + tahun + " tersimpan.");
+      } finally {
+        this.kwSaving = false;
+      }
+    },
+
+    // ---- Target Productivity Bulanan ----
+    async fetchTarget() {
+      const { data, error } = await supabaseClient.from("productivity_target")
+        .select("*").order("tahun", { ascending: false }).order("bulan", { ascending: false });
+      if (error) {
+        this.tgError = "Gagal memuat target: " + error.message
+          + (String(error.message).toLowerCase().includes("productivity_target")
+              ? " — sepertinya tabel productivity_target belum ada. Jalankan ulang migration_productivity_manual.sql di Supabase SQL Editor."
+              : "");
+        return;
+      }
+      this.tgError = "";
+      this.tgRows = data || [];
+      this.onTgPeriodChange();
+    },
+    tgFor(tahun, bulan) {
+      const r = this.tgRows.find((x) => Number(x.tahun) === Number(tahun) && Number(x.bulan) === Number(bulan));
+      return r ? r.target : null;
+    },
+    tgAda() { return this.tgFor(this.tgYear, this.tgMonth) !== null; },
+    onTgPeriodChange() {
+      const t = this.tgFor(this.tgYear, this.tgMonth);
+      this.tgValue = t === null ? "" : String(t);
+    },
+    editTarget(r) {
+      this.tgYear = Number(r.tahun);
+      this.tgMonth = Number(r.bulan);
+      this.tgValue = String(r.target);
+      window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+    },
+    async saveTarget() {
+      if (!this.isLeaderOrAdmin()) { this.flash("Hanya admin/leader yang bisa menyimpan.", true); return; }
+      const tahun = Number(this.tgYear), bulan = Number(this.tgMonth);
+      if (!Number.isInteger(tahun) || tahun < 2000 || tahun > 2100 || !Number.isInteger(bulan) || bulan < 1 || bulan > 12) {
+        this.tgError = "Bulan/Tahun tidak valid. Pilih ulang."; return;
+      }
+      const n = this.pvNum(this.tgValue);
+      if (n === null) { this.tgError = "Target wajib diisi angka."; return; }
+      this.tgSaving = true;
+      this.tgError = "";
+      try {
+        const { data, error } = await supabaseClient.from("productivity_target")
+          .upsert({ tahun, bulan, target: n }, { onConflict: "tahun,bulan" }).select();
+        if (error) { this.tgError = "Gagal simpan target: " + error.message; return; }
+        if (!data || data.length === 0) {
+          this.tgError = "Tersimpan tapi tidak ada baris yang dikembalikan — biasanya karena hak akses (role kamu harus 'admin' atau 'leader' di tabel profiles).";
+          return;
+        }
+        await this.fetchTarget();
+        this.flash("Target " + this.BULAN_LABELS[bulan - 1] + " " + tahun + " tersimpan.");
+      } finally {
+        this.tgSaving = false;
+      }
+    },
+    async hapusTarget() {
+      if (!this.isLeaderOrAdmin()) return;
+      const tahun = Number(this.tgYear), bulan = Number(this.tgMonth);
+      const nm = this.BULAN_LABELS[bulan - 1] + " " + tahun;
+      if (!window.confirm("Hapus target " + nm + "?\n\nGrafik akan kembali memakai target 100%.")) return;
+      this.tgSaving = true;
+      this.tgError = "";
+      try {
+        const { error } = await supabaseClient.from("productivity_target")
+          .delete().eq("tahun", tahun).eq("bulan", bulan);
+        if (error) { this.tgError = "Gagal hapus target: " + error.message; return; }
+        await this.fetchTarget();
+        this.flash("Target " + nm + " dihapus.");
+      } finally {
+        this.tgSaving = false;
+      }
+    },
+
     // ---- Scrap Top End (Bulanan) ----
     async fetchScrapRows() {
       const { data, error } = await supabaseClient.from("scrap_top_end").select("*")
