@@ -88,6 +88,58 @@
     }
   }
 
+  /* Field yang memakan 2 kolom di layar lebar. TIDAK boleh dipasang
+     lewat inline style "grid-column: span 2", karena di layar sempit
+     .form-grid berubah jadi 1 kolom -- span 2 di grid 1 kolom justru
+     memaksa lahirnya kolom kedua, dan semua field jadi berdesakan. */
+  .la-span2 { grid-column: span 2; }
+
+  /* ---------- Layar HP ----------
+     Form dan tabel dibuat lebih ringkas, dan tabel hasil pencarian
+     ditumpuk ke bawah supaya tidak ada kolom yang terpotong. */
+  @media (max-width: 640px) {
+    .la-span2 { grid-column: auto; }
+
+    /* Panel & form lebih rapat */
+    .main .panel { padding: 14px; border-radius: 10px; }
+    .main .panel-title { font-size: 14px; }
+    .form-grid { gap: 10px; margin-bottom: 12px; }
+    .field label { font-size: 11px; }
+    .field input, .field select, .field textarea { padding: 8px 10px; font-size: 13.5px; }
+    .la-hint { font-size: 10.5px; }
+    .la-section { margin-bottom: 14px; }
+    .la-section-head { font-size: 12.5px; margin-bottom: 10px; }
+    .la-emp { min-height: 52px; padding: 10px; gap: 10px; }
+    .la-emp-avatar { width: 32px; height: 32px; font-size: 13px; }
+    .la-emp-nama { font-size: 14px; }
+
+    /* Tabel bertanda .la-stack: tiap baris jadi satu kartu, tiap sel
+       jadi satu baris "Label ....... isi". Tidak ada yang terpotong
+       dan tidak perlu digeser ke samping. */
+    .la-stack thead { display: none; }
+    .la-stack, .la-stack tbody, .la-stack tr, .la-stack td { display: block; width: 100%; }
+    .la-stack tr {
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 4px 10px; margin-bottom: 10px; background: var(--panel);
+    }
+    .la-stack tr:last-child { margin-bottom: 0; }
+    .la-stack td {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; border: 0; padding: 7px 0; text-align: right;
+      border-bottom: 1px dashed var(--border);
+    }
+    .la-stack tr td:last-child { border-bottom: 0; }
+    .la-stack td::before {
+      content: attr(data-label);
+      font-size: 11px; color: var(--muted); font-weight: 600;
+      text-align: left; flex: none;
+    }
+    /* Baris "Belum ada data" tidak punya data-label -- tampil biasa */
+    .la-stack td.empty-state { display: block; text-align: center; }
+    .la-stack td.empty-state::before { content: none; }
+    .la-table-wrap { max-height: none; overflow: visible; }
+  }
+
   /* ---------- Bagian form ---------- */
   .la-section { margin-bottom: 20px; }
   .la-section:last-of-type { margin-bottom: 0; }
@@ -308,7 +360,7 @@
                 <label>NIK <span class="req">*</span></label>
                 <input type="text" x-model="leaveForm.nik" @input="onLeaveNikInput()" placeholder="Ketik NIK karyawan">
               </div>
-              <div class="field" style="grid-column: span 2;">
+              <div class="field la-span2">
                 <label>Karyawan <span class="req">*</span></label>
                 <!-- Nama tidak ditampilkan sebagai kolom isian karena memang
                      tidak diketik -- ini hasil pencarian dari master karyawan. -->
@@ -431,7 +483,7 @@
           </p>
 
           <div class="form-grid" style="margin-bottom:4px;">
-            <div class="field" style="grid-column: span 2;"><label>Cari karyawan</label>
+            <div class="field la-span2"><label>Cari karyawan</label>
               <input type="text" x-model="sisaCari" placeholder="Ketik NIK atau nama"
                      @keydown.enter.prevent="cariSisaCuti()">
             </div>
@@ -447,18 +499,18 @@
           <template x-if="sisaHasil.length">
             <div>
               <div class="table-wrap la-table-wrap" style="margin-top:8px;">
-                <table>
+                <table class="la-stack">
                   <thead><tr><th>NIK</th><th>Nama</th><th>Sisa Cuti</th><th>Cuti Terakhir</th></tr></thead>
                   <tbody>
                     <template x-for="r in sisaHasil" :key="'sh-'+r.nik">
                       <tr @click="pilihKaryawanCuti(r)" style="cursor:pointer;">
-                        <td class="mono" x-text="r.nik"></td>
-                        <td x-text="r.nama"></td>
-                        <td>
+                        <td class="mono" data-label="NIK" x-text="r.nik"></td>
+                        <td data-label="Nama" x-text="r.nama"></td>
+                        <td data-label="Sisa Cuti">
                           <span class="la-badge" :style="'--c: var(--' + (r.sisa < 0 ? 'red' : (r.sisa === 0 ? 'amber' : 'green')) + ')'"
                                 x-text="fmtHari(r.sisa) + ' hari'"></span>
                         </td>
-                        <td class="mono" x-text="r.cutiTerakhir || '-'"></td>
+                        <td class="mono" data-label="Cuti Terakhir" x-text="r.cutiTerakhir || '-'"></td>
                       </tr>
                     </template>
                   </tbody>
@@ -482,14 +534,14 @@
               <span class="count" x-text="cutiRiwayat.length + ' baris'"></span>
             </p>
             <div class="table-wrap la-table-wrap">
-              <table>
+              <table class="la-stack">
                 <thead><tr><th>NIK</th><th>Nama</th><th>Tanggal Cuti</th></tr></thead>
                 <tbody>
                   <template x-for="r in cutiRiwayat" :key="'cr-'+r.id">
                     <tr>
-                      <td class="mono" x-text="r.nik"></td>
-                      <td x-text="r.nama"></td>
-                      <td class="mono" x-text="rentangTanggal(r)"></td>
+                      <td class="mono" data-label="NIK" x-text="r.nik"></td>
+                      <td data-label="Nama" x-text="r.nama"></td>
+                      <td class="mono" data-label="Tanggal Cuti" x-text="rentangTanggal(r)"></td>
                     </tr>
                   </template>
                   <tr x-show="cutiRiwayat.length === 0"><td colspan="3" class="empty-state">Belum ada riwayat cuti.</td></tr>
