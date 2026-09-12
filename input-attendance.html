@@ -137,6 +137,19 @@
     /* Baris "Belum ada data" tidak punya data-label -- tampil biasa */
     .la-stack td.empty-state { display: block; text-align: center; }
     .la-stack td.empty-state::before { content: none; }
+    /* Riwayat Cuti SENGAJA tetap tabel biasa, tidak ditumpuk seperti
+       .la-stack -- isinya sering lebih dari 10 baris, dan kalau tiap
+       baris jadi kartu halamannya jadi sangat panjang. Cukup dikecilkan
+       supaya ketiga kolomnya muat tanpa terpotong. */
+    .la-riwayat { table-layout: fixed; width: 100%; }
+    .la-riwayat th, .la-riwayat td {
+      font-size: 11px; padding: 6px 5px;
+      white-space: normal; word-break: break-word; overflow-wrap: anywhere;
+    }
+    .la-riwayat th:nth-child(1), .la-riwayat td:nth-child(1) { width: 21%; }
+    .la-riwayat th:nth-child(3), .la-riwayat td:nth-child(3) { width: 34%; }
+    .la-riwayat td.empty-state { font-size: 12px; }
+
     .la-table-wrap { max-height: none; overflow: visible; }
   }
 
@@ -534,7 +547,7 @@
               <span class="count" x-text="cutiRiwayat.length + ' baris'"></span>
             </p>
             <div class="table-wrap la-table-wrap">
-              <table class="la-stack">
+              <table class="la-riwayat">
                 <thead><tr><th>NIK</th><th>Nama</th><th>Tanggal Cuti</th></tr></thead>
                 <tbody>
                   <template x-for="r in cutiRiwayat" :key="'cr-'+r.id">
