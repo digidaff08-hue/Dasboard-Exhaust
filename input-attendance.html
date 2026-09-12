@@ -61,25 +61,43 @@
      Warna di sini membawa arti, bukan hiasan, supaya operator bisa
      membaca tabel sekilas tanpa mengeja tiap barisnya. */
 
+  /* ---------- Tab di topbar layar kecil ----------
+     Topbar-nya dibiarkan apa adanya (1 baris, terang). Tab-nya dibikin
+     ringkas dan bisa digeser mendatar kalau layarnya sempit. */
+  .la-tabs-mobile {
+    display: flex; gap: 4px; margin-left: auto;
+    padding: 3px; flex-wrap: nowrap;
+    overflow-x: auto; scrollbar-width: none;
+    background: var(--panel-2);
+    border: 1px solid var(--border); border-radius: 10px;
+  }
+  .la-tabs-mobile::-webkit-scrollbar { display: none; }
+  .la-tabs-mobile button { padding: 6px 12px; font-size: 12.5px; white-space: nowrap; }
+
   /* ---------- Tab halaman ----------
-     Bentuknya segmented control, menempel di atas saat digulir supaya
-     tidak hilang waktu tabel riwayatnya panjang. */
-  .la-tabs {
+     Duduk di baris judul (kanan atas), mengikuti pola halaman Mesin.
+     Tidak lagi sticky karena sekarang ikut menggulung bersama judul. */
+  .page-header .la-tabs {
     display: flex; gap: 4px; flex-wrap: wrap;
-    padding: 4px; margin-bottom: 22px;
-    position: sticky; top: 0; z-index: 20;
+    padding: 4px; margin: 0;
+    align-self: center;
     background: var(--panel-2);
     border: 1px solid var(--border); border-radius: 12px;
   }
   .la-tabs button {
     appearance: none; border: 0; background: transparent; cursor: pointer;
-    padding: 9px 18px; border-radius: 9px;
-    font-family: inherit; font-size: 14px; font-weight: 600;
+    padding: 8px 16px; border-radius: 9px;
+    font-family: inherit; font-size: 13.5px; font-weight: 600;
     color: var(--muted); transition: color .12s, background .12s;
   }
   .la-tabs button:hover { color: var(--text); background: var(--border); }
   .la-tabs button.is-on { background: var(--amber); color: #fff; }
   .la-tabs button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+  /* Di layar sempit, tab turun ke bawah judul dan melebar penuh */
+  @media (max-width: 720px) {
+    .page-header .la-tabs { width: 100%; }
+    .la-tabs button { flex: 1; text-align: center; }
+  }
 
   /* ---------- Bagian form ---------- */
   .la-section { margin-bottom: 20px; }
@@ -220,8 +238,15 @@
 
 
 <div class="app-shell" x-data="attendancePage()">
+  <!-- Topbar tetap seperti semula (1 baris, terang). Tab ditaruh di sini
+       karena di layar kecil assets/style.css menyembunyikan .page-header,
+       jadi tab yang di baris judul ikut hilang. -->
   <div class="mobile-topbar">
     <button class="hamburger" @click="mobileNavOpen = true">☰</button>
+    <div class="la-tabs la-tabs-mobile" x-show="profile">
+      <button type="button" :class="tab === 'form' ? 'is-on' : ''" @click="tab = 'form'">Form Ketidakhadiran</button>
+      <button type="button" :class="tab === 'sisa' ? 'is-on' : ''" @click="tab = 'sisa'">Sisa Cuti</button>
+    </div>
   </div>
 
   <div class="sidebar-overlay" x-show="mobileNavOpen" @click="mobileNavOpen = false" x-cloak></div>
@@ -250,6 +275,12 @@
   <main class="main">
     <div class="page-header">
       <h1 class="page-title"><span class="eyebrow">Data</span>Ketidakhadiran</h1>
+      <!-- Tab dipindah ke baris judul, mengikuti pola halaman Mesin.
+           Isi tiap tab tidak berubah -- yang pindah hanya tombolnya. -->
+      <div class="la-tabs" x-show="profile">
+        <button type="button" :class="tab === 'form' ? 'is-on' : ''" @click="tab = 'form'">Form Ketidakhadiran</button>
+        <button type="button" :class="tab === 'sisa' ? 'is-on' : ''" @click="tab = 'sisa'">Sisa Cuti</button>
+      </div>
     </div>
     <template x-if="msg"><div :class="msgError ? 'error-msg' : 'success-msg'" x-text="msg"></div></template>
 
@@ -269,16 +300,6 @@
              Urutan field: Jenis, NIK, Nama, lalu Tanggal (Izin/Sakit/
              Mangkir) atau Tanggal Mulai/Selesai/Total Hari/Jenis Cuti
              (Cuti). Total Hari otomatis TIDAK menghitung Sabtu & Minggu. -->
-        <!-- ===== Dua tab: Form Ketidakhadiran & Sisa Cuti =====
-             Dipisah karena keduanya pekerjaan yang berbeda: yang satu
-             mencatat kejadian harian, yang satu mengatur jatah tahunan.
-             Menumpuknya dalam satu halaman panjang bikin keduanya
-             sama-sama susah dicari. -->
-        <div class="la-tabs">
-          <button type="button" :class="tab === 'form' ? 'is-on' : ''" @click="tab = 'form'">Form Ketidakhadiran</button>
-          <button type="button" :class="tab === 'sisa' ? 'is-on' : ''" @click="tab = 'sisa'">Sisa Cuti</button>
-        </div>
-
         <template x-if="tab === 'form'">
           <div>
         <div class="panel">
