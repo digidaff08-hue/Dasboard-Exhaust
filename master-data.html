@@ -115,6 +115,15 @@
   .pv-calc-row td { background: var(--panel-2); font-weight: 600; font-family: "IBM Plex Mono", monospace; font-size: 10px; padding: 5px 3px; }
   .pv-calc-row td.pv-sticky-1, .pv-calc-row td.pv-sticky-2 { font-family: inherit; font-size: 12px; }
 
+  /* Kolom Jatah di tab Cuti */
+  .ct-jatah {
+    width: 92px; padding: 5px 8px; text-align: right;
+    font-family: "IBM Plex Mono", monospace; font-size: 13px;
+    border: 1px solid var(--border); border-radius: 7px;
+    background: var(--panel); color: var(--text);
+  }
+  .ct-jatah:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
+
   /* Baris tombol: dipisah garis tipis supaya jelas ini akhir form */
   .md-page .form-actions {
     border-top: 1px solid var(--border);
@@ -184,6 +193,7 @@
           <button class="btn-secondary btn-sm" :class="activeTab === 'scrap' ? 'md-tab-on' : ''" @click="setTab('scrap')">Scrap</button>
           <button class="btn-secondary btn-sm" :class="activeTab === 'safety' ? 'md-tab-on' : ''" @click="setTab('safety')">Safety</button>
           <button class="btn-secondary btn-sm" :class="activeTab === 'productivity' ? 'md-tab-on' : ''" @click="setTab('productivity')">Productivity</button>
+          <button class="btn-secondary btn-sm" :class="activeTab === 'cuti' ? 'md-tab-on' : ''" @click="setTab('cuti')">Cuti</button>
         </div>
 
         <!-- ===== TAB: ATTENDANCE ===== -->
@@ -712,6 +722,76 @@
             </div>
           </div>
         </template>
+
+        <!-- ===== TAB: CUTI =====
+             Mengatur JATAH cuti tahunan tiap karyawan. Sisa cutinya
+             dilihat di input-attendance.html > tab Sisa Cuti; di sana
+             cuma tampilan, angkanya dihitung dari jatah yang diatur
+             di sini dikurangi cuti yang sudah terpakai. -->
+        <template x-if="activeTab === 'cuti'">
+          <div>
+            <div class="panel">
+              <p class="panel-title">Jatah Cuti Tahunan
+                <span class="count" x-text="cutiRows().length + ' karyawan'"></span>
+              </p>
+              <p class="hint" style="margin-bottom:14px;">
+                Jatah dihitung per tahun, jadi jatah tahun lalu tetap tersimpan.
+                Karyawan yang belum pernah diatur memakai <b x-text="CT_DEFAULT"></b> hari.
+                Kolom Terpakai hanya menghitung <b>Cuti Tahunan</b> — cuti besar,
+                melahirkan, dan lainnya tidak memotong jatah.
+              </p>
+
+              <div class="form-grid" style="margin-bottom:14px;">
+                <div class="field"><label>Tahun</label>
+                  <select x-model.number="ctYear" @change="fetchCuti()">
+                    <template x-for="y in kwYearOptions" :key="'ct-th-'+y"><option :value="y" x-text="y"></option></template>
+                  </select>
+                </div>
+                <div class="field" style="grid-column: span 2;"><label>Cari karyawan</label>
+                  <input type="text" x-model="ctCari" placeholder="Ketik NIK atau nama">
+                </div>
+              </div>
+
+              <p class="hint" x-show="ctError" style="color:var(--danger, #DC2626); font-weight:600; margin-bottom:10px;" x-text="ctError"></p>
+
+              <template x-if="ctLoading">
+                <p class="empty-state">Memuat data cuti...</p>
+              </template>
+
+              <template x-if="!ctLoading">
+                <div class="table-wrap">
+                  <table>
+                    <thead><tr><th>NIK</th><th>Nama</th><th>Jatah (hari)</th><th>Terpakai</th><th>Sisa</th></tr></thead>
+                    <tbody>
+                      <template x-for="r in cutiRows()" :key="'ct-'+r.nik">
+                        <tr>
+                          <td class="mono" x-text="r.nik"></td>
+                          <td x-text="r.nama"></td>
+                          <td>
+                            <input type="number" min="0" step="0.5" class="ct-jatah"
+                                   :disabled="!isLeaderOrAdmin()"
+                                   :value="ctJatahEdit[r.nik]"
+                                   @input="ctJatahEdit[r.nik] = $event.target.value">
+                          </td>
+                          <td class="mono" x-text="ctFmt(r.terpakai)"></td>
+                          <td class="mono" :style="'font-weight:600; color: var(--' + (r.sisa < 0 ? 'danger' : (r.sisa === 0 ? 'amber' : 'green')) + ')'"
+                              x-text="ctFmt(r.sisa) + ' hari'"></td>
+                        </tr>
+                      </template>
+                      <tr x-show="cutiRows().length === 0"><td colspan="5" class="empty-state" x-text="ctCari ? 'Tidak ada karyawan yang cocok.' : 'Belum ada karyawan di master.'"></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+
+              <div class="form-actions" x-show="isLeaderOrAdmin()">
+                <button type="button" class="btn-primary" @click="saveCuti()" :disabled="ctSaving"
+                        x-text="ctSaving ? 'Menyimpan...' : 'Simpan Jatah'"></button>
+                <button type="button" class="btn-secondary" @click="fetchCuti()" :disabled="ctSaving">Muat Ulang</button>
+              </div>
+            </div>
+          </div>
+        </template>
       </div>
     </template>
   </main>
@@ -781,6 +861,7 @@ function masterDataPage() {
       // supaya halaman Master Data tidak jadi lebih lambat waktu pertama load.
       if (tab === "productivity" && this.pvLoadedKey !== this.pvYear + "-" + this.pvMonth) this.fetchProductivity();
       if (tab === "productivity" && !this.kwLoaded) { this.kwLoaded = true; this.fetchKoefisien(); this.fetchTarget(); }
+      if (tab === "cuti" && !this.ctLoaded) { this.ctLoaded = true; this.fetchCuti(); }
     },
     // ---- Total Orang (Bulanan) ----
     // Dropdown Bulan pakai label yang sama dengan dashboard (BULAN_LABELS).
@@ -1496,6 +1577,101 @@ function masterDataPage() {
         this.flash("Target " + nm + " dihapus.");
       } finally {
         this.tgSaving = false;
+      }
+    },
+
+    // ================= TAB CUTI: jatah cuti tahunan =================
+    // Yang disimpan HANYA jatahnya. Terpakai & Sisa dihitung ulang tiap
+    // kali ditampilkan dari tabel attendance_leave, supaya angkanya tidak
+    // pernah basi kalau ada baris cuti yang diedit atau dihapus.
+    ctYear: new Date().getFullYear(),
+    ctCari: "",
+    ctLoading: false,
+    ctSaving: false,
+    ctError: "",
+    ctLoaded: false,
+    CT_DEFAULT: 12,        // jatah bawaan kalau karyawan belum pernah diatur
+    ctKaryawan: [],
+    ctJatahAwal: {},       // { nik: jatah } dari server -- buat bandingkan
+    ctJatahEdit: {},       // { nik: jatah } yang lagi diketik di layar
+    ctTerpakai: {},        // { nik: total hari Cuti Tahunan tahun itu }
+    ctFmt(n) {
+      const v = Number(n);
+      if (!Number.isFinite(v)) return "0";
+      return Number.isInteger(v) ? String(v) : v.toFixed(1).replace(".", ",");
+    },
+    async fetchCuti() {
+      this.ctLoading = true;
+      this.ctError = "";
+      try {
+        const th = Number(this.ctYear);
+        const [karRes, jatahRes, cutiRes] = await Promise.all([
+          supabaseClient.from("karyawan_master").select("nik,nama").order("nama"),
+          supabaseClient.from("cuti_jatah").select("nik,jatah").eq("tahun", th),
+          supabaseClient.from("attendance_leave").select("nik,jenis_cuti,jumlah_hari,tanggal")
+            .eq("jenis", "cuti").gte("tanggal", th + "-01-01").lte("tanggal", th + "-12-31"),
+        ]);
+        if (karRes.error) { this.ctError = "Gagal memuat karyawan: " + karRes.error.message; return; }
+        if (jatahRes.error) {
+          this.ctError = "Gagal memuat jatah cuti: " + jatahRes.error.message
+            + (String(jatahRes.error.message).toLowerCase().includes("cuti_jatah")
+                ? " — tabel cuti_jatah belum ada. Jalankan migration_cuti_jatah.sql di Supabase SQL Editor."
+                : "");
+          return;
+        }
+        if (cutiRes.error) { this.ctError = "Gagal memuat data cuti: " + cutiRes.error.message; return; }
+
+        this.ctKaryawan = karRes.data || [];
+        const awal = {}, edit = {};
+        (jatahRes.data || []).forEach((r) => { awal[r.nik] = Number(r.jatah); });
+        this.ctKaryawan.forEach((k) => {
+          edit[k.nik] = String(awal[k.nik] !== undefined ? awal[k.nik] : this.CT_DEFAULT);
+        });
+        this.ctJatahAwal = awal;
+        this.ctJatahEdit = edit;
+
+        const pakai = {};
+        (cutiRes.data || []).forEach((r) => {
+          if (r.jenis_cuti !== "Cuti Tahunan") return;   // hanya ini yang memotong jatah
+          pakai[r.nik] = (pakai[r.nik] || 0) + Number(r.jumlah_hari ?? 1);
+        });
+        this.ctTerpakai = pakai;
+      } finally {
+        this.ctLoading = false;
+      }
+    },
+    cutiRows() {
+      const cari = (this.ctCari || "").trim().toLowerCase();
+      return this.ctKaryawan
+        .filter((k) => !cari || String(k.nik).toLowerCase().includes(cari) || String(k.nama || "").toLowerCase().includes(cari))
+        .map((k) => {
+          const jatah = Number(this.ctJatahEdit[k.nik] ?? this.CT_DEFAULT) || 0;
+          const terpakai = Number(this.ctTerpakai[k.nik] || 0);
+          return { nik: k.nik, nama: k.nama, jatah, terpakai, sisa: jatah - terpakai };
+        });
+    },
+    async saveCuti() {
+      if (!this.isLeaderOrAdmin()) { this.flash("Hanya admin/leader yang bisa menyimpan.", true); return; }
+      const th = Number(this.ctYear);
+      // Cuma baris yang angkanya berubah yang dikirim, biar tidak menulis
+      // ulang seluruh daftar karyawan tiap kali menyimpan.
+      const payload = [];
+      for (const k of this.ctKaryawan) {
+        const baru = Number(this.ctJatahEdit[k.nik]);
+        if (!Number.isFinite(baru) || baru < 0) { this.ctError = "Jatah " + (k.nama || k.nik) + " tidak valid."; return; }
+        const lama = this.ctJatahAwal[k.nik];
+        if (lama === undefined || Number(lama) !== baru) payload.push({ nik: k.nik, tahun: th, jatah: baru });
+      }
+      if (!payload.length) { this.flash("Tidak ada perubahan jatah."); return; }
+      this.ctSaving = true;
+      this.ctError = "";
+      try {
+        const { error } = await supabaseClient.from("cuti_jatah").upsert(payload, { onConflict: "nik,tahun" });
+        if (error) { this.ctError = "Gagal simpan jatah: " + error.message; return; }
+        this.flash("Jatah cuti " + payload.length + " karyawan tersimpan.");
+        await this.fetchCuti();
+      } finally {
+        this.ctSaving = false;
       }
     },
 

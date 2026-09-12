@@ -132,14 +132,6 @@
   .la-table-wrap tbody tr:nth-child(even) { background: var(--panel-2); }
   .la-table-wrap tbody tr:hover { background: color-mix(in srgb, var(--amber) 8%, var(--panel)); }
 
-  /* ---------- Kolom Jatah di tabel Sisa Cuti ---------- */
-  .la-jatah-input {
-    width: 92px; padding: 5px 8px; text-align: right;
-    font-family: var(--font-mono); font-size: 13px;
-    border: 1px solid var(--border); border-radius: 7px;
-    background: var(--panel); color: var(--text);
-  }
-  .la-jatah-input:focus { outline: 2px solid var(--amber); outline-offset: -1px; }
 </style>
 
 <script>
@@ -420,60 +412,81 @@
           <div>
         
         <div class="panel">
-          <p class="panel-title">Sisa Cuti
-            <span class="count" x-text="sisaRows().length + ' karyawan'"></span>
-          </p>
+          <p class="panel-title">Sisa Cuti</p>
           <p class="hint" style="margin-bottom:14px;">
-            Sisa dihitung otomatis: <b>Jatah − Terpakai</b>. Terpakai diambil dari
-            riwayat di atas, khusus yang jenisnya <b>Cuti Tahunan</b> — cuti besar,
-            melahirkan, dan lainnya tidak memotong jatah. Ubah angka di kolom
-            Jatah kalau ada yang berbeda, lalu simpan.
+            Ketik NIK atau nama karyawan, lalu tekan Cari. Sisa cuti dihitung
+            untuk tahun <span class="mono" x-text="new Date().getFullYear()"></span>.
+            Jatah cutinya diatur di <b>Master Data &rsaquo; Cuti</b>.
           </p>
 
-          <div class="form-grid" style="margin-bottom:14px;">
-            <div class="field"><label>Tahun</label>
-              <select x-model.number="sisaTahun" @change="fetchSisaCuti()">
-                <template x-for="y in sisaTahunOptions" :key="'sc-th-'+y"><option :value="y" x-text="y"></option></template>
-              </select>
-            </div>
+          <div class="form-grid" style="margin-bottom:4px;">
             <div class="field" style="grid-column: span 2;"><label>Cari karyawan</label>
-              <input type="text" x-model="sisaCari" placeholder="Ketik NIK atau nama">
+              <input type="text" x-model="sisaCari" placeholder="Ketik NIK atau nama"
+                     @keydown.enter.prevent="cariSisaCuti()">
+            </div>
+            <div class="field" style="align-self:end;">
+              <button type="button" class="btn-primary" @click="cariSisaCuti()" :disabled="sisaLoading"
+                      x-text="sisaLoading ? 'Mencari...' : 'Cari'"></button>
             </div>
           </div>
 
-          <p class="hint" x-show="sisaError" style="color:var(--red); font-weight:600; margin-bottom:10px;" x-text="sisaError"></p>
+          <p class="hint" x-show="sisaError" style="color:var(--red); font-weight:600;" x-text="sisaError"></p>
 
-          <div class="table-wrap la-table-wrap">
-            <table>
-              <thead><tr><th>NIK</th><th>Nama</th><th>Jatah (hari)</th><th>Terpakai</th><th>Sisa</th></tr></thead>
-              <tbody>
-                <template x-for="r in sisaRows()" :key="'sc-'+r.nik">
-                  <tr>
-                    <td class="mono" x-text="r.nik"></td>
-                    <td x-text="r.nama"></td>
-                    <td>
-                      <input type="number" min="0" step="0.5" class="la-jatah-input"
-                             :value="jatahEdit[r.nik]"
-                             @input="jatahEdit[r.nik] = $event.target.value">
-                    </td>
-                    <td class="mono" x-text="fmtHari(r.terpakai)"></td>
-                    <td class="mono">
-                      <span class="la-badge" :style="'--c: var(--' + (r.sisa < 0 ? 'red' : (r.sisa === 0 ? 'amber' : 'green')) + ')'"
-                            x-text="fmtHari(r.sisa) + ' hari'"></span>
-                    </td>
-                  </tr>
-                </template>
-                <tr x-show="sisaRows().length === 0"><td colspan="5" class="empty-state" x-text="sisaCari ? 'Tidak ada karyawan yang cocok.' : 'Belum ada karyawan di master.'"></td></tr>
-              </tbody>
-            </table>
-          </div>
+          <!-- Hasil pencarian: 1 baris ringkasan per karyawan -->
+          <template x-if="sisaHasil.length">
+            <div>
+              <div class="table-wrap la-table-wrap" style="margin-top:8px;">
+                <table>
+                  <thead><tr><th>NIK</th><th>Nama</th><th>Sisa Cuti</th><th>Cuti Terakhir</th></tr></thead>
+                  <tbody>
+                    <template x-for="r in sisaHasil" :key="'sh-'+r.nik">
+                      <tr @click="pilihKaryawanCuti(r)" style="cursor:pointer;">
+                        <td class="mono" x-text="r.nik"></td>
+                        <td x-text="r.nama"></td>
+                        <td>
+                          <span class="la-badge" :style="'--c: var(--' + (r.sisa < 0 ? 'red' : (r.sisa === 0 ? 'amber' : 'green')) + ')'"
+                                x-text="fmtHari(r.sisa) + ' hari'"></span>
+                        </td>
+                        <td class="mono" x-text="r.cutiTerakhir || '-'"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+              <p class="hint" x-show="sisaHasil.length > 1" style="margin-top:8px;">
+                Klik salah satu baris untuk melihat riwayat cutinya.
+              </p>
+            </div>
+          </template>
 
-          <div class="form-actions">
-            <button type="button" class="btn-primary" @click="saveJatah()" :disabled="sisaSaving"
-                    x-text="sisaSaving ? 'Menyimpan...' : 'Simpan Jatah'"></button>
-            <button type="button" class="btn-secondary" @click="fetchSisaCuti()" :disabled="sisaSaving">Muat Ulang</button>
-          </div>
+          <template x-if="sisaSudahCari && !sisaHasil.length && !sisaError">
+            <p class="empty-state">Karyawan tidak ditemukan.</p>
+          </template>
         </div>
+
+        <!-- Riwayat cuti karyawan yang dipilih -->
+        <template x-if="cutiRiwayat.length || cutiPilih">
+          <div class="panel">
+            <p class="panel-title">Riwayat Cuti
+              <span class="count" x-text="cutiRiwayat.length + ' baris'"></span>
+            </p>
+            <div class="table-wrap la-table-wrap">
+              <table>
+                <thead><tr><th>NIK</th><th>Nama</th><th>Tanggal Cuti</th></tr></thead>
+                <tbody>
+                  <template x-for="r in cutiRiwayat" :key="'cr-'+r.id">
+                    <tr>
+                      <td class="mono" x-text="r.nik"></td>
+                      <td x-text="r.nama"></td>
+                      <td class="mono" x-text="rentangTanggal(r)"></td>
+                    </tr>
+                  </template>
+                  <tr x-show="cutiRiwayat.length === 0"><td colspan="3" class="empty-state">Belum ada riwayat cuti.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </template>
           </div>
         </template>
       </div>
@@ -529,7 +542,6 @@ function attendancePage() {
       if (!await this.initBase()) return;
       await this.fetchLeaveRows();
       await this.fetchHariLibur();
-      await this.fetchSisaCuti();
     },
     // ---- Izin/Sakit/Cuti/Mangkir ----
     // Riwayat hanya menampilkan data yang DIINPUT oleh orang yang sedang
@@ -554,62 +566,96 @@ function attendancePage() {
       { key: "mangkir", label: "Mangkir", warna: "red"   },
     ],
     // ================= SISA CUTI =================
-    // Sisa = Jatah - Terpakai, dihitung ulang tiap kali ditampilkan.
-    // Tidak ada kolom "sisa" yang disimpan supaya angkanya tidak pernah
-    // basi kalau ada baris cuti yang diedit/dihapus.
-    tab: "form",          // "form" = Form Ketidakhadiran, "sisa" = Sisa Cuti
-    sisaTahun: new Date().getFullYear(),
+    // Tab aktif halaman ini: "form" = Form Ketidakhadiran, "sisa" = Sisa Cuti.
+    // WAJIB ada -- kalau tidak, kedua <template x-if> tidak ada yang cocok
+    // dan halamannya tampil kosong.
+    tab: "form",
+    // Halaman ini hanya untuk MELIHAT. Jatah cutinya diatur di
+    // master-data.html > tab Cuti. Di sini sisa selalu dihitung ulang:
+    //   Sisa = Jatah tahun berjalan - Cuti Tahunan yang sudah terpakai
+    // Tidak ada kolom "sisa" yang disimpan, supaya angkanya tidak basi
+    // kalau ada baris cuti yang diedit atau dihapus.
     sisaCari: "",
-    sisaSaving: false,
+    sisaLoading: false,
     sisaError: "",
-    karyawanRows: [],      // daftar karyawan dari karyawan_master
-    jatahAwal: {},         // { nik: jatah } -- nilai dari server, buat bandingkan
-    jatahEdit: {},         // { nik: jatah } -- nilai yang lagi diketik di layar
-    terpakaiMap: {},       // { nik: total hari Cuti Tahunan tahun itu }
-    JATAH_DEFAULT: 12,     // dipakai kalau karyawan belum punya baris jatah
-    get sisaTahunOptions() {
-      const y = new Date().getFullYear();
-      const out = [];
-      for (let i = y + 1; i >= y - 5; i--) out.push(i);
-      return out;
-    },
-    async fetchSisaCuti() {
+    sisaSudahCari: false,
+    sisaHasil: [],        // hasil pencarian karyawan
+    cutiPilih: null,      // karyawan yang riwayatnya sedang ditampilkan
+    cutiRiwayat: [],
+    JATAH_DEFAULT: 12,    // dipakai kalau karyawan belum diatur jatahnya
+
+    async cariSisaCuti() {
+      const cari = (this.sisaCari || "").trim();
       this.sisaError = "";
-      const th = Number(this.sisaTahun);
-      const [karyawanRes, jatahRes, cutiRes] = await Promise.all([
-        supabaseClient.from("karyawan_master").select("nik,nama").order("nama"),
-        supabaseClient.from("cuti_jatah").select("nik,jatah").eq("tahun", th),
-        // Semua baris cuti yang tanggal MULAI-nya jatuh di tahun itu
-        supabaseClient.from("attendance_leave").select("nik,jenis,jenis_cuti,jumlah_hari,tanggal")
-          .eq("jenis", "cuti").gte("tanggal", th + "-01-01").lte("tanggal", th + "-12-31"),
-      ]);
-      if (karyawanRes.error) { this.sisaError = "Gagal memuat karyawan: " + karyawanRes.error.message; return; }
-      if (jatahRes.error) {
-        this.sisaError = "Gagal memuat jatah cuti: " + jatahRes.error.message
-          + (String(jatahRes.error.message).toLowerCase().includes("cuti_jatah")
-              ? " — tabel cuti_jatah belum ada. Jalankan migration_cuti_jatah.sql di Supabase SQL Editor."
-              : "");
-        return;
+      if (!cari) { this.sisaError = "Ketik NIK atau nama dulu."; return; }
+      this.sisaLoading = true;
+      this.cutiPilih = null;
+      this.cutiRiwayat = [];
+      try {
+        const tahun = new Date().getFullYear();
+        // Cari di master karyawan: cocok kalau NIK atau namanya mengandung
+        // kata yang diketik (tidak peduli huruf besar/kecil).
+        const { data: kar, error: errKar } = await supabaseClient
+          .from("karyawan_master").select("nik,nama")
+          .or("nik.ilike.%" + cari + "%,nama.ilike.%" + cari + "%")
+          .order("nama").limit(25);
+        if (errKar) { this.sisaError = "Gagal mencari karyawan: " + errKar.message; return; }
+
+        this.sisaSudahCari = true;
+        const list = kar || [];
+        if (!list.length) { this.sisaHasil = []; return; }
+        const niks = list.map((k) => k.nik);
+
+        const [jatahRes, cutiRes] = await Promise.all([
+          supabaseClient.from("cuti_jatah").select("nik,jatah").eq("tahun", tahun).in("nik", niks),
+          supabaseClient.from("attendance_leave").select("id,nik,nama,tanggal,tanggal_selesai,jenis,jenis_cuti,jumlah_hari")
+            .eq("jenis", "cuti").in("nik", niks).order("tanggal", { ascending: false }),
+        ]);
+        if (jatahRes.error) {
+          this.sisaError = "Gagal memuat jatah cuti: " + jatahRes.error.message
+            + (String(jatahRes.error.message).toLowerCase().includes("cuti_jatah")
+                ? " — tabel cuti_jatah belum ada. Jalankan migration_cuti_jatah.sql di Supabase SQL Editor."
+                : "");
+          return;
+        }
+        if (cutiRes.error) { this.sisaError = "Gagal memuat data cuti: " + cutiRes.error.message; return; }
+
+        const jatahMap = {};
+        (jatahRes.data || []).forEach((r) => { jatahMap[r.nik] = Number(r.jatah); });
+        this._cutiSemua = cutiRes.data || [];
+
+        this.sisaHasil = list.map((k) => {
+          const punya = this._cutiSemua.filter((c) => c.nik === k.nik);
+          // Hanya Cuti Tahunan yang memotong jatah, dan hanya tahun berjalan
+          const terpakai = punya
+            .filter((c) => c.jenis_cuti === "Cuti Tahunan" && String(c.tanggal).slice(0, 4) === String(tahun))
+            .reduce((a, c) => a + Number(c.jumlah_hari ?? 1), 0);
+          const jatah = jatahMap[k.nik] !== undefined ? jatahMap[k.nik] : this.JATAH_DEFAULT;
+          const terakhir = punya.length ? punya[0].tanggal : null;
+          return { nik: k.nik, nama: k.nama, jatah, terpakai, sisa: jatah - terpakai, cutiTerakhir: this.fmtTgl(terakhir) };
+        });
+
+        // Kalau hasilnya cuma satu orang, riwayatnya langsung dibuka --
+        // itu yang paling sering dicari, tidak perlu klik lagi.
+        if (this.sisaHasil.length === 1) this.pilihKaryawanCuti(this.sisaHasil[0]);
+      } finally {
+        this.sisaLoading = false;
       }
-      if (cutiRes.error) { this.sisaError = "Gagal memuat data cuti: " + cutiRes.error.message; return; }
-
-      this.karyawanRows = karyawanRes.data || [];
-      const awal = {}, edit = {};
-      (jatahRes.data || []).forEach((r) => { awal[r.nik] = Number(r.jatah); });
-      this.karyawanRows.forEach((k) => {
-        const v = awal[k.nik] !== undefined ? awal[k.nik] : this.JATAH_DEFAULT;
-        edit[k.nik] = String(v);
-      });
-      this.jatahAwal = awal;
-      this.jatahEdit = edit;
-
-      // Hanya "Cuti Tahunan" yang memotong jatah
-      const pakai = {};
-      (cutiRes.data || []).forEach((r) => {
-        if (r.jenis_cuti !== "Cuti Tahunan") return;
-        pakai[r.nik] = (pakai[r.nik] || 0) + Number(r.jumlah_hari ?? 1);
-      });
-      this.terpakaiMap = pakai;
+    },
+    pilihKaryawanCuti(r) {
+      this.cutiPilih = r;
+      this.cutiRiwayat = (this._cutiSemua || []).filter((c) => c.nik === r.nik);
+    },
+    // "07/07/2026" -- untuk cuti beberapa hari ditulis rentangnya
+    fmtTgl(t) {
+      if (!t) return "";
+      const [y, m, d] = String(t).slice(0, 10).split("-");
+      return d + "/" + m + "/" + y;
+    },
+    rentangTanggal(r) {
+      const a = this.fmtTgl(r.tanggal);
+      const b = r.tanggal_selesai ? this.fmtTgl(r.tanggal_selesai) : "";
+      return b && b !== a ? a + " — " + b : a;
     },
     // Angka hari: tanpa desimal kalau bulat (12), 1 desimal kalau setengah
     // hari (12,5) -- cuti setengah hari itu hal yang wajar.
@@ -617,40 +663,6 @@ function attendancePage() {
       const v = Number(n);
       if (!Number.isFinite(v)) return "0";
       return Number.isInteger(v) ? String(v) : v.toFixed(1).replace(".", ",");
-    },
-    sisaRows() {
-      const cari = (this.sisaCari || "").trim().toLowerCase();
-      return this.karyawanRows
-        .filter((k) => !cari || String(k.nik).toLowerCase().includes(cari) || String(k.nama || "").toLowerCase().includes(cari))
-        .map((k) => {
-          const jatah = Number(this.jatahEdit[k.nik] ?? this.JATAH_DEFAULT) || 0;
-          const terpakai = Number(this.terpakaiMap[k.nik] || 0);
-          return { nik: k.nik, nama: k.nama, jatah, terpakai, sisa: jatah - terpakai };
-        });
-    },
-    async saveJatah() {
-      if (!this.isLeaderOrAdmin()) { this.flash("Hanya admin/leader yang bisa menyimpan.", true); return; }
-      const th = Number(this.sisaTahun);
-      // Cuma baris yang angkanya berubah yang dikirim, biar tidak menulis
-      // ulang seluruh daftar karyawan tiap kali menyimpan.
-      const payload = [];
-      for (const k of this.karyawanRows) {
-        const baru = Number(this.jatahEdit[k.nik]);
-        if (!Number.isFinite(baru) || baru < 0) { this.sisaError = "Jatah " + (k.nama || k.nik) + " tidak valid."; return; }
-        const lama = this.jatahAwal[k.nik];
-        if (lama === undefined || Number(lama) !== baru) payload.push({ nik: k.nik, tahun: th, jatah: baru });
-      }
-      if (!payload.length) { this.flash("Tidak ada perubahan jatah."); return; }
-      this.sisaSaving = true;
-      this.sisaError = "";
-      try {
-        const { error } = await supabaseClient.from("cuti_jatah").upsert(payload, { onConflict: "nik,tahun" });
-        if (error) { this.sisaError = "Gagal simpan jatah: " + error.message; return; }
-        this.flash("Jatah cuti " + payload.length + " karyawan tersimpan.");
-        await this.fetchSisaCuti();
-      } finally {
-        this.sisaSaving = false;
-      }
     },
 
     leaveJenisWarna(j) {
