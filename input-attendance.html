@@ -614,6 +614,7 @@ function attendancePage() {
       if (!await this.initBase()) return;
       await this.fetchLeaveRows();
       await this.fetchHariLibur();
+      this.initRealtime();
     },
     // ---- Izin/Sakit/Cuti/Mangkir ----
     // Riwayat hanya menampilkan data yang DIINPUT oleh orang yang sedang
@@ -637,6 +638,61 @@ function attendancePage() {
       { key: "cuti",    label: "Cuti",    warna: "green" },
       { key: "mangkir", label: "Mangkir", warna: "red"   },
     ],
+    // ================= REALTIME =================
+    // Begitu ada orang lain menyimpan / mengubah / menghapus data,
+    // halaman ini ikut menyegarkan sendiri tanpa perlu di-reload.
+    // Polanya sama dengan assets/machine-page.js > initRealtime().
+    _rtChannel: null,
+    _rtTimers: {},
+    // Beberapa perubahan bisa datang beruntun (mis. simpan banyak baris
+    // sekaligus). Ditunda sebentar supaya tidak menembak query berkali-kali.
+    _rtDebounce(key, fn, delayMs = 400) {
+      clearTimeout(this._rtTimers[key]);
+      this._rtTimers[key] = setTimeout(fn, delayMs);
+    },
+    initRealtime() {
+      if (this._rtChannel) return;   // sudah jalan, jangan dobel subscribe
+      let channel = supabaseClient.channel("rt_attendance");
+
+      // Data ketidakhadiran berubah -> riwayat disegarkan. Kalau tab
+      // Sisa Cuti sedang terbuka DAN sudah pernah mencari, hasilnya
+      // ikut dihitung ulang supaya sisa cutinya tidak basi.
+      channel = channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "attendance_leave" },
+        () => {
+          this._rtDebounce("leave", () => this.fetchLeaveRows());
+          this._rtDebounce("sisa", () => {
+            if (this.tab === "sisa" && this.sisaSudahCari) this.cariSisaCuti();
+          }, 700);
+        }
+      );
+
+      // Jatah cuti diubah di Master Data > Cuti -> sisa cuti ikut berubah.
+      channel = channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "cuti_jatah" },
+        () => {
+          this._rtDebounce("sisa", () => {
+            if (this.tab === "sisa" && this.sisaSudahCari) this.cariSisaCuti();
+          }, 700);
+        }
+      );
+
+      // Hari libur dipakai untuk menghitung Total Hari cuti.
+      channel = channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "hari_libur" },
+        () => this._rtDebounce("libur", () => this.fetchHariLibur())
+      );
+
+      this._rtChannel = channel.subscribe();
+      // Tutup koneksi rapi-rapi kalau tab ditutup / pindah halaman.
+      window.addEventListener("beforeunload", () => {
+        if (this._rtChannel) supabaseClient.removeChannel(this._rtChannel);
+      });
+    },
+
     // ================= SISA CUTI =================
     // Tab aktif halaman ini: "form" = Form Ketidakhadiran, "sisa" = Sisa Cuti.
     // WAJIB ada -- kalau tidak, kedua <template x-if> tidak ada yang cocok
