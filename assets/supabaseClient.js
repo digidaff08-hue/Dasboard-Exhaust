@@ -18,6 +18,29 @@ async function requireAuth() {
   return session;
 }
 
+// Penjaga halaman: hanya admin & leader yang boleh membuka halaman
+// selain Attendance. Operator dipantulkan balik ke input-attendance.html.
+//
+// Ini penjagaan SUNGGUHAN, bukan sekadar menyembunyikan menu -- operator
+// yang mengetik alamat halaman langsung di browser tetap dipantulkan.
+// Batasan siapa boleh MENGUBAH data tetap dipegang RLS di database.
+//
+// Dipanggil setelah requireAuth(). Balikannya false = sedang dipantulkan,
+// jadi init() halaman harus langsung berhenti.
+async function requireStaff(session) {
+  if (!session) return false;
+  const { data } = await supabaseClient
+    .from("profiles").select("role,jabatan").eq("id", session.user.id).maybeSingle();
+  const r = ((data && data.role) || "").toLowerCase();
+  const j = ((data && data.jabatan) || "").toLowerCase();
+  const boleh = ["admin", "leader"].includes(r) || ["admin", "leader"].includes(j);
+  if (!boleh) {
+    window.location.href = getBasePath() + "input-attendance.html";
+    return false;
+  }
+  return true;
+}
+
 // Helper: hitung path relatif ke root project, supaya link login/logout
 // tetap benar walau file dipanggil dari dalam folder /machines/
 function getBasePath() {

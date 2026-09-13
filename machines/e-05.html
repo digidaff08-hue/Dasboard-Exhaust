@@ -14,7 +14,8 @@
 <link rel="stylesheet" href="../assets/style.css">
 <script>
   (function () {
-    var t = localStorage.getItem("theme_v1") || "light";
+    var t = "light";   // mode gelap dinonaktifkan -- tombolnya sudah dihapus
+    try { localStorage.removeItem("theme_v1"); } catch (e) {}
     document.documentElement.setAttribute("data-theme", t);
   })();
 </script>
@@ -239,7 +240,6 @@
     <nav class="sidebar-nav" @click="mobileNavOpen = false">
       <a href="../dashboard-exhaust.html" class="sidebar-link" title="Dashboard Exhaust"><span>📊</span><span x-show="!sidebarCollapsed">Dashboard Exhaust</span></a>
       <a href="../index.html" class="sidebar-link" title="Dashboard" x-show="isAdmin()"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a>
-      <a href="../plan-produksi.html" class="sidebar-link" title="Plan Produksi" x-show="isAdmin()"><span>📅</span><span x-show="!sidebarCollapsed">Plan Produksi</span></a>
       <a href="../input-produksi.html" class="sidebar-link active" title="Input Produksi"><span>⚙️</span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
 <a href="../input-attendance.html" class="sidebar-link" title="Attendance" x-show="isLeaderOrAdmin()"><span>👥</span><span x-show="!sidebarCollapsed">Attendance</span></a>
             <a href="../data-mentah.html" class="sidebar-link" title="Data Mentah" x-show="isAdmin()"><span>🗃️</span><span x-show="!sidebarCollapsed">Data Mentah</span></a>
@@ -271,9 +271,6 @@
         <template x-if="isLeaderOrAdmin()">
           <button class="btn-secondary btn-sm" :class="tab==='master' ? 'btn-primary' : ''" @click="tab='master'">Master Data</button>
         </template>
-        <button class="theme-toggle" @click="toggleTheme()" :title="theme === 'dark' ? 'Ke mode terang' : 'Ke mode gelap'">
-          <span x-text="theme === 'dark' ? '☀️' : '🌙'"></span>
-        </button>
       </div>
     </div>
 
@@ -1483,46 +1480,63 @@
               </template>
             </div>
             <div class="repair-3d-wrap" x-show="activeRepairView()" x-effect="tab; initRepair3DViewerIfNeeded()">
-              <template x-if="isLeaderOrAdmin()">
-                <button type="button" class="btn-secondary btn-sm repair-edit-toggle" :class="repairEditMode ? 'btn-primary' : ''" @click="toggleRepairEditMode()" x-text="repairEditMode ? '✓ Mode Edit Point aktif' : '✏️ Mode Edit Point'"></button>
-              </template>
+              <div class="repair-edit-toggle" style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button type="button" class="btn-secondary btn-sm" :class="repairShowAreas ? 'btn-primary' : ''" @click="toggleRepairShowAreas()" x-text="repairShowAreas ? '👁 Area ditampilkan' : '👁 Tampilkan Area'"></button>
+                <template x-if="isLeaderOrAdmin()">
+                  <button type="button" class="btn-secondary btn-sm" :class="repairEditMode ? 'btn-primary' : ''" @click="toggleRepairEditModeArea()" x-text="repairEditMode ? '✓ Mode Atur Area aktif' : '✏️ Mode Atur Area'"></button>
+                </template>
+              </div>
               <div class="repair-3d-canvas" x-ref="repair3dCanvas"></div>
               <div class="repair-3d-loading" x-show="repairModelLoading" x-text="repairModelStatus || 'Memuat model 3D...'">Memuat model 3D...</div>
-              <p class="repair-3d-hint">Seret buat putar &middot; scroll/cubit buat zoom</p>
+              <p class="repair-3d-hint">Seret buat putar &middot; scroll/cubit buat zoom &middot; tap bagian yang di-repair</p>
             </div>
-            <div class="repair-shape-switcher" x-show="repairEditMode" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0;">
-              <span style="font-size:12px;color:#64748b;">Bentuk Point:</span>
-              <button type="button" class="btn-secondary btn-sm" :class="repairDrawShape === 'freehand' ? 'btn-primary' : ''" @click="repairDrawShape = 'freehand'">✏️ Bebas</button>
-              <button type="button" class="btn-secondary btn-sm" :class="repairDrawShape === 'circle' ? 'btn-primary' : ''" @click="repairDrawShape = 'circle'">◯ Lingkaran</button>
-              <button type="button" class="btn-secondary btn-sm" :class="repairDrawShape === 'square' ? 'btn-primary' : ''" @click="repairDrawShape = 'square'">▭ Kotak</button>
-              <button type="button" class="btn-secondary btn-sm" @click="undoLastRepairPoint()" :disabled="!repairPoints.length" title="Hapus Point terakhir">↩️ Undo</button>
-              <button type="button" class="btn-sm" :class="repairSnapMode ? 'btn-primary' : 'btn-secondary'" @click="repairSnapMode = !repairSnapMode" title="Aktifkan untuk bisa sambung/extend garis yang sudah ada">🔗 Sambung Garis</button>
+            <!-- ===== Pengaturan Area Las (admin) =====
+                 SEKALI TAP di jalur las -> sistem menelusuri sendiri bentuk
+                 jalurnya sampai habis, melengkung mengikuti part. Admin
+                 cuma menunjukkan yang mana, tidak menggambar. -->
+            <div x-show="repairEditMode" style="margin:10px 0;">
+              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px;">
+                <span style="font-size:12px;color:#64748b;">Cara ambil:</span>
+                <button type="button" class="btn-secondary btn-sm" :class="repairTraceMode === 'penuh' ? 'btn-primary' : ''" @click="setRepairTraceMode('penuh')">Jalur Penuh</button>
+                <button type="button" class="btn-secondary btn-sm" :class="repairTraceMode === 'sebagian' ? 'btn-primary' : ''" @click="setRepairTraceMode('sebagian')">Sebagian</button>
+              </div>
+              <p class="repair-edit-hint" x-show="repairTraceMode === 'penuh'">
+                <b>Tap sekali</b> di jalur las — sistem menelusuri sendiri bentuk jalurnya
+                sampai ujung. Tidak perlu menggambar atau menyeret.
+                Kalau di titik itu tidak ada jalur las, yang dibuat titik kecil saja.
+              </p>
+              <p class="repair-edit-hint" x-show="repairTraceMode === 'sebagian'">
+                <b>Tap dua kali</b>: pangkal las, lalu ujungnya. Jalurnya diambil hanya
+                di antara dua titik itu — untuk las yang cuma dikerjakan sebagian.
+                <span x-show="repairPartialStart" style="color:#2563eb;font-weight:600;">Pangkal sudah ditandai — tap titik ujungnya.</span>
+              </p>
+              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px;">
+                <span style="font-size:12px;color:#64748b;">Area tersimpan:</span>
+                <span class="mono" style="font-size:12px;font-weight:700;" x-text="repairAreaList().length"></span>
+                <button type="button" class="btn-secondary btn-sm" @click="undoAreaTerakhir()" :disabled="!repairAreaList().length">↩️ Undo Area Terakhir</button>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px;">
+                <span style="font-size:12px;color:#64748b;">Tebal jalur:</span>
+                <input type="range" min="1" max="8" step="1" :value="Math.round(repairAreaSize * 200)"
+                       @input="repairAreaSize = Number($event.target.value) / 200" style="max-width:180px;">
+                <span style="font-size:11px;color:#94a3b8;">berlaku untuk area baru</span>
+              </div>
             </div>
-            <p class="repair-edit-hint" x-show="repairEditMode">
-              <template x-if="repairDrawShape === 'freehand'"><span>Tahan &amp; seret di permukaan model buat gambar garis Point baru menyusuri jalur las. Balik lagi ke titik awal buat otomatis nutup jadi 1 loop (360&deg;).</span></template>
-              <template x-if="repairDrawShape === 'circle'"><span>Tahan di titik tengah lingkaran, seret keluar buat nentuin radiusnya, lepas buat menyimpan.</span></template>
-              <template x-if="repairDrawShape === 'square'"><span>Tahan di salah satu sudut kotak, seret ke sudut seberangnya, lepas buat menyimpan.</span></template>
-              Klik garis/Point yang sudah ada buat memilihnya (muncul kotak seleksi buat Geser &amp; Ukuran, seperti di Excel/PowerPoint).
-            </p>
 
-            <!-- Toolbar aksi buat Point yang lagi dipilih (klik Point pas Mode Edit aktif) -->
-            <div class="repair-point-toolbar" x-show="repairEditMode && repairSelectedPointId" x-cloak
+            <!-- Area yang sedang dipilih -->
+            <div x-show="repairEditMode && repairSelectedPointId" x-cloak
                  style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0;padding:10px 12px;border:1px solid #bbf7d0;border-radius:8px;background:#f0fdf4;">
               <span style="font-size:12px;color:#166534;font-weight:600;">
-                Point terpilih: <span x-text="selectedRepairPointObj()?.label || '(tanpa label)'"></span>
+                Area terpilih: <span x-text="selectedRepairPointObj()?.label || '(tanpa nama)'"></span>
               </span>
-              <template x-if="selectedRepairPointHasPath()">
-                <button type="button" class="btn-secondary btn-sm" :class="repairPointActionMode === 'reshape' ? 'btn-primary' : ''" @click="setRepairActionMode('reshape')">✏️ Edit Titik</button>
-              </template>
+              <span style="font-size:12px;color:#64748b;">Tebal:</span>
+              <input type="range" min="1" max="8" step="1" :value="Math.round(repairAreaSize * 200)"
+                     @input="repairAreaSize = Number($event.target.value) / 200; setRepairAreaTebal(repairSelectedPointId, repairAreaSize)"
+                     style="max-width:150px;">
               <button type="button" class="btn-secondary btn-sm" @click="renameRepairPoint(repairSelectedPointId)">✏️ Nama</button>
               <button type="button" class="btn-danger btn-sm" @click="deleteRepairPoint(repairSelectedPointId)">🗑️ Hapus</button>
               <button type="button" class="btn-secondary btn-sm" @click="deselectRepairPoint()">✕ Tutup</button>
             </div>
-            <p class="repair-edit-hint" x-show="repairEditMode && repairSelectedPointId" x-cloak style="font-size:12px;color:#64748b;">
-              <template x-if="repairPointActionMode === 'reshape'"><span>Tahan &amp; seret bola biru di garisnya buat ubah bentuk, titik per titik (titik sekitarnya ikut ketarik halus).</span></template>
-              <template x-if="!repairPointActionMode && selectedRepairPointHasPath()"><span>Kotak oranye di sudut/sisi = Ukuran (seret buat perbesar/perkecil). Seret badan garisnya sendiri = Geser. Klik Point lain buat ganti pilihan.</span></template>
-              <template x-if="!repairPointActionMode && !selectedRepairPointHasPath()"><span>Point ini bentuk lama (bola tunggal) -- tahan &amp; seret buat menggeser, atau Hapus lewat tombol di atas.</span></template>
-            </p>
           </div>
 
           <div class="panel">
@@ -1879,4 +1893,4 @@
   </main>
 </div>
 </body>
-</html>
+</html> 

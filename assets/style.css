@@ -1242,6 +1242,29 @@ tr.row-qty-warn td { background: rgba(217,119,6,0.07) !important; }
   height: auto;
   opacity: 0.16;
 }
+
+/* ---- Dekorasi login dibuat bergerak, seperti di halaman Mesin ----
+   Gear berputar pelan, percikan & baut mengambang naik-turun.
+   Nama keyframes diberi awalan "login" supaya tidak bentrok dengan
+   spinGear/floatSpark yang didefinisikan sendiri di tiap halaman mesin. */
+.login-decor .decor-gear  { animation: loginSpinGear 26s linear infinite; }
+.login-decor .decor-gauge { animation: loginSpinGear 40s linear infinite reverse; }
+.login-decor .decor-spark { animation: loginFloatSpark 8s ease-in-out infinite; }
+.login-decor .decor-bolt  { animation: loginFloatSpark 12s ease-in-out 1s infinite; }
+
+@keyframes loginSpinGear {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes loginFloatSpark {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-10px) rotate(5deg); }
+}
+
+/* Hormati setelan "kurangi animasi" di sistem operasi pengguna */
+@media (prefers-reduced-motion: reduce) {
+  .login-decor * { animation: none !important; }
+}
 @media (min-width: 600px) {
   .login-decor .decor-factory { width: 380px; bottom: -4px; }
   .login-decor .decor-gear { width: 120px; top: 10%; }

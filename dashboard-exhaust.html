@@ -381,7 +381,12 @@
 [data-theme="dark"] .dxy-table-scroll { border-color: #0369A1; }
 table.dxy-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; }
 table.dxy-table thead th {
-  position: sticky; top: 0; z-index: 1;
+  /* z-index dinaikkan dari 1 -> 20. Dengan nilai 1, baris tabel yang
+     tergulir ke bawah kepala kolom kadang masih "menang" saat disorot
+     mouse -- teksnya ikut terlihat menumpuk di atas judul kolom.
+     Nilai 20 memastikan kepala kolom selalu di lapisan paling atas,
+     baik untuk tampilan maupun untuk tangkapan mouse. */
+  position: sticky; top: 0; z-index: 20;
   background: #E0F2FE;
   border-bottom: 2px solid #7DD3FC;
   text-align: left;
@@ -400,7 +405,14 @@ table.dxy-table tbody tr:nth-child(even) { background: transparent; }
 table.dxy-table tbody tr:hover { background: rgba(14,165,233,.08); }
 /* ---- Filter per-kolom di tabel Rekap NG Inline / NG Trial / Repair ---- */
 table.qc-detail-table thead th { cursor: pointer; user-select: none; transition: background 120ms ease; }
-table.qc-detail-table thead th:hover { background: rgba(14,165,233,.16); }
+/* Warna sorot kepala kolom WAJIB PEKAT, bukan rgba tembus pandang.
+   Dulu memakai rgba(14,165,233,.16): begitu mouse menyentuh kepala
+   kolom, latar biru mudanya hilang dan baris tabel yang tergulir di
+   BELAKANG kepala kolom jadi kelihatan menumpuk.
+   #BEE6FB = hasil campuran warna lama itu di atas #E0F2FE, jadi
+   tampilannya sama persis tapi menutup rapat. */
+table.qc-detail-table thead th:hover { background: #BEE6FB; }
+[data-theme="dark"] table.qc-detail-table thead th:hover { background: #0B3C57; }
 /* NOTE: warna di bawah ini SENGAJA di-hardcode (bukan var(--dxy-*)) karena
    dropdown-nya di-teleport ke <body>, keluar dari elemen ".dxy" tempat
    variabel --dxy-* itu didefinisikan -- kalau pakai var(--dxy-*) di sini,
@@ -653,7 +665,10 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
 .qc-chart-daily  { min-height: 170px !important; max-height: 170px; }
 .qc-detail-table { font-size: 7px; table-layout: fixed; }
 .qc-detail-table thead th { padding: 5px 4px; font-size: 7px; white-space: nowrap; overflow: hidden; text-overflow: clip; text-align: center !important; text-transform: none !important; letter-spacing: normal !important; }
-.qc-detail-table tbody td { padding: 4px 5px; white-space: nowrap; overflow: hidden; text-overflow: clip; height: 20px; color: #000000 !important; }
+/* text-overflow: ellipsis (bukan clip) -- tooltip bawaan browser sudah
+   dibuang dari sel ini karena menimpa kepala kolom, jadi teks yang
+   terpotong minimal ditandai "..." supaya ketahuan masih ada lanjutannya. */
+.qc-detail-table tbody td { padding: 4px 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 20px; color: #000000 !important; }
 @media (max-width: 1366px) { .dxy-qc-grid { grid-template-columns: 1fr; } }
 @media (max-width: 1366px) { .dxy-qc-subgrid { grid-template-columns: 1fr; } }
 
@@ -816,7 +831,8 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
 </style>
 <script>
   (function () {
-    var t = localStorage.getItem("theme_v1") || "light";
+    var t = "light";   // mode gelap dinonaktifkan -- tombolnya sudah dihapus
+    try { localStorage.removeItem("theme_v1"); } catch (e) {}
     document.documentElement.setAttribute("data-theme", t);
   })();
 </script>
@@ -852,7 +868,6 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
     <nav class="sidebar-nav" @click="mobileNavOpen = false">
       <a href="dashboard-exhaust.html" class="sidebar-link active" title="Dashboard Exhaust"><span>📊</span><span x-show="!sidebarCollapsed">Dashboard Exhaust</span></a>
       <a href="index.html" class="sidebar-link" title="Dashboard" x-show="isAdmin()"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a>
-      <a href="plan-produksi.html" class="sidebar-link" title="Plan Produksi" x-show="isAdmin()"><span>📅</span><span x-show="!sidebarCollapsed">Plan Produksi</span></a>
       <a href="input-produksi.html" class="sidebar-link" title="Input Produksi"><span>⚙️</span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
       <a href="input-attendance.html" class="sidebar-link" title="Attendance" x-show="isLeaderOrAdmin()"><span>👥</span><span x-show="!sidebarCollapsed">Attendance</span></a>
             <a href="data-mentah.html" class="sidebar-link" title="Data Mentah" x-show="isAdmin()"><span>🗃️</span><span x-show="!sidebarCollapsed">Data Mentah</span></a>
@@ -872,9 +887,6 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
         <h1>DASHBOARD EXHAUST</h1>
       </div>
       <div class="dash-controls">
-        <button class="theme-toggle" @click="toggleTheme()" :title="theme === 'dark' ? 'Ke mode terang' : 'Ke mode gelap'">
-          <span x-text="theme === 'dark' ? '☀️' : '🌙'"></span>
-        </button>
       </div>
     </div>
 
@@ -1019,10 +1031,10 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                     <template x-for="(row, i) in bulananDowntimeMergedRows()" :key="'bdt-merged-'+i">
                       <tr>
                         <td style="font-weight:700;" x-text="row.mesin"></td>
-                        <td :title="row.pic"><span x-show="row.pic" x-text="row.pic"></span></td>
-                        <td :title="row.problem"><span x-show="row.problem" x-text="row.problem"></span></td>
-                        <td :title="row.area"><span x-show="row.area" x-text="row.area"></span></td>
-                        <td :title="row.countermeasure"><span x-show="row.countermeasure" x-text="row.countermeasure"></span></td>
+                        <td><span x-show="row.pic" x-text="row.pic"></span></td>
+                        <td><span x-show="row.problem" x-text="row.problem"></span></td>
+                        <td><span x-show="row.area" x-text="row.area"></span></td>
+                        <td><span x-show="row.countermeasure" x-text="row.countermeasure"></span></td>
                         <td>
                           <span x-show="row.status" class="dxy-status-chip" :class="dxyStatusClass(row.status)" x-text="row.status"></span>
                         </td>
@@ -1058,8 +1070,8 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                   </thead>
                   <tbody>
                     <template x-for="(row, i) in bulananDowntimeTerbesarBulanRows()" :key="'bdt-summary-'+i">
-                      <tr :class="{ 'dxy-row-clickable': row.problem }" :title="row.problem ? 'Double-klik untuk detail per line' : ''" @dblclick="row.problem && openProblemDetail(row.problem)">
-                        <td :title="row.problem"><span x-show="row.problem" x-text="row.problem"></span></td>
+                      <tr :class="{ 'dxy-row-clickable': row.problem }" @dblclick="row.problem && openProblemDetail(row.problem)">
+                        <td><span x-show="row.problem" x-text="row.problem"></span></td>
                         <td style="text-align:right">
                           <span x-show="row.menit !== ''" class="dxy-minute-badge" x-text="row.menit"></span>
                         </td>
@@ -1173,7 +1185,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                             <span class="dxy-pic-chip"><span x-text="row.pic"></span></span>
                           </template>
                         </td>
-                        <td :title="row.problem">
+                        <td>
                           <span x-show="row.problem" x-text="row.problem"></span>
                         </td>
                         <td style="text-align:right">
@@ -1213,7 +1225,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                   <tbody>
                     <template x-for="(row, i) in dxyFilteredNgTerbesar()" :key="row.kategori + '-' + i">
                       <tr>
-                        <td :title="row.kategori">
+                        <td>
                           <template x-if="row.kategori">
                             <span class="dxy-pic-chip"><span x-text="row.kategori"></span></span>
                           </template>
@@ -1257,7 +1269,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                   <tbody>
                     <template x-for="(row, i) in dxyFilteredRepairTerbesar()" :key="row.kategori + '-' + i">
                       <tr>
-                        <td :title="row.kategori">
+                        <td>
                           <template x-if="row.kategori">
                             <span class="dxy-pic-chip"><span x-text="row.kategori"></span></span>
                           </template>
@@ -1790,7 +1802,11 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
         <template x-if="!planLoading">
           <div class="dash-body">
 
-            <!-- Baris atas: tabel Plan Harian -->
+            <!-- Baris atas: tabel Plan Harian + chart Kapasitas Harian.
+                 Tata letaknya disamakan dengan plan-produksi.html: tabel di
+                 kiri, grafik di kanan. Kelas .plan-grid-top sudah ada di
+                 assets/style.css (otomatis bertumpuk di layar sempit). -->
+            <div class="plan-grid-top">
             <div class="dash-panel" style="overflow-x:auto;">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
                 <p class="dash-panel-title" style="margin:0;">Plan Harian</p>
@@ -1833,9 +1849,18 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
               </div>
             </div>
 
+            <div class="dash-panel dash-panel-chart">
+              <p class="dash-panel-title">Kapasitas Harian (Plan per Part × Line)</p>
+              <div class="dash-chart-sm" style="min-height:280px;"><canvas id="dxPlanKapasitas"></canvas></div>
+            </div>
+            </div>
+
             <!-- Shift 1 & Shift 2 -->
             <div class="plan-shift-grid">
-              <template x-for="shift in ['1','2']" :key="shift">
+              <!-- shift dikirim sebagai ANGKA (bukan '1'/'2'), karena kolom shift di
+                   database bertipe angka dan perbandingannya sekarang ketat (===),
+                   sama seperti di plan-produksi.html -->
+              <template x-for="shift in [1, 2]" :key="shift">
                 <div class="dash-panel">
                   <p class="dash-panel-title" x-text="'Shift ' + shift"></p>
                   <div class="table-wrap">
@@ -1996,6 +2021,10 @@ function localDateStr(d) {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
+// Warna batang chart Kapasitas Harian -- disamakan persis dengan
+// plan-produksi.html supaya part yang sama berwarna sama di dua halaman.
+const PLAN_LINE_COLORS = ["#5b8def", "#f2a541", "#e05a5a", "#31b06a", "#8f6bd6", "#2fb8c6"];
+
 function cssVar(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
@@ -3002,7 +3031,7 @@ function dashboardExhaust() {
     bulanan: {
       dayLabels: [],               // ["1","2",...,"31"] sesuai jumlah hari di bulan terpilih
       productivity: { value: 0, actual: [], target: 100, avg: 0 },   // % per hari
-      availability: { value: 0, actual: [], target: 100, avg: 0 },   // % per hari
+      availability: { value: 0, actual: [], target: null, avg: 0 },   // % per hari; target: null = tanpa garis Target
       downtimeHarian: { labels: [], values: [], total: 0 },             // menit per hari 1-31
       downtimeExhaust: { labels: [], values: [] },                      // menit per bulan (FY Apr-Mar), ikut filter Line Bulanan
       downtimeSupporting: { labels: [], act: [] },             // per PIC: PE, MESIN, QC, PC-SUPP, PROD, PRESS
@@ -3020,8 +3049,8 @@ function dashboardExhaust() {
       monthLabels: [],
       // target Productivity di tab Tahunan berupa ARRAY (per bulan), jadi
       // nilai awalnya array kosong supaya .slice() aman sebelum data masuk
-      productivity: { value: 0, actual: [], target: null },   // target: null = tanpa garis Target
-      availability: { value: 0, actual: [], target: 100 },
+      productivity: { value: 0, actual: [], target: [] },   // target per bulan (array)
+      availability: { value: 0, actual: [], target: null },   // target: null = tanpa garis Target
       ngInline: { qty: 0, value: 0, qtyByMonth: [], valueByMonth: [] },
       straightpass: { value: 0, actual: [], qty: [], repairQty: [], target: 95 },
       downtimeExhaust: { labels: [], values: [] },
@@ -3048,6 +3077,7 @@ function dashboardExhaust() {
     MACHINES_REF: MACHINES,
     async init() {
       this.session = await requireAuth();
+      if (!await requireStaff(this.session)) return;
       if (!this.session) return;
       const { data } = await supabaseClient.from("profiles").select("*").eq("id", this.session.user.id).maybeSingle();
       this.profile = data;
@@ -3404,7 +3434,8 @@ function dashboardExhaust() {
         this.bulanan = {
           dayLabels,
           productivity: { value: productivityValue, actual: productivityActual, target: productivityTarget, avg: productivityAvg },
-          availability: { value: availabilityValue, actual: availabilityActual, target: 100, avg: availabilityAvg },
+          // Availability SENGAJA tanpa garis Target -- target: null
+          availability: { value: availabilityValue, actual: availabilityActual, target: null, avg: availabilityAvg },
           downtimeHarian: { labels: dayLabels, values: downtimeHarianValues, total: downtimeHarianTotal },
           downtimeExhaust,
           downtimeSupporting,
@@ -3431,7 +3462,7 @@ function dashboardExhaust() {
         const fyEnd = new Date(fyStartYear + 1, 3, 1);
         const prevFyStart = new Date(fyStartYear - 1, 3, 1);
 
-        const [prodRes, ngRes, planByPicRes, lineRes, repairMonthRes, pvManualRes, koefRes] = await Promise.all([
+        const [prodRes, ngRes, planByPicRes, lineRes, repairMonthRes, pvManualRes, koefRes, tgRes] = await Promise.all([
           supabaseClient.rpc("dashboard_bulanan_produksi", { p_start: prevFyStart.toISOString(), p_end: fyEnd.toISOString() }),
           // NG Inline: DISAMAKAN dengan sumber data tab Kontrol Kualitas
           // (dashboard_qc_ng_month, p_type_ng = 'NG PRODUKSI') supaya
@@ -3454,6 +3485,7 @@ function dashboardExhaust() {
             .gte("tanggal", localDateStr(fyStart))
             .lt("tanggal", localDateStr(fyEnd)),
           supabaseClient.from("koefisien_kawat").select("tahun,nilai"),
+          supabaseClient.from("productivity_target").select("tahun,bulan,target"),
         ]);
         // Downtime Terbesar: ikut 1 tahun fiskal yang dipilih (bukan bulan berjalan)
         const topRes = await Promise.all(MACHINES.map((m) =>
@@ -3492,6 +3524,7 @@ function dashboardExhaust() {
           // dihitung dari TOTAL sebulan, bukan rata-rata angka harian.
           pvManualRows: pvManualRes.data || [],
           koefRows: koefRes.data || [],
+          targetRows: tgRes.data || [],
           fyStartYear, fyStart, fyEnd, prevFyStart,
         };
 
@@ -3621,8 +3654,15 @@ function dashboardExhaust() {
         if (!ada || !oper || !k) return null;
         return Number((((earned / oper) / k) * 100).toFixed(1));
       });
-      // Chart Productivity di tab Tahunan SENGAJA tanpa garis Target
-      // (target hanya dipakai di tab Kontrol Downtime, per bulan).
+      // Garis Target Productivity, diambil dari tabel productivity_target
+      // (diisi di Master Data > Productivity > Target Productivity Bulanan).
+      // Tiap bulan punya angkanya sendiri, jadi garisnya bertangga -- bukan
+      // satu garis datar. Bulan yang belum diisi memakai 100.
+      const targetRows = raw.targetRows || [];
+      const productivityTarget = fyMonths.map((d) => {
+        const r = targetRows.find((x) => Number(x.tahun) === d.getFullYear() && Number(x.bulan) === d.getMonth() + 1);
+        return r && Number.isFinite(Number(r.target)) ? Number(r.target) : 100;
+      });
       const availabilityActual = fyMonths.map((d) => {
         const row = findRow(prodRows, d);
         if (!row || !row.wh_menit) return null;
@@ -3700,8 +3740,9 @@ function dashboardExhaust() {
       this.tahunan = {
         ...this.tahunan,
         monthLabels: dtExhaustLabels,
-        productivity: { value: productivityValue, actual: [null, null, ...productivityActual], target: null },
-        availability: { value: availabilityValue, actual: [null, null, ...availabilityActual], target: 100 },
+        productivity: { value: productivityValue, actual: [null, null, ...productivityActual], target: [null, null, ...productivityTarget] },
+        // Availability SENGAJA tanpa garis Target -- target: null
+        availability: { value: availabilityValue, actual: [null, null, ...availabilityActual], target: null },
         ngInline: {
           qty: lastNgRow ? Number(lastNgRow.qty) : 0,
           value: lastNgRow ? Number(lastNgRow.value) : 0,
@@ -4698,7 +4739,11 @@ function dashboardExhaust() {
             labels,
             datasets: [
               { order: 2, type: "bar", label: "Actual", data: actual, backgroundColor: barBg(canvas, hex, actual.length), borderRadius: 0, barPercentage: 0.65, categoryPercentage: 0.75, borderSkipped: false },
-              { order: 1, type: "line", label: "Target", data: labels.map(() => target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0 },
+              // target = null -> garis Target tidak digambar sama sekali
+              // (dipakai Availability). Selain itu tetap garis datar.
+              ...(target === null || target === undefined ? [] : [
+                { order: 1, type: "line", label: "Target", data: labels.map(() => target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0 },
+              ]),
             ],
           },
           options: {
@@ -5136,11 +5181,16 @@ function dashboardExhaust() {
             labels,
             datasets: [
               { order: 2, type: "bar", label: "Actual", data: actual, backgroundColor: barBg(canvas, hex, actual.length), borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7, borderSkipped: false },
-              // target = null -> garis Target TIDAK digambar sama sekali
-              // (dipakai chart Productivity Tahunan). Selain itu tetap
-              // seperti biasa: 1 angka -> garis datar.
+              // target boleh:
+              //   null / undefined -> garis Target tidak digambar
+              //   1 angka          -> garis datar
+              //   array per kolom  -> garis bertangga (Productivity, yang
+              //                       targetnya beda tiap bulan)
               ...(target === null || target === undefined ? [] : [
-                { order: 1, type: "line", label: "Target", data: labels.map(() => target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0 },
+                { order: 1, type: "line", label: "Target",
+                  data: Array.isArray(target) ? target : labels.map(() => target),
+                  borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0,
+                  stepped: Array.isArray(target) ? "middle" : false },
               ]),
             ],
           },
@@ -5192,7 +5242,7 @@ function dashboardExhaust() {
       // tahun fiskal). Untuk grafik-grafik lain kita buang 2 kolom ini,
       // cukup tampilkan 12 bulan (Apr..Mar). Ini murni di layer render,
       // data asli di this.tahunan tidak diubah.
-      safe(() => kpiBig("dxyBigProductivity", b.monthLabels.slice(2), b.productivity.actual.slice(2), null, "#2563EB"), "big-productivity");
+      safe(() => kpiBig("dxyBigProductivity", b.monthLabels.slice(2), b.productivity.actual.slice(2), b.productivity.target.slice(2), "#2563EB"), "big-productivity");
       safe(() => kpiBig("dxyBigAvailability", b.monthLabels.slice(2), b.availability.actual.slice(2), b.availability.target, "#10B981", "above", 120), "big-availability");
       safe(() => bigStraightpassDual("dxyBigStraightpass", b.monthLabels.slice(2), b.straightpass.repairQty.slice(2), b.straightpass.actual.slice(2), b.straightpass.target, "#14B8A6"), "big-straightpass");
 
@@ -6130,57 +6180,116 @@ function dashboardExhaust() {
       } finally {
         this.planLoading = false;
       }
+      // Digambar setelah tabelnya selesai dirender, supaya canvas-nya
+      // sudah ada dan ukurannya sudah pasti.
+      this.$nextTick(() => this.renderPlanKapasitas());
+    },
+
+    planKapasitasChart: null,
+    renderPlanKapasitas() {
+      const canvas = document.getElementById("dxPlanKapasitas");
+      if (!canvas || typeof Chart === "undefined") return;
+      if (this.planKapasitasChart) this.planKapasitasChart.destroy();
+      const mesinKeys = MACHINES.map((m) => m.key);
+      const parts = this.planPartList;
+      const datasets = parts.map((part, idx) => ({
+        label: part,
+        data: mesinKeys.map((mk) => this.planRows
+          .filter((r) => r.part_number === part && r.mesin === mk)
+          .reduce((a, r) => a + (Number(r.qty_rencana) || 0), 0)),
+        backgroundColor: PLAN_LINE_COLORS[idx % PLAN_LINE_COLORS.length],
+        borderRadius: 3, stack: "plan",
+      }));
+      this.planKapasitasChart = new Chart(canvas, {
+        type: "bar",
+        data: { labels: mesinKeys, datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "bottom", labels: { color: cssVar("--muted"), boxWidth: 8, boxHeight: 8, font: { size: 9 }, usePointStyle: true, pointStyle: "circle" } },
+            tooltip: { backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"), borderColor: cssVar("--border"), borderWidth: 1, padding: 10 },
+          },
+          scales: {
+            x: { stacked: true, ticks: { color: cssVar("--chart-tick"), font: { size: 10 } }, grid: { display: false }, border: { display: false } },
+            y: { stacked: true, ticks: { color: cssVar("--chart-tick"), font: { size: 10 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: false }, beginAtZero: true },
+          },
+        },
+      });
+    },
+
+    // ---------- Plan Harian ----------
+    // Perhitungan di bawah SENGAJA disamakan persis dengan plan-produksi.html,
+    // karena halaman itu yang jadi acuan. Sebelumnya ada beberapa beda yang
+    // bikin angkanya tidak sama:
+    //   1. daftar part di tabel Shift dulu cuma dari plan; sekarang ikut
+    //      memasukkan part yang ADA AKTUALNYA tapi tidak direncanakan
+    //   2. pemisah ribuan dulu pakai id-ID (1.234), sekarang en-US (1,234)
+    //   3. beberapa total yang nilainya 0 dulu tampil kosong, sekarang "0"
+    //   4. perbandingan shift dulu longgar (==), sekarang ketat (===)
+    // fmtNum bawaan dashboard tidak dipakai di sini karena dibatasi 1 desimal,
+    // sedangkan plan-produksi membulatkan ke bilangan bulat.
+    planFmt(n) {
+      if (n === null || n === undefined || Number.isNaN(Number(n))) return "-";
+      return Number(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
     },
 
     get planPartList() {
-      return [...new Set(this.planRows.map(r => r.part_number))].sort();
+      return [...new Set(this.planRows.map((r) => r.part_number))].sort();
     },
     planCell(part, mesin) {
-      const sum = this.planRows.filter(r => r.part_number === part && r.mesin === mesin)
-        .reduce((a,r) => a + (Number(r.qty_rencana)||0), 0);
-      return sum > 0 ? sum.toLocaleString('id-ID') : '';
+      const sum = this.planRows
+        .filter((r) => r.part_number === part && r.mesin === mesin)
+        .reduce((a, r) => a + (Number(r.qty_rencana) || 0), 0);
+      return sum > 0 ? this.planFmt(sum) : "";
     },
     planRowTotal(part) {
-      const sum = this.planRows.filter(r => r.part_number === part).reduce((a,r) => a+(Number(r.qty_rencana)||0),0);
-      return sum > 0 ? sum.toLocaleString('id-ID') : '0';
+      const sum = this.planRows.filter((r) => r.part_number === part).reduce((a, r) => a + (Number(r.qty_rencana) || 0), 0);
+      return this.planFmt(sum);
     },
     planColTotal(mesin) {
-      const sum = this.planRows.filter(r => r.mesin === mesin).reduce((a,r) => a+(Number(r.qty_rencana)||0),0);
-      return sum > 0 ? sum.toLocaleString('id-ID') : '';
+      const sum = this.planRows.filter((r) => r.mesin === mesin).reduce((a, r) => a + (Number(r.qty_rencana) || 0), 0);
+      return this.planFmt(sum);
     },
     planBacklog(part) {
-      const r = this.planBacklogRows.find(b => b.part_number === part);
-      return r && r.backlog > 0 ? r.backlog.toLocaleString('id-ID') : '';
+      const row = this.planBacklogRows.find((b) => b.part_number === part);
+      return row && row.backlog > 0 ? this.planFmt(row.backlog) : "";
     },
     planBacklogTotal() {
-      const sum = this.planBacklogRows.reduce((a,r) => a+(Number(r.backlog)||0),0);
-      return sum > 0 ? sum.toLocaleString('id-ID') : '';
+      const sum = this.planBacklogRows.reduce((a, r) => a + (Number(r.backlog) || 0), 0);
+      return sum > 0 ? this.planFmt(sum) : "0";
     },
     planGrandTotal() {
-      const sum = this.planRows.reduce((a,r) => a+(Number(r.qty_rencana)||0),0);
-      return sum.toLocaleString('id-ID');
+      const sum = this.planRows.reduce((a, r) => a + (Number(r.qty_rencana) || 0), 0);
+      return this.planFmt(sum);
     },
+
+    // ---------- tabel Shift 1 / Shift 2 ----------
     planShiftParts(shift) {
-      return [...new Set(this.planRows.filter(r => r.shift == shift).map(r => r.part_number))].sort();
+      const fromPlan = this.planRows.filter((r) => r.shift === shift).map((r) => r.part_number);
+      const fromAct = this.planActualRows.filter((r) => r.shift === shift).map((r) => r.part_number);
+      return [...new Set([...fromPlan, ...fromAct])].sort();
     },
     planShiftCell(part, mesin, shift) {
-      const r = this.planRows.find(r => r.part_number===part && r.mesin===mesin && r.shift==shift);
-      return r && r.qty_rencana > 0 ? Number(r.qty_rencana).toLocaleString('id-ID') : '';
+      const row = this.planRows.find((r) => r.part_number === part && r.mesin === mesin && r.shift === shift);
+      return row && row.qty_rencana > 0 ? this.planFmt(row.qty_rencana) : "";
     },
     planActCell(part, mesin, shift) {
-      const r = this.planActualRows.find(r => r.part_number===part && r.mesin===mesin && r.shift==shift);
-      return r && r.qty_aktual > 0 ? Number(r.qty_aktual).toLocaleString('id-ID') : '';
+      const row = this.planActualRows.find((r) => r.part_number === part && r.mesin === mesin && r.shift === shift);
+      return row && row.qty_aktual > 0 ? this.planFmt(row.qty_aktual) : "";
+    },
+    planShiftTotals(part, shift) {
+      const plan = this.planRows.filter((r) => r.part_number === part && r.shift === shift).reduce((a, r) => a + (Number(r.qty_rencana) || 0), 0);
+      const act = this.planActualRows.filter((r) => r.part_number === part && r.shift === shift).reduce((a, r) => a + (Number(r.qty_aktual) || 0), 0);
+      return { plan, act };
     },
     planBalance(part, shift) {
-      const plan = this.planRows.filter(r => r.part_number===part && r.shift==shift).reduce((a,r)=>a+(Number(r.qty_rencana)||0),0);
-      const act  = this.planActualRows.filter(r => r.part_number===part && r.shift==shift).reduce((a,r)=>a+(Number(r.qty_aktual)||0),0);
-      return (act - plan).toLocaleString('id-ID');
+      const { plan, act } = this.planShiftTotals(part, shift);
+      return this.planFmt(act - plan);
     },
     planBalanceClass(part, shift) {
-      const plan = this.planRows.filter(r => r.part_number===part && r.shift==shift).reduce((a,r)=>a+(Number(r.qty_rencana)||0),0);
-      const act  = this.planActualRows.filter(r => r.part_number===part && r.shift==shift).reduce((a,r)=>a+(Number(r.qty_aktual)||0),0);
-      if (plan===0 && act===0) return '';
-      return act >= plan ? 'balance-ok' : 'balance-bad';
+      const { plan, act } = this.planShiftTotals(part, shift);
+      if (plan === 0 && act === 0) return "";
+      return act >= plan ? "balance-ok" : "balance-bad";
     },
 
     logout,

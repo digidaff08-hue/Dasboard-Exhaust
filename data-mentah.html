@@ -12,7 +12,8 @@
 <link rel="stylesheet" href="assets/style.css">
 <script>
   (function () {
-    var t = localStorage.getItem("theme_v1") || "light";
+    var t = "light";   // mode gelap dinonaktifkan -- tombolnya sudah dihapus
+    try { localStorage.removeItem("theme_v1"); } catch (e) {}
     document.documentElement.setAttribute("data-theme", t);
   })();
 </script>
@@ -643,7 +644,6 @@ input[type="month"]:focus {
     <nav class="sidebar-nav" @click="mobileNavOpen = false">
       <a href="dashboard-exhaust.html" class="sidebar-link" title="Dashboard Exhaust"><span>📊</span><span x-show="!sidebarCollapsed">Dashboard Exhaust</span></a>
       <a href="index.html" class="sidebar-link" title="Dashboard" x-show="isAdmin()"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a>
-      <a href="plan-produksi.html" class="sidebar-link" title="Plan Produksi" x-show="isAdmin()"><span>📅</span><span x-show="!sidebarCollapsed">Plan Produksi</span></a>
       <a href="input-produksi.html" class="sidebar-link" title="Input Produksi"><span>⚙️</span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
       <a href="input-attendance.html" class="sidebar-link" title="Attendance" x-show="isLeaderOrAdmin()"><span>👥</span><span x-show="!sidebarCollapsed">Attendance</span></a>
       <a href="data-mentah.html" class="sidebar-link active" title="Data Mentah" x-show="isAdmin()"><span>🗃️</span><span x-show="!sidebarCollapsed">Data Mentah</span></a>
@@ -1380,6 +1380,7 @@ function dataMentah() {
       const { data:{ session } } = await supabaseClient.auth.getSession();
       if (!session) { window.location.href='login.html'; return; }
       this.session = session;
+      if (!await requireStaff(session)) return;
       const { data:prof } = await supabaseClient.from('profiles').select('*').eq('id',session.user.id).maybeSingle();
       this.profile = prof;
       this.ready = true;

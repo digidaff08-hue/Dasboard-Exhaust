@@ -12,7 +12,8 @@
 <link rel="stylesheet" href="assets/style.css">
 <script>
   (function () {
-    var t = localStorage.getItem("theme_v1") || "light";
+    var t = "light";   // mode gelap dinonaktifkan -- tombolnya sudah dihapus
+    try { localStorage.removeItem("theme_v1"); } catch (e) {}
     document.documentElement.setAttribute("data-theme", t);
   })();
 </script>
@@ -37,7 +38,6 @@
     <nav class="sidebar-nav" @click="mobileNavOpen = false">
       <a href="dashboard-exhaust.html" class="sidebar-link" title="Dashboard Exhaust"><span>📊</span><span x-show="!sidebarCollapsed">Dashboard Exhaust</span></a>
       <a href="index.html" class="sidebar-link" title="Dashboard" x-show="isAdmin()"><span>🏠</span><span x-show="!sidebarCollapsed">Dashboard</span></a>
-      <a href="plan-produksi.html" class="sidebar-link active" title="Plan Produksi" x-show="isAdmin()"><span>📅</span><span x-show="!sidebarCollapsed">Plan Produksi</span></a>
       <a href="input-produksi.html" class="sidebar-link" title="Input Produksi"><span>⚙️</span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
       <a href="input-attendance.html" class="sidebar-link" title="Attendance" x-show="isLeaderOrAdmin()"><span>👥</span><span x-show="!sidebarCollapsed">Attendance</span></a>
             <a href="data-mentah.html" class="sidebar-link" title="Data Mentah" x-show="isAdmin()"><span>🗃️</span><span x-show="!sidebarCollapsed">Data Mentah</span></a>
@@ -59,9 +59,6 @@
       </div>
       <div class="dash-controls">
         <input type="date" x-model="tanggal" @change="fetchAll()">
-        <button class="theme-toggle" @click="toggleTheme()" :title="theme === 'dark' ? 'Ke mode terang' : 'Ke mode gelap'">
-          <span x-text="theme === 'dark' ? '☀️' : '🌙'"></span>
-        </button>
       </div>
     </div>
 
@@ -321,6 +318,7 @@ function planProduksi() {
 
     async init() {
       this.session = await requireAuth();
+      if (!await requireStaff(this.session)) return;
       if (!this.session) return;
       const { data } = await supabaseClient.from("profiles").select("*").eq("id", this.session.user.id).maybeSingle();
       this.profile = data;

@@ -92,7 +92,7 @@
       <img src="assets/icons/logo-futaba.png" alt="PT Futaba Industrial Indonesia">
     </div>
 
-    <h1>Control Laporan Harian</h1>
+    <h1 x-text="judul"></h1>
     <p class="sub" x-show="mode === 'signup'">Daftar pakai email asli + NIK. Login berikutnya cukup pakai NIK.</p>
     <p class="sub" x-show="mode === 'reset'">Masukkan NIK, kami kirim link ganti password ke email terdaftar.</p>
 
@@ -209,9 +209,42 @@ function loginPage() {
     showPassword: false,
     errorMsg: "", infoMsg: "", busy: false,
 
+    // Judul halaman login. Di halaman ini belum ada yang masuk, jadi
+    // role-nya belum bisa dibaca dari server -- yang dipakai adalah
+    // ingatan dari login TERAKHIR di perangkat ini (localStorage).
+    //   belum pernah login / riwayat dibersihkan -> "Control Laporan Harian"
+    //   terakhir yang masuk operator                -> "Control Attendance"
+    // Ini murni tulisan; hak akses tetap ditentukan role di database.
+    judul: localStorage.getItem("judulLogin") === "operator"
+      ? "Control Attendance" : "Control Laporan Harian",
+
+    // Dipanggil setelah login berhasil: simpan ingatan judul untuk
+    // pembukaan berikutnya, lalu tentukan halaman tujuannya.
+    async tujuanSetelahLogin(userId) {
+      let role = "", jabatan = "";
+      try {
+        const { data } = await supabaseClient
+          .from("profiles").select("role,jabatan").eq("id", userId).maybeSingle();
+        role = ((data && data.role) || "").toLowerCase();
+        jabatan = ((data && data.jabatan) || "").toLowerCase();
+      } catch (e) { /* gagal baca profil -> perlakukan seperti operator */ }
+      const admin = role === "admin" || jabatan === "admin";
+      const leader = role === "leader" || jabatan === "leader";
+      const staff = admin || leader;
+      localStorage.setItem("judulLogin", staff ? "staff" : "operator");
+      // Halaman pertama disesuaikan pekerjaan masing-masing:
+      //   admin    -> Dashboard Exhaust (melihat gambaran menyeluruh)
+      //   leader   -> Input Produksi (yang paling sering dikerjakan)
+      //   operator -> Attendance (satu-satunya halaman yang boleh dibuka;
+      //               kalau lewat Dashboard dulu dia cuma akan dipantulkan)
+      if (admin) return "dashboard-exhaust.html";
+      if (leader) return "input-produksi.html";
+      return "input-attendance.html";
+    },
+
     async checkExisting() {
       const { data: { session } } = await supabaseClient.auth.getSession();
-      if (session) window.location.href = "dashboard-exhaust.html";
+      if (session) window.location.href = await this.tujuanSetelahLogin(session.user.id);
     },
 
     goReset() {
@@ -228,20 +261,36 @@ function loginPage() {
         this.errorMsg = "Login gagal: NIK atau password salah.";
         return;
       }
-      const { error } = await supabaseClient.auth.signInWithPassword({
+      const { data: masuk, error } = await supabaseClient.auth.signInWithPassword({
         email: foundEmail, password: this.password
       });
-      this.busy = false;
-      if (error) { this.errorMsg = "Login gagal: NIK atau password salah."; return; }
-      window.location.href = "dashboard-exhaust.html";
+      if (error) { this.busy = false; this.errorMsg = "Login gagal: NIK atau password salah."; return; }
+      window.location.href = await this.tujuanSetelahLogin(masuk.user.id);
     },
 
     async signup() {
       this.busy = true; this.errorMsg = "";
+      const nik = this.nik.trim();
+      // Dicek dulu sebelum menembak signup, supaya pesannya jelas dan
+      // tidak berupa error mentah dari database. Penjagaan SEBENARNYA
+      // ada di trigger handle_new_user() -- lihat
+      // migration_batasi_pendaftaran.sql. Pengecekan di sini cuma biar
+      // ramah dilihat; tidak bisa dipakai melewati penjagaan itu.
+      const { data: terdaftar, error: cekErr } = await supabaseClient.rpc("nik_terdaftar", { p_nik: nik });
+      if (cekErr) {
+        this.busy = false;
+        this.errorMsg = "Gagal memeriksa NIK: " + cekErr.message;
+        return;
+      }
+      if (!terdaftar) {
+        this.busy = false;
+        this.errorMsg = "NIK " + nik + " tidak terdaftar sebagai karyawan. Hubungi admin.";
+        return;
+      }
       const { error } = await supabaseClient.auth.signUp({
         email: this.email,
         password: this.password,
-        options: { data: { full_name: this.fullName, nik: this.nik.trim() } }
+        options: { data: { full_name: this.fullName, nik } }
       });
       this.busy = false;
       if (error) { this.errorMsg = "Pendaftaran gagal: " + error.message; return; }

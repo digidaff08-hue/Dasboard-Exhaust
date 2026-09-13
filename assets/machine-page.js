@@ -397,6 +397,15 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     repairPartLocked: false, repairPartHint: "",
     editingRepairId: null,
     // Mode admin buat naruh titik baru di Master Data
+    // repairShowAreas: tombol "Tampilkan Area" -- kalau operator bingung
+    // areanya di mana, semua area ditampilkan samar sekaligus.
+    // repairAreaSize: ukuran area baru, sebagai pecahan dari ukuran part.
+    // repairDraftPoints: tap-tap jalur las yang belum disimpan
+    // repairAreaSize: tebal jalur, sebagai pecahan dari ukuran part
+    // repairTraceMode: "penuh" = 1 tap, jalur ditelusuri sampai ujung
+    //                  "sebagian" = 2 tap, cuma di antara pangkal & ujung
+    repairTraceMode: "penuh", repairPartialStart: null,
+    repairShowAreas: false, repairAreaSize: 0.02, repairDraftPoints: [],
     repairEditMode: false, repairDrawShape: "freehand", repairSnapMode: false, repairNewViewLabel: "", repairNewViewFile: null, repairViewUploading: false,
     repairNewViewColor: "#9aa4ad",
     // Point yang lagi dipilih buat di-edit (Geser/Ukuran/Edit Titik), dan
@@ -427,6 +436,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
 
     async init() {
       this.session = await requireAuth();
+      if (!await requireStaff(this.session)) return;
       if (!this.session) return;
       window.addEventListener("online", () => { this.isOnline = true; this.syncNow(); });
       window.addEventListener("offline", () => { this.isOnline = false; });
@@ -3436,6 +3446,427 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // Mode Lihat/Edit yang aktif waktu garis ini terakhir di-render).
       r.weldLineMeshes.set(pt.id, { visible: visibleMesh, hit: hitMesh, baseOpacity });
     },
+    // ================= AREA LAS (jalur sentuh) =================
+    // Area las bentuknya MEMANJANG mengikuti jalur lasnya (lihat checksheet:
+    // garis merah melengkung), bukan bulatan. Tapi membuatnya TIDAK dengan
+    // menggambar sambil menahan jari -- itu yang dulu bikin susah.
+    //
+    // Caranya sekarang: TAP beberapa titik menyusuri jalur las, lalu tekan
+    // Selesai. Jalurnya menyambung sendiri mengikuti titik-titik itu dan
+    // dibulatkan halus. Tiap tap berdiri sendiri, jadi gampang dan bisa
+    // dibatalkan satu per satu.
+    //
+    // Disimpan di kolom `path` yang sudah ada (bertipe JSON):
+    //   { kind: "area", points: [{x,y,z}, ...], thickness: T }
+    // Jadi tidak perlu tabel atau kolom baru, dan riwayat repair tetap
+    // nyambung lewat point_id seperti biasa.
+    isRepairArea(pt) {
+      return !!(pt && pt.path && !Array.isArray(pt.path) && pt.path.kind === "area");
+    },
+    repairAreaPoints(pt) {
+      const arr = pt && pt.path && Array.isArray(pt.path.points) ? pt.path.points : [];
+      return arr;
+    },
+    repairAreaThickness(pt, maxDim) {
+      const t = pt && pt.path ? Number(pt.path.thickness) : 0;
+      return Number.isFinite(t) && t > 0 ? t : (maxDim || 1) * 0.02;
+    },
+
+    // ---- Peta lipatan model (dihitung sekali, lalu disimpan) ----
+    // Di tempat pengelasan, dua permukaan bertemu membentuk LIPATAN tajam.
+    // Lipatan itu bisa dihitung dari geometri model. Peta ini dipakai supaya
+    // admin cukup TAP SEKALI di jalur las -- sistem yang menelusuri sendiri
+    // bentuk jalurnya sampai habis, melengkung mengikuti part.
+    //
+    // Dihitung sekali per model lalu disimpan di repairThreeState, karena
+    // untuk part 36 ribu segitiga prosesnya makan waktu sedetik-dua detik.
+    buildRepairCreaseGraph(THREE, r) {
+      if (r.creaseGraph) return r.creaseGraph;
+      const kunci = (x, y, z) => x.toFixed(3) + "|" + y.toFixed(3) + "|" + z.toFixed(3);
+      const titik = [];            // daftar posisi unik
+      const indeksTitik = new Map();
+      const sisiKeMuka = new Map();  // "a-b" -> [normal muka 1, normal muka 2]
+      const v = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+
+      r.mesh.traverse((o) => {
+        if (!o.isMesh || !o.geometry) return;
+        const geo = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry;
+        const pos = geo.attributes.position;
+        for (let i = 0; i < pos.count; i += 3) {
+          const id = [];
+          for (let k = 0; k < 3; k++) {
+            v[k].fromBufferAttribute(pos, i + k);
+            o.updateMatrixWorld();
+            const kk = kunci(v[k].x, v[k].y, v[k].z);
+            let idx = indeksTitik.get(kk);
+            if (idx === undefined) { idx = titik.length; indeksTitik.set(kk, idx); titik.push(v[k].clone()); }
+            id.push(idx);
+          }
+          const n = new THREE.Vector3().subVectors(v[1], v[0]).cross(new THREE.Vector3().subVectors(v[2], v[0]));
+          if (n.lengthSq() < 1e-12) continue;
+          n.normalize();
+          for (const [a, b] of [[id[0], id[1]], [id[1], id[2]], [id[2], id[0]]]) {
+            const kk = a < b ? a + "-" + b : b + "-" + a;
+            const arr = sisiKeMuka.get(kk);
+            if (arr) { if (arr.length < 2) arr.push(n); }
+            else sisiKeMuka.set(kk, [n]);
+          }
+        }
+      });
+
+      // Sisi dianggap LIPATAN kalau sudut antar dua mukanya > 40 derajat
+      const batas = Math.cos(40 * Math.PI / 180);
+      const tetangga = new Map();   // indeks titik -> [indeks titik tetangga]
+      sisiKeMuka.forEach((muka, kk) => {
+        if (muka.length !== 2) return;
+        if (muka[0].dot(muka[1]) >= batas) return;
+        const [a, b] = kk.split("-").map(Number);
+        if (!tetangga.has(a)) tetangga.set(a, []);
+        if (!tetangga.has(b)) tetangga.set(b, []);
+        tetangga.get(a).push(b);
+        tetangga.get(b).push(a);
+      });
+      r.creaseGraph = { titik, tetangga };
+      return r.creaseGraph;
+    },
+
+    // Telusuri jalur las mulai dari titik yang di-tap.
+    // Dari titik lipatan terdekat, berjalan ke DUA arah sambil selalu
+    // memilih lanjutan yang paling lurus -- supaya di persimpangan tidak
+    // membelok ke lipatan lain yang kebetulan bersinggungan.
+    traceWeldFrom(THREE, r, lokal) {
+      const g = this.buildRepairCreaseGraph(THREE, r);
+      if (!g.titik.length) return null;
+      // titik lipatan terdekat dengan tap
+      let awal = -1, jarakTerdekat = Infinity;
+      g.tetangga.forEach((_, idx) => {
+        const d = g.titik[idx].distanceToSquared(lokal);
+        if (d < jarakTerdekat) { jarakTerdekat = d; awal = idx; }
+      });
+      if (awal < 0) return null;
+      const toleransi = (r.maxDim || 1) * 0.06;
+      if (Math.sqrt(jarakTerdekat) > toleransi) return null;   // tap jauh dari lipatan mana pun
+
+      const maksLangkah = 400;
+      const jalan = (dariIdx, keIdx) => {
+        const hasil = [];
+        const dikunjungi = new Set([dariIdx]);
+        let sekarang = keIdx, sebelum = dariIdx;
+        for (let i = 0; i < maksLangkah; i++) {
+          if (dikunjungi.has(sekarang)) break;
+          dikunjungi.add(sekarang);
+          hasil.push(g.titik[sekarang]);
+          const opsi = (g.tetangga.get(sekarang) || []).filter((x) => !dikunjungi.has(x));
+          if (!opsi.length) break;
+          const arah = new THREE.Vector3().subVectors(g.titik[sekarang], g.titik[sebelum]).normalize();
+          let terbaik = null, skorTerbaik = -2;
+          for (const o of opsi) {
+            const a2 = new THREE.Vector3().subVectors(g.titik[o], g.titik[sekarang]).normalize();
+            const skor = arah.dot(a2);
+            if (skor > skorTerbaik) { skorTerbaik = skor; terbaik = o; }
+          }
+          if (terbaik === null || skorTerbaik < 0.2) break;   // belokan terlalu tajam -> berhenti
+          sebelum = sekarang; sekarang = terbaik;
+        }
+        return hasil;
+      };
+
+      const cabang = g.tetangga.get(awal) || [];
+      if (!cabang.length) return null;
+      const arah1 = jalan(awal, cabang[0]);
+      const arah2 = cabang.length > 1 ? jalan(awal, cabang[1]) : [];
+      const jalur = [...arah2.slice().reverse(), g.titik[awal], ...arah1];
+      if (jalur.length < 2) return null;
+
+      // Rapikan: ambil titik tiap jarak tertentu supaya tidak terlalu rapat
+      const minJarak = (r.maxDim || 1) * 0.012;
+      const rapi = [jalur[0]];
+      for (const t of jalur) {
+        if (t.distanceTo(rapi[rapi.length - 1]) >= minJarak) rapi.push(t);
+      }
+      if (rapi[rapi.length - 1] !== jalur[jalur.length - 1]) rapi.push(jalur[jalur.length - 1]);
+      return rapi.length >= 2 ? rapi : null;
+    },
+
+    // Cari titik lipatan terdekat dari sebuah posisi. -1 kalau terlalu jauh.
+    titikLipatanTerdekat(g, lokal, toleransi) {
+      let idx = -1, terdekat = Infinity;
+      g.tetangga.forEach((_, i) => {
+        const d = g.titik[i].distanceToSquared(lokal);
+        if (d < terdekat) { terdekat = d; idx = i; }
+      });
+      if (idx < 0) return -1;
+      return Math.sqrt(terdekat) <= toleransi ? idx : -1;
+    },
+
+    // Telusuri jalur las HANYA di antara dua titik yang di-tap.
+    // Dipakai kalau lasnya cuma diambil sebagian, bukan sepanjang jalur.
+    // Memakai Dijkstra di peta lipatan: hasilnya jalur terpendek yang
+    // MENYUSURI lipatan, bukan garis lurus menembus part.
+    traceWeldBetween(THREE, r, awalLokal, akhirLokal) {
+      const g = this.buildRepairCreaseGraph(THREE, r);
+      if (!g.titik.length) return null;
+      const tol = (r.maxDim || 1) * 0.06;
+      const a = this.titikLipatanTerdekat(g, awalLokal, tol);
+      const b = this.titikLipatanTerdekat(g, akhirLokal, tol);
+      if (a < 0 || b < 0 || a === b) return null;
+
+      const jarak = new Map([[a, 0]]);
+      const dari = new Map();
+      const antre = [[0, a]];
+      let ketemu = false;
+      while (antre.length) {
+        antre.sort((x, y) => x[0] - y[0]);
+        const [d, kini] = antre.shift();
+        if (kini === b) { ketemu = true; break; }
+        if (d > (jarak.get(kini) ?? Infinity)) continue;
+        for (const t of (g.tetangga.get(kini) || [])) {
+          const nd = d + g.titik[kini].distanceTo(g.titik[t]);
+          if (nd < (jarak.get(t) ?? Infinity)) {
+            jarak.set(t, nd); dari.set(t, kini); antre.push([nd, t]);
+          }
+        }
+      }
+      if (!ketemu) return null;   // dua tap tidak tersambung lewat lipatan yang sama
+
+      const jalur = [];
+      for (let k = b; k !== undefined; k = dari.get(k)) {
+        jalur.push(g.titik[k]);
+        if (k === a) break;
+      }
+      jalur.reverse();
+      if (jalur.length < 2) return null;
+      const minJarak = (r.maxDim || 1) * 0.012;
+      const rapi = [jalur[0]];
+      for (const t of jalur) if (t.distanceTo(rapi[rapi.length - 1]) >= minJarak) rapi.push(t);
+      if (rapi[rapi.length - 1] !== jalur[jalur.length - 1]) rapi.push(jalur[jalur.length - 1]);
+      return rapi;
+    },
+
+    // Simpan satu area dari daftar titik jalur
+    async simpanAreaDariJalur(titikJalur, normal, pesan) {
+      const r = repairThreeState; if (!r) return;
+      const label = prompt("Nama area las ini (mis. Jig 1 - Point 2):", "") || null;
+      const tengah = titikJalur[Math.floor(titikJalur.length / 2)];
+      const tebal = (r.maxDim || 1) * (this.repairAreaSize || 0.02);
+      const payload = {
+        view_id: this.repairActiveViewId,
+        x: tengah.x, y: tengah.y, z: tengah.z,
+        label,
+        path: { kind: "area", points: titikJalur, thickness: tebal },
+      };
+      if (normal) { payload.nx = normal.x; payload.ny = normal.y; payload.nz = normal.z; }
+      const { data, error } = await supabaseClient.from("repair_points").insert(payload).select().single();
+      if (error) { this.flash("Gagal simpan area: " + error.message, true); return; }
+      this.repairPoints.push(data);
+      this.rebuildRepairMarkers();
+      this.flash(pesan);
+    },
+
+    // ---- Admin: SEKALI TAP di jalur las -> area dibuat otomatis ----
+    async tapWeldArea(surfaceHit) {
+      const r = repairThreeState; if (!r || !this.repairActiveViewId) return;
+      const THREE = r.THREE;
+
+      // ---- Mode SEBAGIAN: tap pertama = pangkal, tap kedua = ujung ----
+      if (this.repairTraceMode === "sebagian") {
+        if (!this.repairPartialStart) {
+          this.repairPartialStart = surfaceHit.local.clone();
+          // titik pangkal ditampilkan sebagai bola biru (pratinjau)
+          this.repairDraftPoints = [{ x: surfaceHit.local.x, y: surfaceHit.local.y, z: surfaceHit.local.z }];
+          this.rebuildRepairMarkers();
+          this.flash("Pangkal ditandai. Sekarang tap titik ujungnya.");
+          return;
+        }
+        const awal = this.repairPartialStart;
+        this.repairPartialStart = null;
+        this.repairDraftPoints = [];
+        let jalur = null;
+        try { jalur = this.traceWeldBetween(THREE, r, awal, surfaceHit.local); } catch (e) { jalur = null; }
+        if (!jalur) {
+          this.rebuildRepairMarkers();
+          this.flash("Dua titik itu tidak tersambung lewat jalur las yang sama. Coba tap lebih dekat ke lasnya.", true);
+          return;
+        }
+        await this.simpanAreaDariJalur(
+          jalur.map((t) => ({ x: t.x, y: t.y, z: t.z })),
+          surfaceHit.normal,
+          "Jalur sebagian tersimpan (" + jalur.length + " titik) ✓"
+        );
+        return;
+      }
+
+      this.flash("Menelusuri jalur las...");
+      let jalur = null;
+      try { jalur = this.traceWeldFrom(THREE, r, surfaceHit.local); } catch (e) { jalur = null; }
+
+      let titikJalur;
+      if (jalur) {
+        titikJalur = jalur.map((t) => ({ x: t.x, y: t.y, z: t.z }));
+      } else {
+        // Tidak ketemu lipatan di dekat situ -> jadikan titik tunggal saja,
+        // biar tap-nya tetap menghasilkan sesuatu dan tidak terasa gagal.
+        titikJalur = [{ x: surfaceHit.local.x, y: surfaceHit.local.y, z: surfaceHit.local.z }];
+      }
+      const label = prompt("Nama area las ini (mis. Jig 1 - Point 2):", "") || null;
+      const tengah = titikJalur[Math.floor(titikJalur.length / 2)];
+      const tebal = (r.maxDim || 1) * (this.repairAreaSize || 0.02);
+      const payload = {
+        view_id: this.repairActiveViewId,
+        x: tengah.x, y: tengah.y, z: tengah.z,
+        label,
+        path: { kind: "area", points: titikJalur, thickness: tebal },
+      };
+      if (surfaceHit.normal) {
+        payload.nx = surfaceHit.normal.x; payload.ny = surfaceHit.normal.y; payload.nz = surfaceHit.normal.z;
+      }
+      const { data, error } = await supabaseClient.from("repair_points").insert(payload).select().single();
+      if (error) { this.flash("Gagal simpan area: " + error.message, true); return; }
+      this.repairPoints.push(data);
+      this.rebuildRepairMarkers();
+      this.flash(jalur ? ("Jalur las ketemu (" + titikJalur.length + " titik) ✓") : "Lipatan tidak ketemu di situ — dibuat titik tunggal.");
+    },
+    async undoAreaTerakhir() {
+      const area = this.repairAreaList();
+      if (!area.length) return;
+      const last = area[area.length - 1];
+      if (!confirm('Hapus area "' + (last.label || "(tanpa nama)") + '"?')) return;
+      const { error } = await supabaseClient.from("repair_points").delete().eq("id", last.id);
+      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
+      this.repairPoints = this.repairPoints.filter((p) => p.id !== last.id);
+      this.rebuildRepairMarkers();
+      this.flash("Area terakhir dihapus.");
+    },
+
+    // ---- Admin: kumpulkan tap jadi satu jalur ----
+    // repairDraftPoints menampung tap-tap yang belum disimpan.
+    tapRepairArea(surfaceHit) {
+      const r = repairThreeState; if (!r) return;
+      this.repairDraftPoints.push({
+        x: surfaceHit.local.x, y: surfaceHit.local.y, z: surfaceHit.local.z,
+        nx: surfaceHit.normal ? surfaceHit.normal.x : null,
+        ny: surfaceHit.normal ? surfaceHit.normal.y : null,
+        nz: surfaceHit.normal ? surfaceHit.normal.z : null,
+      });
+      this.rebuildRepairMarkers();
+    },
+    undoRepairTap() {
+      this.repairDraftPoints.pop();
+      this.rebuildRepairMarkers();
+    },
+    batalRepairArea() {
+      this.repairDraftPoints = [];
+      this.rebuildRepairMarkers();
+    },
+    async simpanRepairArea() {
+      if (!this.repairActiveViewId) return;
+      const titik = this.repairDraftPoints;
+      if (!titik.length) { this.flash("Tap dulu di permukaan model.", true); return; }
+      const r = repairThreeState; if (!r) return;
+      const label = prompt("Nama area las ini (mis. Jig 1 - Point 2):", "") || null;
+      const tengah = titik[Math.floor(titik.length / 2)];
+      const tebal = (r.maxDim || 1) * (this.repairAreaSize || 0.02);
+      const payload = {
+        view_id: this.repairActiveViewId,
+        x: tengah.x, y: tengah.y, z: tengah.z,
+        label,
+        path: { kind: "area", points: titik.map((t) => ({ x: t.x, y: t.y, z: t.z })), thickness: tebal },
+      };
+      if (tengah.nx != null) { payload.nx = tengah.nx; payload.ny = tengah.ny; payload.nz = tengah.nz; }
+      const { data, error } = await supabaseClient.from("repair_points").insert(payload).select().single();
+      if (error) { this.flash("Gagal simpan area: " + error.message, true); return; }
+      this.repairPoints.push(data);
+      this.repairDraftPoints = [];
+      this.rebuildRepairMarkers();
+      this.flash("Area las disimpan.");
+    },
+    // Ubah tebal area yang sedang dipilih
+    async setRepairAreaTebal(pointId, faktor) {
+      const pt = this.repairPoints.find((p) => p.id === pointId);
+      if (!pt || !this.isRepairArea(pt)) return;
+      const r = repairThreeState;
+      const thickness = (r && r.maxDim ? r.maxDim : 1) * faktor;
+      const path = { ...pt.path, thickness };
+      const { error } = await supabaseClient.from("repair_points").update({ path }).eq("id", pointId);
+      if (error) { this.flash("Gagal ubah tebal: " + error.message, true); return; }
+      pt.path = path;
+      this.rebuildRepairMarkers();
+    },
+    toggleRepairEditModeArea() {
+      this.repairEditMode = !this.repairEditMode;
+      if (!this.repairEditMode) { this.repairDraftPoints = []; this.repairPartialStart = null; }
+      this.repairSelectedPointId = null;
+      this.rebuildRepairMarkers();
+    },
+    setRepairTraceMode(mode) {
+      this.repairTraceMode = mode;
+      this.repairPartialStart = null;
+      this.repairDraftPoints = [];
+      this.rebuildRepairMarkers();
+    },
+    toggleRepairShowAreas() {
+      this.repairShowAreas = !this.repairShowAreas;
+      this.rebuildRepairMarkers();
+    },
+
+    // Bangun bentuk 3D area: selang (tube) menyusuri titik-titik jalur las.
+    // Kalau cuma 1 tap -> bola kecil. Normalnya TEMBUS PANDANG (opacity 0)
+    // tapi tetap kena sentuhan, karena three.js tidak memakai opacity
+    // untuk raycast. Menyala saat disentuh atau saat "Tampilkan Area" aktif.
+    buildRepairAreaMesh(THREE, r, pt, maxDim) {
+      const titik = this.repairAreaPoints(pt);
+      const tebal = this.repairAreaThickness(pt, maxDim);
+      let geo;
+      if (titik.length >= 2) {
+        const kurva = new THREE.CatmullRomCurve3(titik.map((t) => new THREE.Vector3(t.x, t.y, t.z)));
+        const seg = Math.max(16, Math.min(120, titik.length * 12));
+        geo = new THREE.TubeGeometry(kurva, seg, tebal, 10, false);
+      } else {
+        const pusat = titik[0] || { x: pt.x, y: pt.y, z: pt.z };
+        geo = new THREE.SphereGeometry(tebal, 16, 12);
+        geo.translate(pusat.x, pusat.y, pusat.z);
+      }
+      const terpilih = this.repairEditMode && this.repairSelectedPointId === pt.id;
+      const mat = new THREE.MeshBasicMaterial({
+        color: terpilih ? 0x16A34A : 0xEF4444,
+        transparent: true,
+        opacity: terpilih ? 0.7 : (this.repairShowAreas ? 0.35 : 0),
+        depthWrite: false,
+      });
+      const obj = new THREE.Mesh(geo, mat);
+      obj.renderOrder = 999;
+      obj.userData.pointId = pt.id;
+      obj.userData.isArea = true;
+      r.mesh.add(obj);
+      r.markers.push(obj);
+    },
+
+    // Pratinjau jalur yang sedang dibuat (tap-tap belum disimpan) --
+    // SELALU terlihat, supaya admin tahu bentuk jalurnya sejauh ini.
+    buildRepairDraftMesh(THREE, r, maxDim) {
+      const titik = this.repairDraftPoints;
+      if (!titik.length) return;
+      const tebal = maxDim * (this.repairAreaSize || 0.02);
+      // bola kecil di tiap tap
+      titik.forEach((t) => {
+        const g = new THREE.SphereGeometry(tebal * 0.9, 12, 10);
+        const m = new THREE.MeshBasicMaterial({ color: 0x2563EB, transparent: true, opacity: 0.9, depthWrite: false });
+        const o = new THREE.Mesh(g, m);
+        o.position.set(t.x, t.y, t.z);
+        o.renderOrder = 1000;
+        r.mesh.add(o); r.markers.push(o);
+      });
+      // selang penyambungnya
+      if (titik.length >= 2) {
+        const kurva = new THREE.CatmullRomCurve3(titik.map((t) => new THREE.Vector3(t.x, t.y, t.z)));
+        const g = new THREE.TubeGeometry(kurva, Math.max(16, titik.length * 12), tebal, 10, false);
+        const m = new THREE.MeshBasicMaterial({ color: 0x2563EB, transparent: true, opacity: 0.5, depthWrite: false });
+        const o = new THREE.Mesh(g, m);
+        o.renderOrder = 1000;
+        r.mesh.add(o); r.markers.push(o);
+      }
+    },
+
     rebuildRepairMarkers() {
       const r = repairThreeState; if (!r) return;
       const THREE = r.THREE;
@@ -3466,6 +3897,15 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       r.centerLocal = centerLocal;
 
       this.repairPoints.forEach((pt) => {
+        // --- BENTUK BARU: area sentuh (cakram tembus pandang) ---
+        if (this.isRepairArea(pt)) {
+          this.buildRepairAreaMesh(THREE, r, pt, maxDim);
+          return;
+        }
+        // --- Point model LAMA (garis/lingkaran/kotak/bola): TIDAK digambar.
+        //     Datanya tetap ada di database, cuma disembunyikan dari layar. ---
+        return;
+        // eslint-disable-next-line no-unreachable
         const norm = this.normalizeRepairPath(pt.path);
         const minPts = norm && norm.closed ? 3 : 2;
         if (norm && norm.points.length >= minPts) {
@@ -3494,6 +3934,9 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         r.mesh.add(sprite); // anak dari mesh -> otomatis ikut transform centering
         r.markers.push(sprite);
       });
+
+      // Pratinjau jalur yang sedang di-tap (belum disimpan)
+      if (this.repairEditMode) this.buildRepairDraftMesh(THREE, r, maxDim);
 
       // ---- Handle "Edit Titik" (bola kecil biru) -- cuma muncul buat Point
       // yang lagi DIPILIH & sub-mode "reshape" aktif (lihat setRepairActionMode).
@@ -3684,20 +4127,15 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
             return;
           }
         }
-        // Kena Point yang SUDAH ADA (garis/bola) -> jangan mulai gambar,
-        // biar onUp yang proses (pilih Point / buka popup, lihat handleRepair3DClick).
+        // Kena area yang SUDAH ADA -> biar onUp yang proses (pilih area).
         if (this.raycastRepairMarkers(ev, container)) return;
-        // Kena permukaan model KOSONG -> mulai gambar Point baru, bentuknya
-        // ngikut tombol "Bentuk Point" yang lagi aktif (Bebas/Lingkaran/Kotak).
+        // Kena permukaan model KOSONG -> taruh area baru di titik itu.
+        // SEKALI TAP, tidak perlu diseret sama sekali.
         const surfaceHit = this.raycastRepairSurface(ev, container);
         if (!surfaceHit) return;
-        // Opsi B/C: kalau mulai seret dari dekat ujung garis yang sudah ada
-        // (mode Bebas saja) -> extend/merge, bukan Point baru.
-        if (this.repairDrawShape === "freehand" && this.repairSnapMode) {
-          const snap = this.findNearestEndpoint(surfaceHit.local);
-          if (snap) { this.startExtendDraw(snap, surfaceHit, ev); return; }
-        }
-        this.startRepairDraw(this.repairDrawShape, surfaceHit, ev);
+        // Tiap tap menambah satu titik ke jalur yang sedang dibuat.
+        // Jalurnya baru tersimpan setelah tombol "Selesai" ditekan.
+        this.tapWeldArea(surfaceHit);
       };
       const onMove = (ev) => {
         this.handleRepair3DHover(ev, container);
@@ -3737,6 +4175,16 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
     setRepairHover(pointId) {
       const r = repairThreeState; if (!r) return;
+      // --- Area sentuh: menyala tipis saat kursor/jari mengenainya, lalu
+      //     redup lagi saat lepas. Inilah yang bikin operator tahu dia
+      //     sudah kena sasaran padahal areanya tidak digambar. ---
+      (r.markers || []).forEach((m) => {
+        if (!m.userData || !m.userData.isArea || !m.material) return;
+        const terpilih = this.repairEditMode && this.repairSelectedPointId === m.userData.pointId;
+        if (terpilih) return;   // yang sedang dipilih tetap hijau tegas
+        const kena = m.userData.pointId === pointId;
+        m.material.opacity = kena ? 0.6 : (this.repairShowAreas ? 0.35 : 0);
+      });
       // Point yang lagi DIPILIH (toolbar Geser/Ukuran/Edit Titik) selalu
       // tampil hijau tetap -- hover TIDAK menimpa warnanya, biar jelas
       // Point mana yang lagi diedit walau kursor lewat di atasnya.
