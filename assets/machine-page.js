@@ -3261,11 +3261,11 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const tick = () => {
         if (!repairThreeState || repairThreeState !== r) return; // sudah di-teardown
         if (!r.paused) {
-          // Jaring pengaman ekstra: paksa target selalu di titik (0,0,0)
-          // tiap frame, jadi part dijamin 100% tetap di tengah walau ada
-          // kejadian tak terduga yang menggeser target (mis. lib pihak
-          // ketiga lain ikut memodifikasi controls).
-          r.controls.target.set(0, 0, 0);
+          // CATATAN: dulu di sini ada r.controls.target.set(0,0,0) yang jalan
+          // tiap frame, untuk mengunci part di tengah. Baris itu DIHAPUS
+          // karena membatalkan zoom-ke-kursor: target yang baru digeser ke
+          // titik tunjukan langsung ditarik balik ke tengah 60x per detik.
+          // Penguncian tengah sekarang dilakukan lewat tombol "Tengahkan".
           r.controls.update();
           r.renderer.render(r.scene, r.camera);
         }
