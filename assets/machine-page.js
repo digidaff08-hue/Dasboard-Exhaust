@@ -3830,6 +3830,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.rebuildRepairMarkers();
     },
     toggleRepairEditModeArea() {
+      // Penjagaan di logika, bukan cuma menyembunyikan tombol.
+      if (!this.isAdmin()) return;
       this.repairEditMode = !this.repairEditMode;
       if (!this.repairEditMode) { this.repairDraftPoints = []; this.repairPartialStart = null; }
       this.repairSelectedPointId = null;
@@ -3864,6 +3866,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       await this.simpanAreaDariJalur(jalur, normal, "Jalur sambungan tersimpan (" + jalur.length + " titik) ✓");
     },
     toggleRepairShowAreas() {
+      if (!this.isAdmin()) return;
       this.repairShowAreas = !this.repairShowAreas;
       this.rebuildRepairMarkers();
     },
@@ -4170,7 +4173,9 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       let downX = 0, downY = 0, downTime = 0;
       const onDown = (ev) => {
         downX = ev.clientX; downY = ev.clientY; downTime = Date.now();
-        if (!this.repairEditMode) return;
+        // Cuma admin yang boleh membuat area; user biasa tap-nya diabaikan
+        // di sini (sentuhan ke area sudah ditangani sebagai popup Repair).
+        if (!this.repairEditMode || !this.isAdmin()) return;
         // Sub-mode "Edit Titik" aktif & kena bola handle -> mulai geser
         // TITIK ITU SAJA (lihat startVertexDrag), jangan mulai apa-apa lagi.
         if (this.repairPointActionMode === "reshape" && this.repairSelectedPointId) {
@@ -4245,7 +4250,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const terpilih = this.repairEditMode && this.repairSelectedPointId === m.userData.pointId;
         if (terpilih) return;   // yang sedang dipilih tetap hijau tegas
         const kena = m.userData.pointId === pointId;
-        m.material.opacity = kena ? 0.6 : (this.repairShowAreas ? 0.35 : 0);
+        // Samar dan tipis: cukup buat memastikan "kena", tidak mengotori model.
+        m.material.opacity = kena ? 0.32 : (this.repairShowAreas ? 0.3 : 0);
       });
       // Point yang lagi DIPILIH (toolbar Geser/Ukuran/Edit Titik) selalu
       // tampil hijau tetap -- hover TIDAK menimpa warnanya, biar jelas

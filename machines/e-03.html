@@ -1480,12 +1480,15 @@
               </template>
             </div>
             <div class="repair-3d-wrap" x-show="activeRepairView()" x-effect="tab; initRepair3DViewerIfNeeded()">
-              <div class="repair-edit-toggle" style="display:flex;gap:8px;flex-wrap:wrap;">
-                <button type="button" class="btn-secondary btn-sm" :class="repairShowAreas ? 'btn-primary' : ''" @click="toggleRepairShowAreas()" x-text="repairShowAreas ? '👁 Area ditampilkan' : '👁 Tampilkan Area'"></button>
-                <template x-if="isLeaderOrAdmin()">
+              <!-- Kedua tombol ini KHUSUS ADMIN. User biasa tidak melihatnya
+                   sama sekali: model tampil polos, areanya baru muncul sebagai
+                   garis merah samar saat kursor/jari mengenainya. -->
+              <template x-if="isAdmin()">
+                <div class="repair-edit-toggle" style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <button type="button" class="btn-secondary btn-sm" :class="repairShowAreas ? 'btn-primary' : ''" @click="toggleRepairShowAreas()" x-text="repairShowAreas ? '👁 Area ditampilkan' : '👁 Tampilkan Area'"></button>
                   <button type="button" class="btn-secondary btn-sm" :class="repairEditMode ? 'btn-primary' : ''" @click="toggleRepairEditModeArea()" x-text="repairEditMode ? '✓ Mode Atur Area aktif' : '✏️ Mode Atur Area'"></button>
-                </template>
-              </div>
+                </div>
+              </template>
               <div class="repair-3d-canvas" x-ref="repair3dCanvas"></div>
               <div class="repair-3d-loading" x-show="repairModelLoading" x-text="repairModelStatus || 'Memuat model 3D...'">Memuat model 3D...</div>
               <p class="repair-3d-hint">Seret buat putar &middot; scroll/cubit buat zoom &middot; tap bagian yang di-repair</p>
