@@ -1331,7 +1331,7 @@
                       </td>
                     </tr>
                   </template>
-                  <tr x-show="downtimeRowsFiltered().length === 0"><td colspan="15" class="empty-state">Belum ada data downtime.</td></tr>
+                  <tr x-show="downtimeRowsFiltered().length === 0"><td colspan="16" class="empty-state">Belum ada data downtime.</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1463,7 +1463,7 @@
                       </td>
                     </tr>
                   </template>
-                  <tr x-show="ngInlineRows.length === 0"><td colspan="13" class="empty-state">Belum ada data NG Inline.</td></tr>
+                  <tr x-show="ngInlineRows.length === 0"><td colspan="14" class="empty-state">Belum ada data NG Inline.</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1570,8 +1570,7 @@
             </div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Tanggal</th><th>Point</th><th>Model</th><th>Part No</th><th class="num-col">Qty</th><th>Kategori Repair</th><th>Aksi</th></tr></thead>
-                  <th class="bulk-col"><input type="checkbox" class="bulk-box" title="Pilih semua" :checked="bulkAllChecked('repair', repairLogRows)" @change="bulkToggleAll('repair', repairLogRows)"></th>
+                <thead><tr><th class="bulk-col"><input type="checkbox" class="bulk-box" title="Pilih semua" :checked="bulkAllChecked('repair', repairLogRows)" @change="bulkToggleAll('repair', repairLogRows)"></th><th>Tanggal</th><th>Point</th><th>Model</th><th>Part No</th><th class="num-col">Qty</th><th>Kategori Repair</th><th>Aksi</th></tr></thead>
                 <tbody>
                   <template x-for="row in repairLogRows" :key="row.id">
                     <tr>
@@ -1588,7 +1587,7 @@
                       </td>
                     </tr>
                   </template>
-                  <tr x-show="repairLogRows.length === 0"><td colspan="7" class="empty-state">Belum ada data Repair.</td></tr>
+                  <tr x-show="repairLogRows.length === 0"><td colspan="8" class="empty-state">Belum ada data Repair.</td></tr>
                 </tbody>
               </table>
             </div>
