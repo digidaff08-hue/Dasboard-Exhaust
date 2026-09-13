@@ -3151,6 +3151,11 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         controls.minDistance = 0;
         controls.maxDistance = Infinity;
 
+        // Zoom bawaan TrackballControls DIMATIKAN karena selalu menuju titik
+        // tengah. Diganti penanganan sendiri (pasangZoomKeKursor) yang menuju
+        // titik di bawah kursor / titik tengah cubitan.
+        controls.noZoom = true;
+
         // --- POSISI PART SELALU DI TENGAH (TIDAK BOLEH GESER) ---
         // Pan (geser) dimatikan total -- baik drag klik-kanan di desktop
         // maupun drag 2 jari di HP -- supaya target kamera permanen di
@@ -3199,6 +3204,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
 
         repairThreeState = {
           THREE, scene, camera, renderer, controls, mesh,
+          homeTarget: new THREE.Vector3(0, 0, 0),
           raycaster: new THREE.Raycaster(), pointer: new THREE.Vector2(),
           markers: [], container, currentViewId: view.id, animId: null, paused: false,
           // --- state buat gambar garis las (drag-trace) & hover highlight ---
@@ -3234,6 +3240,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         };
 
         this.attachRepair3DEvents(container);
+        this.pasangZoomKeKursor(repairThreeState);
         this.rebuildRepairMarkers();
         this.startRepair3DLoop();
         this.observeRepair3DResize(container);
@@ -3316,6 +3323,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // -- disimpan utuh di repairGeometryCache biar bisa dipakai lagi
       // instan pas user balik ke part ini (lihat loadRepairModel). Cuma
       // dibuang beneran kalau part-nya dihapus (lihat deleteRepairView).
+      if (r.lepasZoom) r.lepasZoom();   // lepas pendengar wheel & cubitan
       if (r.renderer) { r.renderer.dispose(); r.renderer.domElement.remove(); }
       repairThreeState = null;
     },
@@ -3475,6 +3483,100 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     repairAreaThickness(pt, maxDim) {
       const t = pt && pt.path ? Number(pt.path.thickness) : 0;
       return Number.isFinite(t) && t > 0 ? t : (maxDim || 1) * 0.02;
+    },
+
+    // ================= ZOOM MENGIKUTI KURSOR / CUBITAN =================
+    // Zoom bawaan TrackballControls selalu menuju titik tengah part, jadi
+    // bagian yang mau dilihat malah lari dari layar. Di sini zoom diarahkan
+    // ke TITIK DI BAWAH KURSOR (desktop) atau titik tengah CUBITAN (HP).
+    //
+    // Caranya: tembakkan sinar dari kursor ke model. Titik kena itu jadi
+    // poros. Kamera DAN target sama-sama ditarik mendekat/menjauh dari poros
+    // itu, jadi titik yang ditunjuk tetap diam di tempat sementara sekitarnya
+    // membesar/mengecil.
+    //
+    // Konsekuensinya part bisa bergeser dari tengah -- itu memang perlu supaya
+    // zoom bisa menuju titik yang dipilih. Tombol "Tengahkan" mengembalikannya.
+    porosZoom(r, clientX, clientY) {
+      const THREE = r.THREE;
+      const rect = r.renderer.domElement.getBoundingClientRect();
+      r.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      r.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      r.raycaster.setFromCamera(r.pointer, r.camera);
+      const kena = r.raycaster.intersectObject(r.mesh, true);
+      if (kena.length) return kena[0].point.clone();
+      // Tidak kena part -> pakai bidang khayal yang melewati target,
+      // menghadap kamera. Supaya zoom di ruang kosong tetap masuk akal.
+      const arah = new THREE.Vector3();
+      r.camera.getWorldDirection(arah);
+      const bidang = new THREE.Plane().setFromNormalAndCoplanarPoint(arah, r.controls.target);
+      const titik = new THREE.Vector3();
+      return r.raycaster.ray.intersectPlane(bidang, titik) ? titik : r.controls.target.clone();
+    },
+    terapkanZoom(r, poros, skala) {
+      // Batasi supaya tidak menembus ke dalam part atau melesat terlalu jauh
+      const jarakBaru = r.camera.position.distanceTo(poros) * skala;
+      const minJarak = (r.maxDim || 1) * 0.05;
+      const maksJarak = (r.maxDim || 1) * 60;
+      if (jarakBaru < minJarak && skala < 1) return;
+      if (jarakBaru > maksJarak && skala > 1) return;
+      r.camera.position.sub(poros).multiplyScalar(skala).add(poros);
+      r.controls.target.sub(poros).multiplyScalar(skala).add(poros);
+      r.controls.update();
+    },
+    pasangZoomKeKursor(r) {
+      const el = r.renderer.domElement;
+
+      // --- Desktop: roda mouse ---
+      const onWheel = (ev) => {
+        ev.preventDefault();
+        const poros = this.porosZoom(r, ev.clientX, ev.clientY);
+        // deltaY > 0 = gulir ke bawah = menjauh
+        const skala = Math.exp(ev.deltaY * 0.0012);
+        this.terapkanZoom(r, poros, skala);
+      };
+      el.addEventListener("wheel", onWheel, { passive: false });
+
+      // --- HP: cubitan 2 jari ---
+      let jarakAwal = null;
+      const jarakDua = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+      const tengahDua = (t) => [(t[0].clientX + t[1].clientX) / 2, (t[0].clientY + t[1].clientY) / 2];
+
+      const onTouchStart = (ev) => {
+        if (ev.touches.length === 2) jarakAwal = jarakDua(ev.touches);
+      };
+      const onTouchMove = (ev) => {
+        if (ev.touches.length !== 2 || !jarakAwal) return;
+        ev.preventDefault();
+        const jarakKini = jarakDua(ev.touches);
+        if (!jarakKini) return;
+        const [cx, cy] = tengahDua(ev.touches);
+        const poros = this.porosZoom(r, cx, cy);
+        // jari merenggang = jarakKini > jarakAwal = mendekat (skala < 1)
+        this.terapkanZoom(r, poros, jarakAwal / jarakKini);
+        jarakAwal = jarakKini;
+      };
+      const onTouchEnd = (ev) => { if (ev.touches.length < 2) jarakAwal = null; };
+      el.addEventListener("touchstart", onTouchStart, { passive: true });
+      el.addEventListener("touchmove", onTouchMove, { passive: false });
+      el.addEventListener("touchend", onTouchEnd, { passive: true });
+      el.addEventListener("touchcancel", onTouchEnd, { passive: true });
+
+      r.lepasZoom = () => {
+        el.removeEventListener("wheel", onWheel);
+        el.removeEventListener("touchstart", onTouchStart);
+        el.removeEventListener("touchmove", onTouchMove);
+        el.removeEventListener("touchend", onTouchEnd);
+        el.removeEventListener("touchcancel", onTouchEnd);
+      };
+    },
+    // Kembalikan part ke tengah setelah zoom ke sana-sini
+    tengahkanModel() {
+      const r = repairThreeState; if (!r) return;
+      const geser = r.controls.target.clone().sub(r.homeTarget);
+      r.camera.position.sub(geser);
+      r.controls.target.copy(r.homeTarget);
+      r.controls.update();
     },
 
     // ---- Peta lipatan model (dihitung sekali, lalu disimpan) ----
