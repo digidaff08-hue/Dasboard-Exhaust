@@ -3200,11 +3200,22 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         camera.position.copy(viewDir.clone().multiplyScalar(fitDistance));
         camera.up.set(0, 1, 0);
         controls.target.set(0, 0, 0);
+
+        // Kalau admin sudah menyimpan sudut pandang untuk model ini
+        // (kolom default_view di repair_views), pakai itu -- menimpa
+        // perhitungan otomatis di atas. Lihat migration_repair_default_view.sql
+        const dv = view.default_view;
+        if (dv && Array.isArray(dv.pos) && Array.isArray(dv.target)) {
+          camera.position.set(dv.pos[0], dv.pos[1], dv.pos[2]);
+          controls.target.set(dv.target[0], dv.target[1], dv.target[2]);
+          if (Array.isArray(dv.up)) camera.up.set(dv.up[0], dv.up[1], dv.up[2]);
+        }
         controls.update();
 
         repairThreeState = {
           THREE, scene, camera, renderer, controls, mesh,
-          homeTarget: new THREE.Vector3(0, 0, 0),
+          homeTarget: controls.target.clone(),
+          homePos: camera.position.clone(),
           raycaster: new THREE.Raycaster(), pointer: new THREE.Vector2(),
           markers: [], container, currentViewId: view.id, animId: null, paused: false,
           // --- state buat gambar garis las (drag-trace) & hover highlight ---
@@ -3575,6 +3586,43 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const r = repairThreeState; if (!r) return;
       const geser = r.controls.target.clone().sub(r.homeTarget);
       r.camera.position.sub(geser);
+      r.controls.target.copy(r.homeTarget);
+      r.controls.update();
+    },
+
+    // ---- Admin: kunci sudut pandang yang sedang tampil sebagai bawaan ----
+    // Perhitungan otomatis kadang menghasilkan sudut miring yang kurang enak
+    // dilihat. Dengan ini admin memutar modelnya dulu ke posisi paling pas,
+    // lalu menyimpannya -- posisi itu yang dipakai semua orang saat membuka
+    // tab Repair.
+    async simpanTampilanAwal() {
+      if (!this.isAdmin()) return;
+      const r = repairThreeState; if (!r || !this.repairActiveViewId) return;
+      const c = r.camera, t = r.controls.target;
+      const dv = {
+        pos: [c.position.x, c.position.y, c.position.z],
+        target: [t.x, t.y, t.z],
+        up: [c.up.x, c.up.y, c.up.z],
+      };
+      const { error } = await supabaseClient.from("repair_views")
+        .update({ default_view: dv }).eq("id", this.repairActiveViewId);
+      if (error) {
+        this.flash("Gagal simpan tampilan: " + error.message
+          + (String(error.message).toLowerCase().includes("default_view")
+              ? " — kolom default_view belum ada. Jalankan migration_repair_default_view.sql."
+              : ""), true);
+        return;
+      }
+      const v = this.repairViews.find((x) => x.id === this.repairActiveViewId);
+      if (v) v.default_view = dv;
+      r.homeTarget.copy(t);
+      r.homePos.copy(c.position);
+      this.flash("Tampilan awal disimpan ✓");
+    },
+    // Kembali ke sudut pandang bawaan (yang tersimpan, atau hitungan otomatis)
+    resetTampilan() {
+      const r = repairThreeState; if (!r) return;
+      r.camera.position.copy(r.homePos);
       r.controls.target.copy(r.homeTarget);
       r.controls.update();
     },

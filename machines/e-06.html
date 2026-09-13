@@ -1486,10 +1486,11 @@
               <!-- Tengahkan berlaku untuk SEMUA user: zoom mengikuti kursor
                    membuat part bergeser, jadi semua orang butuh cara kembali. -->
               <div class="repair-edit-toggle" style="display:flex;gap:8px;flex-wrap:wrap;">
-                <button type="button" class="btn-secondary btn-sm" @click="tengahkanModel()" title="Kembalikan part ke tengah">⌖ Tengahkan</button>
+                <button type="button" class="btn-secondary btn-sm" @click="resetTampilan()" title="Kembali ke sudut pandang awal">⌖ Tampilan Awal</button>
               </div>
               <template x-if="isAdmin()">
                 <div class="repair-edit-toggle" style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <button type="button" class="btn-secondary btn-sm" @click="simpanTampilanAwal()" title="Jadikan sudut pandang yang sedang tampil sebagai bawaan">📌 Simpan Tampilan</button>
                   <button type="button" class="btn-secondary btn-sm" :class="repairShowAreas ? 'btn-primary' : ''" @click="toggleRepairShowAreas()" x-text="repairShowAreas ? '👁 Area ditampilkan' : '👁 Tampilkan Area'"></button>
                   <button type="button" class="btn-secondary btn-sm" :class="repairEditMode ? 'btn-primary' : ''" @click="toggleRepairEditModeArea()" x-text="repairEditMode ? '✓ Mode Atur Area aktif' : '✏️ Mode Atur Area'"></button>
                 </div>
