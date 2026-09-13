@@ -404,7 +404,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // repairAreaSize: tebal jalur, sebagai pecahan dari ukuran part
     // repairTraceMode: "penuh" = 1 tap, jalur ditelusuri sampai ujung
     //                  "sebagian" = 2 tap, cuma di antara pangkal & ujung
+    // "sambung": tap terus-menerus, tiap tap menyambung dari ujung
+    // sebelumnya. Semua segmen digabung jadi SATU area saat ditekan Selesai.
     repairTraceMode: "penuh", repairPartialStart: null,
+    repairChainPath: [],      // seluruh titik jalur hasil sambungan
+    repairChainAnchors: [],   // posisi tap-nya saja (buat bola penanda)
+    repairChainSegs: [],      // panjang tiap segmen, buat Undo per segmen
     repairShowAreas: false, repairAreaSize: 0.02, repairDraftPoints: [],
     repairEditMode: false, repairDrawShape: "freehand", repairSnapMode: false, repairNewViewLabel: "", repairNewViewFile: null, repairViewUploading: false,
     repairNewViewColor: "#9aa4ad",
@@ -3668,6 +3673,38 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const r = repairThreeState; if (!r || !this.repairActiveViewId) return;
       const THREE = r.THREE;
 
+      // ---- Mode SAMBUNG: tiap tap menyambung dari ujung sebelumnya ----
+      if (this.repairTraceMode === "sambung") {
+        const titikBaru = { x: surfaceHit.local.x, y: surfaceHit.local.y, z: surfaceHit.local.z };
+        if (!this.repairPartialStart) {
+          this.repairPartialStart = surfaceHit.local.clone();
+          this.repairChainNormal = surfaceHit.normal || null;
+          this.repairChainPath = [titikBaru];
+          this.repairChainAnchors = [titikBaru];
+          this.repairChainSegs = [];
+          this.repairDraftPoints = this.repairChainPath.slice();
+          this.rebuildRepairMarkers();
+          this.flash("Pangkal ditandai. Tap terus menyusuri lasnya.");
+          return;
+        }
+        let seg = null;
+        try { seg = this.traceWeldBetween(THREE, r, this.repairPartialStart, surfaceHit.local); } catch (e) { seg = null; }
+        if (!seg) {
+          this.flash("Tidak tersambung lewat jalur las dari titik sebelumnya. Tap lebih dekat ke lasnya.", true);
+          return;
+        }
+        // titik pertama segmen dibuang supaya tidak dobel dengan ujung sebelumnya
+        const tambahan = seg.slice(1).map((t) => ({ x: t.x, y: t.y, z: t.z }));
+        this.repairChainPath = this.repairChainPath.concat(tambahan);
+        this.repairChainSegs.push(tambahan.length);
+        this.repairChainAnchors.push(titikBaru);
+        this.repairPartialStart = surfaceHit.local.clone();
+        this.repairDraftPoints = this.repairChainPath.slice();
+        this.rebuildRepairMarkers();
+        this.flash("Tersambung (+" + tambahan.length + " titik). Tap lagi atau tekan Selesai.");
+        return;
+      }
+
       // ---- Mode SEBAGIAN: tap pertama = pangkal, tap kedua = ujung ----
       if (this.repairTraceMode === "sebagian") {
         if (!this.repairPartialStart) {
@@ -3800,9 +3837,31 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
     setRepairTraceMode(mode) {
       this.repairTraceMode = mode;
+      this.resetRantai();
+    },
+    resetRantai() {
       this.repairPartialStart = null;
       this.repairDraftPoints = [];
+      this.repairChainPath = [];
+      this.repairChainAnchors = [];
+      this.repairChainSegs = [];
       this.rebuildRepairMarkers();
+    },
+    // Buang segmen terakhir (satu tap terakhir), bukan seluruh rantai
+    undoSegmenRantai() {
+      if (!this.repairChainSegs.length) { this.resetRantai(); return; }
+      const buang = this.repairChainSegs.pop();
+      this.repairChainPath = this.repairChainPath.slice(0, Math.max(1, this.repairChainPath.length - buang));
+      this.repairChainAnchors.pop();
+      this.repairDraftPoints = this.repairChainPath.slice();
+      this.rebuildRepairMarkers();
+    },
+    async simpanRantai() {
+      if (this.repairChainPath.length < 2) { this.flash("Tap minimal dua titik dulu.", true); return; }
+      const jalur = this.repairChainPath.slice();
+      const normal = this.repairChainNormal || null;
+      this.resetRantai();
+      await this.simpanAreaDariJalur(jalur, normal, "Jalur sambungan tersimpan (" + jalur.length + " titik) ✓");
     },
     toggleRepairShowAreas() {
       this.repairShowAreas = !this.repairShowAreas;
@@ -3847,8 +3906,11 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const titik = this.repairDraftPoints;
       if (!titik.length) return;
       const tebal = maxDim * (this.repairAreaSize || 0.02);
-      // bola kecil di tiap tap
-      titik.forEach((t) => {
+      // bola kecil HANYA di titik yang benar-benar di-tap (bukan tiap titik
+      // jalur), supaya pratinjau rantai panjang tidak penuh bola.
+      const anchor = (this.repairChainAnchors && this.repairChainAnchors.length)
+        ? this.repairChainAnchors : titik;
+      anchor.forEach((t) => {
         const g = new THREE.SphereGeometry(tebal * 0.9, 12, 10);
         const m = new THREE.MeshBasicMaterial({ color: 0x2563EB, transparent: true, opacity: 0.9, depthWrite: false });
         const o = new THREE.Mesh(g, m);

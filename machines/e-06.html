@@ -1499,6 +1499,7 @@
                 <span style="font-size:12px;color:#64748b;">Cara ambil:</span>
                 <button type="button" class="btn-secondary btn-sm" :class="repairTraceMode === 'penuh' ? 'btn-primary' : ''" @click="setRepairTraceMode('penuh')">Jalur Penuh</button>
                 <button type="button" class="btn-secondary btn-sm" :class="repairTraceMode === 'sebagian' ? 'btn-primary' : ''" @click="setRepairTraceMode('sebagian')">Sebagian</button>
+                <button type="button" class="btn-secondary btn-sm" :class="repairTraceMode === 'sambung' ? 'btn-primary' : ''" @click="setRepairTraceMode('sambung')">Sambung</button>
               </div>
               <p class="repair-edit-hint" x-show="repairTraceMode === 'penuh'">
                 <b>Tap sekali</b> di jalur las — sistem menelusuri sendiri bentuk jalurnya
@@ -1510,6 +1511,18 @@
                 di antara dua titik itu — untuk las yang cuma dikerjakan sebagian.
                 <span x-show="repairPartialStart" style="color:#2563eb;font-weight:600;">Pangkal sudah ditandai — tap titik ujungnya.</span>
               </p>
+              <p class="repair-edit-hint" x-show="repairTraceMode === 'sambung'">
+                <b>Tap terus menyusuri lasnya</b> — tiap tap menyambung dari ujung sebelumnya,
+                jadi satu jalur panjang yang bisa berbelok. Tekan <b>Selesai</b> kalau sudah.
+                Berguna untuk las yang melewati beberapa tikungan.
+              </p>
+              <div x-show="repairTraceMode === 'sambung'" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px;">
+                <span style="font-size:12px;color:#64748b;">Titik jalur sementara:</span>
+                <span class="mono" style="font-size:12px;font-weight:700;" x-text="repairChainPath.length"></span>
+                <button type="button" class="btn-primary btn-sm" @click="simpanRantai()" :disabled="repairChainPath.length < 2">✓ Selesai</button>
+                <button type="button" class="btn-secondary btn-sm" @click="undoSegmenRantai()" :disabled="!repairChainPath.length">↩️ Undo Sambungan</button>
+                <button type="button" class="btn-secondary btn-sm" @click="resetRantai()" :disabled="!repairChainPath.length">✕ Batal</button>
+              </div>
               <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px;">
                 <span style="font-size:12px;color:#64748b;">Area tersimpan:</span>
                 <span class="mono" style="font-size:12px;font-weight:700;" x-text="repairAreaList().length"></span>
