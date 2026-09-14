@@ -1486,7 +1486,7 @@
               <!-- Tengahkan berlaku untuk SEMUA user: zoom mengikuti kursor
                    membuat part bergeser, jadi semua orang butuh cara kembali. -->
               <div class="repair-edit-toggle" style="display:flex;gap:8px;flex-wrap:wrap;">
-                <button type="button" class="btn-secondary btn-sm" @click="resetTampilan()" title="Kembali ke sudut pandang awal">⌖ Tampilan Awal</button>
+                <button type="button" class="btn-secondary btn-sm" @click="resetTampilan()" title="Kembalikan model ke sudut pandang semula">↺ Reset Tampilan</button>
               </div>
               <template x-if="isAdmin()">
                 <div class="repair-edit-toggle" style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -1509,6 +1509,7 @@
                 <button type="button" class="btn-secondary btn-sm" :class="repairTraceMode === 'penuh' ? 'btn-primary' : ''" @click="setRepairTraceMode('penuh')">Jalur Penuh</button>
                 <button type="button" class="btn-secondary btn-sm" :class="repairTraceMode === 'sebagian' ? 'btn-primary' : ''" @click="setRepairTraceMode('sebagian')">Sebagian</button>
                 <button type="button" class="btn-secondary btn-sm" :class="repairTraceMode === 'sambung' ? 'btn-primary' : ''" @click="setRepairTraceMode('sambung')">Sambung</button>
+                <button type="button" class="btn-secondary btn-sm" :class="repairTraceMode === 'lurus' ? 'btn-primary' : ''" @click="setRepairTraceMode('lurus')">Garis Lurus</button>
               </div>
               <p class="repair-edit-hint" x-show="repairTraceMode === 'penuh'">
                 <b>Tap sekali</b> di jalur las — sistem menelusuri sendiri bentuk jalurnya
@@ -1518,6 +1519,12 @@
               <p class="repair-edit-hint" x-show="repairTraceMode === 'sebagian'">
                 <b>Tap dua kali</b>: pangkal las, lalu ujungnya. Jalurnya diambil hanya
                 di antara dua titik itu — untuk las yang cuma dikerjakan sebagian.
+                <span x-show="repairPartialStart" style="color:#2563eb;font-weight:600;">Pangkal sudah ditandai — tap titik ujungnya.</span>
+              </p>
+              <p class="repair-edit-hint" x-show="repairTraceMode === 'lurus'">
+                <b>Tap dua kali</b>: pangkal lalu ujung. Jalurnya <b>garis lurus</b>,
+                tidak mengikuti lipatan. Pakai ini kalau lasnya di permukaan rata
+                sehingga penelusuran otomatis tidak menemukan jalur.
                 <span x-show="repairPartialStart" style="color:#2563eb;font-weight:600;">Pangkal sudah ditandai — tap titik ujungnya.</span>
               </p>
               <p class="repair-edit-hint" x-show="repairTraceMode === 'sambung'">
