@@ -2713,8 +2713,30 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       }
       if (this.repairActiveViewId) await this.fetchRepairPoints(this.repairActiveViewId);
     },
+    // Area MENEMPEL KE FILE MODEL, bukan ke entri modelnya.
+    //
+    // Satu file STL sering dipakai berkali-kali: model YHA/K15B dan YR9
+    // sama-sama memakai YHA.stl, dan part yang sama juga dipakai di banyak
+    // line. Dulu area diambil per view_id, jadi tiap entri baru harus
+    // ditandai ulang dari nol walau file 3D-nya persis sama.
+    //
+    // Sekarang: cari dulu SEMUA entri model yang memakai file yang sama
+    // (model_url), lalu ambil area milik mereka semua. Jadi area yang dibuat
+    // sekali langsung berlaku di semua model yang memakai file itu -- tanpa
+    // disalin, dan kalau nanti diperbaiki, semuanya ikut terperbaiki.
+    //
+    // Tidak perlu tabel/kolom baru: pengelompokannya lewat model_url yang
+    // memang sudah ada di repair_views.
     async fetchRepairPoints(viewId) {
-      const { data, error } = await supabaseClient.from("repair_points").select("*").eq("view_id", viewId).order("created_at");
+      let idModel = [viewId];
+      const view = (this.repairViews || []).find((v) => v.id === viewId);
+      if (view && view.model_url) {
+        const { data: kembar } = await supabaseClient
+          .from("repair_views").select("id").eq("model_url", view.model_url);
+        if (kembar && kembar.length) idModel = kembar.map((v) => v.id);
+      }
+      const { data, error } = await supabaseClient
+        .from("repair_points").select("*").in("view_id", idModel).order("created_at");
       if (error) { this.flash("Gagal memuat Point Repair: " + error.message, true); return; }
       this.repairPoints = data || [];
     },
@@ -3653,10 +3675,15 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     salinSibuk: false,
     async muatDaftarSalin() {
       const { data, error } = await supabaseClient
-        .from("repair_views").select("id,mesin,label").order("mesin").order("label");
+        .from("repair_views").select("id,mesin,label,model_url").order("mesin").order("label");
       if (error) { this.flash("Gagal memuat daftar model: " + error.message, true); return; }
-      // model yang sedang dibuka tidak perlu muncul di daftar
-      this.salinDaftar = (data || []).filter((v) => v.id !== this.repairActiveViewId);
+      // Model yang FILE-nya sama tidak perlu muncul: areanya sudah otomatis
+      // terbagi, kalau disalin malah jadi dobel. Yang tersisa di daftar cuma
+      // model dengan file BERBEDA -- itu yang masih masuk akal untuk disalin.
+      const sekarang = (this.repairViews || []).find((v) => v.id === this.repairActiveViewId);
+      const fileSekarang = sekarang ? sekarang.model_url : null;
+      this.salinDaftar = (data || []).filter((v) =>
+        v.id !== this.repairActiveViewId && !(fileSekarang && v.model_url === fileSekarang));
     },
     async salinArea() {
       if (!this.isAdmin()) return;
