@@ -406,6 +406,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     //                  "sebagian" = 2 tap, cuma di antara pangkal & ujung
     // "sambung": tap terus-menerus, tiap tap menyambung dari ujung
     // sebelumnya. Semua segmen digabung jadi SATU area saat ditekan Selesai.
+    // repairBidangToleransi: seberapa jauh arah permukaan boleh berbelok
+    // sebelum penyebaran berhenti (derajat). Makin kecil = makin patuh
+    // pada bidang datar, makin besar = ikut melahap lekukan di sekitarnya.
+    repairBidangToleransi: 20,
     repairTraceMode: "penuh", repairPartialStart: null,
     repairChainPath: [],      // seluruh titik jalur hasil sambungan
     repairChainAnchors: [],   // posisi tap-nya saja (buat bola penanda)
@@ -3634,6 +3638,118 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       r.controls.update();
     },
 
+    // ================= AREA BIDANG (permukaan rata, mis. flange) =================
+    // Flange tidak punya jalur las, jadi tiga mode lain (Penuh/Sebagian/
+    // Sambung) tidak bisa dipakai -- semuanya bersandar pada lipatan.
+    //
+    // Mode Bidang bekerja lain: dari satu tap, sistem MENYEBAR ke segitiga
+    // tetangga selama arah hadapnya masih mirip. Penyebaran berhenti sendiri
+    // di tepi flange, karena di situ arah permukaannya berbelok tajam.
+    // Hasilnya area yang bentuknya persis bidang itu, lubang baut ikut bolong.
+    //
+    // Yang DISIMPAN cuma titik tap + arah hadapnya, bukan daftar segitiganya
+    // -- daftar itu bisa ribuan dan akan membengkakkan database. Penyebarannya
+    // dihitung ulang saat model dibuka.
+    buildFaceGraph(THREE, r) {
+      if (r.faceGraph) return r.faceGraph;
+      const pusat = [], normal = [], titikSegitiga = [];
+      const sisiKeMuka = new Map();
+      const kunci = (x, y, z) => x.toFixed(3) + "|" + y.toFixed(3) + "|" + z.toFixed(3);
+      const indeksTitik = new Map();
+      const v = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+
+      r.mesh.traverse((o) => {
+        if (!o.isMesh || !o.geometry) return;
+        const geo = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry;
+        const pos = geo.attributes.position;
+        for (let i = 0; i < pos.count; i += 3) {
+          const id = [];
+          for (let k = 0; k < 3; k++) {
+            v[k].fromBufferAttribute(pos, i + k);
+            const kk = kunci(v[k].x, v[k].y, v[k].z);
+            let idx = indeksTitik.get(kk);
+            if (idx === undefined) { idx = indeksTitik.size; indeksTitik.set(kk, idx); }
+            id.push(idx);
+          }
+          const n = new THREE.Vector3().subVectors(v[1], v[0]).cross(new THREE.Vector3().subVectors(v[2], v[0]));
+          if (n.lengthSq() < 1e-12) continue;
+          n.normalize();
+          const f = normal.length;
+          normal.push(n);
+          pusat.push(new THREE.Vector3((v[0].x + v[1].x + v[2].x) / 3, (v[0].y + v[1].y + v[2].y) / 3, (v[0].z + v[1].z + v[2].z) / 3));
+          titikSegitiga.push([v[0].clone(), v[1].clone(), v[2].clone()]);
+          for (const [a, b] of [[id[0], id[1]], [id[1], id[2]], [id[2], id[0]]]) {
+            const kk = a < b ? a + "-" + b : b + "-" + a;
+            const arr = sisiKeMuka.get(kk);
+            if (arr) arr.push(f); else sisiKeMuka.set(kk, [f]);
+          }
+        }
+      });
+      const tetangga = new Map();
+      sisiKeMuka.forEach((muka) => {
+        if (muka.length !== 2) return;
+        const [a, b] = muka;
+        if (!tetangga.has(a)) tetangga.set(a, []);
+        if (!tetangga.has(b)) tetangga.set(b, []);
+        tetangga.get(a).push(b);
+        tetangga.get(b).push(a);
+      });
+      r.faceGraph = { pusat, normal, titikSegitiga, tetangga };
+      return r.faceGraph;
+    },
+
+    // Sebarkan dari titik tap ke segitiga sekitarnya selama arah hadapnya
+    // masih dalam batas sudut. Balikannya daftar indeks segitiga.
+    sebarBidang(THREE, r, titikAwal, batasDerajat) {
+      const g = this.buildFaceGraph(THREE, r);
+      if (!g.pusat.length) return [];
+      let awal = -1, terdekat = Infinity;
+      for (let i = 0; i < g.pusat.length; i++) {
+        const d = g.pusat[i].distanceToSquared(titikAwal);
+        if (d < terdekat) { terdekat = d; awal = i; }
+      }
+      if (awal < 0) return [];
+      const acuan = g.normal[awal];
+      const batas = Math.cos((batasDerajat || 20) * Math.PI / 180);
+      const hasil = [awal];
+      const sudah = new Set([awal]);
+      const antre = [awal];
+      // dibatasi 60 ribu segitiga supaya tidak pernah menggantung
+      while (antre.length && hasil.length < 60000) {
+        const kini = antre.pop();
+        for (const t of (g.tetangga.get(kini) || [])) {
+          if (sudah.has(t)) continue;
+          if (g.normal[t].dot(acuan) < batas) continue;   // sudah berbelok -> berhenti
+          sudah.add(t); hasil.push(t); antre.push(t);
+        }
+      }
+      return hasil;
+    },
+
+    // Bangun bentuk 3D dari daftar segitiga hasil penyebaran
+    buildBidangGeometry(THREE, r, pt, maxDim) {
+      const g = this.buildFaceGraph(THREE, r);
+      const seed = new THREE.Vector3(pt.x, pt.y, pt.z);
+      const muka = this.sebarBidang(THREE, r, seed, (pt.path && pt.path.toleransi) || 20);
+      if (!muka.length) return null;
+      const pos = new Float32Array(muka.length * 9);
+      // digeser sedikit keluar permukaan biar tidak berkedip (z-fighting)
+      const dorong = maxDim * 0.003;
+      let i = 0;
+      for (const f of muka) {
+        const n = g.normal[f];
+        for (const t of g.titikSegitiga[f]) {
+          pos[i++] = t.x + n.x * dorong;
+          pos[i++] = t.y + n.y * dorong;
+          pos[i++] = t.z + n.z * dorong;
+        }
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+      geo.computeVertexNormals();
+      return geo;
+    },
+
     // ---- Peta lipatan model (dihitung sekali, lalu disimpan) ----
     // Di tempat pengelasan, dua permukaan bertemu membentuk LIPATAN tajam.
     // Lipatan itu bisa dihitung dari geometri model. Peta ini dipakai supaya
@@ -3862,6 +3978,29 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         return;
       }
 
+      // ---- Mode BIDANG: sekali tap, seluruh permukaan jadi area ----
+      if (this.repairTraceMode === "bidang") {
+        this.flash("Menyebar ke seluruh permukaan...");
+        const muka = this.sebarBidang(THREE, r, surfaceHit.local, this.repairBidangToleransi);
+        if (!muka.length) { this.flash("Permukaan tidak terbaca di titik itu.", true); return; }
+        const label = prompt("Nama area ini (mis. Flange Head):", "") || null;
+        const payload = {
+          view_id: this.repairActiveViewId,
+          x: surfaceHit.local.x, y: surfaceHit.local.y, z: surfaceHit.local.z,
+          label,
+          path: { kind: "area", mode: "bidang", toleransi: this.repairBidangToleransi },
+        };
+        if (surfaceHit.normal) {
+          payload.nx = surfaceHit.normal.x; payload.ny = surfaceHit.normal.y; payload.nz = surfaceHit.normal.z;
+        }
+        const { data, error } = await supabaseClient.from("repair_points").insert(payload).select().single();
+        if (error) { this.flash("Gagal simpan area: " + error.message, true); return; }
+        this.repairPoints.push(data);
+        this.rebuildRepairMarkers();
+        this.flash("Area bidang tersimpan (" + muka.length + " segitiga) ✓");
+        return;
+      }
+
       // ---- Mode LURUS: tap pangkal & ujung, jalurnya GARIS LURUS ----
       // Dipakai kalau lasnya tidak menempel di lipatan (mis. las di permukaan
       // rata), sehingga penelusuran otomatis tidak menemukan apa-apa.
@@ -4078,9 +4217,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       //   2. lapis TAMPILAN -> jauh lebih tipis, cuma buat dilihat.
       // Dipisah supaya garisnya bisa dibikin tipis & samar tanpa membuat
       // areanya jadi susah disentuh.
+      const bidang = pt.path && pt.path.mode === "bidang";
       const buat = (radius, opacity, hanyaSentuh) => {
         let geo;
-        if (titik.length >= 2) {
+        if (bidang) {
+          geo = this.buildBidangGeometry(THREE, r, pt, maxDim);
+          if (!geo) return;
+        } else if (titik.length >= 2) {
           const kurva = new THREE.CatmullRomCurve3(titik.map((t) => new THREE.Vector3(t.x, t.y, t.z)));
           const seg = Math.max(16, Math.min(120, titik.length * 12));
           geo = new THREE.TubeGeometry(kurva, seg, radius, 10, false);
@@ -4102,10 +4245,16 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         r.markers.push(obj);
       };
 
-      buat(tebal, 0, true);                       // lapis sentuh (tak terlihat)
-      buat(tebal * 0.5,                           // lapis tampilan (tipis)
-           terpilih ? 0.55 : (this.repairShowAreas ? 0.24 : 0),
-           false);
+      if (bidang) {
+        // Bidang: cukup satu lapis. Bentuknya sudah seluas permukaan,
+        // jadi tidak perlu lapis sentuh terpisah seperti garis las.
+        buat(tebal, terpilih ? 0.4 : (this.repairShowAreas ? 0.2 : 0), false);
+      } else {
+        buat(tebal, 0, true);                     // lapis sentuh (tak terlihat)
+        buat(tebal * 0.5,                         // lapis tampilan (tipis)
+             terpilih ? 0.55 : (this.repairShowAreas ? 0.24 : 0),
+             false);
+      }
     },
 
     // Pratinjau jalur yang sedang dibuat (tap-tap belum disimpan) --

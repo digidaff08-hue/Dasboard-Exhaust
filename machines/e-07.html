@@ -1515,6 +1515,7 @@
                 <button type="button" class="btn-secondary btn-sm" :class="repairTraceMode === 'sebagian' ? 'btn-primary' : ''" @click="setRepairTraceMode('sebagian')">Sebagian</button>
                 <button type="button" class="btn-secondary btn-sm" :class="repairTraceMode === 'sambung' ? 'btn-primary' : ''" @click="setRepairTraceMode('sambung')">Sambung</button>
                 <button type="button" class="btn-secondary btn-sm" :class="repairTraceMode === 'lurus' ? 'btn-primary' : ''" @click="setRepairTraceMode('lurus')">Garis Lurus</button>
+                <button type="button" class="btn-secondary btn-sm" :class="repairTraceMode === 'bidang' ? 'btn-primary' : ''" @click="setRepairTraceMode('bidang')">Bidang</button>
               </div>
               <p class="repair-edit-hint" x-show="repairTraceMode === 'penuh'">
                 <b>Tap sekali</b> di jalur las — sistem menelusuri sendiri bentuk jalurnya
@@ -1526,6 +1527,17 @@
                 di antara dua titik itu — untuk las yang cuma dikerjakan sebagian.
                 <span x-show="repairPartialStart" style="color:#2563eb;font-weight:600;">Pangkal sudah ditandai — tap titik ujungnya.</span>
               </p>
+              <p class="repair-edit-hint" x-show="repairTraceMode === 'bidang'">
+                <b>Tap sekali</b> di permukaan rata (mis. flange) — seluruh bidang itu
+                jadi satu area, berhenti sendiri di tepinya. Pakai ini untuk bagian
+                yang sering dakon tapi tidak punya jalur las.
+              </p>
+              <div x-show="repairTraceMode === 'bidang'" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px;">
+                <span style="font-size:12px;color:#64748b;">Seberapa jauh menyebar:</span>
+                <input type="range" min="8" max="45" step="1" x-model.number="repairBidangToleransi" style="max-width:180px;">
+                <span class="mono" style="font-size:12px;" x-text="repairBidangToleransi + '\u00B0'"></span>
+                <span style="font-size:11px;color:#94a3b8;">kecil = patuh bidang datar</span>
+              </div>
               <p class="repair-edit-hint" x-show="repairTraceMode === 'lurus'">
                 <b>Tap dua kali</b>: pangkal lalu ujung. Jalurnya <b>garis lurus</b>,
                 tidak mengikuti lipatan. Pakai ini kalau lasnya di permukaan rata
