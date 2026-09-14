@@ -227,7 +227,7 @@
       <button class="btn-secondary btn-sm" :class="tab==='riwayat' ? 'btn-primary' : ''" @click="tab='riwayat'">Riwayat Produksi</button>
       <button class="btn-secondary btn-sm" :class="tab==='performance' ? 'btn-primary' : ''" @click="openPerformanceTab()">Performance</button>
       <template x-if="isLeaderOrAdmin()">
-        <button class="btn-secondary btn-sm" :class="tab==='master' ? 'btn-primary' : ''" @click="tab='master'">Master Data</button>
+        <template x-if="isAdmin()"><button class="btn-secondary btn-sm" :class="tab==='master' ? 'btn-primary' : ''" @click="tab='master'">Master Data</button></template>
       </template>
     </div>
   </div>
@@ -269,7 +269,7 @@
         <button class="btn-secondary btn-sm" :class="tab==='riwayat' ? 'btn-primary' : ''" @click="tab='riwayat'">Riwayat Produksi</button>
         <button class="btn-secondary btn-sm" :class="tab==='performance' ? 'btn-primary' : ''" @click="openPerformanceTab()">Performance</button>
         <template x-if="isLeaderOrAdmin()">
-          <button class="btn-secondary btn-sm" :class="tab==='master' ? 'btn-primary' : ''" @click="tab='master'">Master Data</button>
+          <template x-if="isAdmin()"><button class="btn-secondary btn-sm" :class="tab==='master' ? 'btn-primary' : ''" @click="tab='master'">Master Data</button></template>
         </template>
       </div>
     </div>
@@ -1485,19 +1485,24 @@
                    garis merah samar saat kursor/jari mengenainya. -->
               <!-- Tengahkan berlaku untuk SEMUA user: zoom mengikuti kursor
                    membuat part bergeser, jadi semua orang butuh cara kembali. -->
-              <div class="repair-edit-toggle" style="display:flex;gap:8px;flex-wrap:wrap;">
-                <button type="button" class="btn-secondary btn-sm" @click="resetTampilan()" title="Kembalikan model ke sudut pandang semula">↺ Reset Tampilan</button>
-                <button type="button" class="btn-secondary btn-sm" :class="repairShowAreas ? 'btn-primary' : ''" @click="toggleRepairShowAreas()" x-text="repairShowAreas ? '👁 Area ditampilkan' : '👁 Tampilkan Area'"></button>
-              </div>
-              <template x-if="isAdmin()">
-                <div class="repair-edit-toggle" style="display:flex;gap:8px;flex-wrap:wrap;">
-                  <button type="button" class="btn-secondary btn-sm" @click="simpanTampilanAwal()" title="Jadikan sudut pandang yang sedang tampil sebagai bawaan">📌 Simpan Tampilan</button>
-                  <button type="button" class="btn-secondary btn-sm" :class="repairEditMode ? 'btn-primary' : ''" @click="toggleRepairEditModeArea()" x-text="repairEditMode ? '✓ Mode Atur Area aktif' : '✏️ Mode Atur Area'"></button>
-                </div>
-              </template>
               <div class="repair-3d-canvas" x-ref="repair3dCanvas"></div>
               <div class="repair-3d-loading" x-show="repairModelLoading" x-text="repairModelStatus || 'Memuat model 3D...'">Memuat model 3D...</div>
               <p class="repair-3d-hint">Seret buat putar &middot; scroll/cubit buat zoom ke titik yang ditunjuk &middot; tap bagian yang di-repair</p>
+              <!-- SATU bar saja, ditaruh DI BAWAH kanvas supaya tidak pernah
+                   menutupi model. Tombol khusus admin dibungkus <template x-if>
+                   masing-masing -- jangan dipisah jadi bar kedua, karena dulu
+                   dua bar dengan kelas sama saling bertumpuk dan yang satu
+                   menutupi yang lain. -->
+              <div class="repair-edit-toggle">
+                <button type="button" class="btn-secondary btn-sm" @click="resetTampilan()" title="Kembalikan model ke sudut pandang semula">↺ Reset Tampilan</button>
+                <button type="button" class="btn-secondary btn-sm" :class="repairShowAreas ? 'btn-primary' : ''" @click="toggleRepairShowAreas()" x-text="repairShowAreas ? '👁 Area ditampilkan' : '👁 Tampilkan Area'"></button>
+                <template x-if="isAdmin()">
+                  <button type="button" class="btn-secondary btn-sm" @click="simpanTampilanAwal()" title="Jadikan sudut pandang yang sedang tampil sebagai bawaan">📌 Simpan Tampilan</button>
+                </template>
+                <template x-if="isAdmin()">
+                  <button type="button" class="btn-secondary btn-sm" :class="repairEditMode ? 'btn-primary' : ''" @click="toggleRepairEditModeArea()" x-text="repairEditMode ? '✓ Mode Atur Area aktif' : '✏️ Mode Atur Area'"></button>
+                </template>
+              </div>
             </div>
             <!-- ===== Pengaturan Area Las (admin) =====
                  SEKALI TAP di jalur las -> sistem menelusuri sendiri bentuk
@@ -1636,7 +1641,7 @@
         </div>
 
         <!-- ===================== TAB MASTER DATA ===================== -->
-        <div x-show="tab === 'master'" :style="tab !== 'master' ? 'content-visibility:hidden' : 'content-visibility:visible'">
+        <div x-show="tab === 'master' && isAdmin()" :style="tab !== 'master' ? 'content-visibility:hidden' : 'content-visibility:visible'">
           <div class="panel">
             <p class="panel-title">Target GSPH</p>
             <p class="hint" style="margin-bottom:14px;">Garis target di grafik Performance. Operator cuma bisa lihat, admin/leader yang bisa atur.</p>

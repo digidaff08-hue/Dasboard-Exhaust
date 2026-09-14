@@ -4103,8 +4103,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       };
 
       buat(tebal, 0, true);                       // lapis sentuh (tak terlihat)
-      buat(tebal * 0.35,                          // lapis tampilan (tipis)
-           terpilih ? 0.55 : (this.repairShowAreas ? 0.18 : 0),
+      buat(tebal * 0.5,                           // lapis tampilan (tipis)
+           terpilih ? 0.55 : (this.repairShowAreas ? 0.24 : 0),
            false);
     },
 
@@ -4458,7 +4458,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const kena = m.userData.pointId === pointId;
         // Samar dan tipis: cukup buat memastikan "kena", tidak mengotori model.
         // Samar dan tipis -- cukup buat memastikan "kena", tidak mencolok.
-        m.material.opacity = kena ? 0.22 : (this.repairShowAreas ? 0.18 : 0);
+        m.material.opacity = kena ? 0.3 : (this.repairShowAreas ? 0.24 : 0);
       });
       // Point yang lagi DIPILIH (toolbar Geser/Ukuran/Edit Titik) selalu
       // tampil hijau tetap -- hover TIDAK menimpa warnanya, biar jelas

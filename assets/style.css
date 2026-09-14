@@ -2552,12 +2552,24 @@ body, .sqcpm-col, .dash-panel, .kpi-card, .perf-card, .panel,
   background: transparent; touch-action: none;
 }
 .repair-3d-canvas canvas { display: block; width: 100% !important; height: 100% !important; }
+/* Bar tombol viewer Repair.
+   Ditaruh DI BAWAH kanvas (bukan melayang di atasnya), sejajar dengan
+   tulisan petunjuk. Dengan begitu tidak pernah menutupi model, baik di
+   desktop maupun di HP. Tanpa kotak latar -- tombolnya berdiri sendiri
+   seperti tombol lain di aplikasi. */
 .repair-edit-toggle {
-  position: absolute;
-  top: 10px;
-  right: 10px;
+  position: static;
   z-index: 5;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+@media (max-width: 800px) {
+  .repair-edit-toggle { justify-content: flex-start; }
 }
 @media (min-width: 801px) {
   .repair-3d-canvas { height: 500px; }
