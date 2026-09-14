@@ -1509,6 +1509,21 @@
                  jalurnya sampai habis, melengkung mengikuti part. Admin
                  cuma menunjukkan yang mana, tidak menggambar. -->
             <div x-show="repairEditMode" style="margin:10px 0;">
+              <!-- Salin area dari model lain. Berguna kalau part yang sama
+                   didaftarkan lagi (model lain / line lain): tidak perlu
+                   menandai ulang satu per satu. -->
+              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px;padding:8px 10px;border:1px dashed var(--border);border-radius:8px;">
+                <span style="font-size:12px;color:#64748b;">Salin area dari model lain:</span>
+                <select x-model="salinDariId" style="max-width:260px;font-size:12px;padding:4px 8px;">
+                  <option value="">Pilih model asal...</option>
+                  <template x-for="v in salinDaftar" :key="'sl-'+v.id">
+                    <option :value="v.id" x-text="v.mesin + ' — ' + v.label"></option>
+                  </template>
+                </select>
+                <button type="button" class="btn-secondary btn-sm" @click="salinArea()" :disabled="!salinDariId || salinSibuk"
+                        x-text="salinSibuk ? 'Menyalin...' : '\u2398 Salin Area'"></button>
+              </div>
+
               <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px;">
                 <span style="font-size:12px;color:#64748b;">Cara ambil:</span>
                 <button type="button" class="btn-secondary btn-sm" :class="repairTraceMode === 'penuh' ? 'btn-primary' : ''" @click="setRepairTraceMode('penuh')">Jalur Penuh</button>

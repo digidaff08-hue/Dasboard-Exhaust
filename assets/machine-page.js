@@ -3638,6 +3638,55 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       r.controls.update();
     },
 
+    // ================= SALIN AREA ANTAR MODEL =================
+    // Area disimpan per MODEL (kolom view_id di repair_points), bukan per
+    // file 3D. Jadi kalau part yang sama didaftarkan lagi -- entah sebagai
+    // model lain di line yang sama, atau di line berbeda -- areanya kosong
+    // walau file STL-nya persis sama.
+    //
+    // Daripada menandai ulang satu per satu, areanya bisa disalin.
+    // Yang disalin cuma bentuk & namanya; riwayat repair TIDAK ikut
+    // (riwayat menempel ke point lama lewat point_id, dan itu memang harus
+    // tetap menempel di model asalnya).
+    salinDaftar: [],
+    salinDariId: "",
+    salinSibuk: false,
+    async muatDaftarSalin() {
+      const { data, error } = await supabaseClient
+        .from("repair_views").select("id,mesin,label").order("mesin").order("label");
+      if (error) { this.flash("Gagal memuat daftar model: " + error.message, true); return; }
+      // model yang sedang dibuka tidak perlu muncul di daftar
+      this.salinDaftar = (data || []).filter((v) => v.id !== this.repairActiveViewId);
+    },
+    async salinArea() {
+      if (!this.isAdmin()) return;
+      if (!this.salinDariId || !this.repairActiveViewId) { this.flash("Pilih model asalnya dulu.", true); return; }
+      const { data: asal, error: e1 } = await supabaseClient
+        .from("repair_points").select("*").eq("view_id", this.salinDariId);
+      if (e1) { this.flash("Gagal membaca area asal: " + e1.message, true); return; }
+      if (!asal || !asal.length) { this.flash("Model itu belum punya area.", true); return; }
+
+      const adaSekarang = this.repairPoints.length;
+      if (adaSekarang && !confirm("Model ini sudah punya " + adaSekarang + " area.\n\nArea dari model asal akan DITAMBAHKAN, bukan menggantikan. Lanjutkan?")) return;
+
+      this.salinSibuk = true;
+      try {
+        // id, view_id, dan created_at sengaja dibuang -- biar baris baru
+        // dapat id sendiri dan menempel ke model yang sedang dibuka.
+        const salinan = asal.map((p) => {
+          const { id, view_id, created_at, ...sisa } = p;
+          return { ...sisa, view_id: this.repairActiveViewId };
+        });
+        const { data, error } = await supabaseClient.from("repair_points").insert(salinan).select();
+        if (error) { this.flash("Gagal menyalin: " + error.message, true); return; }
+        this.repairPoints = this.repairPoints.concat(data || []);
+        this.rebuildRepairMarkers();
+        this.flash((data || []).length + " area disalin ✓");
+      } finally {
+        this.salinSibuk = false;
+      }
+    },
+
     // ================= AREA BIDANG (permukaan rata, mis. flange) =================
     // Flange tidak punya jalur las, jadi tiga mode lain (Penuh/Sebagian/
     // Sambung) tidak bisa dipakai -- semuanya bersandar pada lipatan.
@@ -4164,6 +4213,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // Penjagaan di logika, bukan cuma menyembunyikan tombol.
       if (!this.isAdmin()) return;
       this.repairEditMode = !this.repairEditMode;
+      if (this.repairEditMode) this.muatDaftarSalin();
       if (!this.repairEditMode) { this.repairDraftPoints = []; this.repairPartialStart = null; }
       this.repairSelectedPointId = null;
       this.rebuildRepairMarkers();
