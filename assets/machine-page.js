@@ -3216,6 +3216,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           THREE, scene, camera, renderer, controls, mesh,
           homeTarget: controls.target.clone(),
           homePos: camera.position.clone(),
+          // camera.up WAJIB ikut disimpan: TrackballControls memutar arah
+          // "atas" juga (rotasi bebas tanpa kutub). Tanpa ini, Reset
+          // mengembalikan posisi & target tapi modelnya tetap miring.
+          homeUp: camera.up.clone(),
           raycaster: new THREE.Raycaster(), pointer: new THREE.Vector2(),
           markers: [], container, currentViewId: view.id, animId: null, paused: false,
           // --- state buat gambar garis las (drag-trace) & hover highlight ---
@@ -3617,6 +3621,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (v) v.default_view = dv;
       r.homeTarget.copy(t);
       r.homePos.copy(c.position);
+      r.homeUp.copy(c.up);
       this.flash("Tampilan awal disimpan ✓");
     },
     // Kembali ke sudut pandang bawaan (yang tersimpan, atau hitungan otomatis)
@@ -3624,6 +3629,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const r = repairThreeState; if (!r) return;
       r.camera.position.copy(r.homePos);
       r.controls.target.copy(r.homeTarget);
+      r.camera.up.copy(r.homeUp);
+      r.camera.lookAt(r.controls.target);
       r.controls.update();
     },
 
@@ -3855,6 +3862,41 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         return;
       }
 
+      // ---- Mode LURUS: tap pangkal & ujung, jalurnya GARIS LURUS ----
+      // Dipakai kalau lasnya tidak menempel di lipatan (mis. las di permukaan
+      // rata), sehingga penelusuran otomatis tidak menemukan apa-apa.
+      // Titik antara dibuat sendiri supaya selangnya tetap menempel rapi.
+      if (this.repairTraceMode === "lurus") {
+        if (!this.repairPartialStart) {
+          this.repairPartialStart = surfaceHit.local.clone();
+          this.repairChainNormal = surfaceHit.normal || null;
+          this.repairDraftPoints = [{ x: surfaceHit.local.x, y: surfaceHit.local.y, z: surfaceHit.local.z }];
+          this.repairChainAnchors = this.repairDraftPoints.slice();
+          this.rebuildRepairMarkers();
+          this.flash("Pangkal ditandai. Tap titik ujungnya.");
+          return;
+        }
+        const a = this.repairPartialStart, b = surfaceHit.local;
+        this.repairPartialStart = null;
+        this.repairDraftPoints = [];
+        this.repairChainAnchors = [];
+        const panjang = a.distanceTo(b);
+        if (panjang < (r.maxDim || 1) * 0.005) {
+          this.rebuildRepairMarkers();
+          this.flash("Dua titiknya terlalu dekat.", true);
+          return;
+        }
+        // dibagi rata tiap +-1,2% ukuran part, minimal 2 titik
+        const jml = Math.max(2, Math.min(80, Math.round(panjang / ((r.maxDim || 1) * 0.012))));
+        const titik = [];
+        for (let i = 0; i <= jml; i++) {
+          const t = i / jml;
+          titik.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t });
+        }
+        await this.simpanAreaDariJalur(titik, surfaceHit.normal, "Garis lurus tersimpan (" + titik.length + " titik) ✓");
+        return;
+      }
+
       // ---- Mode SEBAGIAN: tap pertama = pangkal, tap kedua = ujung ----
       if (this.repairTraceMode === "sebagian") {
         if (!this.repairPartialStart) {
@@ -4016,7 +4058,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       await this.simpanAreaDariJalur(jalur, normal, "Jalur sambungan tersimpan (" + jalur.length + " titik) ✓");
     },
     toggleRepairShowAreas() {
-      if (!this.isAdmin()) return;
+      // Boleh dipakai SEMUA user -- cuma menampilkan, tidak mengubah data.
       this.repairShowAreas = !this.repairShowAreas;
       this.rebuildRepairMarkers();
     },
@@ -4028,29 +4070,42 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     buildRepairAreaMesh(THREE, r, pt, maxDim) {
       const titik = this.repairAreaPoints(pt);
       const tebal = this.repairAreaThickness(pt, maxDim);
-      let geo;
-      if (titik.length >= 2) {
-        const kurva = new THREE.CatmullRomCurve3(titik.map((t) => new THREE.Vector3(t.x, t.y, t.z)));
-        const seg = Math.max(16, Math.min(120, titik.length * 12));
-        geo = new THREE.TubeGeometry(kurva, seg, tebal, 10, false);
-      } else {
-        const pusat = titik[0] || { x: pt.x, y: pt.y, z: pt.z };
-        geo = new THREE.SphereGeometry(tebal, 16, 12);
-        geo.translate(pusat.x, pusat.y, pusat.z);
-      }
       const terpilih = this.repairEditMode && this.repairSelectedPointId === pt.id;
-      const mat = new THREE.MeshBasicMaterial({
-        color: terpilih ? 0x16A34A : 0xEF4444,
-        transparent: true,
-        opacity: terpilih ? 0.7 : (this.repairShowAreas ? 0.35 : 0),
-        depthWrite: false,
-      });
-      const obj = new THREE.Mesh(geo, mat);
-      obj.renderOrder = 999;
-      obj.userData.pointId = pt.id;
-      obj.userData.isArea = true;
-      r.mesh.add(obj);
-      r.markers.push(obj);
+
+      // Dibuat DUA lapis:
+      //   1. lapis SENTUH  -> setebal aslinya, selamanya tak terlihat.
+      //      Ini yang menangkap jari/kursor, jadi mudah kena sasaran.
+      //   2. lapis TAMPILAN -> jauh lebih tipis, cuma buat dilihat.
+      // Dipisah supaya garisnya bisa dibikin tipis & samar tanpa membuat
+      // areanya jadi susah disentuh.
+      const buat = (radius, opacity, hanyaSentuh) => {
+        let geo;
+        if (titik.length >= 2) {
+          const kurva = new THREE.CatmullRomCurve3(titik.map((t) => new THREE.Vector3(t.x, t.y, t.z)));
+          const seg = Math.max(16, Math.min(120, titik.length * 12));
+          geo = new THREE.TubeGeometry(kurva, seg, radius, 10, false);
+        } else {
+          const pusat = titik[0] || { x: pt.x, y: pt.y, z: pt.z };
+          geo = new THREE.SphereGeometry(radius, 16, 12);
+          geo.translate(pusat.x, pusat.y, pusat.z);
+        }
+        const mat = new THREE.MeshBasicMaterial({
+          color: terpilih ? 0x16A34A : 0xEF4444,
+          transparent: true, opacity, depthWrite: false,
+        });
+        const obj = new THREE.Mesh(geo, mat);
+        obj.renderOrder = 999;
+        obj.userData.pointId = pt.id;
+        obj.userData.isArea = true;
+        obj.userData.hitOnly = !!hanyaSentuh;
+        r.mesh.add(obj);
+        r.markers.push(obj);
+      };
+
+      buat(tebal, 0, true);                       // lapis sentuh (tak terlihat)
+      buat(tebal * 0.35,                          // lapis tampilan (tipis)
+           terpilih ? 0.55 : (this.repairShowAreas ? 0.18 : 0),
+           false);
     },
 
     // Pratinjau jalur yang sedang dibuat (tap-tap belum disimpan) --
@@ -4397,11 +4452,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       //     sudah kena sasaran padahal areanya tidak digambar. ---
       (r.markers || []).forEach((m) => {
         if (!m.userData || !m.userData.isArea || !m.material) return;
+        if (m.userData.hitOnly) { m.material.opacity = 0; return; }  // lapis sentuh selalu tak terlihat
         const terpilih = this.repairEditMode && this.repairSelectedPointId === m.userData.pointId;
         if (terpilih) return;   // yang sedang dipilih tetap hijau tegas
         const kena = m.userData.pointId === pointId;
         // Samar dan tipis: cukup buat memastikan "kena", tidak mengotori model.
-        m.material.opacity = kena ? 0.32 : (this.repairShowAreas ? 0.3 : 0);
+        // Samar dan tipis -- cukup buat memastikan "kena", tidak mencolok.
+        m.material.opacity = kena ? 0.22 : (this.repairShowAreas ? 0.18 : 0);
       });
       // Point yang lagi DIPILIH (toolbar Geser/Ukuran/Edit Titik) selalu
       // tampil hijau tetap -- hover TIDAK menimpa warnanya, biar jelas
