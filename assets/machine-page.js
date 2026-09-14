@@ -4233,7 +4233,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           geo.translate(pusat.x, pusat.y, pusat.z);
         }
         const mat = new THREE.MeshBasicMaterial({
-          color: terpilih ? 0x16A34A : 0xEF4444,
+          // Merah tua (#B91C1C) untuk semua bentuk area -- garis las maupun
+          // bidang. Sebelumnya pakai merah terang (#EF4444) yang di bidang
+          // lebar terlihat lebih muda daripada di garis tipis.
+          color: terpilih ? 0x16A34A : 0xB91C1C,
           transparent: true, opacity, depthWrite: false,
         });
         const obj = new THREE.Mesh(geo, mat);
@@ -4248,7 +4251,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (bidang) {
         // Bidang: cukup satu lapis. Bentuknya sudah seluas permukaan,
         // jadi tidak perlu lapis sentuh terpisah seperti garis las.
-        buat(tebal, terpilih ? 0.4 : (this.repairShowAreas ? 0.2 : 0), false);
+        buat(tebal, terpilih ? 0.55 : (this.repairShowAreas ? 0.24 : 0), false);
       } else {
         buat(tebal, 0, true);                     // lapis sentuh (tak terlihat)
         buat(tebal * 0.5,                         // lapis tampilan (tipis)
