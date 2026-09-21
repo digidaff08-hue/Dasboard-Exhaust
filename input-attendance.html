@@ -421,10 +421,10 @@
                   <select x-model="leaveForm.jenis_cuti">
                     <option value="">Pilih jenis cuti...</option>
                     <option value="Cuti Tahunan">Cuti Tahunan</option>
-                    <option value="Cuti Besar">Cuti Besar</option>
-                    <option value="Cuti Melahirkan">Cuti Melahirkan</option>
-                    <option value="Cuti Lainnya">Cuti Lainnya</option>
+                    <option value="Cuti Khusus">Cuti Khusus</option>
                   </select>
+                  <span class="la-hint" x-show="leaveForm.jenis_cuti === 'Cuti Tahunan'">Memotong jatah cuti tahunan</span>
+                  <span class="la-hint" x-show="leaveForm.jenis_cuti === 'Cuti Khusus'">Tidak memotong jatah cuti</span>
                 </div>
               </template>
             </div>
@@ -762,7 +762,8 @@ function attendancePage() {
 
         this.sisaHasil = list.map((k) => {
           const punya = this._cutiSemua.filter((c) => c.nik === k.nik);
-          // Hanya Cuti Tahunan yang memotong jatah, dan hanya tahun berjalan
+          // Hanya Cuti Tahunan yang memotong jatah, dan hanya tahun berjalan.
+          // Cuti Khusus (dan data lama Besar/Melahirkan/Lainnya) TIDAK memotong.
           const terpakai = punya
             .filter((c) => c.jenis_cuti === "Cuti Tahunan" && String(c.tanggal).slice(0, 4) === String(tahun))
             .reduce((a, c) => a + Number(c.jumlah_hari ?? 1), 0);
@@ -862,7 +863,13 @@ function attendancePage() {
       this.leaveNikFound = false;
     },
     editLeave(r) {
-      this.leaveForm = { tanggal: r.tanggal, tanggal_selesai: r.tanggal_selesai || r.tanggal, jenis: r.jenis, nik: r.nik, nama: r.nama, jenis_cuti: r.jenis_cuti || "", keterangan: r.keterangan || "" };
+      // Data lama bisa berisi Cuti Besar / Cuti Melahirkan / Cuti Lainnya.
+      // Pilihan itu sudah dihapus dari dropdown, jadi kalau dibiarkan
+      // dropdown-nya tampil kosong. Semuanya dulu juga tidak memotong
+      // jatah, jadi dipetakan ke Cuti Khusus (hasil hitungan tidak berubah).
+      let jenisCuti = r.jenis_cuti || "";
+      if (r.jenis === "cuti" && jenisCuti && !["Cuti Tahunan", "Cuti Khusus"].includes(jenisCuti)) jenisCuti = "Cuti Khusus";
+      this.leaveForm = { tanggal: r.tanggal, tanggal_selesai: r.tanggal_selesai || r.tanggal, jenis: r.jenis, nik: r.nik, nama: r.nama, jenis_cuti: jenisCuti, keterangan: r.keterangan || "" };
       this.leaveEditId = r.id;
       this.leaveNikFound = true;
       window.scrollTo({ top: 0, behavior: "smooth" });
