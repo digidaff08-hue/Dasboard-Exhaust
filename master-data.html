@@ -147,6 +147,7 @@
 </script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="assets/supabaseClient.js"></script>
 </head>
 <body>
@@ -366,22 +367,36 @@
             </div>
 
             <!-- ===== Ganti Hari (Masuk Kerja) =====
-                 Hari masuk kerja pengganti, biasanya hari Sabtu. Cuti yang
-                 jatuh di tanggal ini dihitung 0 hari, jadi TIDAK memotong
-                 jatah. Disimpan di tabel hari_libur dengan jenis = 'ganti_hari'
-                 -- dengan begitu Total Hari cuti di form Attendance dan trigger
-                 database otomatis ikut melewatinya, tanpa mengubah trigger. -->
+                 Hari Sabtu yang jadi hari kerja PENGGANTI (menebus libur di
+                 hari kerja lain), biasanya cuma untuk 1 shift -- shift yang
+                 lain tetap libur seperti Sabtu biasa. Kalau ada yang cuti di
+                 tanggal ini DAN dia masuk di shift yang kerja hari itu, cuti
+                 itu MEMOTONG jatah (1 hari), sama seperti hari kerja biasa.
+                 Kalau shift-nya libur hari itu, tetap 0 (tidak dipotong).
+                 Disimpan di tabel hari_libur, jenis = 'ganti_hari', dengan
+                 kolom shift ('1' / '2' / 'penuh'). Trigger database
+                 (lihat migration_ganti_hari_shift.sql) membaca tabel ini
+                 dan tabel karyawan_shift di bawah untuk tahu shift orangnya. -->
             <div class="panel">
               <p class="panel-title">Ganti Hari (Masuk Kerja)
                 <span class="count" x-text="gantiHariRows.length + ' tanggal'"></span>
               </p>
               <p class="hint" style="margin-bottom:14px;">
-                Cuti yang jatuh di tanggal ganti hari tercatat <b>0 hari</b> dan
-                tidak memotong jatah cuti. Hari libur / tanggal merah biasa tetap
-                dikelola di panel di atas.
+                Untuk shift yang <b>masuk</b> di tanggal ini, cuti tetap
+                memotong jatah (1 hari) -- sama seperti hari kerja biasa.
+                Untuk shift yang libur hari itu, tetap 0. Kalau shift orangnya
+                belum tercatat di panel <b>Shift Karyawan</b> di bawah, sistem
+                mengasumsikan libur (0, tidak dipotong) supaya aman.
               </p>
               <div class="form-grid">
                 <div class="field"><label>Tanggal</label><input type="date" x-model="gantiHariForm.tanggal"></div>
+                <div class="field"><label>Shift yang Masuk</label>
+                  <select x-model="gantiHariForm.shift">
+                    <option value="1">Shift 1</option>
+                    <option value="2">Shift 2</option>
+                    <option value="penuh">Shift 1 &amp; 2 (Penuh)</option>
+                  </select>
+                </div>
                 <div class="field" style="grid-column: span 2;"><label>Keterangan</label><input type="text" x-model="gantiHariForm.keterangan" placeholder="mis. Ganti hari cuti bersama 17 Agustus"></div>
               </div>
               <div class="form-actions">
@@ -389,17 +404,62 @@
               </div>
               <div class="table-wrap" style="margin-top:12px;">
                 <table>
-                  <thead><tr><th>Tanggal</th><th>Hari</th><th>Keterangan</th><th>Aksi</th></tr></thead>
+                  <thead><tr><th>Tanggal</th><th>Hari</th><th>Shift Masuk</th><th>Keterangan</th><th>Aksi</th></tr></thead>
                   <tbody>
                     <template x-for="r in gantiHariRows" :key="'gh-'+r.tanggal">
                       <tr>
                         <td class="mono" x-text="r.tanggal"></td>
                         <td x-text="namaHari(r.tanggal)"></td>
+                        <td x-text="r.shift === 'penuh' ? 'Shift 1 & 2' : ('Shift ' + r.shift)"></td>
                         <td x-text="r.keterangan || '-'"></td>
                         <td><button class="btn-secondary btn-sm" @click="deleteGantiHari(r)">Hapus</button></td>
                       </tr>
                     </template>
-                    <tr x-show="gantiHariRows.length === 0"><td colspan="4" class="empty-state">Belum ada tanggal ganti hari.</td></tr>
+                    <tr x-show="gantiHariRows.length === 0"><td colspan="5" class="empty-state">Belum ada tanggal ganti hari.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- ===== Shift Karyawan =====
+                 Dipakai supaya sistem tahu shift siapa, untuk menentukan
+                 apakah cuti di tanggal Ganti Hari di atas memotong jatah
+                 atau tidak. Diisi lewat upload Excel (kolom NIK & SHIFT),
+                 bukan satu per satu -- lebih cepat kalau ada puluhan orang.
+                 Label "Shift 1" / "Shift 2" mengikuti istilah yang sudah
+                 dipakai di form "Kehadiran Shift Mingguan" di atas; jam
+                 kerja tiap shift tidak diatur di sini. -->
+            <div class="panel">
+              <p class="panel-title">Shift Karyawan
+                <span class="count" x-text="ksRows.length + ' karyawan'"></span>
+              </p>
+              <p class="hint" style="margin-bottom:14px;">
+                Unduh template dulu kalau belum pernah isi, supaya NIK dan
+                nama sudah sesuai master karyawan. Isi kolom <b>SHIFT</b>
+                dengan <b>1</b> atau <b>2</b>, lalu upload lagi. Baris yang
+                SHIFT-nya kosong tidak diubah.
+              </p>
+              <div class="form-actions" style="margin-bottom:12px;">
+                <button type="button" class="btn-secondary" @click="downloadShiftTemplate()">Unduh Template Excel</button>
+                <button type="button" class="btn-secondary" @click="exportShiftData()">Export Data Saat Ini</button>
+                <label class="btn-primary" style="cursor:pointer; display:inline-flex; align-items:center;">
+                  <span x-text="ksUploading ? 'Mengunggah...' : 'Upload Excel'"></span>
+                  <input type="file" accept=".xlsx,.xls" style="display:none" @change="handleShiftUpload($event)" :disabled="ksUploading">
+                </label>
+              </div>
+              <p class="hint" x-show="ksMsg" x-text="ksMsg"></p>
+              <div class="table-wrap" style="margin-top:12px; max-height:320px; overflow-y:auto;">
+                <table>
+                  <thead><tr><th>NIK</th><th>Nama</th><th>Shift</th></tr></thead>
+                  <tbody>
+                    <template x-for="r in ksRows" :key="r.nik">
+                      <tr>
+                        <td class="mono" x-text="r.nik"></td>
+                        <td x-text="r.nama"></td>
+                        <td x-text="r.shift ? ('Shift ' + r.shift) : '-'"></td>
+                      </tr>
+                    </template>
+                    <tr x-show="ksRows.length === 0"><td colspan="3" class="empty-state">Belum ada data karyawan.</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -1070,7 +1130,12 @@ function masterDataPage() {
     // ---- Ganti Hari (masuk kerja pengganti) ----
     // Satu tabel dengan hari libur (hari_libur), dibedakan kolom `jenis`.
     gantiHariRows: [],
-    gantiHariForm: { tanggal: localDateStr(new Date()), keterangan: "" },
+    gantiHariForm: { tanggal: localDateStr(new Date()), shift: "1", keterangan: "" },
+    // ---- Shift Karyawan (dipakai untuk menghitung ganti hari per orang) ----
+    karyawanShiftMap: {},     // { nik: "1" | "2" }
+    ksRows: [],               // gabungan karyawan_master + shift, buat ditampilkan & export
+    ksUploading: false,
+    ksMsg: "",
     // ---- Form Scrap Top End (Bulanan) ----
     scrapForm: { tahun: new Date().getFullYear(), bulan: String(new Date().getMonth() + 1), scrap_value_kidr: "", total_value_kidr: "", target_rasio: "" },
     scrapRows: [],
@@ -1133,6 +1198,7 @@ function masterDataPage() {
       await this.fetchOt();
       await this.fetchShiftRows();
       await this.fetchHariLibur();
+      await this.fetchKaryawanShift();
       await this.fetchScrapRows();
       await this.fetchSafetyRows();
     },
@@ -1281,12 +1347,12 @@ function masterDataPage() {
       const bentrok = this.hariLiburRows.find((r) => r.tanggal === f.tanggal);
       if (bentrok && !confirm(`Tanggal ${f.tanggal} sudah tercatat sebagai hari libur${bentrok.keterangan ? " (" + bentrok.keterangan + ")" : ""}. Ubah jadi Ganti Hari?`)) return;
       const { error } = await supabaseClient.from("hari_libur").upsert(
-        { tanggal: f.tanggal, keterangan: f.keterangan || null, jenis: "ganti_hari", created_by: this.session.user.id },
+        { tanggal: f.tanggal, keterangan: f.keterangan || null, jenis: "ganti_hari", shift: f.shift || "1", created_by: this.session.user.id },
         { onConflict: "tanggal" }
       );
       if (error) { this.flash("Gagal simpan ganti hari: " + error.message, true); return; }
       this.flash("Ganti hari tersimpan.");
-      this.gantiHariForm = { tanggal: localDateStr(new Date()), keterangan: "" };
+      this.gantiHariForm = { tanggal: localDateStr(new Date()), shift: "1", keterangan: "" };
       await this.fetchHariLibur();
     },
     async deleteGantiHari(r) {
@@ -1295,6 +1361,80 @@ function masterDataPage() {
       if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
       this.flash("Ganti hari dihapus.");
       await this.fetchHariLibur();
+    },
+    // ---- Shift Karyawan ----
+    // Dipakai HANYA untuk menentukan potong-tidaknya cuti di tanggal Ganti
+    // Hari di atas. Bukan pengganti fitur "Kehadiran Shift Mingguan" yang
+    // sudah ada (itu rekap jumlah orang per shift, ini penempatan per NIK).
+    async fetchKaryawanShift() {
+      const [kRes, sRes] = await Promise.all([
+        supabaseClient.from("karyawan_master").select("nik,nama").order("nama"),
+        supabaseClient.from("karyawan_shift").select("nik,shift"),
+      ]);
+      const map = {};
+      (sRes.data || []).forEach((r) => { map[r.nik] = r.shift; });
+      this.karyawanShiftMap = map;
+      this.ksRows = (kRes.data || []).map((k) => ({ nik: k.nik, nama: k.nama, shift: map[k.nik] || "" }));
+    },
+    // File Excel sederhana: kolom NIK, NAMA (cuma referensi), SHIFT.
+    // NIK dipakai sebagai kunci; NAMA di file tidak dipakai untuk apa pun.
+    _shiftSheetFromRows(rows) {
+      const data = [["NIK", "NAMA", "SHIFT"], ...rows.map((r) => [r.nik, r.nama, r.shift || ""])];
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      ws["!cols"] = [{ wch: 12 }, { wch: 28 }, { wch: 8 }];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Shift");
+      return wb;
+    },
+    downloadShiftTemplate() {
+      const wb = this._shiftSheetFromRows(this.ksRows);
+      XLSX.writeFile(wb, "template_shift_karyawan.xlsx");
+    },
+    exportShiftData() {
+      const wb = this._shiftSheetFromRows(this.ksRows);
+      XLSX.writeFile(wb, `shift_karyawan_${localDateStr(new Date())}.xlsx`);
+    },
+    async handleShiftUpload(evt) {
+      const file = evt.target.files[0];
+      evt.target.value = "";   // biar bisa upload file yang sama lagi kalau perlu
+      if (!file) return;
+      this.ksUploading = true;
+      this.ksMsg = "";
+      try {
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+        // Header diterima fleksibel: NIK/nik, SHIFT/shift/Shift
+        const nikRow = this.ksRows.reduce((m, r) => { m[r.nik] = true; return m; }, {});
+        const updates = [];
+        const nikTakDikenal = [];
+        const shiftTakValid = [];
+        for (const row of rows) {
+          const nik = String(row.NIK ?? row.nik ?? row.Nik ?? "").trim();
+          let shift = String(row.SHIFT ?? row.shift ?? row.Shift ?? "").trim();
+          if (!nik || !shift) continue;   // baris kosong dilewati, tidak dianggap error
+          if (!["1", "2"].includes(shift)) { shiftTakValid.push(`${nik} (${shift})`); continue; }
+          if (!nikRow[nik]) { nikTakDikenal.push(nik); continue; }
+          updates.push({ nik, shift, updated_by: this.session.user.id, updated_at: new Date().toISOString() });
+        }
+        if (updates.length === 0) {
+          this.ksMsg = "Tidak ada baris valid untuk disimpan. Cek lagi kolom NIK dan SHIFT (isi 1 atau 2).";
+          return;
+        }
+        const { error } = await supabaseClient.from("karyawan_shift").upsert(updates, { onConflict: "nik" });
+        if (error) { this.ksMsg = "Gagal menyimpan: " + error.message; return; }
+        let pesan = `${updates.length} baris shift tersimpan.`;
+        if (nikTakDikenal.length) pesan += ` ${nikTakDikenal.length} NIK tidak dikenal (dilewati): ${nikTakDikenal.slice(0, 5).join(", ")}${nikTakDikenal.length > 5 ? ", ..." : ""}.`;
+        if (shiftTakValid.length) pesan += ` ${shiftTakValid.length} nilai SHIFT tidak valid, harus 1 atau 2 (dilewati): ${shiftTakValid.slice(0, 5).join(", ")}${shiftTakValid.length > 5 ? ", ..." : ""}.`;
+        this.ksMsg = pesan;
+        this.flash("Shift karyawan diperbarui.");
+        await this.fetchKaryawanShift();
+      } catch (e) {
+        this.ksMsg = "Gagal membaca file: " + e.message;
+      } finally {
+        this.ksUploading = false;
+      }
     },
     async deleteHariLibur(r) {
       if (!confirm(`Hapus hari libur ${r.tanggal}${r.keterangan ? " (" + r.keterangan + ")" : ""}?`)) return;
@@ -1999,14 +2139,14 @@ function masterDataPage() {
         const [rowsRes, profRes, liburRes] = await Promise.all([
           q,
           supabaseClient.from("profiles").select("id,full_name,email"),
-          supabaseClient.from("hari_libur").select("tanggal"),
+          supabaseClient.from("hari_libur").select("tanggal,jenis,shift"),
         ]);
         if (rowsRes.error) { this.rkError = "Gagal memuat rekap: " + rowsRes.error.message; return; }
         this.rkRows = rowsRes.data || [];
         const map = {};
         (profRes.data || []).forEach((p) => { map[p.id] = p.full_name || p.email || "-"; });
         this.rkProfiles = map;
-        this.rkHariLibur = (liburRes.data || []).map((r) => r.tanggal);
+        this.rkHariLibur = liburRes.data || [];
       } finally {
         this.rkLoading = false;
       }
@@ -2029,9 +2169,19 @@ function masterDataPage() {
       }
       this.rkError = "";
     },
-    // Hari kerja antara 2 tanggal: Sabtu, Minggu, tanggal merah, dan ganti hari dilewati
-    // (rkHariLibur berisi semua baris hari_libur, termasuk jenis 'ganti_hari').
-    // Rumusnya sama persis dengan leaveTotalHari() di input-attendance.html.
+    // Hari yang dihitung antara 2 tanggal:
+    //  - Minggu: selalu tidak dihitung.
+    //  - Senin-Jumat: dihitung, KECUALI tanggal merah biasa (jenis 'libur').
+    //  - Sabtu: TIDAK dihitung, kecuali ada catatan Ganti Hari (jenis
+    //    'ganti_hari') di tanggal itu DAN shift orangnya cocok (atau
+    //    catatannya 'penuh'). Shift orang diambil dari karyawanShiftMap;
+    //    kalau belum tercatat, dianggap tidak dihitung (aman, tidak
+    //    memotong jatah secara tidak sengaja).
+    // Rumus ini harus SAMA PERSIS dengan leaveTotalHari() di
+    // input-attendance.html dan trigger set_jumlah_hari_cuti() di database
+    // (lihat migration_ganti_hari_shift.sql) -- kalau salah satu diubah,
+    // ubah juga yang lain supaya preview di layar tidak beda dari yang
+    // benar-benar tersimpan.
     rkHitungHari() {
       const e = this.rkEdit;
       if (!e || !e.tanggal) return 0;
@@ -2039,11 +2189,19 @@ function masterDataPage() {
       let d = new Date(e.tanggal + "T00:00:00");
       const akhir = new Date(selesai + "T00:00:00");
       if (akhir < d) return 0;
+      const shiftSaya = this.karyawanShiftMap[e.nik] || null;
       let total = 0;
       while (d <= akhir) {
         const dow = d.getDay();   // 0 = Minggu, 6 = Sabtu
         const ds = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-        if (dow !== 0 && dow !== 6 && !this.rkHariLibur.includes(ds)) total++;
+        const lib = this.rkHariLibur.find((r) => r.tanggal === ds);
+        if (dow === 0) {
+          // Minggu: tidak dihitung
+        } else if (dow === 6) {
+          if (lib && lib.jenis === "ganti_hari" && (lib.shift === "penuh" || lib.shift === shiftSaya)) total++;
+        } else {
+          if (!lib || lib.jenis !== "libur") total++;
+        }
         d.setDate(d.getDate() + 1);
       }
       return total;
