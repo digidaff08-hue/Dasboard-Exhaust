@@ -603,15 +603,18 @@ function attendancePage() {
     // sendiri sekarang dikelola dari halaman Master Data > Attendance --
     // di sini cuma DIBACA (read-only) buat perhitungan preview.
     hariLibur: [],
-    // { nik: "1" | "2" } -- shift karyawan, dikelola dari Master Data >
-    // Attendance > Shift Karyawan. Dipakai supaya Total Hari tahu apakah
-    // cuti di tanggal Ganti Hari memotong jatah orang ini atau tidak.
-    karyawanShiftMap: {},
+    // Riwayat upload Shift 2 (read-only di sini, dikelola dari Master
+    // Data > Attendance > Riwayat Upload Shift 2). Shift 2 rotasi
+    // mingguan, jadi disimpan per PERIODE (tanggal_mulai-selesai), bukan
+    // satu nilai tetap per NIK -- dipakai supaya Total Hari tahu apakah
+    // cuti di tanggal Ganti Hari memotong jatah orang ini atau tidak,
+    // PADA MINGGU tanggal cuti itu.
+    shift2Periodes: [],   // { tanggal_mulai, tanggal_selesai, nikSet:Set }
     async init() {
       if (!await this.initBase()) return;
       await this.fetchLeaveRows();
       await this.fetchHariLibur();
-      await this.fetchKaryawanShift();
+      await this.fetchShift2Periodes();
       this.initRealtime();
       // Tab Sisa Cuti langsung menampilkan milik yang sedang login,
       // tanpa perlu mengetik NIK sendiri.
@@ -840,13 +843,14 @@ function attendancePage() {
     //  - Sabtu: TIDAK dihitung, kecuali ada catatan Ganti Hari (jenis
     //    'ganti_hari') di tanggal itu DAN shift orang ini cocok (atau
     //    catatannya 'penuh' -- berarti semua shift masuk). Shift orang
-    //    diambil dari karyawanShiftMap (NIK yang sedang diisi di form).
-    //    Kalau shift-nya belum tercatat, dianggap tidak dihitung (aman,
-    //    tidak memotong jatah secara tidak sengaja).
+    //    dicek PER HARI lewat shiftPadaTanggal() (Shift 2 rotasi mingguan,
+    //    NIK yang sedang diisi di form). Kalau shift-nya belum tercatat
+    //    untuk minggu itu, dianggap tidak dihitung (aman, tidak memotong
+    //    jatah secara tidak sengaja).
     // Ini cuma PREVIEW di layar. Angka final yang tersimpan tetap dihitung
     // ulang oleh trigger set_jumlah_hari_cuti() di database (lihat
-    // migration_ganti_hari_shift.sql) -- rumusnya harus sama persis
-    // dengan di sini, dan dengan rkHitungHari() di master-data.html.
+    // migration_shift2_periode.sql) -- rumusnya harus sama persis dengan
+    // di sini, dan dengan rkHitungHari() di master-data.html.
     leaveTotalHari() {
       const mulai = this.leaveForm.tanggal;
       const selesai = this.leaveForm.tanggal_selesai || this.leaveForm.tanggal;
@@ -854,7 +858,6 @@ function attendancePage() {
       let d = new Date(mulai + "T00:00:00");
       const akhir = new Date(selesai + "T00:00:00");
       if (akhir < d) return 0;
-      const shiftSaya = this.karyawanShiftMap[this.leaveForm.nik] || null;
       let total = 0;
       while (d <= akhir) {
         const dow = d.getDay(); // 0 = Minggu, 6 = Sabtu
@@ -863,7 +866,7 @@ function attendancePage() {
         if (dow === 0) {
           // Minggu: tidak dihitung
         } else if (dow === 6) {
-          if (lib && lib.jenis === "ganti_hari" && (lib.shift === "penuh" || lib.shift === shiftSaya)) total++;
+          if (lib && lib.jenis === "ganti_hari" && (lib.shift === "penuh" || lib.shift === this.shiftPadaTanggal(this.leaveForm.nik, dStr))) total++;
         } else {
           if (!lib || lib.jenis !== "libur") total++;
         }
@@ -877,15 +880,29 @@ function attendancePage() {
       const { data, error } = await supabaseClient.from("hari_libur").select("*").order("tanggal", { ascending: true });
       if (!error && data) this.hariLibur = data;
     },
-    // Baca shift karyawan (read-only) -- pengelolaan ada di halaman
-    // Master Data > Attendance > Shift Karyawan.
-    async fetchKaryawanShift() {
-      const { data, error } = await supabaseClient.from("karyawan_shift").select("nik,shift");
-      if (!error && data) {
-        const map = {};
-        data.forEach((r) => { map[r.nik] = r.shift; });
-        this.karyawanShiftMap = map;
-      }
+    // Baca riwayat upload Shift 2 (read-only) -- pengelolaan (upload/hapus)
+    // ada di halaman Master Data > Attendance > Riwayat Upload Shift 2.
+    async fetchShift2Periodes() {
+      const [pRes, dRes] = await Promise.all([
+        supabaseClient.from("shift2_periode").select("id,tanggal_mulai,tanggal_selesai"),
+        supabaseClient.from("shift2_periode_detail").select("periode_id,nik"),
+      ]);
+      const periode = pRes.data || [];
+      const detail = dRes.data || [];
+      this.shift2Periodes = periode.map((p) => ({
+        tanggal_mulai: p.tanggal_mulai,
+        tanggal_selesai: p.tanggal_selesai,
+        nikSet: new Set(detail.filter((d) => d.periode_id === p.id).map((d) => d.nik)),
+      }));
+    },
+    // Shift NIK X pada tanggal Y ("1"/"2"/null) -- HARUS SAMA PERSIS dengan
+    // public.shift_pada_tanggal() di migration_shift2_periode.sql dan
+    // shiftPadaTanggal() di master-data.html.
+    shiftPadaTanggal(nik, tanggalStr) {
+      const cocok = this.shift2Periodes.filter((p) => tanggalStr >= p.tanggal_mulai && tanggalStr <= p.tanggal_selesai);
+      if (cocok.length === 0) return null;
+      cocok.sort((a, b) => (a.tanggal_mulai < b.tanggal_mulai ? 1 : -1));   // periode terbaru dulu
+      return cocok[0].nikSet.has(nik) ? "2" : "1";
     },
     resetLeaveForm() {
       this.leaveForm = { tanggal: localDateStr(new Date()), tanggal_selesai: localDateStr(new Date()), jenis: "izin", nik: "", nama: "", jenis_cuti: "", keterangan: "" };
