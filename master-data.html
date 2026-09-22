@@ -294,17 +294,24 @@
             <!-- ===== Form Kehadiran Shift Mingguan =====
                  Terpisah dari Absensi Harian -- Hadir Shift 1/2 diisi per
                  RENTANG TANGGAL bebas (biasanya 1 minggu), bukan per hari,
-                 karena angkanya memang baru berubah tiap minggu. -->
+                 karena angkanya memang baru berubah tiap minggu.
+                 Hadir Shift 1/2 terisi OTOMATIS kalau Tanggal Mulai-Selesai
+                 persis sama dengan salah satu periode di panel "Riwayat
+                 Upload Shift 2" di bawah -- tetap bisa diedit manual kalau
+                 meleset. Lihat autoFillShift(). -->
             <div class="md-pair">
             <div class="panel">
               <p class="panel-title">Form Kehadiran Shift Mingguan</p>
               <div class="form-grid">
-                <div class="field"><label>Tanggal Mulai</label><input type="date" x-model="shiftForm.tanggal_mulai"></div>
-                <div class="field"><label>Tanggal Selesai</label><input type="date" x-model="shiftForm.tanggal_selesai" :min="shiftForm.tanggal_mulai"></div>
+                <div class="field"><label>Tanggal Mulai</label><input type="date" x-model="shiftForm.tanggal_mulai" @change="autoFillShift()"></div>
+                <div class="field"><label>Tanggal Selesai</label><input type="date" x-model="shiftForm.tanggal_selesai" :min="shiftForm.tanggal_mulai" @change="autoFillShift()"></div>
                 <div class="field"><label>Hadir Shift 1</label><input type="number" x-model="shiftForm.shift1_hadir"></div>
                 <div class="field"><label>Hadir Shift 2</label><input type="number" x-model="shiftForm.shift2_hadir"></div>
                 <div class="field" style="grid-column: span 2;"><label>Keterangan</label><input type="text" x-model="shiftForm.keterangan" placeholder="Opsional"></div>
               </div>
+              <p class="hint" x-show="shift2AutoFilled" style="margin-top:4px;">
+                Hadir Shift 1 &amp; 2 terisi otomatis dari upload Shift 2 periode ini. Bisa diedit manual kalau perlu.
+              </p>
               <div class="form-actions">
                 <button type="button" class="btn-primary" @click="saveShift()" x-text="shiftEditId ? 'Update Shift' : 'Simpan Shift'"></button>
                 <button type="button" class="btn-secondary" x-show="shiftEditId" @click="resetShiftForm()">Batal Edit</button>
@@ -374,9 +381,11 @@
                  itu MEMOTONG jatah (1 hari), sama seperti hari kerja biasa.
                  Kalau shift-nya libur hari itu, tetap 0 (tidak dipotong).
                  Disimpan di tabel hari_libur, jenis = 'ganti_hari', dengan
-                 kolom shift ('1' / '2' / 'penuh'). Trigger database
-                 (lihat migration_ganti_hari_shift.sql) membaca tabel ini
-                 dan tabel karyawan_shift di bawah untuk tahu shift orangnya. -->
+                 kolom shift ('1' / '2' / 'penuh'). Trigger database (lihat
+                 migration_shift2_periode.sql) membaca tabel ini dan tabel
+                 shift2_periode / shift2_periode_detail di bawah untuk tahu
+                 shift orangnya PADA TANGGAL cuti itu (Shift 2 berubah tiap
+                 minggu, jadi shift orang dicek per periode, bukan statis). -->
             <div class="panel">
               <p class="panel-title">Ganti Hari (Masuk Kerja)
                 <span class="count" x-text="gantiHariRows.length + ' tanggal'"></span>
@@ -384,9 +393,11 @@
               <p class="hint" style="margin-bottom:14px;">
                 Untuk shift yang <b>masuk</b> di tanggal ini, cuti tetap
                 memotong jatah (1 hari) -- sama seperti hari kerja biasa.
-                Untuk shift yang libur hari itu, tetap 0. Kalau shift orangnya
-                belum tercatat di panel <b>Shift Karyawan</b> di bawah, sistem
-                mengasumsikan libur (0, tidak dipotong) supaya aman.
+                Untuk shift yang libur hari itu, tetap 0. Shift orang dicek
+                dari periode Shift 2 di panel <b>Riwayat Upload Shift 2</b> di
+                bawah yang mencakup tanggal itu; kalau belum ada periode yang
+                mencakup tanggal itu, sistem mengasumsikan libur (0, tidak
+                dipotong) supaya aman.
               </p>
               <div class="form-grid">
                 <div class="field"><label>Tanggal</label><input type="date" x-model="gantiHariForm.tanggal"></div>
@@ -421,45 +432,78 @@
               </div>
             </div>
 
-            <!-- ===== Shift Karyawan =====
-                 Dipakai supaya sistem tahu shift siapa, untuk menentukan
-                 apakah cuti di tanggal Ganti Hari di atas memotong jatah
-                 atau tidak. Diisi lewat upload Excel (kolom NIK & SHIFT),
-                 bukan satu per satu -- lebih cepat kalau ada puluhan orang.
-                 Label "Shift 1" / "Shift 2" mengikuti istilah yang sudah
-                 dipakai di form "Kehadiran Shift Mingguan" di atas; jam
-                 kerja tiap shift tidak diatur di sini. -->
+            <!-- ===== Riwayat Upload Shift 2 =====
+                 Shift 2 rotasi mingguan -- orangnya beda tiap minggu, jadi
+                 setiap upload Excel berlaku untuk SATU PERIODE (Tanggal
+                 Mulai - Selesai), bukan penempatan tetap per NIK. Yang
+                 tidak ada di daftar Shift 2 untuk periode itu dianggap
+                 Shift 1. Dipakai untuk: (1) auto-isi Hadir Shift 1/2 di
+                 form "Kehadiran Shift Mingguan" saat periodenya sama persis,
+                 dan (2) menentukan shift orang untuk hitungan Ganti Hari di
+                 atas (dicek PER TANGGAL, bukan statis). Riwayat tampil
+                 ringkas (periode + jumlah orang); nama baru tampil kalau
+                 diklik Detail. -->
             <div class="panel">
-              <p class="panel-title">Shift Karyawan
-                <span class="count" x-text="ksRows.length + ' karyawan'"></span>
+              <p class="panel-title">Riwayat Upload Shift 2
+                <span class="count" x-text="shift2Periodes.length + ' periode'"></span>
               </p>
               <p class="hint" style="margin-bottom:14px;">
-                Unduh template dulu kalau belum pernah isi, supaya NIK dan
-                nama sudah sesuai master karyawan. Isi kolom <b>SHIFT</b>
-                dengan <b>1</b> atau <b>2</b>, lalu upload lagi. Baris yang
-                SHIFT-nya kosong tidak diubah.
+                File Excel cukup berisi kolom <b>NIK</b> dan <b>NAMA</b> --
+                daftar orang yang Shift 2 di periode ini saja. Yang tidak ada
+                di daftar otomatis dianggap Shift 1. Upload lagi dengan
+                Tanggal Mulai-Selesai yang sama persis akan <b>menimpa</b>
+                data periode itu (kalau ada koreksi).
               </p>
+              <div class="form-grid" style="margin-bottom:12px;">
+                <div class="field"><label>Tanggal Mulai</label><input type="date" x-model="shift2UploadForm.tanggal_mulai"></div>
+                <div class="field"><label>Tanggal Selesai</label><input type="date" x-model="shift2UploadForm.tanggal_selesai" :min="shift2UploadForm.tanggal_mulai"></div>
+              </div>
               <div class="form-actions" style="margin-bottom:12px;">
-                <button type="button" class="btn-secondary" @click="downloadShiftTemplate()">Unduh Template Excel</button>
-                <button type="button" class="btn-secondary" @click="exportShiftData()">Export Data Saat Ini</button>
+                <button type="button" class="btn-secondary" @click="downloadShift2Template()">Unduh Template Excel</button>
                 <label class="btn-primary" style="cursor:pointer; display:inline-flex; align-items:center;">
-                  <span x-text="ksUploading ? 'Mengunggah...' : 'Upload Excel'"></span>
-                  <input type="file" accept=".xlsx,.xls" style="display:none" @change="handleShiftUpload($event)" :disabled="ksUploading">
+                  <span x-text="shift2Uploading ? 'Mengunggah...' : 'Upload Excel Shift 2'"></span>
+                  <input type="file" accept=".xlsx,.xls" style="display:none" @change="handleShift2Upload($event)" :disabled="shift2Uploading">
                 </label>
               </div>
-              <p class="hint" x-show="ksMsg" x-text="ksMsg"></p>
-              <div class="table-wrap" style="margin-top:12px; max-height:320px; overflow-y:auto;">
+              <p class="hint" x-show="shift2Msg" x-text="shift2Msg"></p>
+              <div class="table-wrap" style="margin-top:12px;">
                 <table>
-                  <thead><tr><th>NIK</th><th>Nama</th><th>Shift</th></tr></thead>
-                  <tbody>
-                    <template x-for="r in ksRows" :key="r.nik">
+                  <thead><tr><th>Tanggal Mulai</th><th>Tanggal Selesai</th><th>Jumlah Orang</th><th>Aksi</th></tr></thead>
+                  <!-- Satu <tbody> per periode (baris utama + baris Detail
+                       yang bisa disembunyikan/ditampilkan), supaya baris
+                       Detail muncul persis di bawah periode yang diklik,
+                       bukan di ujung tabel. Beberapa <tbody> dalam satu
+                       <table> valid secara HTML. -->
+                  <template x-for="p in shift2Periodes" :key="p.id">
+                    <tbody>
                       <tr>
-                        <td class="mono" x-text="r.nik"></td>
-                        <td x-text="r.nama"></td>
-                        <td x-text="r.shift ? ('Shift ' + r.shift) : '-'"></td>
+                        <td class="mono" x-text="p.tanggal_mulai"></td>
+                        <td class="mono" x-text="p.tanggal_selesai"></td>
+                        <td class="mono" x-text="p.details.length + ' orang'"></td>
+                        <td>
+                          <button class="btn-secondary btn-sm" @click="toggleShift2Detail(p)" x-text="shift2DetailOpenId === p.id ? 'Tutup' : 'Detail'"></button>
+                          <button class="btn-secondary btn-sm" @click="exportShift2Periode(p)">Export</button>
+                          <button class="btn-secondary btn-sm" @click="deleteShift2Periode(p)">Hapus</button>
+                        </td>
                       </tr>
-                    </template>
-                    <tr x-show="ksRows.length === 0"><td colspan="3" class="empty-state">Belum ada data karyawan.</td></tr>
+                      <tr x-show="shift2DetailOpenId === p.id">
+                        <td colspan="4" style="background:#fafafa;">
+                          <div style="max-height:220px; overflow-y:auto;">
+                            <table>
+                              <thead><tr><th>NIK</th><th>Nama</th></tr></thead>
+                              <tbody>
+                                <template x-for="d in p.details" :key="p.id + '-' + d.nik">
+                                  <tr><td class="mono" x-text="d.nik"></td><td x-text="d.nama"></td></tr>
+                                </template>
+                              </tbody>
+                            </table>
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </template>
+                  <tbody>
+                    <tr x-show="shift2Periodes.length === 0"><td colspan="4" class="empty-state">Belum ada data Shift 2 diupload.</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -1131,11 +1175,17 @@ function masterDataPage() {
     // Satu tabel dengan hari libur (hari_libur), dibedakan kolom `jenis`.
     gantiHariRows: [],
     gantiHariForm: { tanggal: localDateStr(new Date()), shift: "1", keterangan: "" },
-    // ---- Shift Karyawan (dipakai untuk menghitung ganti hari per orang) ----
-    karyawanShiftMap: {},     // { nik: "1" | "2" }
-    ksRows: [],               // gabungan karyawan_master + shift, buat ditampilkan & export
-    ksUploading: false,
-    ksMsg: "",
+    // ---- Riwayat Upload Shift 2 (dipakai untuk auto-isi Kehadiran Shift
+    // Mingguan & menghitung ganti hari per orang; shift berubah tiap minggu
+    // jadi disimpan per periode, bukan statis per NIK) ----
+    karyawanList: [],         // { nik, nama } semua karyawan, buat validasi upload & template
+    totalKaryawan: 0,
+    shift2Periodes: [],       // { id, tanggal_mulai, tanggal_selesai, details:[{nik,nama}], nikSet:Set }
+    shift2UploadForm: { tanggal_mulai: localDateStr(new Date()), tanggal_selesai: localDateStr(new Date()) },
+    shift2Uploading: false,
+    shift2Msg: "",
+    shift2DetailOpenId: null,
+    shift2AutoFilled: false,
     // ---- Form Scrap Top End (Bulanan) ----
     scrapForm: { tahun: new Date().getFullYear(), bulan: String(new Date().getMonth() + 1), scrap_value_kidr: "", total_value_kidr: "", target_rasio: "" },
     scrapRows: [],
@@ -1198,7 +1248,8 @@ function masterDataPage() {
       await this.fetchOt();
       await this.fetchShiftRows();
       await this.fetchHariLibur();
-      await this.fetchKaryawanShift();
+      await this.fetchKaryawanList();
+      await this.fetchShift2Periodes();
       await this.fetchScrapRows();
       await this.fetchSafetyRows();
     },
@@ -1304,6 +1355,25 @@ function masterDataPage() {
       this.resetShiftForm();
       await this.fetchShiftRows();
     },
+    // Isi Hadir Shift 1/2 otomatis kalau Tanggal Mulai-Selesai di form ini
+    // persis sama dengan salah satu periode Shift 2 yang sudah diupload
+    // (panel Riwayat Upload Shift 2 di bawah). Shift 2 = jumlah orang di
+    // periode itu; Shift 1 = total karyawan dikurangi jumlah Shift 2
+    // (semua karyawan diasumsikan pasti Shift 1 atau Shift 2). Tetap bisa
+    // diedit manual sesudahnya.
+    autoFillShift() {
+      const f = this.shiftForm;
+      this.shift2AutoFilled = false;
+      if (!f.tanggal_mulai || !f.tanggal_selesai) return;
+      const match = this.shift2Periodes.find(
+        (p) => p.tanggal_mulai === f.tanggal_mulai && p.tanggal_selesai === f.tanggal_selesai
+      );
+      if (!match) return;
+      const shift2 = match.details.length;
+      this.shiftForm.shift2_hadir = shift2;
+      this.shiftForm.shift1_hadir = Math.max(0, this.totalKaryawan - shift2);
+      this.shift2AutoFilled = true;
+    },
     async deleteShift(r) {
       if (!confirm(`Hapus data Shift ${r.tanggal_mulai} - ${r.tanggal_selesai}?`)) return;
       const { error } = await supabaseClient.from("attendance_shift_weekly").delete().eq("id", r.id);
@@ -1362,78 +1432,126 @@ function masterDataPage() {
       this.flash("Ganti hari dihapus.");
       await this.fetchHariLibur();
     },
-    // ---- Shift Karyawan ----
-    // Dipakai HANYA untuk menentukan potong-tidaknya cuti di tanggal Ganti
-    // Hari di atas. Bukan pengganti fitur "Kehadiran Shift Mingguan" yang
-    // sudah ada (itu rekap jumlah orang per shift, ini penempatan per NIK).
-    async fetchKaryawanShift() {
-      const [kRes, sRes] = await Promise.all([
-        supabaseClient.from("karyawan_master").select("nik,nama").order("nama"),
-        supabaseClient.from("karyawan_shift").select("nik,shift"),
-      ]);
-      const map = {};
-      (sRes.data || []).forEach((r) => { map[r.nik] = r.shift; });
-      this.karyawanShiftMap = map;
-      this.ksRows = (kRes.data || []).map((k) => ({ nik: k.nik, nama: k.nama, shift: map[k.nik] || "" }));
+    // ---- Riwayat Upload Shift 2 ----
+    // Shift 2 rotasi mingguan -- disimpan per PERIODE (shift2_periode +
+    // shift2_periode_detail), bukan satu nilai tetap per NIK. Dipakai untuk
+    // auto-isi form Kehadiran Shift Mingguan, dan (lewat trigger database,
+    // migration_shift2_periode.sql) untuk menentukan shift orang pada
+    // hitungan Ganti Hari -- lihat rkHitungHari() di bawah.
+    async fetchKaryawanList() {
+      const { data } = await supabaseClient.from("karyawan_master").select("nik,nama").order("nama");
+      this.karyawanList = data || [];
+      this.totalKaryawan = this.karyawanList.length;
     },
-    // File Excel sederhana: kolom NIK, NAMA (cuma referensi), SHIFT.
-    // NIK dipakai sebagai kunci; NAMA di file tidak dipakai untuk apa pun.
-    _shiftSheetFromRows(rows) {
-      const data = [["NIK", "NAMA", "SHIFT"], ...rows.map((r) => [r.nik, r.nama, r.shift || ""])];
+    async fetchShift2Periodes() {
+      const [pRes, dRes] = await Promise.all([
+        supabaseClient.from("shift2_periode").select("id,tanggal_mulai,tanggal_selesai,created_at").order("tanggal_mulai", { ascending: false }).limit(60),
+        supabaseClient.from("shift2_periode_detail").select("periode_id,nik,nama"),
+      ]);
+      const periode = pRes.data || [];
+      const detail = dRes.data || [];
+      this.shift2Periodes = periode.map((p) => {
+        const details = detail.filter((d) => d.periode_id === p.id).sort((a, b) => (a.nama || "").localeCompare(b.nama || ""));
+        return { ...p, details, nikSet: new Set(details.map((d) => d.nik)) };
+      });
+    },
+    // Shift NIK X pada tanggal Y ("1"/"2"/null) -- HARUS SAMA PERSIS dengan
+    // public.shift_pada_tanggal() di migration_shift2_periode.sql, karena
+    // dipakai buat preview hitungan sebelum benar-benar tersimpan.
+    shiftPadaTanggal(nik, tanggalStr) {
+      const cocok = this.shift2Periodes.filter((p) => tanggalStr >= p.tanggal_mulai && tanggalStr <= p.tanggal_selesai);
+      if (cocok.length === 0) return null;
+      cocok.sort((a, b) => (a.tanggal_mulai < b.tanggal_mulai ? 1 : -1));   // periode terbaru dulu
+      return cocok[0].nikSet.has(nik) ? "2" : "1";
+    },
+    // File Excel: kolom NIK, NAMA saja -- daftar orang Shift 2 di satu periode.
+    _shift2SheetFromRows(rows) {
+      const data = [["NIK", "NAMA"], ...rows.map((r) => [r.nik, r.nama])];
       const ws = XLSX.utils.aoa_to_sheet(data);
-      ws["!cols"] = [{ wch: 12 }, { wch: 28 }, { wch: 8 }];
+      ws["!cols"] = [{ wch: 12 }, { wch: 28 }];
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Shift");
+      XLSX.utils.book_append_sheet(wb, ws, "Shift2");
       return wb;
     },
-    downloadShiftTemplate() {
-      const wb = this._shiftSheetFromRows(this.ksRows);
-      XLSX.writeFile(wb, "template_shift_karyawan.xlsx");
+    downloadShift2Template() {
+      // Template = semua karyawan (NIK, NAMA); tinggal hapus baris yang
+      // BUKAN Shift 2 minggu itu, sisakan yang Shift 2, lalu upload.
+      const wb = this._shift2SheetFromRows(this.karyawanList);
+      XLSX.writeFile(wb, "template_shift2.xlsx");
     },
-    exportShiftData() {
-      const wb = this._shiftSheetFromRows(this.ksRows);
-      XLSX.writeFile(wb, `shift_karyawan_${localDateStr(new Date())}.xlsx`);
+    exportShift2Periode(p) {
+      const wb = this._shift2SheetFromRows(p.details);
+      XLSX.writeFile(wb, `shift2_${p.tanggal_mulai}_${p.tanggal_selesai}.xlsx`);
     },
-    async handleShiftUpload(evt) {
+    toggleShift2Detail(p) {
+      this.shift2DetailOpenId = this.shift2DetailOpenId === p.id ? null : p.id;
+    },
+    async deleteShift2Periode(p) {
+      if (!confirm(`Hapus data Shift 2 periode ${p.tanggal_mulai} - ${p.tanggal_selesai} (${p.details.length} orang)?`)) return;
+      const { error } = await supabaseClient.from("shift2_periode").delete().eq("id", p.id);
+      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
+      this.flash("Data Shift 2 dihapus.");
+      if (this.shift2DetailOpenId === p.id) this.shift2DetailOpenId = null;
+      await this.fetchShift2Periodes();
+    },
+    async handleShift2Upload(evt) {
       const file = evt.target.files[0];
       evt.target.value = "";   // biar bisa upload file yang sama lagi kalau perlu
       if (!file) return;
-      this.ksUploading = true;
-      this.ksMsg = "";
+      const f = this.shift2UploadForm;
+      if (!f.tanggal_mulai || !f.tanggal_selesai) { this.shift2Msg = "Isi Tanggal Mulai dan Tanggal Selesai dulu sebelum upload."; return; }
+      if (f.tanggal_selesai < f.tanggal_mulai) { this.shift2Msg = "Tanggal Selesai tidak boleh sebelum Tanggal Mulai."; return; }
+      this.shift2Uploading = true;
+      this.shift2Msg = "";
       try {
         const buf = await file.arrayBuffer();
         const wb = XLSX.read(buf, { type: "array" });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
-        // Header diterima fleksibel: NIK/nik, SHIFT/shift/Shift
-        const nikRow = this.ksRows.reduce((m, r) => { m[r.nik] = true; return m; }, {});
-        const updates = [];
+        // Header diterima fleksibel: NIK/nik, NAMA/nama
+        const karyawanMap = {};
+        this.karyawanList.forEach((k) => { karyawanMap[String(k.nik)] = k.nama; });
+        const seen = new Set();
+        const details = [];
         const nikTakDikenal = [];
-        const shiftTakValid = [];
         for (const row of rows) {
           const nik = String(row.NIK ?? row.nik ?? row.Nik ?? "").trim();
-          let shift = String(row.SHIFT ?? row.shift ?? row.Shift ?? "").trim();
-          if (!nik || !shift) continue;   // baris kosong dilewati, tidak dianggap error
-          if (!["1", "2"].includes(shift)) { shiftTakValid.push(`${nik} (${shift})`); continue; }
-          if (!nikRow[nik]) { nikTakDikenal.push(nik); continue; }
-          updates.push({ nik, shift, updated_by: this.session.user.id, updated_at: new Date().toISOString() });
+          if (!nik) continue;   // baris kosong dilewati, tidak dianggap error
+          if (seen.has(nik)) continue;   // duplikat di file, dilewati diam-diam
+          seen.add(nik);
+          if (!karyawanMap[nik]) { nikTakDikenal.push(nik); continue; }
+          const namaFile = String(row.NAMA ?? row.nama ?? row.Nama ?? "").trim();
+          details.push({ nik, nama: namaFile || karyawanMap[nik] });
         }
-        if (updates.length === 0) {
-          this.ksMsg = "Tidak ada baris valid untuk disimpan. Cek lagi kolom NIK dan SHIFT (isi 1 atau 2).";
+        if (details.length === 0) {
+          this.shift2Msg = "Tidak ada NIK valid untuk disimpan. Cek lagi kolom NIK di file.";
           return;
         }
-        const { error } = await supabaseClient.from("karyawan_shift").upsert(updates, { onConflict: "nik" });
-        if (error) { this.ksMsg = "Gagal menyimpan: " + error.message; return; }
-        let pesan = `${updates.length} baris shift tersimpan.`;
+        // Upload ulang dengan tanggal persis sama = menimpa periode lama itu
+        const existing = this.shift2Periodes.find((p) => p.tanggal_mulai === f.tanggal_mulai && p.tanggal_selesai === f.tanggal_selesai);
+        if (existing) {
+          const { error: delErr } = await supabaseClient.from("shift2_periode").delete().eq("id", existing.id);
+          if (delErr) { this.shift2Msg = "Gagal menimpa data lama: " + delErr.message; return; }
+        }
+        const { data: periodeRow, error: perr } = await supabaseClient
+          .from("shift2_periode")
+          .insert({ tanggal_mulai: f.tanggal_mulai, tanggal_selesai: f.tanggal_selesai, uploaded_by: this.session.user.id })
+          .select()
+          .single();
+        if (perr) { this.shift2Msg = "Gagal menyimpan periode: " + perr.message; return; }
+        const insertRows = details.map((d) => ({ periode_id: periodeRow.id, nik: d.nik, nama: d.nama }));
+        const { error: derr } = await supabaseClient.from("shift2_periode_detail").insert(insertRows);
+        if (derr) { this.shift2Msg = "Gagal menyimpan daftar nama: " + derr.message; return; }
+        let pesan = `${details.length} orang Shift 2 tersimpan untuk periode ${f.tanggal_mulai} - ${f.tanggal_selesai}${existing ? " (menimpa data lama periode ini)" : ""}.`;
         if (nikTakDikenal.length) pesan += ` ${nikTakDikenal.length} NIK tidak dikenal (dilewati): ${nikTakDikenal.slice(0, 5).join(", ")}${nikTakDikenal.length > 5 ? ", ..." : ""}.`;
-        if (shiftTakValid.length) pesan += ` ${shiftTakValid.length} nilai SHIFT tidak valid, harus 1 atau 2 (dilewati): ${shiftTakValid.slice(0, 5).join(", ")}${shiftTakValid.length > 5 ? ", ..." : ""}.`;
-        this.ksMsg = pesan;
-        this.flash("Shift karyawan diperbarui.");
-        await this.fetchKaryawanShift();
+        this.shift2Msg = pesan;
+        this.flash("Data Shift 2 tersimpan.");
+        await this.fetchShift2Periodes();
+        this.autoFillShift();   // isi form Kehadiran Shift Mingguan kalau periodenya lagi sama
       } catch (e) {
-        this.ksMsg = "Gagal membaca file: " + e.message;
+        this.shift2Msg = "Gagal membaca file: " + e.message;
       } finally {
-        this.ksUploading = false;
+        this.shift2Uploading = false;
       }
     },
     async deleteHariLibur(r) {
@@ -2174,12 +2292,14 @@ function masterDataPage() {
     //  - Senin-Jumat: dihitung, KECUALI tanggal merah biasa (jenis 'libur').
     //  - Sabtu: TIDAK dihitung, kecuali ada catatan Ganti Hari (jenis
     //    'ganti_hari') di tanggal itu DAN shift orangnya cocok (atau
-    //    catatannya 'penuh'). Shift orang diambil dari karyawanShiftMap;
-    //    kalau belum tercatat, dianggap tidak dihitung (aman, tidak
-    //    memotong jatah secara tidak sengaja).
+    //    catatannya 'penuh'). Shift orang dicek PER HARI lewat
+    //    shiftPadaTanggal() (Shift 2 rotasi mingguan, jadi bisa beda di
+    //    minggu berbeda dalam satu rentang cuti); kalau belum tercatat,
+    //    dianggap tidak dihitung (aman, tidak memotong jatah secara
+    //    tidak sengaja).
     // Rumus ini harus SAMA PERSIS dengan leaveTotalHari() di
     // input-attendance.html dan trigger set_jumlah_hari_cuti() di database
-    // (lihat migration_ganti_hari_shift.sql) -- kalau salah satu diubah,
+    // (lihat migration_shift2_periode.sql) -- kalau salah satu diubah,
     // ubah juga yang lain supaya preview di layar tidak beda dari yang
     // benar-benar tersimpan.
     rkHitungHari() {
@@ -2189,7 +2309,6 @@ function masterDataPage() {
       let d = new Date(e.tanggal + "T00:00:00");
       const akhir = new Date(selesai + "T00:00:00");
       if (akhir < d) return 0;
-      const shiftSaya = this.karyawanShiftMap[e.nik] || null;
       let total = 0;
       while (d <= akhir) {
         const dow = d.getDay();   // 0 = Minggu, 6 = Sabtu
@@ -2198,7 +2317,7 @@ function masterDataPage() {
         if (dow === 0) {
           // Minggu: tidak dihitung
         } else if (dow === 6) {
-          if (lib && lib.jenis === "ganti_hari" && (lib.shift === "penuh" || lib.shift === shiftSaya)) total++;
+          if (lib && lib.jenis === "ganti_hari" && (lib.shift === "penuh" || lib.shift === this.shiftPadaTanggal(e.nik, ds))) total++;
         } else {
           if (!lib || lib.jenis !== "libur") total++;
         }
