@@ -1044,7 +1044,7 @@
                   <button type="button" class="btn-secondary" @click="rkHitungUlangNol()" :disabled="rkRecalcLoading">
                     <span x-text="rkRecalcLoading ? 'Menghitung ulang...' : 'Hitung Ulang Total Hari (yang 0)'"></span>
                   </button>
-                  <span class="hint">Untuk baris Cuti lama yang Total Hari-nya masih 0 (mis. Ganti Hari baru ditambahkan belakangan). Hanya memproses baris sesuai filter di atas.</span>
+                  <span class="hint">Untuk baris Cuti lama yang Total Hari-nya masih 0 (mis. Ganti Hari baru ditambahkan belakangan). Hanya memproses baris sesuai filter di atas. Kalau setelah dijalankan masih ada yang 0 (ditandai merah), arahkan mouse ke angkanya untuk lihat alasannya.</span>
                 </div>
 
                 <template x-if="rkLoading"><p class="empty-state">Memuat rekap...</p></template>
@@ -1061,7 +1061,9 @@
                             <td x-text="r.nama"></td>
                             <td class="mono" x-text="r.tanggal"></td>
                             <td class="mono" x-text="r.tanggal_selesai || '-'"></td>
-                            <td class="mono" x-text="r.jenis === 'cuti' ? (r.jumlah_hari ?? 1) : '-'"></td>
+                            <td class="mono" :style="r.jenis === 'cuti' && !r.jumlah_hari ? 'color: var(--danger, #DC2626); font-weight:600; cursor:help;' : ''"
+                                :title="r.jenis === 'cuti' ? kenapaNolHari(r) : ''"
+                                x-text="r.jenis === 'cuti' ? (r.jumlah_hari ?? 1) : '-'"></td>
                             <td x-text="r.jenis_cuti || '-'"></td>
                             <td x-text="r.keterangan || '-'"></td>
                             <td x-text="rkPenginput(r)"></td>
@@ -2379,8 +2381,49 @@ function masterDataPage() {
       }
       return total;
     },
+    // ---- Kenapa Total Hari masih 0? ----
+    // Dipakai sebagai tooltip (title) di kolom Total Hari saat nilainya 0,
+    // supaya kelihatan alasannya PER TANGGAL -- bukan cuma "0" tanpa
+    // penjelasan. 3 kemungkinan penyebab hari Sabtu tidak terhitung:
+    //  (1) belum ada catatan Ganti Hari di tanggal itu sama sekali,
+    //  (2) Ganti Hari ada tapi shift-nya tidak "Penuh" DAN shift karyawan
+    //      pada tanggal itu belum diketahui (tidak ada periode Shift 2 yang
+    //      mencakup tanggal itu di panel Riwayat Upload Shift 2),
+    //  (3) Ganti Hari ada, shift karyawan sudah diketahui, tapi shift-nya
+    //      tidak cocok dengan shift Ganti Hari (mis. Ganti Hari untuk Shift
+    //      2, tapi karyawan ini Shift 1 minggu itu -- jadi memang wajar 0).
+    kenapaNolHari(r) {
+      if (r.jenis !== "cuti" || !r.tanggal) return "";
+      const selesai = r.tanggal_selesai || r.tanggal;
+      let d = new Date(r.tanggal + "T00:00:00");
+      const akhir = new Date(selesai + "T00:00:00");
+      if (akhir < d) return "";
+      const alasan = [];
+      while (d <= akhir) {
+        const dow = d.getDay();
+        const ds = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+        const lib = this.rkHariLibur.find((x) => x.tanggal === ds);
+        if (dow === 0) {
+          alasan.push(ds + ": Minggu (memang tidak dihitung)");
+        } else if (dow === 6) {
+          if (!lib || lib.jenis !== "ganti_hari") {
+            alasan.push(ds + ": Sabtu, BELUM ADA catatan Ganti Hari untuk tanggal ini -> tambahkan dulu di Attendance > Ganti Hari.");
+          } else if (lib.shift !== "penuh") {
+            const shiftNya = this.shiftPadaTanggal(r.nik, ds);
+            if (shiftNya === null) {
+              alasan.push(ds + ": Ganti Hari Shift " + lib.shift + ", tapi shift karyawan tanggal ini BELUM DIKETAHUI (tidak ada periode di Riwayat Upload Shift 2 yang mencakup tanggal ini) -> upload periode Shift 2 yang mencakup tanggal ini, atau ubah Ganti Hari ke 'Shift 1 & 2 (Penuh)'.");
+            } else if (shiftNya !== lib.shift) {
+              alasan.push(ds + ": Ganti Hari untuk Shift " + lib.shift + ", tapi karyawan ini Shift " + shiftNya + " pada tanggal itu -> memang tidak dihitung (sesuai aturan).");
+            }
+          }
+        } else if (lib && lib.jenis === "libur") {
+          alasan.push(ds + ": tanggal merah (" + (lib.keterangan || "libur") + ")");
+        }
+        d.setDate(d.getDate() + 1);
+      }
+      return alasan.join("\n");
+    },
     rkHitungHari() {
-      const e = this.rkEdit;
       if (!e || !e.tanggal) return 0;
       return this.hitungHariCuti(e.nik, e.tanggal, e.tanggal_selesai || e.tanggal);
     },
