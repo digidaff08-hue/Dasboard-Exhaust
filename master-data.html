@@ -1103,8 +1103,12 @@
                     </template>
                     <template x-if="rkEdit.jenis === 'cuti'">
                       <div class="field"><label>Total Hari</label>
-                        <input type="text" disabled readonly :value="rkHitungHari() + ' hari'">
-                        <span class="hint">Sabtu, Minggu, tanggal merah, dan ganti hari tidak dihitung</span>
+                        <input type="number" min="0" step="1" x-model.number="rkEdit.jumlah_hari" placeholder="0">
+                        <span class="hint">
+                          Otomatis (Sabtu, Minggu, tanggal merah, ganti hari tidak dihitung): <b x-text="rkHitungHari() + ' hari'"></b>.
+                          Kalau mau dihitung sesuai jumlah hari cuti sebenarnya (mis. tetap 1 hari walau jatuh Sabtu/tanggal merah), ubah angka di atas langsung, atau
+                          <button type="button" class="btn-secondary btn-sm" @click="rkEdit.jumlah_hari = rkHitungHari()">Pakai Hitungan Otomatis</button>
+                        </span>
                       </div>
                     </template>
                     <template x-if="rkEdit.jenis === 'cuti'">
@@ -2424,6 +2428,7 @@ function masterDataPage() {
       return alasan.join("\n");
     },
     rkHitungHari() {
+      const e = this.rkEdit;
       if (!e || !e.tanggal) return 0;
       return this.hitungHariCuti(e.nik, e.tanggal, e.tanggal_selesai || e.tanggal);
     },
@@ -2463,17 +2468,26 @@ function masterDataPage() {
       if (e.jenis === "cuti" && !e.tanggal_selesai) { this.rkError = "Tanggal Selesai wajib diisi."; return; }
       if (e.jenis === "cuti" && e.tanggal_selesai < e.tanggal) { this.rkError = "Tanggal Selesai tidak boleh sebelum Tanggal Mulai."; return; }
       if (e.jenis === "cuti" && !e.jenis_cuti) { this.rkError = "Jenis Cuti wajib dipilih."; return; }
+      if (e.jenis === "cuti" && (e.jumlah_hari === null || e.jumlah_hari === "" || e.jumlah_hari === undefined || Number(e.jumlah_hari) < 0)) {
+        this.rkError = "Total Hari wajib diisi (boleh 0 kalau memang tidak dihitung, tidak boleh minus).";
+        return;
+      }
       this.rkSaving = true;
       this.rkError = "";
       try {
         // Kolom khusus cuti dikosongkan kalau jenisnya diubah jadi bukan cuti,
         // supaya tidak ada sisa data yang menyesatkan.
+        // Total Hari (jumlah_hari) SEKARANG DIAMBIL DARI ANGKA YANG DIKETIK
+        // ADMIN di field Total Hari (bisa beda dari hitungan otomatis
+        // rkHitungHari(), mis. cuti jatuh di Sabtu/tanggal merah tapi admin
+        // memang mau tetap dihitung 1 hari) -- BUKAN dipaksa pakai hitungan
+        // otomatis lagi seperti sebelumnya.
         const payload = {
           jenis: e.jenis,
           tanggal: e.tanggal,
           tanggal_selesai: e.jenis === "cuti" ? e.tanggal_selesai : null,
           jenis_cuti: e.jenis === "cuti" ? e.jenis_cuti : null,
-          jumlah_hari: e.jenis === "cuti" ? this.rkHitungHari() : 1,
+          jumlah_hari: e.jenis === "cuti" ? Number(e.jumlah_hari) : 1,
           keterangan: (e.keterangan || "").trim() || null,
         };
         const { error } = await supabaseClient.from("attendance_leave").update(payload).eq("id", e.id);
