@@ -1040,6 +1040,13 @@
 
                 <p class="hint" x-show="rkError" style="color:var(--danger, #DC2626); font-weight:600; margin-bottom:10px;" x-text="rkError"></p>
 
+                <div class="form-actions" x-show="isLeaderOrAdmin()" style="margin-bottom:14px;">
+                  <button type="button" class="btn-secondary" @click="rkHitungUlangNol()" :disabled="rkRecalcLoading">
+                    <span x-text="rkRecalcLoading ? 'Menghitung ulang...' : 'Hitung Ulang Total Hari (yang 0)'"></span>
+                  </button>
+                  <span class="hint">Untuk baris Cuti lama yang Total Hari-nya masih 0 (mis. Ganti Hari baru ditambahkan belakangan). Hanya memproses baris sesuai filter di atas.</span>
+                </div>
+
                 <template x-if="rkLoading"><p class="empty-state">Memuat rekap...</p></template>
 
                 <template x-if="!rkLoading">
@@ -2344,11 +2351,16 @@ function masterDataPage() {
     // (lihat migration_shift2_periode.sql) -- kalau salah satu diubah,
     // ubah juga yang lain supaya preview di layar tidak beda dari yang
     // benar-benar tersimpan.
-    rkHitungHari() {
-      const e = this.rkEdit;
-      if (!e || !e.tanggal) return 0;
-      const selesai = e.tanggal_selesai || e.tanggal;
-      let d = new Date(e.tanggal + "T00:00:00");
+    // Fungsi hitung generik -- dipakai rkHitungHari() untuk preview di form
+    // Edit (pakai rkEdit), DAN rkHitungUlangNol() untuk perbaiki massal baris
+    // lama yang Total Hari-nya masih 0 (mis. dulu belum ada catatan Ganti
+    // Hari, sekarang sudah ada). Rumus HARUS SAMA PERSIS dengan
+    // leaveTotalHari() di input-attendance.html dan trigger
+    // set_jumlah_hari_cuti() di database (lihat migration_shift2_periode.sql).
+    hitungHariCuti(nik, tanggalMulai, tanggalSelesai) {
+      if (!tanggalMulai) return 0;
+      const selesai = tanggalSelesai || tanggalMulai;
+      let d = new Date(tanggalMulai + "T00:00:00");
       const akhir = new Date(selesai + "T00:00:00");
       if (akhir < d) return 0;
       let total = 0;
@@ -2359,13 +2371,47 @@ function masterDataPage() {
         if (dow === 0) {
           // Minggu: tidak dihitung
         } else if (dow === 6) {
-          if (lib && lib.jenis === "ganti_hari" && (lib.shift === "penuh" || lib.shift === this.shiftPadaTanggal(e.nik, ds))) total++;
+          if (lib && lib.jenis === "ganti_hari" && (lib.shift === "penuh" || lib.shift === this.shiftPadaTanggal(nik, ds))) total++;
         } else {
           if (!lib || lib.jenis !== "libur") total++;
         }
         d.setDate(d.getDate() + 1);
       }
       return total;
+    },
+    rkHitungHari() {
+      const e = this.rkEdit;
+      if (!e || !e.tanggal) return 0;
+      return this.hitungHariCuti(e.nik, e.tanggal, e.tanggal_selesai || e.tanggal);
+    },
+    // ---- Hitung Ulang Total Hari (yang masih 0) ----
+    // Untuk baris Cuti LAMA yang Total Hari-nya 0 karena, waktu disimpan
+    // dulu, belum ada catatan Ganti Hari di tanggal itu (sekarang sudah
+    // ditambahkan). Hanya memproses baris yang SEDANG TAMPIL di tabel
+    // (ikut filter Jenis/Bulan/Tahun/Cari di layar) -- supaya cakupannya
+    // jelas dan bisa dipersempit (mis. isi Cari dengan 1 NIK dulu). Baris
+    // yang hasil hitung ulangnya TETAP 0 tidak disentuh/di-update.
+    rkRecalcLoading: false,
+    async rkHitungUlangNol() {
+      const kandidat = this.rekapRows().filter((r) => r.jenis === "cuti" && (r.jumlah_hari === 0 || r.jumlah_hari === null));
+      if (kandidat.length === 0) { this.flash("Tidak ada baris Cuti dengan Total Hari = 0 pada tampilan/filter saat ini."); return; }
+      if (!confirm(`Hitung ulang ${kandidat.length} baris Cuti yang Total Hari-nya 0 (pakai data Hari Libur & Ganti Hari yang berlaku sekarang)?\n\nBaris yang hasil hitungnya tetap 0 tidak akan diubah.`)) return;
+      this.rkRecalcLoading = true;
+      this.rkError = "";
+      let berubah = 0, gagal = 0;
+      try {
+        for (const r of kandidat) {
+          const baru = this.hitungHariCuti(r.nik, r.tanggal, r.tanggal_selesai || r.tanggal);
+          if (baru > 0) {
+            const { error } = await supabaseClient.from("attendance_leave").update({ jumlah_hari: baru }).eq("id", r.id);
+            if (error) gagal++; else berubah++;
+          }
+        }
+        this.flash(`Selesai: ${berubah} baris diperbarui` + (gagal ? `, ${gagal} gagal disimpan.` : "."));
+        await this.fetchRekap();
+      } finally {
+        this.rkRecalcLoading = false;
+      }
     },
     async simpanRekap() {
       const e = this.rkEdit;
