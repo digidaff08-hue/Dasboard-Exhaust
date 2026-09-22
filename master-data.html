@@ -364,6 +364,46 @@
                 </table>
               </div>
             </div>
+
+            <!-- ===== Ganti Hari (Masuk Kerja) =====
+                 Hari masuk kerja pengganti, biasanya hari Sabtu. Cuti yang
+                 jatuh di tanggal ini dihitung 0 hari, jadi TIDAK memotong
+                 jatah. Disimpan di tabel hari_libur dengan jenis = 'ganti_hari'
+                 -- dengan begitu Total Hari cuti di form Attendance dan trigger
+                 database otomatis ikut melewatinya, tanpa mengubah trigger. -->
+            <div class="panel">
+              <p class="panel-title">Ganti Hari (Masuk Kerja)
+                <span class="count" x-text="gantiHariRows.length + ' tanggal'"></span>
+              </p>
+              <p class="hint" style="margin-bottom:14px;">
+                Cuti yang jatuh di tanggal ganti hari tercatat <b>0 hari</b> dan
+                tidak memotong jatah cuti. Hari libur / tanggal merah biasa tetap
+                dikelola di panel di atas.
+              </p>
+              <div class="form-grid">
+                <div class="field"><label>Tanggal</label><input type="date" x-model="gantiHariForm.tanggal"></div>
+                <div class="field" style="grid-column: span 2;"><label>Keterangan</label><input type="text" x-model="gantiHariForm.keterangan" placeholder="mis. Ganti hari cuti bersama 17 Agustus"></div>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn-primary" @click="addGantiHari()">Tambah</button>
+              </div>
+              <div class="table-wrap" style="margin-top:12px;">
+                <table>
+                  <thead><tr><th>Tanggal</th><th>Hari</th><th>Keterangan</th><th>Aksi</th></tr></thead>
+                  <tbody>
+                    <template x-for="r in gantiHariRows" :key="'gh-'+r.tanggal">
+                      <tr>
+                        <td class="mono" x-text="r.tanggal"></td>
+                        <td x-text="namaHari(r.tanggal)"></td>
+                        <td x-text="r.keterangan || '-'"></td>
+                        <td><button class="btn-secondary btn-sm" @click="deleteGantiHari(r)">Hapus</button></td>
+                      </tr>
+                    </template>
+                    <tr x-show="gantiHariRows.length === 0"><td colspan="4" class="empty-state">Belum ada tanggal ganti hari.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </template>
 
@@ -750,9 +790,8 @@
                 Tiap periode punya jatahnya sendiri karena member dapat cuti baru
                 setiap tahun. Kolom periode sengaja <b>dikosongkan</b> — isi sendiri
                 sesuai jatah masing-masing. <b>Total Cuti</b> = jumlah keempat periode.
-                <b>Terpakai</b> hanya menghitung <b>Cuti Tahunan</b> — cuti besar,
-                melahirkan, dan lainnya tidak memotong jatah. Periode mengikuti
-                tahun fiskal, April sampai Maret.
+                <b>Terpakai</b> hanya menghitung <b>Cuti Tahunan</b> — Cuti Khusus
+                tidak memotong jatah. Periode mengikuti tahun fiskal, April sampai Maret.
               </p>
 
               <div class="form-grid" style="margin-bottom:14px;">
@@ -912,7 +951,7 @@
                     <template x-if="rkEdit.jenis === 'cuti'">
                       <div class="field"><label>Total Hari</label>
                         <input type="text" disabled readonly :value="rkHitungHari() + ' hari'">
-                        <span class="hint">Sabtu, Minggu, dan tanggal merah tidak dihitung</span>
+                        <span class="hint">Sabtu, Minggu, tanggal merah, dan ganti hari tidak dihitung</span>
                       </div>
                     </template>
                     <template x-if="rkEdit.jenis === 'cuti'">
@@ -920,10 +959,10 @@
                         <select x-model="rkEdit.jenis_cuti">
                           <option value="">Pilih jenis cuti...</option>
                           <option value="Cuti Tahunan">Cuti Tahunan</option>
-                          <option value="Cuti Besar">Cuti Besar</option>
-                          <option value="Cuti Melahirkan">Cuti Melahirkan</option>
-                          <option value="Cuti Lainnya">Cuti Lainnya</option>
+                          <option value="Cuti Khusus">Cuti Khusus</option>
                         </select>
+                        <span class="hint" x-show="rkEdit.jenis_cuti === 'Cuti Tahunan'">Memotong jatah cuti tahunan</span>
+                        <span class="hint" x-show="rkEdit.jenis_cuti === 'Cuti Khusus'">Tidak memotong jatah cuti</span>
                       </div>
                     </template>
                     <div class="field" style="grid-column: 1 / -1;"><label>Keterangan</label>
@@ -1028,6 +1067,10 @@ function masterDataPage() {
     // ---- Kelola Hari Libur / Tanggal Merah ----
     hariLiburRows: [], // { tanggal, keterangan } buat ditampilkan di tabel
     hariLiburForm: { tanggal: localDateStr(new Date()), keterangan: "" },
+    // ---- Ganti Hari (masuk kerja pengganti) ----
+    // Satu tabel dengan hari libur (hari_libur), dibedakan kolom `jenis`.
+    gantiHariRows: [],
+    gantiHariForm: { tanggal: localDateStr(new Date()), keterangan: "" },
     // ---- Form Scrap Top End (Bulanan) ----
     scrapForm: { tahun: new Date().getFullYear(), bulan: String(new Date().getMonth() + 1), scrap_value_kidr: "", total_value_kidr: "", target_rasio: "" },
     scrapRows: [],
@@ -1205,18 +1248,52 @@ function masterDataPage() {
     // ---- Kelola Hari Libur / Tanggal Merah ----
     async fetchHariLibur() {
       const { data, error } = await supabaseClient.from("hari_libur").select("*").order("tanggal", { ascending: true });
-      if (!error && data) this.hariLiburRows = data;
+      if (!error && data) {
+        // Satu tabel, dua daftar: jenis 'ganti_hari' tampil di panel Ganti Hari,
+        // sisanya (termasuk baris lama tanpa jenis) tampil sebagai hari libur.
+        this.hariLiburRows = data.filter((r) => r.jenis !== "ganti_hari");
+        this.gantiHariRows = data.filter((r) => r.jenis === "ganti_hari");
+      }
     },
     async addHariLibur() {
       const f = this.hariLiburForm;
       if (!f.tanggal) { this.flash("Tanggal wajib diisi.", true); return; }
+      const bentrok = this.gantiHariRows.find((r) => r.tanggal === f.tanggal);
+      if (bentrok && !confirm(`Tanggal ${f.tanggal} sudah tercatat sebagai Ganti Hari. Ubah jadi hari libur?`)) return;
       const { error } = await supabaseClient.from("hari_libur").upsert(
-        { tanggal: f.tanggal, keterangan: f.keterangan || null, created_by: this.session.user.id },
+        { tanggal: f.tanggal, keterangan: f.keterangan || null, jenis: "libur", created_by: this.session.user.id },
         { onConflict: "tanggal" }
       );
       if (error) { this.flash("Gagal simpan hari libur: " + error.message, true); return; }
       this.flash("Hari libur tersimpan.");
       this.hariLiburForm = { tanggal: localDateStr(new Date()), keterangan: "" };
+      await this.fetchHariLibur();
+    },
+    // ---- Ganti Hari ----
+    // "Senin".."Minggu" untuk tanggal "YYYY-MM-DD" (dibaca sebagai tanggal lokal).
+    namaHari(tanggal) {
+      if (!tanggal) return "-";
+      return ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"][new Date(tanggal + "T00:00:00").getDay()];
+    },
+    async addGantiHari() {
+      const f = this.gantiHariForm;
+      if (!f.tanggal) { this.flash("Tanggal wajib diisi.", true); return; }
+      const bentrok = this.hariLiburRows.find((r) => r.tanggal === f.tanggal);
+      if (bentrok && !confirm(`Tanggal ${f.tanggal} sudah tercatat sebagai hari libur${bentrok.keterangan ? " (" + bentrok.keterangan + ")" : ""}. Ubah jadi Ganti Hari?`)) return;
+      const { error } = await supabaseClient.from("hari_libur").upsert(
+        { tanggal: f.tanggal, keterangan: f.keterangan || null, jenis: "ganti_hari", created_by: this.session.user.id },
+        { onConflict: "tanggal" }
+      );
+      if (error) { this.flash("Gagal simpan ganti hari: " + error.message, true); return; }
+      this.flash("Ganti hari tersimpan.");
+      this.gantiHariForm = { tanggal: localDateStr(new Date()), keterangan: "" };
+      await this.fetchHariLibur();
+    },
+    async deleteGantiHari(r) {
+      if (!confirm(`Hapus ganti hari ${r.tanggal}${r.keterangan ? " (" + r.keterangan + ")" : ""}?`)) return;
+      const { error } = await supabaseClient.from("hari_libur").delete().eq("tanggal", r.tanggal);
+      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
+      this.flash("Ganti hari dihapus.");
       await this.fetchHariLibur();
     },
     async deleteHariLibur(r) {
@@ -1943,9 +2020,17 @@ function masterDataPage() {
     },
     editRekap(r) {
       this.rkEdit = { ...r };   // disalin, biar batal tidak mengubah tabel
+      // Data lama bisa berisi Cuti Besar / Cuti Melahirkan / Cuti Lainnya,
+      // yang sudah dihapus dari dropdown. Dipetakan ke Cuti Khusus supaya
+      // dropdown tidak tampil kosong. Sama-sama tidak memotong jatah,
+      // jadi hitungan tidak berubah.
+      if (r.jenis === "cuti" && r.jenis_cuti && !["Cuti Tahunan", "Cuti Khusus"].includes(r.jenis_cuti)) {
+        this.rkEdit.jenis_cuti = "Cuti Khusus";
+      }
       this.rkError = "";
     },
-    // Hari kerja antara 2 tanggal: Sabtu, Minggu, dan tanggal merah dilewati.
+    // Hari kerja antara 2 tanggal: Sabtu, Minggu, tanggal merah, dan ganti hari dilewati
+    // (rkHariLibur berisi semua baris hari_libur, termasuk jenis 'ganti_hari').
     // Rumusnya sama persis dengan leaveTotalHari() di input-attendance.html.
     rkHitungHari() {
       const e = this.rkEdit;
