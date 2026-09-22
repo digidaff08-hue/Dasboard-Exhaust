@@ -222,8 +222,9 @@
                  Total Orang cukup diinput SEKALI per bulan (pilih Bulan +
                  Tahun) -- nilainya disimpan di attendance_log dengan
                  tanggal = tanggal 1 bulan itu, lalu ikut carry-forward
-                 dipakai untuk SEMUA tanggal di bulan itu di dashboard. -->
-            <div class="md-pair">
+                 dipakai untuk SEMUA tanggal di bulan itu di dashboard.
+                 Riwayat diletakkan di BAWAH form (bukan berdampingan)
+                 supaya lebih enak dilihat. -->
             <div class="panel">
               <p class="panel-title">Total Orang (Bulanan)</p>
               <div class="form-grid">
@@ -267,7 +268,6 @@
               </div>
             </div>
             </div>
-            </div>
             </template>
 
             <template x-if="atSub === 'overtime'">
@@ -275,8 +275,8 @@
             <!-- ===== Overtime Harian =====
                  Beda dari Total Orang -- OT memang berubah tiap hari,
                  jadi tetap diinput per tanggal. Menyimpan OT TIDAK ikut
-                 menimpa Total Orang di tanggal yang sama (lihat saveOt()). -->
-            <div class="md-pair">
+                 menimpa Total Orang di tanggal yang sama (lihat saveOt()).
+                 Riwayat diletakkan di BAWAH form, bukan berdampingan. -->
             <div class="panel">
               <p class="panel-title">Overtime Harian</p>
               <div class="form-grid">
@@ -307,10 +307,17 @@
               </div>
             </div>
             </div>
-            </div>
             </template>
 
             <template x-if="atSub === 'shift2'">
+            <div>
+            <!-- ===== Data Shift 2 =====
+                 Dua kolom: KIRI = Form Kehadiran Shift Mingguan + riwayatnya
+                 (menyusun ke bawah), KANAN = Riwayat Upload Shift 2 (form
+                 upload + riwayatnya, menyusun ke bawah). Supaya jelas: kolom
+                 kiri "shift mingguan (Hadir Shift 1/2)", kolom kanan
+                 "daftar orang Shift 2 per periode". -->
+            <div class="md-pair">
             <div>
             <!-- ===== Form Kehadiran Shift Mingguan =====
                  Terpisah dari Absensi Harian -- Hadir Shift 1/2 diisi per
@@ -318,9 +325,9 @@
                  karena angkanya memang baru berubah tiap minggu.
                  Hadir Shift 1/2 terisi OTOMATIS kalau Tanggal Mulai-Selesai
                  persis sama dengan salah satu periode di panel "Riwayat
-                 Upload Shift 2" di bawah -- tetap bisa diedit manual kalau
-                 meleset. Lihat autoFillShift(). -->
-            <div class="md-pair">
+                 Upload Shift 2" di sebelah kanan -- tetap bisa diedit manual
+                 kalau meleset. Lihat autoFillShift(). Riwayatnya diletakkan
+                 di BAWAH form ini (bukan di kolom kanan lagi). -->
             <div class="panel">
               <p class="panel-title">Form Kehadiran Shift Mingguan</p>
               <div class="form-grid">
@@ -359,6 +366,84 @@
                       </tr>
                     </template>
                     <tr x-show="shiftRows.length === 0"><td colspan="6" class="empty-state">Belum ada data.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            </div>
+
+            <!-- ===== Riwayat Upload Shift 2 (kolom kanan) =====
+                 Shift 2 rotasi mingguan -- orangnya beda tiap minggu, jadi
+                 setiap upload Excel berlaku untuk SATU PERIODE (Tanggal
+                 Mulai - Selesai), bukan penempatan tetap per NIK. Yang
+                 tidak ada di daftar Shift 2 untuk periode itu dianggap
+                 Shift 1. Dipakai untuk: (1) auto-isi Hadir Shift 1/2 di
+                 form "Kehadiran Shift Mingguan" di kolom kiri saat
+                 periodenya sama persis, dan (2) menentukan shift orang
+                 untuk hitungan Ganti Hari (dicek PER TANGGAL, bukan
+                 statis). Riwayat tampil ringkas (periode + jumlah orang);
+                 nama baru tampil kalau diklik Detail. -->
+            <div class="panel">
+              <p class="panel-title">Riwayat Upload Shift 2
+                <span class="count" x-text="shift2Periodes.length + ' periode'"></span>
+              </p>
+              <p class="hint" style="margin-bottom:14px;">
+                File Excel cukup berisi kolom <b>NIK</b> dan <b>NAMA</b> --
+                daftar orang yang Shift 2 di periode ini saja. Yang tidak ada
+                di daftar otomatis dianggap Shift 1. Upload lagi dengan
+                Tanggal Mulai-Selesai yang sama persis akan <b>menimpa</b>
+                data periode itu (kalau ada koreksi).
+              </p>
+              <div class="form-grid" style="margin-bottom:12px;">
+                <div class="field"><label>Tanggal Mulai</label><input type="date" x-model="shift2UploadForm.tanggal_mulai"></div>
+                <div class="field"><label>Tanggal Selesai</label><input type="date" x-model="shift2UploadForm.tanggal_selesai" :min="shift2UploadForm.tanggal_mulai"></div>
+              </div>
+              <div class="form-actions" style="margin-bottom:12px;">
+                <button type="button" class="btn-secondary" @click="downloadShift2Template()">Unduh Template Excel</button>
+                <label class="btn-primary" style="cursor:pointer; display:inline-flex; align-items:center;">
+                  <span x-text="shift2Uploading ? 'Mengunggah...' : 'Upload Excel Shift 2'"></span>
+                  <input type="file" accept=".xlsx,.xls" style="display:none" @change="handleShift2Upload($event)" :disabled="shift2Uploading">
+                </label>
+              </div>
+              <p class="hint" x-show="shift2Msg" x-text="shift2Msg"></p>
+              <div class="table-wrap" style="margin-top:12px;">
+                <table>
+                  <thead><tr><th>Tanggal Mulai</th><th>Tanggal Selesai</th><th>Jumlah Orang</th><th>Aksi</th></tr></thead>
+                  <!-- Satu <tbody> per periode (baris utama + baris Detail
+                       yang bisa disembunyikan/ditampilkan), supaya baris
+                       Detail muncul persis di bawah periode yang diklik,
+                       bukan di ujung tabel. Beberapa <tbody> dalam satu
+                       <table> valid secara HTML. -->
+                  <template x-for="p in shift2Periodes" :key="p.id">
+                    <tbody>
+                      <tr>
+                        <td class="mono" x-text="p.tanggal_mulai"></td>
+                        <td class="mono" x-text="p.tanggal_selesai"></td>
+                        <td class="mono" x-text="p.details.length + ' orang'"></td>
+                        <td>
+                          <button class="btn-secondary btn-sm" @click="toggleShift2Detail(p)" x-text="shift2DetailOpenId === p.id ? 'Tutup' : 'Detail'"></button>
+                          <button class="btn-secondary btn-sm" @click="exportShift2Periode(p)">Export</button>
+                          <button class="btn-secondary btn-sm" @click="deleteShift2Periode(p)">Hapus</button>
+                        </td>
+                      </tr>
+                      <tr x-show="shift2DetailOpenId === p.id">
+                        <td colspan="4" style="background:#fafafa;">
+                          <div style="max-height:220px; overflow-y:auto;">
+                            <table>
+                              <thead><tr><th>NIK</th><th>Nama</th></tr></thead>
+                              <tbody>
+                                <template x-for="d in p.details" :key="p.id + '-' + d.nik">
+                                  <tr><td class="mono" x-text="d.nik"></td><td x-text="d.nama"></td></tr>
+                                </template>
+                              </tbody>
+                            </table>
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </template>
+                  <tbody>
+                    <tr x-show="shift2Periodes.length === 0"><td colspan="4" class="empty-state">Belum ada data Shift 2 diupload.</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -463,86 +548,6 @@
             </div>
             </template>
 
-            <template x-if="atSub === 'shift2'">
-            <div>
-            <!-- ===== Riwayat Upload Shift 2 =====
-                 Shift 2 rotasi mingguan -- orangnya beda tiap minggu, jadi
-                 setiap upload Excel berlaku untuk SATU PERIODE (Tanggal
-                 Mulai - Selesai), bukan penempatan tetap per NIK. Yang
-                 tidak ada di daftar Shift 2 untuk periode itu dianggap
-                 Shift 1. Dipakai untuk: (1) auto-isi Hadir Shift 1/2 di
-                 form "Kehadiran Shift Mingguan" saat periodenya sama persis,
-                 dan (2) menentukan shift orang untuk hitungan Ganti Hari di
-                 atas (dicek PER TANGGAL, bukan statis). Riwayat tampil
-                 ringkas (periode + jumlah orang); nama baru tampil kalau
-                 diklik Detail. -->
-            <div class="panel">
-              <p class="panel-title">Riwayat Upload Shift 2
-                <span class="count" x-text="shift2Periodes.length + ' periode'"></span>
-              </p>
-              <p class="hint" style="margin-bottom:14px;">
-                File Excel cukup berisi kolom <b>NIK</b> dan <b>NAMA</b> --
-                daftar orang yang Shift 2 di periode ini saja. Yang tidak ada
-                di daftar otomatis dianggap Shift 1. Upload lagi dengan
-                Tanggal Mulai-Selesai yang sama persis akan <b>menimpa</b>
-                data periode itu (kalau ada koreksi).
-              </p>
-              <div class="form-grid" style="margin-bottom:12px;">
-                <div class="field"><label>Tanggal Mulai</label><input type="date" x-model="shift2UploadForm.tanggal_mulai"></div>
-                <div class="field"><label>Tanggal Selesai</label><input type="date" x-model="shift2UploadForm.tanggal_selesai" :min="shift2UploadForm.tanggal_mulai"></div>
-              </div>
-              <div class="form-actions" style="margin-bottom:12px;">
-                <button type="button" class="btn-secondary" @click="downloadShift2Template()">Unduh Template Excel</button>
-                <label class="btn-primary" style="cursor:pointer; display:inline-flex; align-items:center;">
-                  <span x-text="shift2Uploading ? 'Mengunggah...' : 'Upload Excel Shift 2'"></span>
-                  <input type="file" accept=".xlsx,.xls" style="display:none" @change="handleShift2Upload($event)" :disabled="shift2Uploading">
-                </label>
-              </div>
-              <p class="hint" x-show="shift2Msg" x-text="shift2Msg"></p>
-              <div class="table-wrap" style="margin-top:12px;">
-                <table>
-                  <thead><tr><th>Tanggal Mulai</th><th>Tanggal Selesai</th><th>Jumlah Orang</th><th>Aksi</th></tr></thead>
-                  <!-- Satu <tbody> per periode (baris utama + baris Detail
-                       yang bisa disembunyikan/ditampilkan), supaya baris
-                       Detail muncul persis di bawah periode yang diklik,
-                       bukan di ujung tabel. Beberapa <tbody> dalam satu
-                       <table> valid secara HTML. -->
-                  <template x-for="p in shift2Periodes" :key="p.id">
-                    <tbody>
-                      <tr>
-                        <td class="mono" x-text="p.tanggal_mulai"></td>
-                        <td class="mono" x-text="p.tanggal_selesai"></td>
-                        <td class="mono" x-text="p.details.length + ' orang'"></td>
-                        <td>
-                          <button class="btn-secondary btn-sm" @click="toggleShift2Detail(p)" x-text="shift2DetailOpenId === p.id ? 'Tutup' : 'Detail'"></button>
-                          <button class="btn-secondary btn-sm" @click="exportShift2Periode(p)">Export</button>
-                          <button class="btn-secondary btn-sm" @click="deleteShift2Periode(p)">Hapus</button>
-                        </td>
-                      </tr>
-                      <tr x-show="shift2DetailOpenId === p.id">
-                        <td colspan="4" style="background:#fafafa;">
-                          <div style="max-height:220px; overflow-y:auto;">
-                            <table>
-                              <thead><tr><th>NIK</th><th>Nama</th></tr></thead>
-                              <tbody>
-                                <template x-for="d in p.details" :key="p.id + '-' + d.nik">
-                                  <tr><td class="mono" x-text="d.nik"></td><td x-text="d.nama"></td></tr>
-                                </template>
-                              </tbody>
-                            </table>
-                          </div>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </template>
-                  <tbody>
-                    <tr x-show="shift2Periodes.length === 0"><td colspan="4" class="empty-state">Belum ada data Shift 2 diupload.</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            </div>
-            </template>
           </div>
         </template>
 
