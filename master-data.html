@@ -205,6 +205,19 @@
         <!-- ===== TAB: ATTENDANCE ===== -->
         <template x-if="activeTab === 'attendance'">
           <div>
+            <!-- Sub-tombol di dalam tab Attendance -- tiap grup panel
+                 (termasuk riwayatnya) disembunyikan/ditampilkan lewat
+                 atSub, pola yang sama dengan ctSub di tab Cuti. -->
+            <div class="md-subtab-nav" style="position:static;">
+              <button class="btn-secondary btn-sm" :class="atSub === 'mp' ? 'md-tab-on' : ''" @click="atSub = 'mp'">Total MP</button>
+              <button class="btn-secondary btn-sm" :class="atSub === 'overtime' ? 'md-tab-on' : ''" @click="atSub = 'overtime'">Overtime</button>
+              <button class="btn-secondary btn-sm" :class="atSub === 'shift2' ? 'md-tab-on' : ''" @click="atSub = 'shift2'">Data Shift 2</button>
+              <button class="btn-secondary btn-sm" :class="atSub === 'libur' ? 'md-tab-on' : ''" @click="atSub = 'libur'">Hari Libur</button>
+              <button class="btn-secondary btn-sm" :class="atSub === 'ganti' ? 'md-tab-on' : ''" @click="atSub = 'ganti'">Ganti Hari</button>
+            </div>
+
+            <template x-if="atSub === 'mp'">
+            <div>
             <!-- ===== Total Orang (Bulanan) =====
                  Total Orang cukup diinput SEKALI per bulan (pilih Bulan +
                  Tahun) -- nilainya disimpan di attendance_log dengan
@@ -254,7 +267,11 @@
               </div>
             </div>
             </div>
+            </div>
+            </template>
 
+            <template x-if="atSub === 'overtime'">
+            <div>
             <!-- ===== Overtime Harian =====
                  Beda dari Total Orang -- OT memang berubah tiap hari,
                  jadi tetap diinput per tanggal. Menyimpan OT TIDAK ikut
@@ -290,7 +307,11 @@
               </div>
             </div>
             </div>
+            </div>
+            </template>
 
+            <template x-if="atSub === 'shift2'">
+            <div>
             <!-- ===== Form Kehadiran Shift Mingguan =====
                  Terpisah dari Absensi Harian -- Hadir Shift 1/2 diisi per
                  RENTANG TANGGAL bebas (biasanya 1 minggu), bukan per hari,
@@ -343,7 +364,11 @@
               </div>
             </div>
             </div>
+            </div>
+            </template>
 
+            <template x-if="atSub === 'libur'">
+            <div>
             <!-- ===== Kelola Hari Libur / Tanggal Merah =====
                  Dipakai di halaman Attendance untuk exclude Sabtu/Minggu/
                  tanggal merah dari perhitungan Total Hari Cuti. -->
@@ -372,7 +397,11 @@
                 </table>
               </div>
             </div>
+            </div>
+            </template>
 
+            <template x-if="atSub === 'ganti'">
+            <div>
             <!-- ===== Ganti Hari (Masuk Kerja) =====
                  Hari Sabtu yang jadi hari kerja PENGGANTI (menebus libur di
                  hari kerja lain), biasanya cuma untuk 1 shift -- shift yang
@@ -431,7 +460,11 @@
                 </table>
               </div>
             </div>
+            </div>
+            </template>
 
+            <template x-if="atSub === 'shift2'">
+            <div>
             <!-- ===== Riwayat Upload Shift 2 =====
                  Shift 2 rotasi mingguan -- orangnya beda tiap minggu, jadi
                  setiap upload Excel berlaku untuk SATU PERIODE (Tanggal
@@ -508,6 +541,8 @@
                 </table>
               </div>
             </div>
+            </div>
+            </template>
           </div>
         </template>
 
@@ -1156,6 +1191,8 @@ function masterDataPage() {
       if (tab === "productivity" && !this.kwLoaded) { this.kwLoaded = true; this.fetchKoefisien(); this.fetchTarget(); }
       if (tab === "cuti" && !this.ctLoaded) { this.ctLoaded = true; this.fetchCuti(); }
     },
+    // Sub-tombol di dalam tab Attendance: "mp" | "overtime" | "shift2" | "libur" | "ganti"
+    atSub: "mp",
     // ---- Total Orang (Bulanan) ----
     // Dropdown Bulan pakai label yang sama dengan dashboard (BULAN_LABELS).
     BULAN_LABELS: ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"],
