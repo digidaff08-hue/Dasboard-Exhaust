@@ -671,7 +671,7 @@
               <p class="hint" style="margin-bottom:8px;">
                 Kolom tanggal otomatis terisi dari data Cuti/Izin/Sakit/Mangkir dan Hari Libur/Ganti Hari yang sudah ada.
                 Klik sel tanggal untuk mengetik manual (kosongkan lalu klik di luar untuk kembali ke otomatis).
-                Kode: <b>C</b> Cuti, <b>I</b> Izin, <b>S</b> Sakit, <b>A</b> Mangkir, <b>L</b> Libur, kosong = Hadir.
+                Kode: <b>1</b> Hadir, <b>S</b> Sakit, <b>Ct</b> Cuti, <b>I</b> Izin, <b>A</b> Alfa, <b>L</b> Libur.
               </p>
               <div class="form-grid">
                 <div class="field"><label>Bulan</label>
@@ -1829,17 +1829,24 @@ function masterDataPage() {
       if (Object.prototype.hasOwnProperty.call(this.absensiManual, key)) return this.absensiManual[key];
       return this.absensiKodeAuto(nik, ds);
     },
-    // Khusus untuk TAMPILAN sel: di kolom Sabtu & Minggu, huruf "L" tidak
-    // usah ditulis (biar tidak berulang tiap minggu) -- tapi warna latar
-    // abu-abu Libur tetap jalan karena absensiWarna() masih pakai kode asli
-    // dari absensiKode(), bukan dari fungsi ini.
+    // Khusus untuk TAMPILAN sel (bukan data mentah -- data mentah yang
+    // dipakai untuk hitungan ringkasan tetap "" utk Hadir dan "C" utk
+    // Cuti, lihat absensiKode()/absensiHitung()):
+    //   - kosong (Hadir)  -> ditulis "1"
+    //   - C (Cuti)        -> ditulis "Ct"
+    //   - Sabtu & Minggu yang Libur -> "L" dihapus, tidak ditulis apa-apa
+    //     (tapi warna latar abu-abu Libur tetap jalan lewat absensiWarna()
+    //     yang masih pakai kode asli "L").
     absensiKodeTampil(nik, hari) {
       const kode = this.absensiKode(nik, hari);
       if (kode === "L") {
         const ds = this.absensiTanggal(hari);
         const dow = new Date(ds + "T00:00:00").getDay();
         if (dow === 0 || dow === 6) return "";
+        return "L";
       }
+      if (kode === "") return "1";
+      if (kode === "C") return "Ct";
       return kode;
     },
     absensiWarna(kode) {
@@ -1854,9 +1861,15 @@ function masterDataPage() {
     },
     // Ketik & pindah fokus (blur/Enter) -> simpan. Dikosongkan -> override
     // dihapus, sel balik ikut hitungan otomatis lagi.
+    // Catatan: yang diketik user pakai label TAMPILAN ("1" utk Hadir, "Ct"
+    // utk Cuti) -- di sini dinormalkan balik ke kode mentah ("" dan "C")
+    // supaya tetap cocok dengan absensiKodeAuto()/absensiWarna()/hitungan
+    // ringkasan yang masih pakai kode mentah.
     async absensiSetKode(nik, hari, val) {
       const ds = this.absensiTanggal(hari);
-      const kode = (val || "").trim().toUpperCase();
+      let kode = (val || "").trim().toUpperCase();
+      if (kode === "1") kode = "";
+      if (kode === "CT") kode = "C";
       const key = nik + "|" + ds;
       if (!kode) {
         if (Object.prototype.hasOwnProperty.call(this.absensiManual, key)) {
