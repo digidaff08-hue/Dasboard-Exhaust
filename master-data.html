@@ -720,7 +720,7 @@
                           <td style="padding:2px; text-align:center;">
                             <input type="text" maxlength="3"
                                    :style="absensiWarna(absensiKode(r.nik, h))"
-                                   :value="absensiKode(r.nik, h)"
+                                   :value="absensiKodeTampil(r.nik, h)"
                                    @change="absensiSetKode(r.nik, h, $event.target.value)">
                           </td>
                         </template>
@@ -1828,6 +1828,19 @@ function masterDataPage() {
       const key = nik + "|" + ds;
       if (Object.prototype.hasOwnProperty.call(this.absensiManual, key)) return this.absensiManual[key];
       return this.absensiKodeAuto(nik, ds);
+    },
+    // Khusus untuk TAMPILAN sel: di kolom Sabtu & Minggu, huruf "L" tidak
+    // usah ditulis (biar tidak berulang tiap minggu) -- tapi warna latar
+    // abu-abu Libur tetap jalan karena absensiWarna() masih pakai kode asli
+    // dari absensiKode(), bukan dari fungsi ini.
+    absensiKodeTampil(nik, hari) {
+      const kode = this.absensiKode(nik, hari);
+      if (kode === "L") {
+        const ds = this.absensiTanggal(hari);
+        const dow = new Date(ds + "T00:00:00").getDay();
+        if (dow === 0 || dow === 6) return "";
+      }
+      return kode;
     },
     absensiWarna(kode) {
       const map = {
