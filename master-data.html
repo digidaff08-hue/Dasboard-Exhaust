@@ -214,6 +214,7 @@
               <button class="btn-secondary btn-sm" :class="atSub === 'shift2' ? 'md-tab-on' : ''" @click="atSub = 'shift2'">Data Shift 2</button>
               <button class="btn-secondary btn-sm" :class="atSub === 'libur' ? 'md-tab-on' : ''" @click="atSub = 'libur'">Hari Libur</button>
               <button class="btn-secondary btn-sm" :class="atSub === 'ganti' ? 'md-tab-on' : ''" @click="atSub = 'ganti'">Ganti Hari</button>
+              <button class="btn-secondary btn-sm" :class="atSub === 'absensi' ? 'md-tab-on' : ''" @click="atSub = 'absensi'; fetchAbsensiIfNeeded()">Absensi</button>
             </div>
 
             <template x-if="atSub === 'mp'">
@@ -544,6 +545,101 @@
                   </tbody>
                 </table>
               </div>
+            </div>
+            </div>
+            </template>
+
+            <template x-if="atSub === 'absensi'">
+            <div>
+            <!-- ===== Absensi (Grid Harian 1-31) =====
+                 Kolom 1..akhir bulan DIHITUNG OTOMATIS dari data yang sudah
+                 ada (Cuti/Izin/Sakit/Mangkir di attendance_leave, Hari
+                 Libur & Ganti Hari di hari_libur -- logika sama persis
+                 dengan absensiKodeAuto() / kenapaNolHari() / trigger
+                 set_jumlah_hari_cuti()), TAPI tiap sel tetap bisa diedit
+                 manual. Yang diketik manual disimpan di tabel terpisah
+                 absensi_manual (nik, tanggal, kode) -- supaya kalau nanti
+                 datanya di sistem berubah, sel yang TIDAK pernah disentuh
+                 tetap ikut update otomatis, dan sel yang SUDAH diedit
+                 manual tidak ketimpa lagi. Mengosongkan sel = kembali ke
+                 hitungan otomatis (override dihapus).
+
+                 Kolom STATUS = kategori/jenis karyawan (FM/LD/Opr.
+                 Permanent/Opr. Contract/Opr. Magang), disimpan permanen di
+                 karyawan_master.status_kerja -- diedit langsung dari
+                 dropdown di baris ini, tidak perlu diketik ulang tiap
+                 bulan. Karyawan yang belum pernah diisi status_kerja-nya
+                 tidak muncul di grid ini (lihat migration_absensi.sql
+                 untuk isi awal 47 nama yang diminta). -->
+            <div class="panel">
+              <p class="panel-title">Absensi</p>
+              <p class="hint" style="margin-bottom:14px;">
+                Kolom tanggal otomatis terisi dari data Cuti/Izin/Sakit/Mangkir dan Hari Libur/Ganti Hari yang sudah ada.
+                Klik sel tanggal untuk mengetik manual (kosongkan lalu klik di luar untuk kembali ke otomatis).
+                Kode: <b>C</b> Cuti, <b>I</b> Izin, <b>S</b> Sakit, <b>A</b> Mangkir, <b>L</b> Libur, kosong = Hadir.
+              </p>
+              <div class="form-grid">
+                <div class="field"><label>Bulan</label>
+                  <select x-model.number="absensiBulan" @change="fetchAbsensi()">
+                    <template x-for="(nm, i) in BULAN_LABELS" :key="'ab-bln-'+i">
+                      <option :value="i+1" x-text="nm"></option>
+                    </template>
+                  </select>
+                </div>
+                <div class="field"><label>Tahun</label>
+                  <select x-model.number="absensiTahun" @change="fetchAbsensi()">
+                    <template x-for="y in tahunOptions" :key="'ab-thn-'+y"><option :value="y" x-text="y"></option></template>
+                  </select>
+                </div>
+                <div class="field" style="grid-column: span 2;"><label>Cari Karyawan</label><input type="text" x-model="absensiCari" placeholder="NIK atau nama"></div>
+              </div>
+
+              <div class="table-wrap" style="margin-top:12px;" x-show="!absensiLoading">
+                <table>
+                  <thead>
+                    <tr>
+                      <th style="position:sticky; left:0; background:var(--panel); z-index:1;">NIK</th>
+                      <th style="position:sticky; left:70px; background:var(--panel); z-index:1;">NAMA</th>
+                      <th>STATUS</th>
+                      <template x-for="h in absensiHariList()" :key="'ab-h-'+h">
+                        <th style="text-align:center; padding:4px 2px; min-width:30px;">
+                          <div x-text="h"></div>
+                          <div style="font-weight:400; font-size:10px; color:var(--muted);" x-text="namaHari(absensiTanggal(h)).slice(0,2)"></div>
+                        </th>
+                      </template>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="r in absensiRows()" :key="'ab-row-'+r.nik">
+                      <tr>
+                        <td class="mono" style="position:sticky; left:0; background:var(--panel); z-index:1;" x-text="r.nik"></td>
+                        <td style="position:sticky; left:70px; background:var(--panel); z-index:1; white-space:nowrap;" x-text="r.nama"></td>
+                        <td>
+                          <select :value="r.status_kerja || ''" @change="absensiSetStatus(r.nik, $event.target.value)" style="font-size:12px; padding:2px 4px;">
+                            <option value="">-</option>
+                            <option value="FM">FM</option>
+                            <option value="LD">LD</option>
+                            <option value="Opr. Permanent">Opr. Permanent</option>
+                            <option value="Opr. Contract">Opr. Contract</option>
+                            <option value="Opr. Magang">Opr. Magang</option>
+                          </select>
+                        </td>
+                        <template x-for="h in absensiHariList()" :key="'ab-cell-'+r.nik+'-'+h">
+                          <td style="padding:2px; text-align:center;">
+                            <input type="text" maxlength="3"
+                                   style="width:30px; text-align:center; padding:3px 0; border:1px solid var(--border); border-radius:4px;"
+                                   :style="absensiWarna(absensiKode(r.nik, h))"
+                                   :value="absensiKode(r.nik, h)"
+                                   @change="absensiSetKode(r.nik, h, $event.target.value)">
+                          </td>
+                        </template>
+                      </tr>
+                    </template>
+                    <tr x-show="absensiRows().length === 0"><td :colspan="3 + absensiHariList().length" class="empty-state">Belum ada karyawan dengan STATUS terisi.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p x-show="absensiLoading" class="hint">Memuat...</p>
             </div>
             </div>
             </template>
@@ -1230,6 +1326,17 @@ function masterDataPage() {
     // Satu tabel dengan hari libur (hari_libur), dibedakan kolom `jenis`.
     gantiHariRows: [],
     gantiHariForm: { tanggal: localDateStr(new Date()), shift: "1", keterangan: "" },
+    // ---- Absensi (grid harian 1-31, auto dari Cuti/Izin/Sakit/Mangkir +
+    // Hari Libur/Ganti Hari, tapi bisa ditimpa manual per sel) ----
+    absensiBulan: new Date().getMonth() + 1,
+    absensiTahun: new Date().getFullYear(),
+    absensiCari: "",
+    absensiLoading: false,
+    absensiLoadedKey: "",
+    absensiKaryawan: [],   // { nik, nama, status_kerja }
+    absensiLeave: [],      // baris attendance_leave yang bersinggungan dgn bulan ini
+    absensiLibur: [],      // baris hari_libur (jenis libur & ganti_hari) bulan ini
+    absensiManual: {},     // { "nik|tanggal": kode } -- override manual dari absensi_manual
     // ---- Riwayat Upload Shift 2 (dipakai untuk auto-isi Kehadiran Shift
     // Mingguan & menghitung ganti hari per orang; shift berubah tiap minggu
     // jadi disimpan per periode, bukan statis per NIK) ----
@@ -1486,6 +1593,136 @@ function masterDataPage() {
       if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
       this.flash("Ganti hari dihapus.");
       await this.fetchHariLibur();
+    },
+    // ================= Absensi (grid harian) =================
+    fetchAbsensiIfNeeded() {
+      const key = this.absensiBulan + "-" + this.absensiTahun;
+      if (this.absensiLoadedKey !== key) this.fetchAbsensi();
+    },
+    absensiHariList() {
+      const n = new Date(this.absensiTahun, this.absensiBulan, 0).getDate();
+      return Array.from({ length: n }, (_, i) => i + 1);
+    },
+    absensiTanggal(hari) {
+      return this.absensiTahun + "-" + String(this.absensiBulan).padStart(2, "0") + "-" + String(hari).padStart(2, "0");
+    },
+    async fetchAbsensi() {
+      this.absensiLoading = true;
+      try {
+        const bln = this.absensiBulan, thn = this.absensiTahun;
+        const awal = thn + "-" + String(bln).padStart(2, "0") + "-01";
+        const akhir = this.absensiTanggal(new Date(thn, bln, 0).getDate());
+
+        const [karRes, leaveRes, liburRes, manualRes] = await Promise.all([
+          supabaseClient.from("karyawan_master").select("nik,nama,status_kerja").not("status_kerja", "is", null).order("nama"),
+          // Ambil baris cuti (bisa lintas tanggal via tanggal_selesai) DAN
+          // baris izin/sakit/mangkir (satu hari, tanggal_selesai kosong)
+          // yang bersinggungan dengan bulan ini.
+          supabaseClient.from("attendance_leave").select("nik,jenis,tanggal,tanggal_selesai")
+            .lte("tanggal", akhir)
+            .or(`and(tanggal_selesai.is.null,tanggal.gte.${awal}),tanggal_selesai.gte.${awal}`),
+          supabaseClient.from("hari_libur").select("tanggal,jenis,shift").gte("tanggal", awal).lte("tanggal", akhir),
+          supabaseClient.from("absensi_manual").select("nik,tanggal,kode").gte("tanggal", awal).lte("tanggal", akhir),
+        ]);
+
+        if (karRes.error) { this.flash("Gagal memuat karyawan: " + karRes.error.message, true); return; }
+        if (leaveRes.error) { this.flash("Gagal memuat data cuti/izin: " + leaveRes.error.message, true); return; }
+        if (liburRes.error) { this.flash("Gagal memuat hari libur: " + liburRes.error.message, true); return; }
+        if (manualRes.error) {
+          this.flash("Gagal memuat absensi manual: " + manualRes.error.message
+            + (String(manualRes.error.message).toLowerCase().includes("absensi_manual")
+                ? " — tabel absensi_manual belum ada. Jalankan migration_absensi.sql di Supabase SQL Editor."
+                : ""), true);
+          return;
+        }
+
+        this.absensiKaryawan = karRes.data || [];
+        this.absensiLeave = leaveRes.data || [];
+        this.absensiLibur = liburRes.data || [];
+        const man = {};
+        (manualRes.data || []).forEach((r) => { man[r.nik + "|" + r.tanggal] = r.kode; });
+        this.absensiManual = man;
+        this.absensiLoadedKey = bln + "-" + thn;
+      } finally {
+        this.absensiLoading = false;
+      }
+    },
+    absensiRows() {
+      const cari = (this.absensiCari || "").trim().toLowerCase();
+      return this.absensiKaryawan.filter((k) =>
+        !cari || String(k.nik).toLowerCase().includes(cari) || String(k.nama || "").toLowerCase().includes(cari));
+    },
+    // Hitungan otomatis satu sel -- persis logika yang sama dipakai trigger
+    // set_jumlah_hari_cuti() / kenapaNolHari(): Minggu selalu libur, Sabtu
+    // libur kecuali Ganti Hari yang cocok shift, tanggal merah libur,
+    // Senin-Jumat kerja. Cuti/Izin/Sakit/Mangkir menang dari semua itu.
+    absensiKodeAuto(nik, ds) {
+      const leave = this.absensiLeave.find((r) => {
+        if (r.nik !== nik) return false;
+        if (r.jenis === "cuti") {
+          const sampai = r.tanggal_selesai || r.tanggal;
+          return ds >= r.tanggal && ds <= sampai;
+        }
+        return r.tanggal === ds;
+      });
+      if (leave) {
+        if (leave.jenis === "cuti") return "C";
+        if (leave.jenis === "izin") return "I";
+        if (leave.jenis === "sakit") return "S";
+        if (leave.jenis === "mangkir") return "A";
+      }
+      const lib = this.absensiLibur.find((r) => r.tanggal === ds);
+      const dow = new Date(ds + "T00:00:00").getDay();
+      if (dow === 0) return "L";
+      if (dow === 6) {
+        if (lib && lib.jenis === "ganti_hari" && (lib.shift === "penuh" || lib.shift === this.shiftPadaTanggal(nik, ds))) return "";
+        return "L";
+      }
+      if (lib && lib.jenis === "libur") return "L";
+      return "";
+    },
+    absensiKode(nik, hari) {
+      const ds = this.absensiTanggal(hari);
+      const key = nik + "|" + ds;
+      if (Object.prototype.hasOwnProperty.call(this.absensiManual, key)) return this.absensiManual[key];
+      return this.absensiKodeAuto(nik, ds);
+    },
+    absensiWarna(kode) {
+      const map = {
+        C: "background:#EFF6FF; color:#1D4ED8;",
+        I: "background:#FFF7ED; color:#C2410C;",
+        S: "background:#FAF5FF; color:#7E22CE;",
+        A: "background:#FEF2F2; color:#DC2626;",
+        L: "background:#F1F5F9; color:#64748B;",
+      };
+      return map[kode] || "";
+    },
+    // Ketik & pindah fokus (blur/Enter) -> simpan. Dikosongkan -> override
+    // dihapus, sel balik ikut hitungan otomatis lagi.
+    async absensiSetKode(nik, hari, val) {
+      const ds = this.absensiTanggal(hari);
+      const kode = (val || "").trim().toUpperCase();
+      const key = nik + "|" + ds;
+      if (!kode) {
+        if (Object.prototype.hasOwnProperty.call(this.absensiManual, key)) {
+          const salinan = { ...this.absensiManual };
+          delete salinan[key];
+          this.absensiManual = salinan;
+          const { error } = await supabaseClient.from("absensi_manual").delete().eq("nik", nik).eq("tanggal", ds);
+          if (error) this.flash("Gagal reset ke otomatis: " + error.message, true);
+        }
+        return;
+      }
+      this.absensiManual = { ...this.absensiManual, [key]: kode };
+      const { error } = await supabaseClient.from("absensi_manual")
+        .upsert({ nik, tanggal: ds, kode }, { onConflict: "nik,tanggal" });
+      if (error) this.flash("Gagal simpan absensi: " + error.message, true);
+    },
+    async absensiSetStatus(nik, val) {
+      const k = this.absensiKaryawan.find((x) => x.nik === nik);
+      if (k) k.status_kerja = val || null;
+      const { error } = await supabaseClient.from("karyawan_master").update({ status_kerja: val || null }).eq("nik", nik);
+      if (error) this.flash("Gagal simpan status: " + error.message, true);
     },
     // ---- Riwayat Upload Shift 2 ----
     // Shift 2 rotasi mingguan -- disimpan per PERIODE (shift2_periode +
