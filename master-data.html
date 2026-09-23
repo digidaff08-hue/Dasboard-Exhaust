@@ -23,6 +23,23 @@
      tabel riwayatnya, (2) bayangan tebal diganti garis tipis.
      ========================================================= */
 
+  /* ---------- Grid Absensi (gaya rekap tercetak: bergaris penuh,
+     header tebal, baris ringkasan HADIR/CUTI/dst di bawah) ---------- */
+  .absensi-grid { border-collapse: collapse; }
+  .absensi-grid th, .absensi-grid td {
+    border: 1px solid var(--border, #94A3B8);
+  }
+  .absensi-grid thead th {
+    background: #EEF2F7; font-weight: 700; text-align: center;
+    padding: 6px 4px;
+  }
+  .absensi-grid tfoot td {
+    font-weight: 600; background: #F8FAFC;
+  }
+  .absensi-grid tfoot td:first-child {
+    text-align: left; padding-left: 8px;
+  }
+
   /* ---------- Bar kategori ---------- */
   /* Nempel di atas saat digulir -- di halaman sepanjang ini, tab
      yang ikut hilang ke atas bikin orang kehilangan konteks. */
@@ -595,17 +612,14 @@
               </div>
 
               <div class="table-wrap" style="margin-top:12px;" x-show="!absensiLoading">
-                <table>
+                <table class="absensi-grid">
                   <thead>
                     <tr>
-                      <th style="position:sticky; left:0; background:var(--panel); z-index:1;">NIK</th>
-                      <th style="position:sticky; left:70px; background:var(--panel); z-index:1;">NAMA</th>
+                      <th style="position:sticky; left:0; background:#EEF2F7; z-index:1;">NIK</th>
+                      <th style="position:sticky; left:70px; background:#EEF2F7; z-index:1;">NAMA</th>
                       <th>STATUS</th>
                       <template x-for="h in absensiHariList()" :key="'ab-h-'+h">
-                        <th style="text-align:center; padding:4px 2px; min-width:30px;">
-                          <div x-text="h"></div>
-                          <div style="font-weight:400; font-size:10px; color:var(--muted);" x-text="namaHari(absensiTanggal(h)).slice(0,2)"></div>
-                        </th>
+                        <th style="min-width:30px;" x-text="h"></th>
                       </template>
                     </tr>
                   </thead>
@@ -627,7 +641,7 @@
                         <template x-for="h in absensiHariList()" :key="'ab-cell-'+r.nik+'-'+h">
                           <td style="padding:2px; text-align:center;">
                             <input type="text" maxlength="3"
-                                   style="width:30px; text-align:center; padding:3px 0; border:1px solid var(--border); border-radius:4px;"
+                                   style="width:28px; text-align:center; padding:3px 0; border:none; background:transparent;"
                                    :style="absensiWarna(absensiKode(r.nik, h))"
                                    :value="absensiKode(r.nik, h)"
                                    @change="absensiSetKode(r.nik, h, $event.target.value)">
@@ -637,6 +651,57 @@
                     </template>
                     <tr x-show="absensiRows().length === 0"><td :colspan="3 + absensiHariList().length" class="empty-state">Belum ada karyawan dengan STATUS terisi.</td></tr>
                   </tbody>
+                  <!-- ===== Ringkasan per tanggal =====
+                       Dihitung dari kode yang SEDANG TAMPIL di baris di
+                       atas (absensiRows(), otomatis + override manual
+                       tergabung lewat absensiKode()) -- bukan query
+                       terpisah, jadi selalu sinkron dengan grid.
+                       TOTAL MP = jumlah orang yang bukan Libur (L) hari
+                       itu. RASIO KEHADIRAN = Hadir / Total MP. -->
+                  <tfoot x-show="absensiRows().length > 0">
+                    <tr>
+                      <td colspan="3" style="position:sticky; left:0; background:#F8FAFC;">HADIR</td>
+                      <template x-for="h in absensiHariList()" :key="'ab-hadir-'+h">
+                        <td x-text="absensiHitung(h, '') || ''"></td>
+                      </template>
+                    </tr>
+                    <tr>
+                      <td colspan="3" style="position:sticky; left:0; background:#F8FAFC;">CUTI</td>
+                      <template x-for="h in absensiHariList()" :key="'ab-cuti-'+h">
+                        <td x-text="absensiHitung(h, 'C') || ''"></td>
+                      </template>
+                    </tr>
+                    <tr>
+                      <td colspan="3" style="position:sticky; left:0; background:#F8FAFC;">SAKIT</td>
+                      <template x-for="h in absensiHariList()" :key="'ab-sakit-'+h">
+                        <td x-text="absensiHitung(h, 'S') || ''"></td>
+                      </template>
+                    </tr>
+                    <tr>
+                      <td colspan="3" style="position:sticky; left:0; background:#F8FAFC;">IZIN</td>
+                      <template x-for="h in absensiHariList()" :key="'ab-izin-'+h">
+                        <td x-text="absensiHitung(h, 'I') || ''"></td>
+                      </template>
+                    </tr>
+                    <tr>
+                      <td colspan="3" style="position:sticky; left:0; background:#F8FAFC;">ALFA</td>
+                      <template x-for="h in absensiHariList()" :key="'ab-alfa-'+h">
+                        <td x-text="absensiHitung(h, 'A') || ''"></td>
+                      </template>
+                    </tr>
+                    <tr>
+                      <td colspan="3" style="position:sticky; left:0; background:#F8FAFC;">TOTAL MP</td>
+                      <template x-for="h in absensiHariList()" :key="'ab-mp-'+h">
+                        <td x-text="absensiTotalMp(h) || ''"></td>
+                      </template>
+                    </tr>
+                    <tr>
+                      <td colspan="3" style="position:sticky; left:0; background:#F8FAFC;">RASIO KEHADIRAN</td>
+                      <template x-for="h in absensiHariList()" :key="'ab-rasio-'+h">
+                        <td x-text="absensiRasio(h)"></td>
+                      </template>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
               <p x-show="absensiLoading" class="hint">Memuat...</p>
@@ -1723,6 +1788,24 @@ function masterDataPage() {
       if (k) k.status_kerja = val || null;
       const { error } = await supabaseClient.from("karyawan_master").update({ status_kerja: val || null }).eq("nik", nik);
       if (error) this.flash("Gagal simpan status: " + error.message, true);
+    },
+    // ---- Baris ringkasan di bawah grid (HADIR/CUTI/SAKIT/IZIN/ALFA/
+    // TOTAL MP/RASIO KEHADIRAN) -- dihitung dari kode yang lagi tampil
+    // di absensiRows(), bukan query terpisah, supaya selalu sinkron. ----
+    absensiHitung(hari, kode) {
+      return this.absensiRows().reduce((n, r) => n + (this.absensiKode(r.nik, hari) === kode ? 1 : 0), 0);
+    },
+    // Total MP hari itu = semua orang yang BUKAN Libur (L) -- Hadir +
+    // Cuti + Sakit + Izin + Alfa. Hari Minggu/tanggal merah biasanya
+    // jadi 0 karena semua orang kodenya L.
+    absensiTotalMp(hari) {
+      return this.absensiRows().reduce((n, r) => n + (this.absensiKode(r.nik, hari) !== "L" ? 1 : 0), 0);
+    },
+    absensiRasio(hari) {
+      const mp = this.absensiTotalMp(hari);
+      if (mp === 0) return "-";
+      const hadir = this.absensiHitung(hari, "");
+      return (hadir / mp * 100).toFixed(1).replace(".", ",") + "%";
     },
     // ---- Riwayat Upload Shift 2 ----
     // Shift 2 rotasi mingguan -- disimpan per PERIODE (shift2_periode +
