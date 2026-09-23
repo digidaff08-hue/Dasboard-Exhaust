@@ -24,20 +24,37 @@
      ========================================================= */
 
   /* ---------- Grid Absensi (gaya rekap tercetak: bergaris penuh,
-     header tebal, baris ringkasan HADIR/CUTI/dst di bawah) ---------- */
-  .absensi-grid { border-collapse: collapse; }
+     header tebal, baris ringkasan HADIR/CUTI/dst di bawah) ----------
+     Kolom tanggal (ke-4 dst) dipaksa SEMPIT dan wrapper-nya dipaksa
+     TIDAK ikut max-height/overflow-y bawaan .table-wrap -- soalnya
+     style umum di assets/style.css bikin tiap <td> lebar minimum
+     besar & tabel dibatasi tinggi (scroll pendek), padahal grid ini
+     butuh banyak kolom sempit yang kelihatan sekaligus + banyak baris
+     tanpa kotak scroll internal (biar ikut scroll halaman biasa). */
+  .absensi-wrap { max-height: none !important; overflow-y: visible !important; }
+  .absensi-grid { border-collapse: collapse; table-layout: auto; }
   .absensi-grid th, .absensi-grid td {
     border: 1px solid var(--border, #94A3B8);
+    padding: 2px !important;
+    min-width: 0 !important;
+  }
+  .absensi-grid th:nth-child(n+4), .absensi-grid td:nth-child(n+4) {
+    width: 26px !important; min-width: 26px !important; max-width: 26px !important;
   }
   .absensi-grid thead th {
     background: #EEF2F7; font-weight: 700; text-align: center;
-    padding: 6px 4px;
+    padding: 4px 2px !important; font-size: 12px;
   }
+  .absensi-grid td input[type="text"] {
+    width: 100%; min-width: 0; padding: 2px 0; margin: 0;
+    border: none; background: transparent; text-align: center; font-size: 12px;
+  }
+  .absensi-grid td select { font-size: 12px; padding: 1px 2px; min-width: 0; }
   .absensi-grid tfoot td {
-    font-weight: 600; background: #F8FAFC;
+    font-weight: 600; background: #F8FAFC; font-size: 12px; text-align: center;
   }
   .absensi-grid tfoot td:first-child {
-    text-align: left; padding-left: 8px;
+    text-align: left; padding-left: 8px !important;
   }
 
   /* ---------- Bar kategori ---------- */
@@ -611,7 +628,7 @@
                 <div class="field" style="grid-column: span 2;"><label>Cari Karyawan</label><input type="text" x-model="absensiCari" placeholder="NIK atau nama"></div>
               </div>
 
-              <div class="table-wrap" style="margin-top:12px;" x-show="!absensiLoading">
+              <div class="table-wrap absensi-wrap" style="margin-top:12px;" x-show="!absensiLoading">
                 <table class="absensi-grid">
                   <thead>
                     <tr>
@@ -641,7 +658,6 @@
                         <template x-for="h in absensiHariList()" :key="'ab-cell-'+r.nik+'-'+h">
                           <td style="padding:2px; text-align:center;">
                             <input type="text" maxlength="3"
-                                   style="width:28px; text-align:center; padding:3px 0; border:none; background:transparent;"
                                    :style="absensiWarna(absensiKode(r.nik, h))"
                                    :value="absensiKode(r.nik, h)"
                                    @change="absensiSetKode(r.nik, h, $event.target.value)">
