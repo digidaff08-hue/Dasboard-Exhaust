@@ -364,7 +364,9 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       break_menit: "", dandori_menit: "", waktu_problem_menit: "", total_repair_menit: "",
     },
     partNumberList: [], problemList: [], causeList: [], areaList: [], nonProduksiTypeList: [],
+    ngAreaMasterList: [],
     newPartNumberValue: "", newProblemValue: "", newCauseValue: "", newAreaValue: "", newNonProduksiTypeValue: "",
+    newNgAreaModel: "", newNgAreaValue: "", newNgAreaProses: "", newNgAreaHarga: "",
     picOptions: ["DIES", "MESIN", "PE", "PROD", "PC-SUPP", "QC", "PRESS"],
     newProblemPic: "", newCauseProblemId: "",
     statusOptions: ["Temporary Action", "Permanent Action"],
@@ -492,7 +494,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         // Alpine) -- bukan error, cuma nunggu giliran.
         Promise.all([
           this.fetchDowntime(), this.fetchProblems(), this.fetchCauses(), this.fetchAreas(),
-          this.fetchNgInline(), this.fetchRepairViews(), this.fetchRepairKategori(),
+          this.fetchNgInline(), this.fetchNgAreaMaster(), this.fetchRepairViews(), this.fetchRepairKategori(),
           this.fetchRepairLog(), this.fetchRepairPartNoOptions(),
         ]).then(() => {
           // Mulai unduh file model 3D part aktif di belakang layar, sedikit
@@ -2222,6 +2224,53 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const { error } = await supabaseClient.from("downtime_areas").delete().eq("id", id);
       if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
       this.areaList = this.areaList.filter((r) => r.id !== id);
+    },
+
+    // ---- Master Data: Area & Harga NG Inline (per line) ----
+    // Ini yang dipakai ngValue() buat hitung otomatis value = qty x harga
+    // saat operator input NG Inline lewat Area dropdown. Ditaruh di sini
+    // (Master Data) supaya admin bisa cek/koreksi harga sendiri tanpa
+    // buka Supabase Table Editor.
+    async fetchNgAreaMaster() {
+      const { data, error } = await supabaseClient.from("ng_model_areas").select("id, model, area, ng_proses, harga").eq("mesin", machineKey).order("model").order("area");
+      if (error) { this.flash("Gagal memuat Area & Harga NG Inline: " + error.message, true); return; }
+      this.ngAreaMasterList = data.map((r) => ({ ...r, editing: false, draftModel: r.model, draftArea: r.area, draftProses: r.ng_proses, draftHarga: r.harga ?? 0 }));
+    },
+    async addMasterNgArea() {
+      const model = (this.newNgAreaModel || "").trim();
+      const area = (this.newNgAreaValue || "").trim();
+      const proses = (this.newNgAreaProses || "").trim();
+      const harga = Number(this.newNgAreaHarga) || 0;
+      if (!model || !area) { this.flash("Model dan Area wajib diisi.", true); return; }
+      const { data, error } = await supabaseClient.from("ng_model_areas").insert({ mesin: machineKey, model, area, ng_proses: proses, harga }).select().single();
+      if (error) { this.flash("Gagal tambah: " + error.message, true); return; }
+      this.ngAreaMasterList.push({ ...data, editing: false, draftModel: data.model, draftArea: data.area, draftProses: data.ng_proses, draftHarga: data.harga ?? 0 });
+      this.ngAreaMasterList.sort((a, b) => a.model.localeCompare(b.model) || a.area.localeCompare(b.area));
+      this.newNgAreaModel = ""; this.newNgAreaValue = ""; this.newNgAreaProses = ""; this.newNgAreaHarga = "";
+      this.flash("Area NG Inline ditambahkan.");
+    },
+    startEditNgArea(item) {
+      item.draftModel = item.model; item.draftArea = item.area; item.draftProses = item.ng_proses; item.draftHarga = item.harga ?? 0;
+      item.editing = true;
+    },
+    cancelEditNgArea(item) { item.editing = false; },
+    async saveMasterNgArea(item) {
+      const model = (item.draftModel || "").trim();
+      const area = (item.draftArea || "").trim();
+      if (!model || !area) { this.flash("Model dan Area wajib diisi.", true); return; }
+      const payload = { model, area, ng_proses: (item.draftProses || "").trim(), harga: Number(item.draftHarga) || 0 };
+      const { data, error } = await supabaseClient.from("ng_model_areas").update(payload).eq("id", item.id).select();
+      if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
+      if (!data || data.length === 0) { this.flash("Gagal simpan — cek izin akses.", true); return; }
+      item.model = payload.model; item.area = payload.area; item.ng_proses = payload.ng_proses; item.harga = payload.harga;
+      item.editing = false;
+      this.flash("Harga NG Inline diperbarui.");
+    },
+    async deleteMasterNgArea(id) {
+      if (!confirm("Hapus Area NG Inline ini? Data lama yang sudah kepakai Area ini tidak ikut terhapus.")) return;
+      const { error } = await supabaseClient.from("ng_model_areas").delete().eq("id", id);
+      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
+      this.ngAreaMasterList = this.ngAreaMasterList.filter((r) => r.id !== id);
     },
 
     async addMasterNonProduksiType() {

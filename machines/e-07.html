@@ -1790,6 +1790,48 @@
           </div>
 
           <div class="panel">
+            <p class="panel-title">Daftar Area &amp; Harga NG Inline <span class="count" x-text="ngAreaMasterList.length + ' item'"></span></p>
+            <p class="hint" style="margin-bottom:12px;">Ini sumber harga otomatis buat kolom Value di tab NG Inline (Value = Qty x Harga). Kalau harga di sini salah, Value yang sudah kepakai perlu dihitung ulang manual (minta bantuan admin sistem).</p>
+            <div class="master-add-row" style="flex-wrap:wrap;">
+              <input type="text" x-model="newNgAreaModel" placeholder="Model (mis. D73F)" style="max-width:140px;">
+              <input type="text" x-model="newNgAreaValue" placeholder="Nama Area (mis. JIG 8 E03 D73)" style="flex:1;min-width:180px;">
+              <input type="text" x-model="newNgAreaProses" placeholder="NG Proses (opsional)" style="flex:1;min-width:180px;">
+              <input type="number" step="1" x-model="newNgAreaHarga" placeholder="Harga per pcs (Rp)" style="max-width:160px;">
+              <button type="button" class="btn-primary btn-sm" @click="addMasterNgArea()">+ Tambah</button>
+            </div>
+            <div class="master-list">
+              <template x-for="item in ngAreaMasterList" :key="item.id">
+                <div class="master-list-row">
+                  <template x-if="!item.editing">
+                    <div style="flex:1;">
+                      <span class="master-value" x-text="item.model + ' — ' + item.area"></span>
+                      <span class="hint" style="padding:0 10px;">
+                        <span x-show="item.ng_proses" x-text="item.ng_proses"></span>
+                        <span> · Harga: <b x-text="'Rp ' + fmtNum(item.harga || 0)"></b>/pcs</span>
+                      </span>
+                    </div>
+                  </template>
+                  <template x-if="item.editing">
+                    <div style="flex:1;display:flex;gap:8px;flex-wrap:wrap;">
+                      <input type="text" x-model="item.draftModel" placeholder="Model" style="max-width:140px;">
+                      <input type="text" x-model="item.draftArea" placeholder="Nama Area" style="flex:1;min-width:180px;">
+                      <input type="text" x-model="item.draftProses" placeholder="NG Proses" style="flex:1;min-width:180px;">
+                      <input type="number" step="1" x-model="item.draftHarga" placeholder="Harga per pcs" style="max-width:160px;" @keyup.enter="saveMasterNgArea(item)">
+                    </div>
+                  </template>
+                  <div class="master-row-actions">
+                    <template x-if="!item.editing"><button type="button" class="btn-secondary btn-sm" @click="startEditNgArea(item)">Edit</button></template>
+                    <template x-if="item.editing"><button type="button" class="btn-primary btn-sm" @click="saveMasterNgArea(item)">Simpan</button></template>
+                    <template x-if="item.editing"><button type="button" class="btn-ghost btn-sm" @click="cancelEditNgArea(item)">Batal</button></template>
+                    <button type="button" class="btn-danger btn-sm" @click="deleteMasterNgArea(item.id)">Hapus</button>
+                  </div>
+                </div>
+              </template>
+              <p class="empty-state" x-show="ngAreaMasterList.length === 0">Belum ada data.</p>
+            </div>
+          </div>
+
+          <div class="panel">
             <p class="panel-title">Daftar Problem Downtime <span class="count" x-text="problemList.length + ' item'"></span></p>
             <div class="master-add-row">
               <select x-model="newProblemPic" style="max-width:140px;">
