@@ -60,32 +60,46 @@
   }
   .absensi-grid thead th {
     background: #EEF2F7; font-weight: 700; text-align: center;
-    padding: 3px 1px !important; font-size: 11px; line-height: 1.2;
+    padding: 2px 1px !important; font-size: 10.5px; line-height: 1.1;
+  }
+  /* Teks NIK/NAMA (bukan lewat <input>/<select>) ikut style.css bawaan
+     (font 13px) kalau tidak dipaksa di sini -- itu sebab baris masih
+     terasa tinggi/renggang walau padding sudah ditekan. */
+  .absensi-grid tbody td, .absensi-grid tbody th {
+    font-size: 10px; line-height: 1.1; height: auto;
   }
   .absensi-grid td input[type="text"] {
-    width: 100%; min-width: 0; padding: 1px 0; margin: 0;
+    width: 100%; min-width: 0; padding: 0; margin: 0;
     border: none; background: transparent; text-align: center;
-    font-size: 10.5px; line-height: 1.2;
+    font-size: 10px; line-height: 1.1; height: 14px;
   }
   .absensi-grid td select {
-    font-size: 10.5px; padding: 1px 2px; margin: 0; width: 100%;
-    min-width: 0; text-overflow: ellipsis;
+    font-size: 9.5px; padding: 0 1px; margin: 0; width: 100%;
+    min-width: 0; text-overflow: ellipsis; height: 15px; line-height: 1.1;
   }
-  .absensi-grid tbody td, .absensi-grid tbody th { height: 20px; }
   .absensi-grid tfoot td {
-    font-weight: 600; background: #F8FAFC; font-size: 10.5px; text-align: center;
-    white-space: nowrap; padding: 2px 1px !important;
+    font-weight: 600; background: #F8FAFC; font-size: 10px; text-align: center;
+    white-space: nowrap; padding: 1px !important; line-height: 1.1;
   }
   .absensi-grid tfoot td:first-child {
-    text-align: left; padding-left: 6px !important; font-size: 11px;
+    text-align: left; padding-left: 6px !important; font-size: 10px;
     white-space: nowrap; overflow: visible;
   }
+
+  /* ---------- Ruang di atas grid dipadatkan juga ----------
+     Supaya sebisa mungkin 1 layar penuh: panel/hint/form-grid di
+     panel Absensi dibuat lebih rapat daripada panel lain di halaman
+     ini (yang isinya cuma form pendek, jadi jarak longgar tidak masalah). */
+  .panel-absensi { padding: 12px 14px !important; }
+  .panel-absensi .panel-title { margin-bottom: 8px !important; padding-bottom: 6px !important; }
+  .panel-absensi .hint { font-size: 11px !important; line-height: 1.35 !important; }
+  .panel-absensi .form-grid { margin-bottom: 0 !important; gap: 8px !important; }
 
   /* ---------- Bar kategori ---------- */
   /* Nempel di atas saat digulir -- di halaman sepanjang ini, tab
      yang ikut hilang ke atas bikin orang kehilangan konteks. */
   .md-subtab-nav {
-    margin: 0 0 22px !important; padding: 4px !important;
+    margin: 0 0 12px !important; padding: 4px !important;
     display: flex; gap: 4px; flex-wrap: wrap;
     position: sticky; top: 0; z-index: 20;
     background: var(--panel-2);
@@ -629,9 +643,9 @@
                  bulan. Karyawan yang belum pernah diisi status_kerja-nya
                  tidak muncul di grid ini (lihat migration_absensi.sql
                  untuk isi awal 47 nama yang diminta). -->
-            <div class="panel">
+            <div class="panel panel-absensi">
               <p class="panel-title">Absensi</p>
-              <p class="hint" style="margin-bottom:14px;">
+              <p class="hint" style="margin-bottom:8px;">
                 Kolom tanggal otomatis terisi dari data Cuti/Izin/Sakit/Mangkir dan Hari Libur/Ganti Hari yang sudah ada.
                 Klik sel tanggal untuk mengetik manual (kosongkan lalu klik di luar untuk kembali ke otomatis).
                 Kode: <b>C</b> Cuti, <b>I</b> Izin, <b>S</b> Sakit, <b>A</b> Mangkir, <b>L</b> Libur, kosong = Hadir.
@@ -652,7 +666,7 @@
                 <div class="field" style="grid-column: span 2;"><label>Cari Karyawan</label><input type="text" x-model="absensiCari" placeholder="NIK atau nama"></div>
               </div>
 
-              <div class="table-wrap absensi-wrap" style="margin-top:12px;" x-show="!absensiLoading">
+              <div class="table-wrap absensi-wrap" style="margin-top:6px;" x-show="!absensiLoading">
                 <table class="absensi-grid">
                   <thead>
                     <tr>
