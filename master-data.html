@@ -32,29 +32,53 @@
      butuh banyak kolom sempit yang kelihatan sekaligus + banyak baris
      tanpa kotak scroll internal (biar ikut scroll halaman biasa). */
   .absensi-wrap { max-height: none !important; overflow-y: visible !important; }
-  .absensi-grid { border-collapse: collapse; table-layout: auto; }
+  .absensi-grid { border-collapse: collapse; table-layout: fixed; }
   .absensi-grid th, .absensi-grid td {
     border: 1px solid var(--border, #94A3B8);
-    padding: 2px !important;
+    padding: 1px !important;
     min-width: 0 !important;
+    overflow: hidden;
   }
+  /* 3 kolom kiri (NIK/NAMA/STATUS) dipadatkan -- style.css bawaan
+     memberi min-width besar ke SEMUA <th>/<td>, jadi dipaksa di sini
+     supaya sisa lebar bisa dipakai kolom tanggal. */
+  .absensi-grid th:nth-child(1), .absensi-grid td:nth-child(1) {
+    width: 40px !important; min-width: 40px !important; max-width: 40px !important;
+  }
+  .absensi-grid th:nth-child(2), .absensi-grid td:nth-child(2) {
+    width: 92px !important; min-width: 92px !important; max-width: 92px !important;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap !important;
+  }
+  .absensi-grid th:nth-child(3), .absensi-grid td:nth-child(3) {
+    width: 48px !important; min-width: 48px !important; max-width: 48px !important;
+  }
+  /* Kolom tanggal (ke-4 dst) DILEBARKAN dari versi sebelumnya (26px)
+     supaya baris RASIO KEHADIRAN (mis. "92%") tidak terpotong/tumpang
+     tindih -- 34px cukup untuk 3-4 karakter di font 10.5px. */
   .absensi-grid th:nth-child(n+4), .absensi-grid td:nth-child(n+4) {
-    width: 26px !important; min-width: 26px !important; max-width: 26px !important;
+    width: 34px !important; min-width: 34px !important; max-width: 34px !important;
   }
   .absensi-grid thead th {
     background: #EEF2F7; font-weight: 700; text-align: center;
-    padding: 4px 2px !important; font-size: 12px;
+    padding: 3px 1px !important; font-size: 11px; line-height: 1.2;
   }
   .absensi-grid td input[type="text"] {
-    width: 100%; min-width: 0; padding: 2px 0; margin: 0;
-    border: none; background: transparent; text-align: center; font-size: 12px;
+    width: 100%; min-width: 0; padding: 1px 0; margin: 0;
+    border: none; background: transparent; text-align: center;
+    font-size: 10.5px; line-height: 1.2;
   }
-  .absensi-grid td select { font-size: 12px; padding: 1px 2px; min-width: 0; }
+  .absensi-grid td select {
+    font-size: 10.5px; padding: 1px 2px; margin: 0; width: 100%;
+    min-width: 0; text-overflow: ellipsis;
+  }
+  .absensi-grid tbody td, .absensi-grid tbody th { height: 20px; }
   .absensi-grid tfoot td {
-    font-weight: 600; background: #F8FAFC; font-size: 12px; text-align: center;
+    font-weight: 600; background: #F8FAFC; font-size: 10.5px; text-align: center;
+    white-space: nowrap; padding: 2px 1px !important;
   }
   .absensi-grid tfoot td:first-child {
-    text-align: left; padding-left: 8px !important;
+    text-align: left; padding-left: 6px !important; font-size: 11px;
+    white-space: nowrap; overflow: visible;
   }
 
   /* ---------- Bar kategori ---------- */
@@ -633,20 +657,20 @@
                   <thead>
                     <tr>
                       <th style="position:sticky; left:0; background:#EEF2F7; z-index:1;">NIK</th>
-                      <th style="position:sticky; left:70px; background:#EEF2F7; z-index:1;">NAMA</th>
+                      <th style="position:sticky; left:40px; background:#EEF2F7; z-index:1;">NAMA</th>
                       <th>STATUS</th>
                       <template x-for="h in absensiHariList()" :key="'ab-h-'+h">
-                        <th style="min-width:30px;" x-text="h"></th>
+                        <th x-text="h"></th>
                       </template>
                     </tr>
                   </thead>
                   <tbody>
                     <template x-for="r in absensiRows()" :key="'ab-row-'+r.nik">
                       <tr>
-                        <td class="mono" style="position:sticky; left:0; background:var(--panel); z-index:1;" x-text="r.nik"></td>
-                        <td style="position:sticky; left:70px; background:var(--panel); z-index:1; white-space:nowrap;" x-text="r.nama"></td>
+                        <td class="mono" style="position:sticky; left:0; background:var(--panel); z-index:1;" :title="r.nik" x-text="r.nik"></td>
+                        <td style="position:sticky; left:40px; background:var(--panel); z-index:1;" :title="r.nama" x-text="r.nama"></td>
                         <td>
-                          <select :value="r.status_kerja || ''" @change="absensiSetStatus(r.nik, $event.target.value)" style="font-size:12px; padding:2px 4px;">
+                          <select :value="r.status_kerja || ''" @change="absensiSetStatus(r.nik, $event.target.value)" :title="r.status_kerja || ''">
                             <option value="">-</option>
                             <option value="FM">FM</option>
                             <option value="LD">LD</option>
