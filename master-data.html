@@ -63,18 +63,21 @@
     padding: 2px 1px !important; font-size: 10.5px; line-height: 1.1;
   }
   /* Teks NIK/NAMA (bukan lewat <input>/<select>) ikut style.css bawaan
-     (font 13px) kalau tidak dipaksa di sini -- itu sebab baris masih
-     terasa tinggi/renggang walau padding sudah ditekan. */
+     (font 13px, dan NIK lewat class .mono bisa punya ukurannya sendiri)
+     kalau tidak dipaksa di sini -- itu sebab baris masih terasa
+     tinggi/renggang & ukurannya beda dari kolom STATUS. Disamakan
+     persis dengan ukuran select STATUS (9.5px) pakai !important supaya
+     menang dari class .mono / aturan umum tabel. */
   .absensi-grid tbody td, .absensi-grid tbody th {
-    font-size: 10px; line-height: 1.1; height: auto;
+    font-size: 9.5px !important; line-height: 1.1; height: auto;
   }
   .absensi-grid td input[type="text"] {
     width: 100%; min-width: 0; padding: 0; margin: 0;
     border: none; background: transparent; text-align: center;
-    font-size: 10px; line-height: 1.1; height: 14px;
+    font-size: 9.5px !important; line-height: 1.1; height: 14px;
   }
   .absensi-grid td select {
-    font-size: 9.5px; padding: 0 1px; margin: 0; width: 100%;
+    font-size: 9.5px !important; padding: 0 1px; margin: 0; width: 100%;
     min-width: 0; text-overflow: ellipsis; height: 15px; line-height: 1.1;
   }
   .absensi-grid tfoot td {
@@ -94,6 +97,12 @@
   .panel-absensi .panel-title { margin-bottom: 8px !important; padding-bottom: 6px !important; }
   .panel-absensi .hint { font-size: 11px !important; line-height: 1.35 !important; }
   .panel-absensi .form-grid { margin-bottom: 0 !important; gap: 8px !important; }
+
+  /* ---------- Jarak judul halaman ke bar kategori ---------- */
+  /* Ada gap kosong bawaan (dari assets/style.css) antara judul "Data"
+     dan bar tombol kategori (Attendance/Scrap/dst) di bawahnya --
+     dirapatkan supaya lebih banyak tersisa untuk tabel Absensi. */
+  .md-page .page-header { margin-bottom: 10px !important; }
 
   /* ---------- Bar kategori ---------- */
   /* Nempel di atas saat digulir -- di halaman sepanjang ini, tab
