@@ -25,13 +25,22 @@
 
   /* ---------- Grid Absensi (gaya rekap tercetak: bergaris penuh,
      header tebal, baris ringkasan HADIR/CUTI/dst di bawah) ----------
-     Kolom tanggal (ke-4 dst) dipaksa SEMPIT dan wrapper-nya dipaksa
-     TIDAK ikut max-height/overflow-y bawaan .table-wrap -- soalnya
-     style umum di assets/style.css bikin tiap <td> lebar minimum
-     besar & tabel dibatasi tinggi (scroll pendek), padahal grid ini
-     butuh banyak kolom sempit yang kelihatan sekaligus + banyak baris
-     tanpa kotak scroll internal (biar ikut scroll halaman biasa). */
-  .absensi-wrap { max-height: none !important; overflow-y: visible !important; }
+     Kolom tanggal (ke-4 dst) dipaksa SEMPIT, dan grid ini scroll di
+     dalam kotaknya sendiri (lihat .absensi-wrap di bawah) dengan
+     header (baris tanggal) yang tetap kelihatan (sticky) selama
+     digulir -- soalnya style umum di assets/style.css bikin tiap <td>
+     lebar minimum besar & kotak scrollnya cuma menampilkan +-7 baris,
+     padahal grid ini butuh banyak kolom sempit + banyak baris. */
+  /* Supaya tanggal (header) TETAP KELIHATAN saat scroll ke bawah, grid
+     ini dibuat scroll SENDIRI di dalam kotak (bukan ikut scroll
+     halaman) dengan tinggi yang cukup besar (hampir sepenuh layar).
+     CATATAN PENTING: overflow-x DAN overflow-y harus SAMA-SAMA "auto"
+     di sini -- kalau salah satu "visible" (kombinasi tidak konsisten),
+     browser otomatis mengubah keduanya jadi scroll versi elemen ITU
+     SENDIRI, tapi karena scroll itu tidak pernah benar-benar terjadi
+     (elemen tinggi pas dengan isinya, ngikut scroll HALAMAN), akibatnya
+     header sticky rusak total (ini yang terjadi di versi sebelumnya). */
+  .absensi-wrap { max-height: calc(100vh - 260px) !important; overflow: auto !important; }
   .absensi-grid { border-collapse: collapse; table-layout: fixed; }
   .absensi-grid th, .absensi-grid td {
     border: 1px solid var(--border, #94A3B8);
@@ -59,8 +68,13 @@
     width: 34px !important; min-width: 34px !important; max-width: 34px !important;
   }
   .absensi-grid thead th {
-    background: #EEF2F7; font-weight: 700; text-align: center;
+    background: #EEF2F7 !important; font-weight: 700; text-align: center;
     padding: 2px 1px !important; font-size: 10.5px; line-height: 1.1;
+    /* Nempel di ATAS KOTAK SCROLL grid ini (bukan ke atas halaman --
+       lihat catatan di .absensi-wrap) supaya baris TANGGAL tetap
+       kelihatan terus sepanjang grid ini digulir ke bawah. */
+    position: sticky !important; top: 0px !important; z-index: 4 !important;
+    box-shadow: 0 1px 0 var(--border, #94A3B8);
   }
   /* Teks NIK/NAMA (bukan lewat <input>/<select>) ikut style.css bawaan
      (font 13px, dan NIK lewat class .mono bisa punya ukurannya sendiri)
@@ -679,8 +693,8 @@
                 <table class="absensi-grid">
                   <thead>
                     <tr>
-                      <th style="position:sticky; left:0; background:#EEF2F7; z-index:1;">NIK</th>
-                      <th style="position:sticky; left:40px; background:#EEF2F7; z-index:1;">NAMA</th>
+                      <th style="position:sticky; left:0; background:#EEF2F7; z-index:6 !important;">NIK</th>
+                      <th style="position:sticky; left:40px; background:#EEF2F7; z-index:6 !important;">NAMA</th>
                       <th>STATUS</th>
                       <template x-for="h in absensiHariList()" :key="'ab-h-'+h">
                         <th x-text="h"></th>
