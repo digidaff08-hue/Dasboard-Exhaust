@@ -4581,15 +4581,17 @@ function dashboardExhaust() {
     // ---- Chart Bulanan ----
     // ---- Chart Bulanan (harian 1-31), gaya visual sama seperti Tahunan ----
     renderBulananCharts() {
-      // Palet KALEM tab Kontrol Downtime -- satu keluarga dengan tab
-      // Kontrol Kualitas (saturasi rendah, tingkat terang mirip), supaya
-      // pindah tab tidak terasa seperti aplikasi berbeda.
+      // Palet tab Kontrol Downtime -- warna TERANG (sesuai permintaan,
+      // palet kalem sempat dicoba tapi kurang cocok untuk tab ini).
+      // Nama key tetap "CALM" supaya kode di bawah tidak perlu diubah;
+      // cukup ganti kode warna di sini kalau mau diatur ulang.
       const CALM = {
-        blue: "#86AFCB", sage: "#8FBCA6", sand: "#CEAD8D",
-        lavender: "#A99BCB", rose: "#D39A9A", teal: "#86BDBD",
-        blueLine: "#6F97B8",   // versi sedikit lebih gelap untuk GARIS (biar tetap terbaca)
-        sandLine: "#B8916B",
-        accent: "#C98080",     // sorotan titik line terpilih di Weekly
+        blue: "#2563EB", sage: "#10B981", sand: "#F97316",
+        lavender: "#8B5CF6", rose: "#EF4444", teal: "#14B8A6",
+        productivity: "#0EA5E9",
+        blueLine: "#2563EB",   // garis & area Week 1-5
+        sandLine: "#F97316",   // garis & area Downtime Harian
+        accent: "#F97316",     // sorotan titik line terpilih di Weekly
       };
       const CALM_PIC = { PE: CALM.blue, MESIN: CALM.sand, QC: CALM.lavender, PROD: CALM.sage, PRESS: CALM.rose, "PC-SUPP": CALM.teal };
       if (typeof Chart === "undefined") return;
@@ -4648,7 +4650,7 @@ function dashboardExhaust() {
             ctx.closePath();
             ctx.fillStyle = "rgba(0,0,0,0.001)";
             // Sisi atas & kiri: bayangan gelap tegas, blur kecil (kesan "masuk")
-            ctx.shadowColor = "rgba(0,0,0,0.35)"; // dilunakkan (dulu 0.92) supaya warna kalem tidak kusam
+            ctx.shadowColor = "rgba(0,0,0,0.92)";
             ctx.shadowBlur = 2;
             ctx.shadowOffsetX = 3;
             ctx.shadowOffsetY = 7;
@@ -4823,7 +4825,7 @@ function dashboardExhaust() {
           plugins: [barValueLabels((v) => v + "%", 0, labelScale), barBevelInset(0)],
         });
       };
-      safe(() => kpiBigPct("dxbProductivity", b.dayLabels, b.productivity.actual, b.productivity.target, CALM.blue), "productivity");
+      safe(() => kpiBigPct("dxbProductivity", b.dayLabels, b.productivity.actual, b.productivity.target, CALM.productivity), "productivity");
       safe(() => kpiBigPct("dxbAvailability", b.dayLabels, b.availability.actual, b.availability.target, CALM.sage, 0.8), "availability");
 
       // --- Downtime Exhaust (FY, 12 bulan Apr..Mar) -- gaya sama persis
