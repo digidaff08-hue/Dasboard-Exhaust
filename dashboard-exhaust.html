@@ -4838,20 +4838,66 @@ function dashboardExhaust() {
         });
       }, "downtimeExhaust");
 
-      // --- Downtime harian 1-31: bar + garis tren ---
+      // --- Downtime harian 1-31: AREA (isi oranye transparan 20%) ---
+      // Angka menit tetap tampil di ATAS tiap titik (hari yang 0 / belum
+      // ada data tidak diberi angka, sama seperti versi batang dulu).
+      // cubicInterpolationMode "monotone" supaya kurva halus tapi tidak
+      // pernah "melengkung" di bawah 0 / melewati puncak aslinya.
       safe(() => {
         destroy("dxbDowntimeHarian");
         const canvas = document.getElementById("dxbDowntimeHarian");
         if (!canvas) return;
+        const DT_COLOR = "#F97316";
+        const dtAreaLabels = {
+          id: "dxbDowntimeHarianLabels",
+          afterDatasetsDraw(chart) {
+            const { ctx, chartArea } = chart;
+            const meta = chart.getDatasetMeta(0);
+            const dataset = chart.data.datasets[0];
+            if (!meta || !dataset || !meta.data) return;
+            const n = meta.data.length;
+            const slotWidth = chartArea && n ? chartArea.width / n : 30;
+            const fontSize = slotWidth < 18 ? 6.5 : slotWidth < 26 ? 7.5 : slotWidth < 40 ? 8.5 : 9.5;
+            ctx.save();
+            ctx.font = `700 ${fontSize}px Inter, sans-serif`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "bottom";
+            ctx.fillStyle = "#000000";
+            meta.data.forEach((point, i) => {
+              const raw = dataset.data[i];
+              const val = Number(raw);
+              if (raw === null || raw === undefined || Number.isNaN(val) || val === 0) return;
+              const { x, y } = point.getProps(["x", "y"], true);
+              const ly = Math.max(y - 6, chartArea.top + fontSize);
+              ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 3; ctx.lineJoin = "round";
+              ctx.strokeText(fmtNum(val), x, ly);
+              ctx.fillText(fmtNum(val), x, ly);
+            });
+            ctx.restore();
+          },
+        };
         this.bulananCharts.dxbDowntimeHarian = new Chart(canvas, {
+          type: "line",
           data: {
             labels: b.downtimeHarian.labels,
-            datasets: [
-              { order: 2, type: "bar", label: "Downtime", data: b.downtimeHarian.values, backgroundColor: barBg(canvas, "#F97316", b.downtimeHarian.values.length), borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75 },
-            ],
+            datasets: [{
+              label: "Downtime",
+              data: b.downtimeHarian.values,
+              fill: true,
+              backgroundColor: DT_COLOR + "33",   // 33 hex = 20% opacity
+              borderColor: DT_COLOR,
+              borderWidth: 1.5,
+              tension: 0.35,
+              cubicInterpolationMode: "monotone",
+              pointRadius: 2,
+              pointHoverRadius: 4,
+              pointBackgroundColor: DT_COLOR,
+              pointBorderColor: cssVar("--panel") || "#fff",
+              pointBorderWidth: 1,
+            }],
           },
           options: { responsive: true, maintainAspectRatio: false, animation: noAnim, layout: { padding: { top: 20 } }, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
-          plugins: [barValueLabels((v) => fmtNum(v)), barBevelInset(0)],
+          plugins: [dtAreaLabels],
         });
       }, "downtimeHarian");
 
@@ -5413,6 +5459,13 @@ function dashboardExhaust() {
     // disamakan supaya konsisten.
     renderKualitasCharts() {
       if (typeof Chart === "undefined") return;
+      // Warna BATANG tab Kontrol Kualitas -- nada kalem (pastel agak
+      // redup), tapi tetap beda jelas per kelompok:
+      //   NG Inline    = peach/terakota lembut
+      //   NG Trial     = biru baja lembut
+      //   Straightpass = merah bata lembut (batang Qty Repair)
+      // Garis (Value / % Straightpass / Target) sengaja tidak diubah.
+      const QC_BAR = { ngInline: "#E3A27A", ngTrial: "#86AFCB", straightpass: "#D38F8F" };
       this._qcRenderedSig = this.qcChartSignature();
       const b = this.tahunan;
       if (!b || !b.monthLabels) return;
@@ -5469,7 +5522,7 @@ function dashboardExhaust() {
             ctx.closePath();
             ctx.fillStyle = "rgba(0,0,0,0.001)";
             // Sisi atas & kiri: bayangan gelap tegas, blur kecil (kesan "masuk")
-            ctx.shadowColor = "rgba(0,0,0,0.92)";
+            ctx.shadowColor = "rgba(0,0,0,0.35)"; // dilunakkan (dulu 0.92) biar warna kalem tidak kusam
             ctx.shadowBlur = 2;
             ctx.shadowOffsetX = 3;
             ctx.shadowOffsetY = 7;
@@ -5624,7 +5677,7 @@ function dashboardExhaust() {
           data: {
             labels: ngi.monthLabels,
             datasets: [
-              { order: 2, type: "bar", label: "Qty", data: monthQty, backgroundColor: barBg(canvas, "#F97316", monthQty.length), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
+              { order: 2, type: "bar", label: "Qty", data: monthQty, backgroundColor: barBg(canvas, QC_BAR.ngInline, monthQty.length), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
               { order: 1, type: "line", label: "Value", data: monthValue, borderColor: "#1D4ED8", backgroundColor: "rgba(29,78,216,0.1)", borderWidth: 1.5, fill: true, yAxisID: "y1", pointRadius: 1, tension: 0.3 },
             ],
           },
@@ -5661,7 +5714,7 @@ function dashboardExhaust() {
           data: {
             labels,
             datasets: [
-              { order: 2, type: "bar", label: "Qty", data: trialQty, backgroundColor: barBg(canvas, "#06B6D4", trialQty.length), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
+              { order: 2, type: "bar", label: "Qty", data: trialQty, backgroundColor: barBg(canvas, QC_BAR.ngTrial, trialQty.length), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
               { order: 1, type: "line", label: "Value", data: trialValue, borderColor: "#1D4ED8", backgroundColor: "rgba(29,78,216,0.1)", borderWidth: 1.5, fill: true, yAxisID: "y1", pointRadius: 1, tension: 0.3 },
             ],
           },
@@ -5702,7 +5755,7 @@ function dashboardExhaust() {
           data: {
             labels,
             datasets: [
-              { order: 2, type: "bar", label: "Qty Repair", data: repairQty, backgroundColor: barBg(canvas, "#EF4444", repairQty.length), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
+              { order: 2, type: "bar", label: "Qty Repair", data: repairQty, backgroundColor: barBg(canvas, QC_BAR.straightpass, repairQty.length), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
               { order: 1, type: "line", label: "% Straightpass", data: actual, borderColor: "#22C55E", backgroundColor: "#22C55E", borderWidth: 1.5, yAxisID: "y1", pointRadius: 3, tension: 0.3, spanGaps: true },
               { order: 1, type: "line", label: "Target", data: labels.map(() => b.straightpass.target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0, yAxisID: "y1" },
             ],
@@ -5734,7 +5787,7 @@ function dashboardExhaust() {
             data: {
               labels: categories,
               datasets: [
-                { order: 2, type: "bar", label: "Qty Repair", data: qty, backgroundColor: barBgHighlight(canvas, "#EF4444", categories, highlightKey), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
+                { order: 2, type: "bar", label: "Qty Repair", data: qty, backgroundColor: barBgHighlight(canvas, QC_BAR.straightpass, categories, highlightKey), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
                 { order: 1, type: "line", label: "% Straightpass", data: pct, borderColor: "#22C55E", backgroundColor: "#22C55E", borderWidth: 1.5, yAxisID: "y1", pointRadius: 3, tension: 0.3, spanGaps: true },
               ],
             },
@@ -5836,10 +5889,10 @@ function dashboardExhaust() {
         }
       }
 
-      qcQtyValueBar("qcNgInlinePerline", QC_LINES, "#F97316", ngi.perlineQty, ngi.perlineValue, lineFilter);
-      qcQtyValueBar("qcNgInlineModel", ngiModel.categories, "#F97316", ngiModel.qty, ngiModel.value);
-      qcQtyValueBar("qcNgTrialPerline", QC_LINES, "#06B6D4", ngt.perlineQty, ngt.perlineValue, lineFilter);
-      qcQtyValueBar("qcNgTrialModel", ngtModel.categories, "#06B6D4", ngtModel.qty, ngtModel.value);
+      qcQtyValueBar("qcNgInlinePerline", QC_LINES, QC_BAR.ngInline, ngi.perlineQty, ngi.perlineValue, lineFilter);
+      qcQtyValueBar("qcNgInlineModel", ngiModel.categories, QC_BAR.ngInline, ngiModel.qty, ngiModel.value);
+      qcQtyValueBar("qcNgTrialPerline", QC_LINES, QC_BAR.ngTrial, ngt.perlineQty, ngt.perlineValue, lineFilter);
+      qcQtyValueBar("qcNgTrialModel", ngtModel.categories, QC_BAR.ngTrial, ngtModel.qty, ngtModel.value);
       qcRepairStraightpassBar("qcStraightpassPerline", QC_LINES, this.qcRepair.perlineQty, this.qcStraightpass.perlineActual, lineFilter);
       qcRepairStraightpassBar("qcStraightpassModel", straightpassModelCategories, straightpassModelQty, straightpassModelPct);
 
@@ -5887,9 +5940,9 @@ function dashboardExhaust() {
           });
         }, canvasId);
       };
-      qcDualAxisDaily("qcNgInlineDaily", "#F97316", "#8B5CF6", "Qty", "Value", false, ngi.dailyQty, ngi.dailyValue, { isMoney: true });
-      qcDualAxisDaily("qcNgTrialDaily", "#06B6D4", "#8B5CF6", "Qty", "Value", false, ngt.dailyQty, ngt.dailyValue, { isMoney: true });
-      qcDualAxisDaily("qcStraightpassDaily", "#EF4444", "#22C55E", "Qty Repair", "% Straightpass", true, this.qcStraightpass.dailyRepairQty, this.qcStraightpass.dailyPercent, { barLabelPos: "base" });
+      qcDualAxisDaily("qcNgInlineDaily", QC_BAR.ngInline, "#8B5CF6", "Qty", "Value", false, ngi.dailyQty, ngi.dailyValue, { isMoney: true });
+      qcDualAxisDaily("qcNgTrialDaily", QC_BAR.ngTrial, "#8B5CF6", "Qty", "Value", false, ngt.dailyQty, ngt.dailyValue, { isMoney: true });
+      qcDualAxisDaily("qcStraightpassDaily", QC_BAR.straightpass, "#22C55E", "Qty Repair", "% Straightpass", true, this.qcStraightpass.dailyRepairQty, this.qcStraightpass.dailyPercent, { barLabelPos: "base" });
     },
     // Chart Trend Kehadiran Harian (tanggal 1-31) di tab Kontrol Attendance.
     // Batang BERTUMPUK (stacked): Hadir + Izin + Sakit + Cuti + Mangkir,
