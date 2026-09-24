@@ -871,6 +871,53 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
     //   hoverRadius: ukuran marker saat disorot mouse
     const LINE_STYLE = { widthScale: 0.67, minWidth: 0.75, pointScale: 0.6, hoverRadius: 3 };
     const scaleNum = (v, k, min) => (typeof v === "number" ? Math.max(min, Math.round(v * k * 100) / 100) : v);
+    // BEVEL untuk SEMUA grafik batang di dashboard (termasuk batang
+    // bertumpuk & batang horizontal). Tiap batang diberi 4 sisi miring:
+    //   atas & kiri  -> kilap terang (kesan kena cahaya)
+    //   bawah & kanan -> bayangan gelap
+    // jadi batang terlihat timbul/bervolume. Diatur dari BEVEL_STYLE:
+    //   size  : lebar sisi bevel (px), otomatis mengecil di batang tipis
+    //   light : kekuatan kilap sisi atas/kiri
+    //   dark  : kekuatan bayangan sisi bawah/kanan
+    // Matikan untuk chart tertentu dengan
+    //   options.plugins.dxBarBevel = { enabled: false }
+    const BEVEL_STYLE = { size: 3, lightTop: 0.45, lightLeft: 0.30, darkRight: 0.22, darkBottom: 0.30 };
+    const bevelPoly = (ctx, pts, color) => {
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let k = 1; k < pts.length; k++) ctx.lineTo(pts[k][0], pts[k][1]);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+    };
+    Chart.register({
+      id: "dxBarBevel",
+      afterDatasetsDraw(chart, args, opts) {
+        if (opts && opts.enabled === false) return;
+        const horizontal = chart.options.indexAxis === "y";
+        const { ctx } = chart;
+        (chart.data.datasets || []).forEach((ds, i) => {
+          const meta = chart.getDatasetMeta(i);
+          if (!meta || meta.type !== "bar" || !meta.data || !chart.isDatasetVisible(i)) return;
+          meta.data.forEach((bar) => {
+            const p = bar.getProps(["x", "y", "base", "width", "height"], true);
+            let L, T, W, H;
+            if (horizontal) { L = Math.min(p.x, p.base); W = Math.abs(p.x - p.base); T = p.y - p.height / 2; H = p.height; }
+            else { T = Math.min(p.y, p.base); H = Math.abs(p.y - p.base); L = p.x - p.width / 2; W = p.width; }
+            if (!(W > 2) || !(H > 2)) return;
+            const b = Math.min(BEVEL_STYLE.size, W / 4, H / 4);
+            const R = L + W, B = T + H;
+            ctx.save();
+            bevelPoly(ctx, [[L, T], [R, T], [R - b, T + b], [L + b, T + b]], `rgba(255,255,255,${BEVEL_STYLE.lightTop})`);
+            bevelPoly(ctx, [[L, T], [L + b, T + b], [L + b, B - b], [L, B]], `rgba(255,255,255,${BEVEL_STYLE.lightLeft})`);
+            bevelPoly(ctx, [[R, T], [R, B], [R - b, B - b], [R - b, T + b]], `rgba(0,0,0,${BEVEL_STYLE.darkRight})`);
+            bevelPoly(ctx, [[L, B], [R, B], [R - b, B - b], [L + b, B - b]], `rgba(0,0,0,${BEVEL_STYLE.darkBottom})`);
+            ctx.restore();
+          });
+        });
+      },
+    });
+
     Chart.register({
       id: "dxThinLines",
       beforeUpdate(chart) {
@@ -4720,49 +4767,10 @@ function dashboardExhaust() {
       // Bevel inset "relaxed" tapi lebih tegas: kontras bayangan kuat,
       // blur kecil. Menggantikan efek gradasi lama supaya batang tetap
       // terlihat bervolume walau warnanya solid rata.
-      const barBevelInset = (datasetIndex = 0) => ({
-        id: "dxbBarBevelInset_" + datasetIndex + "_" + Math.random(),
-        // afterDatasetsDraw (bukan afterDatasetDraw) -- dijalankan SETELAH
-        // semua dataset (termasuk garis/line) selesai digambar, supaya
-        // bevel selalu jadi lapisan PALING ATAS dan tidak pernah ketutupan.
-        afterDatasetsDraw(chart) {
-          const meta = chart.getDatasetMeta(datasetIndex);
-          if (!meta || meta.type !== "bar" || !meta.data) return;
-          const { ctx } = chart;
-          meta.data.forEach((bar) => {
-            const { x, y, base, width } = bar.getProps(["x", "y", "base", "width"], true);
-            const top = Math.min(y, base), bottom = Math.max(y, base), h = bottom - top;
-            if (!width || h <= 0) return;
-            const left = x - width / 2;
-            ctx.save();
-            ctx.beginPath();
-            ctx.rect(left, top, width, h);
-            ctx.clip();
-            ctx.beginPath();
-            ctx.rect(left - 30, top - 30, width + 60, h + 60);
-            ctx.rect(left, top, width, h);
-            ctx.closePath();
-            ctx.fillStyle = "rgba(0,0,0,0.001)";
-            // Sisi atas & kiri: bayangan gelap tegas, blur kecil (kesan "masuk")
-            ctx.shadowColor = "rgba(0,0,0,0.92)";
-            ctx.shadowBlur = 2;
-            ctx.shadowOffsetX = 3;
-            ctx.shadowOffsetY = 7;
-            ctx.fill("evenodd");
-            ctx.shadowOffsetX = 0;
-            ctx.fill("evenodd");
-            // Sisi bawah & kanan: highlight terang tegas, blur kecil (kesan bevel)
-            ctx.shadowColor = "rgba(255,255,255,0.85)";
-            ctx.shadowOffsetX = -3;
-            ctx.shadowOffsetY = -7;
-            ctx.shadowBlur = 2;
-            ctx.fill("evenodd");
-            ctx.shadowOffsetX = 0;
-            ctx.fill("evenodd");
-            ctx.restore();
-          });
-        },
-      });
+      // Bevel batang sekarang dipasang GLOBAL (plugin "dxBarBevel" di
+      // <head>) untuk SEMUA grafik batang. Fungsi ini sengaja dibiarkan
+      // sebagai no-op supaya pemanggilan lama tidak dobel menggambar.
+      const barBevelInset = () => ({ id: "dxNoopBevel_" + Math.random() });
 
       // Label angka di dalam tiap segmen doughnut (dipakai Supporting & Line)
       const donutLeaderLabels = (formatter) => ({
@@ -5124,49 +5132,10 @@ function dashboardExhaust() {
       // Bevel inset "relaxed" tapi lebih tegas: kontras bayangan kuat,
       // blur kecil. Menggantikan efek gradasi lama supaya batang tetap
       // terlihat bervolume walau warnanya solid rata.
-      const barBevelInset = (datasetIndex = 0) => ({
-        id: "dxyBigBarBevelInset_" + datasetIndex + "_" + Math.random(),
-        // afterDatasetsDraw (bukan afterDatasetDraw) -- dijalankan SETELAH
-        // semua dataset (termasuk garis/line) selesai digambar, supaya
-        // bevel selalu jadi lapisan PALING ATAS dan tidak pernah ketutupan.
-        afterDatasetsDraw(chart) {
-          const meta = chart.getDatasetMeta(datasetIndex);
-          if (!meta || meta.type !== "bar" || !meta.data) return;
-          const { ctx } = chart;
-          meta.data.forEach((bar) => {
-            const { x, y, base, width } = bar.getProps(["x", "y", "base", "width"], true);
-            const top = Math.min(y, base), bottom = Math.max(y, base), h = bottom - top;
-            if (!width || h <= 0) return;
-            const left = x - width / 2;
-            ctx.save();
-            ctx.beginPath();
-            ctx.rect(left, top, width, h);
-            ctx.clip();
-            ctx.beginPath();
-            ctx.rect(left - 30, top - 30, width + 60, h + 60);
-            ctx.rect(left, top, width, h);
-            ctx.closePath();
-            ctx.fillStyle = "rgba(0,0,0,0.001)";
-            // Sisi atas & kiri: bayangan gelap tegas, blur kecil (kesan "masuk")
-            ctx.shadowColor = "rgba(0,0,0,0.92)";
-            ctx.shadowBlur = 2;
-            ctx.shadowOffsetX = 3;
-            ctx.shadowOffsetY = 7;
-            ctx.fill("evenodd");
-            ctx.shadowOffsetX = 0;
-            ctx.fill("evenodd");
-            // Sisi bawah & kanan: highlight terang tegas, blur kecil (kesan bevel)
-            ctx.shadowColor = "rgba(255,255,255,0.85)";
-            ctx.shadowOffsetX = -3;
-            ctx.shadowOffsetY = -7;
-            ctx.shadowBlur = 2;
-            ctx.fill("evenodd");
-            ctx.shadowOffsetX = 0;
-            ctx.fill("evenodd");
-            ctx.restore();
-          });
-        },
-      });
+      // Bevel batang sekarang dipasang GLOBAL (plugin "dxBarBevel" di
+      // <head>) untuk SEMUA grafik batang. Fungsi ini sengaja dibiarkan
+      // sebagai no-op supaya pemanggilan lama tidak dobel menggambar.
+      const barBevelInset = () => ({ id: "dxNoopBevel_" + Math.random() });
 
       // Label kecil ("Qty" / "Value" / "%") nempel di atas deretan angka
       // sumbu vertikal primary (kiri) & secondary (kanan) -- PERSIS sama
@@ -5610,49 +5579,10 @@ function dashboardExhaust() {
       // Bevel inset "relaxed" tapi lebih tegas: kontras bayangan kuat,
       // blur kecil. Menggantikan efek gradasi lama supaya batang tetap
       // terlihat bervolume walau warnanya solid rata.
-      const barBevelInset = (datasetIndex = 0) => ({
-        id: "dxyQcBarBevelInset_" + datasetIndex + "_" + Math.random(),
-        // afterDatasetsDraw (bukan afterDatasetDraw) -- dijalankan SETELAH
-        // semua dataset (termasuk garis/line) selesai digambar, supaya
-        // bevel selalu jadi lapisan PALING ATAS dan tidak pernah ketutupan.
-        afterDatasetsDraw(chart) {
-          const meta = chart.getDatasetMeta(datasetIndex);
-          if (!meta || meta.type !== "bar" || !meta.data) return;
-          const { ctx } = chart;
-          meta.data.forEach((bar) => {
-            const { x, y, base, width } = bar.getProps(["x", "y", "base", "width"], true);
-            const top = Math.min(y, base), bottom = Math.max(y, base), h = bottom - top;
-            if (!width || h <= 0) return;
-            const left = x - width / 2;
-            ctx.save();
-            ctx.beginPath();
-            ctx.rect(left, top, width, h);
-            ctx.clip();
-            ctx.beginPath();
-            ctx.rect(left - 30, top - 30, width + 60, h + 60);
-            ctx.rect(left, top, width, h);
-            ctx.closePath();
-            ctx.fillStyle = "rgba(0,0,0,0.001)";
-            // Sisi atas & kiri: bayangan gelap tegas, blur kecil (kesan "masuk")
-            ctx.shadowColor = "rgba(0,0,0,0.92)";
-            ctx.shadowBlur = 2;
-            ctx.shadowOffsetX = 3;
-            ctx.shadowOffsetY = 7;
-            ctx.fill("evenodd");
-            ctx.shadowOffsetX = 0;
-            ctx.fill("evenodd");
-            // Sisi bawah & kanan: highlight terang tegas, blur kecil (kesan bevel)
-            ctx.shadowColor = "rgba(255,255,255,0.85)";
-            ctx.shadowOffsetX = -3;
-            ctx.shadowOffsetY = -7;
-            ctx.shadowBlur = 2;
-            ctx.fill("evenodd");
-            ctx.shadowOffsetX = 0;
-            ctx.fill("evenodd");
-            ctx.restore();
-          });
-        },
-      });
+      // Bevel batang sekarang dipasang GLOBAL (plugin "dxBarBevel" di
+      // <head>) untuk SEMUA grafik batang. Fungsi ini sengaja dibiarkan
+      // sebagai no-op supaya pemanggilan lama tidak dobel menggambar.
+      const barBevelInset = () => ({ id: "dxNoopBevel_" + Math.random() });
       const barValueLabels = (formatter, datasetIndex = 0, pos = "above") => ({
         id: "dxyQcBarValueLabels_" + datasetIndex + "_" + Math.random(),
         afterDatasetsDraw(chart) {
