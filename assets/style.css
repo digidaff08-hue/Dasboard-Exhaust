@@ -2676,3 +2676,12 @@ table.plan-shift-table td.balance-bad { color: var(--red); font-weight: 700; }
   border-radius: 10px;
 }
 .bulk-bar-count { font-size: 13px; font-weight: 600; margin-right: auto; }
+/* ===== Ikon siluet sidebar (SVG, menggantikan emoji) =====
+   Warna ikon ikut warna teks link (currentColor): abu-abu normal,
+   putih saat hover, amber saat menu aktif. */
+.sb-ico { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; flex-shrink: 0; opacity: .85; }
+.sidebar-link:hover .sb-ico, .sidebar-link.active .sb-ico { opacity: 1; }
+.sb-svg { display: block; }
+.sidebar.sidebar-collapsed .sidebar-link span.sb-ico { width: 22px; height: 22px; }
+.sidebar.sidebar-collapsed .sidebar-link span.sb-ico .sb-svg { width: 20px; height: 20px; }
+.sidebar-logout-collapsed .sb-svg, .hamburger .sb-svg { display: inline-block; vertical-align: middle; }
