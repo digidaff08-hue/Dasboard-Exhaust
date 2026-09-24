@@ -5461,13 +5461,14 @@ function dashboardExhaust() {
       if (typeof Chart === "undefined") return;
       // Warna BATANG tab Kontrol Kualitas -- nada kalem (pastel agak
       // redup), tapi tetap beda jelas per kelompok:
-      //   NG Inline    = peach/terakota lembut
+      //   NG Inline    = pasir/krem hangat -- saturasi & terang disamakan
+      //                  dengan biru & lavender supaya satu keluarga
       //   NG Trial     = biru baja lembut
       //   Straightpass = ungu lavender lembut (batang Qty Repair) --
       //                  diganti dari merah bata karena terlalu mirip
       //                  dengan peach NG Inline.
       // Garis (Value / % Straightpass / Target) sengaja tidak diubah.
-      const QC_BAR = { ngInline: "#E3A27A", ngTrial: "#86AFCB", straightpass: "#A99BCB" };
+      const QC_BAR = { ngInline: "#CEAD8D", ngTrial: "#86AFCB", straightpass: "#A99BCB" };
       this._qcRenderedSig = this.qcChartSignature();
       const b = this.tahunan;
       if (!b || !b.monthLabels) return;
