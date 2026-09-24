@@ -2092,14 +2092,7 @@ function dashboardExhaust() {
         this.$nextTick(() => this.renderTahunanCharts());
       }
       if (tab === "kualitas") {
-        await this.fetchTahunan();
-        await this.fetchQcNgInline();
-        await this.fetchQcNgTrial();
-        await this.fetchQcRepairDetail();
-        await this.fetchQcRepairPerlineModel();
-        await this.fetchQcStraightpassBreakdown();
-        await this.fetchQcLineModelMap();
-        this.$nextTick(() => this.renderKualitasCharts());
+        await this.loadKualitas();
       }
       if (tab === "attendance") {
         await Promise.all([this.fetchAttendance(), this.fetchAttendanceDayCard(), this.fetchAttendanceLeave()]);
@@ -3164,15 +3157,37 @@ function dashboardExhaust() {
         await this.fetchTahunan({ silent: true });
         this.$nextTick(() => this.renderTahunanCharts());
       } else if (this.activeTab === "kualitas") {
-        await this.fetchTahunan({ silent: true });
-        await this.fetchQcNgInline();
-        await this.fetchQcNgTrial();
-        await this.fetchQcRepairDetail();
-        await this.fetchQcRepairPerlineModel();
-        await this.fetchQcStraightpassBreakdown();
-        await this.fetchQcLineModelMap();
-        this.$nextTick(() => this.renderKualitasCharts());
+        await this.loadKualitas({ silent: true });
       }
+    },
+    // Muat data tab Kontrol Kualitas + gambar chart-nya SECARA BERTAHAP.
+    // Dulu: 7 fetch dijalankan BERURUTAN dan chart baru digambar SEKALI
+    // di paling akhir -- jadi selama menunggu (terutama fetchQcLineModelMap
+    // yang narik detail 1 tahun penuh), semua kanvas kosong. Apalagi tiap
+    // ada input baru (realtime) semua cache *Loaded di-reset, jadi tiap
+    // balik ke tab ini kosong lagi sampai semua fetch beres.
+    // Sekarang:
+    //   1. Chart LANGSUNG digambar pakai data yang sudah ada di memori
+    //      (data kunjungan sebelumnya tetap tersimpan walau cache basi).
+    //   2. Fetch dijalankan PARALEL, dan tiap kelompok data yang selesai
+    //      langsung menggambar ulang chart -- chart terisi satu per satu.
+    //   3. Straightpass tetap di-chain SETELAH Repair Perline/Model,
+    //      karena butuh this.qcRepair.perlineQty/permodelQty.
+    async loadKualitas(opts = {}) {
+      const render = () => {
+        if (this.activeTab === "kualitas") this.$nextTick(() => this.renderKualitasCharts());
+      };
+      render();
+      await Promise.all([
+        this.fetchTahunan(opts.silent ? { silent: true } : undefined).then(render),
+        this.fetchQcNgInline().then(render),
+        this.fetchQcNgTrial().then(render),
+        this.fetchQcRepairDetail(),
+        this.fetchQcRepairPerlineModel()
+          .then(() => this.fetchQcStraightpassBreakdown())
+          .then(render),
+        this.fetchQcLineModelMap().then(render),
+      ]);
     },
     // -----------------------------------------------------------------
     // Ambil data Bulanan (HARIAN, tanggal 1-31) dari Supabase.
