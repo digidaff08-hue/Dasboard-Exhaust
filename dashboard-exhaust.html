@@ -5463,9 +5463,11 @@ function dashboardExhaust() {
       // redup), tapi tetap beda jelas per kelompok:
       //   NG Inline    = peach/terakota lembut
       //   NG Trial     = biru baja lembut
-      //   Straightpass = merah bata lembut (batang Qty Repair)
+      //   Straightpass = ungu lavender lembut (batang Qty Repair) --
+      //                  diganti dari merah bata karena terlalu mirip
+      //                  dengan peach NG Inline.
       // Garis (Value / % Straightpass / Target) sengaja tidak diubah.
-      const QC_BAR = { ngInline: "#E3A27A", ngTrial: "#86AFCB", straightpass: "#D38F8F" };
+      const QC_BAR = { ngInline: "#E3A27A", ngTrial: "#86AFCB", straightpass: "#A99BCB" };
       this._qcRenderedSig = this.qcChartSignature();
       const b = this.tahunan;
       if (!b || !b.monthLabels) return;
@@ -5756,8 +5758,8 @@ function dashboardExhaust() {
             labels,
             datasets: [
               { order: 2, type: "bar", label: "Qty Repair", data: repairQty, backgroundColor: barBg(canvas, QC_BAR.straightpass, repairQty.length), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
-              { order: 1, type: "line", label: "% Straightpass", data: actual, borderColor: "#22C55E", backgroundColor: "#22C55E", borderWidth: 1.5, yAxisID: "y1", pointRadius: 3, tension: 0.3, spanGaps: true },
-              { order: 1, type: "line", label: "Target", data: labels.map(() => b.straightpass.target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0, yAxisID: "y1" },
+              { order: 1, type: "line", label: "% Straightpass", data: actual, borderColor: "#22C55E", backgroundColor: "#22C55E", borderWidth: 1.5, yAxisID: "y1", pointRadius: 1, tension: 0.3, spanGaps: true },
+              { order: 1, type: "line", label: "Target", data: labels.map(() => b.straightpass.target), borderColor: "#EF4444", borderDash: [4, 3], borderWidth: 1.5, pointRadius: 0, tension: 0, yAxisID: "y1" },
             ],
           },
           options: {
@@ -5788,7 +5790,7 @@ function dashboardExhaust() {
               labels: categories,
               datasets: [
                 { order: 2, type: "bar", label: "Qty Repair", data: qty, backgroundColor: barBgHighlight(canvas, QC_BAR.straightpass, categories, highlightKey), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
-                { order: 1, type: "line", label: "% Straightpass", data: pct, borderColor: "#22C55E", backgroundColor: "#22C55E", borderWidth: 1.5, yAxisID: "y1", pointRadius: 3, tension: 0.3, spanGaps: true },
+                { order: 1, type: "line", label: "% Straightpass", data: pct, borderColor: "#22C55E", backgroundColor: "#22C55E", borderWidth: 1.5, yAxisID: "y1", pointRadius: 1, tension: 0.3, spanGaps: true },
               ],
             },
             options: {
@@ -5917,7 +5919,7 @@ function dashboardExhaust() {
               labels: QC_DAYS,
               datasets: [
                 { order: 2, type: "bar", label: barLabel, data: barData, backgroundColor: barBg(canvas, hexBar, QC_DAYS.length), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75 },
-                { order: 1, type: "line", label: lineLabel, data: lineData, borderColor: isMoney ? "#1D4ED8" : hexLine, backgroundColor: isMoney ? "rgba(29,78,216,0.1)" : hexLine, borderWidth: 1.5, fill: isMoney, yAxisID: "y1", pointRadius: isMoney ? 1 : 2, tension: 0.3, spanGaps: true },
+                { order: 1, type: "line", label: lineLabel, data: lineData, borderColor: isMoney ? "#1D4ED8" : hexLine, backgroundColor: isMoney ? "rgba(29,78,216,0.1)" : hexLine, borderWidth: 1.5, fill: isMoney, yAxisID: "y1", pointRadius: 1, tension: 0.3, spanGaps: true },
               ],
             },
             options: {
