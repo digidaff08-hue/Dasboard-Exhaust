@@ -5472,16 +5472,15 @@ function dashboardExhaust() {
     // disamakan supaya konsisten.
     renderKualitasCharts() {
       if (typeof Chart === "undefined") return;
-      // Warna BATANG tab Kontrol Kualitas -- nada kalem (pastel agak
-      // redup), tapi tetap beda jelas per kelompok:
-      //   NG Inline    = pasir/krem hangat -- saturasi & terang disamakan
-      //                  dengan biru & lavender supaya satu keluarga
-      //   NG Trial     = biru baja lembut
-      //   Straightpass = ungu lavender lembut (batang Qty Repair) --
-      //                  diganti dari merah bata karena terlalu mirip
-      //                  dengan peach NG Inline.
-      // Garis (Value / % Straightpass / Target) sengaja tidak diubah.
-      const QC_BAR = { ngInline: "#CEAD8D", ngTrial: "#86AFCB", straightpass: "#A99BCB" };
+      // Warna BATANG tab Kontrol Kualitas -- warna TERANG, senada dengan
+      // tab Kontrol Downtime, tapi tetap beda jelas per kelompok:
+      //   NG Inline    = oranye
+      //   NG Trial     = cyan
+      //   Straightpass = ungu (batang Qty Repair) -- sengaja BUKAN merah
+      //                  supaya tidak mirip oranye NG Inline & tidak
+      //                  bentrok dengan garis Target merah.
+      // Garis (Value / % Straightpass / Target) tidak diubah.
+      const QC_BAR = { ngInline: "#F97316", ngTrial: "#06B6D4", straightpass: "#8B5CF6" };
       this._qcRenderedSig = this.qcChartSignature();
       const b = this.tahunan;
       if (!b || !b.monthLabels) return;
@@ -5538,7 +5537,7 @@ function dashboardExhaust() {
             ctx.closePath();
             ctx.fillStyle = "rgba(0,0,0,0.001)";
             // Sisi atas & kiri: bayangan gelap tegas, blur kecil (kesan "masuk")
-            ctx.shadowColor = "rgba(0,0,0,0.35)"; // dilunakkan (dulu 0.92) biar warna kalem tidak kusam
+            ctx.shadowColor = "rgba(0,0,0,0.92)";
             ctx.shadowBlur = 2;
             ctx.shadowOffsetX = 3;
             ctx.shadowOffsetY = 7;
