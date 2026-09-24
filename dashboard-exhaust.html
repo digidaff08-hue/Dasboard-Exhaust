@@ -586,6 +586,11 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
 .dxy-status-open { background: rgba(239,68,68,.14); color: #000000; }
 .dxy-status-progress { background: rgba(245,158,11,.14); color: #000000; }
 .dxy-status-closed { background: rgba(16,185,129,.14); color: #000000; }
+/* Status "Belum diisi": abu-abu, miring, garis putus-putus -- sengaja
+   dibuat beda supaya baris yang belum di-follow up langsung kelihatan. */
+.dxy-status-empty { background: #F1F5F9; color: #64748B !important; font-style: italic; font-weight: 600; border: 1px dashed #CBD5E1; }
+/* Status "Corrective Action": hijau -- sudah ada tindakan. */
+.dxy-status-action { background: rgba(16,185,129,.18); color: #065F46 !important; border: 1px solid rgba(16,185,129,.35); }
 @media (max-width: 1366px) { .dxy-dt-terbesar-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 720px) { .dxy-dt-terbesar-grid { grid-template-columns: 1fr; } }
 /* Panel "Downtime Line" TIDAK lagi ikut membesar mengikuti jumlah baris --
@@ -980,10 +985,12 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                 <div class="dxy-panel-head">
                   <span class="dxy-panel-title">📈 Productivity</span>
                   <span class="dxy-panel-sub" style="font-weight:700; color:var(--dxy-text); text-align:right; line-height:1.3;">
-                    <span style="display:block;" x-text="'Rata-rata ' + fmtNum(bulanan.productivity.avg) + '%'"></span>
+                    <span style="display:block;" :style="{ color: dxyAvgVsTargetColor(bulanan.productivity.avg, bulanan.productivity.target) }" x-text="dxyAvgVsTargetText(bulanan.productivity.avg, bulanan.productivity.target)"></span>
                     <!-- Target ikut bulan yang dipilih; kalau bulan itu belum
                          diisi di Master Data, otomatis jadi 100% -->
-                    <span style="display:block; font-weight:600; color:#EF4444;" x-text="'Target : ' + fmtNum(bulanan.productivity.target) + ' %'"></span>
+                    <!-- Warna Target dibuat abu-abu netral (dulu merah) supaya tidak
+                         tertukar dengan Rata-rata yang merah saat di bawah target. -->
+                    <span style="display:block; font-weight:600; color:#475569;" x-text="'Target : ' + fmtNum(bulanan.productivity.target) + ' %'"></span>
                   </span>
                 </div>
                 <div class="dxy-chart-box"><canvas id="dxbProductivity"></canvas></div>
@@ -3879,6 +3886,8 @@ function dashboardExhaust() {
       if (s.includes("OPEN")) return "dxy-status-open";
       if (s.includes("PROG")) return "dxy-status-progress";
       if (s.includes("CLOSE") || s.includes("DONE")) return "dxy-status-closed";
+      if (s.includes("BELUM")) return "dxy-status-empty";        // belum di-follow up
+      if (s.includes("CORRECTIVE")) return "dxy-status-action";  // sudah ada tindakan
       return "dxy-status-progress";
     },
     // Lapisan tampilan saja: gabungkan rows semua line jadi 1 daftar rata,
@@ -3891,9 +3900,38 @@ function dashboardExhaust() {
     dxyDowntimeFlatBulanan() {
       const flat = [];
       (this.bulanan.downtimeTerbesar || []).forEach((line) => {
-        (line.rows || []).forEach((row) => flat.push({ mesin: line.mesin, ...row }));
+        // Status dirapikan DI SINI (bukan cuma di tampilan) supaya filter
+        // kolom Status juga ikut rapi: "(kosong)"/kosong -> "Belum diisi",
+        // "Correction Action" disatukan jadi "Corrective Action".
+        (line.rows || []).forEach((row) => flat.push({ mesin: line.mesin, ...row, status: this.dxyNormalizeStatus(row.status) }));
       });
       return flat;
+    },
+    // Rata-rata vs Target (header Productivity tab Kontrol Downtime):
+    // hijau + ▲ kalau rata-rata >= target, merah + ▼ kalau di bawah target,
+    // warna biasa kalau belum ada data / target tidak diset.
+    dxyAvgVsTargetState(avg, target) {
+      const a = Number(avg), t = Number(target);
+      if (!a || !t || Number.isNaN(a) || Number.isNaN(t)) return "none";
+      return a >= t ? "up" : "down";
+    },
+    dxyAvgVsTargetColor(avg, target) {
+      const st = this.dxyAvgVsTargetState(avg, target);
+      return st === "up" ? "#059669" : st === "down" ? "#DC2626" : "var(--dxy-text)";
+    },
+    dxyAvgVsTargetText(avg, target) {
+      const st = this.dxyAvgVsTargetState(avg, target);
+      const icon = st === "up" ? "▲ " : st === "down" ? "▼ " : "";
+      return icon + "Rata-rata " + fmtNum(avg) + "%";
+    },
+    // Rapikan teks Status downtime (lapisan tampilan, data asli di DB
+    // tidak diubah).
+    dxyNormalizeStatus(status) {
+      const raw = String(status ?? "").trim();
+      const key = raw.toLowerCase().replace(/[()\-]/g, "").replace(/\s+/g, " ").trim();
+      if (!key || key === "kosong") return "Belum diisi";
+      if (/^correct(ive|ion) action$/.test(key)) return "Corrective Action";
+      return raw;
     },
     bulananDowntimeMergedRows() {
       const flat = this.qcApplyColFilters("bulananDowntime", this.dxyDowntimeFlatBulanan());
@@ -5236,9 +5274,10 @@ function dashboardExhaust() {
             const raw = dataset.data[i];
             if (raw === null || raw === undefined) return;
             const val = Number(raw);
-            if (Number.isNaN(val)) return;
+            if (Number.isNaN(val) || val === 0) return; // angka 0 (bulan yg belum berjalan) tidak dilabeli
             const { x, y, base } = bar.getProps(["x", "y", "base"], true);
             const label = formatter(val);
+            if (label === "0" || label === "0%" || label === "") return;
             const halfW = ctx.measureText(label).width / 2 + 4;
             if (pos === "base") {
               let row = 0;
@@ -5298,8 +5337,9 @@ function dashboardExhaust() {
             const raw = dataset.data[i];
             if (raw === null || raw === undefined) return;
             const val = Number(raw);
-            if (Number.isNaN(val)) return;
+            if (Number.isNaN(val) || val === 0) return; // angka 0 (bulan yg belum berjalan) tidak dilabeli
             const label = formatter(val);
+            if (label === "0" || label === "0%" || label === "") return;
             const { x, y } = point.getProps(["x", "y"], true);
             // Zig-zag: baris genap sedikit lebih dekat titik, baris ganjil
             // digeser lebih tinggi -- supaya 2 label bersebelahan tidak
