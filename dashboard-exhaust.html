@@ -713,6 +713,13 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
   background-size: 400% 100%;
   animation: dxy-shimmer 1.4s ease infinite;
 }
+/* Skeleton per kotak chart Kontrol Kualitas (menutupi kanvas saat memuat) */
+.qc-chart-skel {
+  position: absolute; inset: 4px; border-radius: 10px; z-index: 2;
+  background: linear-gradient(90deg, var(--dxy-border) 25%, rgba(255,255,255,.5) 37%, var(--dxy-border) 63%);
+  background-size: 400% 100%;
+  animation: dxy-shimmer 1.4s ease infinite;
+}
 @keyframes dxy-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
 
 /* ---- Responsive ---- */
@@ -1327,23 +1334,23 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
             <div class="dxy-qc-col">
               <div class="dxy-panel">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">🔶 NG Inline</span></div>
-                <div class="dxy-chart-box qc-chart-month"><canvas id="qcNgInlineMonth"></canvas></div>
+                <div class="dxy-chart-box qc-chart-month"><canvas id="qcNgInlineMonth"></canvas><div class="qc-chart-skel" x-show="qcChartsLoading"></div></div>
               </div>
 
               <div class="dxy-qc-subgrid">
                 <div class="dxy-panel">
                   <div class="dxy-panel-head"><span class="dxy-panel-title">NG Inline Perline</span></div>
-                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcNgInlinePerline"></canvas></div>
+                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcNgInlinePerline"></canvas><div class="qc-chart-skel" x-show="qcChartsLoading"></div></div>
                 </div>
                 <div class="dxy-panel">
                   <div class="dxy-panel-head"><span class="dxy-panel-title">NG Inline Model</span></div>
-                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcNgInlineModel"></canvas></div>
+                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcNgInlineModel"></canvas><div class="qc-chart-skel" x-show="qcChartsLoading"></div></div>
                 </div>
               </div>
 
               <div class="dxy-panel">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">Daily</span></div>
-                <div class="dxy-chart-box qc-chart-daily"><canvas id="qcNgInlineDaily"></canvas></div>
+                <div class="dxy-chart-box qc-chart-daily"><canvas id="qcNgInlineDaily"></canvas><div class="qc-chart-skel" x-show="qcChartsLoading"></div></div>
               </div>
 
               <div class="dxy-panel dxy-table-panel-sm">
@@ -1392,23 +1399,23 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
             <div class="dxy-qc-col">
               <div class="dxy-panel">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">🔷 NG Inline Trial</span></div>
-                <div class="dxy-chart-box qc-chart-month"><canvas id="qcNgTrialMonth"></canvas></div>
+                <div class="dxy-chart-box qc-chart-month"><canvas id="qcNgTrialMonth"></canvas><div class="qc-chart-skel" x-show="qcChartsLoading"></div></div>
               </div>
 
               <div class="dxy-qc-subgrid">
                 <div class="dxy-panel">
                   <div class="dxy-panel-head"><span class="dxy-panel-title">NG Trial Perline</span></div>
-                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcNgTrialPerline"></canvas></div>
+                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcNgTrialPerline"></canvas><div class="qc-chart-skel" x-show="qcChartsLoading"></div></div>
                 </div>
                 <div class="dxy-panel">
                   <div class="dxy-panel-head"><span class="dxy-panel-title">NG Trial Model</span></div>
-                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcNgTrialModel"></canvas></div>
+                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcNgTrialModel"></canvas><div class="qc-chart-skel" x-show="qcChartsLoading"></div></div>
                 </div>
               </div>
 
               <div class="dxy-panel">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">Daily</span></div>
-                <div class="dxy-chart-box qc-chart-daily"><canvas id="qcNgTrialDaily"></canvas></div>
+                <div class="dxy-chart-box qc-chart-daily"><canvas id="qcNgTrialDaily"></canvas><div class="qc-chart-skel" x-show="qcChartsLoading"></div></div>
               </div>
 
               <div class="dxy-panel dxy-table-panel-sm">
@@ -1456,23 +1463,23 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
             <div class="dxy-qc-col">
               <div class="dxy-panel">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">🟢 Straightpass</span></div>
-                <div class="dxy-chart-box qc-chart-month"><canvas id="qcStraightpassMonth"></canvas></div>
+                <div class="dxy-chart-box qc-chart-month"><canvas id="qcStraightpassMonth"></canvas><div class="qc-chart-skel" x-show="qcChartsLoading"></div></div>
               </div>
 
               <div class="dxy-qc-subgrid">
                 <div class="dxy-panel">
                   <div class="dxy-panel-head"><span class="dxy-panel-title">Straightpass Perline</span></div>
-                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcStraightpassPerline"></canvas></div>
+                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcStraightpassPerline"></canvas><div class="qc-chart-skel" x-show="qcChartsLoading"></div></div>
                 </div>
                 <div class="dxy-panel">
                   <div class="dxy-panel-head"><span class="dxy-panel-title">Straightpass Model</span></div>
-                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcStraightpassModel"></canvas></div>
+                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcStraightpassModel"></canvas><div class="qc-chart-skel" x-show="qcChartsLoading"></div></div>
                 </div>
               </div>
 
               <div class="dxy-panel">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">Daily · % Straightpass</span></div>
-                <div class="dxy-chart-box qc-chart-daily"><canvas id="qcStraightpassDaily"></canvas></div>
+                <div class="dxy-chart-box qc-chart-daily"><canvas id="qcStraightpassDaily"></canvas><div class="qc-chart-skel" x-show="qcChartsLoading"></div></div>
               </div>
 
               <div class="dxy-panel dxy-table-panel-sm">
@@ -2092,7 +2099,7 @@ function dashboardExhaust() {
         this.$nextTick(() => this.renderTahunanCharts());
       }
       if (tab === "kualitas") {
-        await this.loadKualitas();
+        await this.loadKualitas({ instant: true });
       }
       if (tab === "attendance") {
         await Promise.all([this.fetchAttendance(), this.fetchAttendanceDayCard(), this.fetchAttendanceLeave()]);
@@ -2523,7 +2530,6 @@ function dashboardExhaust() {
       if (this.qcYear !== this.tahunanYear) {
         this.tahunanYear = this.qcYear;
         this.tahunanLoaded = false;
-        this.fetchTahunan().then(() => this.$nextTick(() => this.renderKualitasCharts()));
       }
       // Balik ke mode "sebulan" (ikut bulan+tahun yang baru dipilih), dan
       // isi ulang field tanggal ke tanggal 1 bulan baru itu -- diam-diam,
@@ -2546,18 +2552,9 @@ function dashboardExhaust() {
       this.qcRepairPerlineModelLoaded = false;
       this.qcStraightpassLoaded = false;
       this.qcLineModelMapLoaded = false;
-      this.fetchQcNgInline().then(() => this.$nextTick(() => this.renderKualitasCharts()));
-      this.fetchQcNgTrial().then(() => this.$nextTick(() => this.renderKualitasCharts()));
-      this.fetchQcRepairDetail();
-      this.fetchQcLineModelMap().then(() => this.$nextTick(() => this.renderKualitasCharts()));
-      // fetchQcStraightpassBreakdown() butuh this.qcRepair.perlineQty/
-      // permodelQty (Qty Repair) sudah terisi lebih dulu -- makanya
-      // di-chain setelah fetchQcRepairPerlineModel() selesai, bukan
-      // dijalankan paralel begitu saja.
-      this.fetchQcRepairPerlineModel().then(() => {
-        this.fetchQcStraightpassBreakdown().then(() => this.$nextTick(() => this.renderKualitasCharts()));
-        this.$nextTick(() => this.renderKualitasCharts());
-      });
+      // Semua fetch + render sekarang lewat loadKualitas() -- skeleton
+      // tampil selama memuat, chart digambar SEKALI (tidak kedip).
+      this.loadKualitas({ skeleton: true });
     },
     // Ambil data kolom "NG Inline" (Month/Perline/Model/Daily/Rekap) dari
     // RPC dashboard_qc_ng_* dengan p_type_ng = 'NG PRODUKSI'.
@@ -3054,6 +3051,9 @@ function dashboardExhaust() {
     },
     tahunanCharts: {},
     qcCharts: {},
+    qcChartsLoading: false, // skeleton di kotak chart Kontrol Kualitas
+    qcHasData: false,       // sudah pernah sukses load minimal sekali
+    _qcLoadToken: 0,
     attendanceCharts: {},
     tahunanInsights: [],
     // dxyLineFilter: KHUSUS tab Tahunan (dropdown Line di baris filter
@@ -3160,34 +3160,75 @@ function dashboardExhaust() {
         await this.loadKualitas({ silent: true });
       }
     },
-    // Muat data tab Kontrol Kualitas + gambar chart-nya SECARA BERTAHAP.
-    // Dulu: 7 fetch dijalankan BERURUTAN dan chart baru digambar SEKALI
-    // di paling akhir -- jadi selama menunggu (terutama fetchQcLineModelMap
-    // yang narik detail 1 tahun penuh), semua kanvas kosong. Apalagi tiap
-    // ada input baru (realtime) semua cache *Loaded di-reset, jadi tiap
-    // balik ke tab ini kosong lagi sampai semua fetch beres.
-    // Sekarang:
-    //   1. Chart LANGSUNG digambar pakai data yang sudah ada di memori
-    //      (data kunjungan sebelumnya tetap tersimpan walau cache basi).
-    //   2. Fetch dijalankan PARALEL, dan tiap kelompok data yang selesai
-    //      langsung menggambar ulang chart -- chart terisi satu per satu.
-    //   3. Straightpass tetap di-chain SETELAH Repair Perline/Model,
-    //      karena butuh this.qcRepair.perlineQty/permodelQty.
+    // Muat data tab Kontrol Kualitas, lalu gambar chart-nya SEKALI saja.
+    // Riwayat: versi awal fetch 7x BERURUTAN lalu render di akhir (lama
+    // kosong). Versi berikutnya render tiap kelompok data selesai -- cepat
+    // tapi chart berganti 5-6x = "kedip". Sekarang dibuat seperti tab
+    // Tahunan/Downtime:
+    //   - Belum pernah ada data (buka pertama kali) atau ganti periode
+    //     -> tampil skeleton shimmer di kotak chart, fetch PARALEL, lalu
+    //        chart digambar SEKALI begitu semua data siap.
+    //   - Balik ke tab ini (data lama masih di memori) -> chart LANGSUNG
+    //     digambar dari memori, fetch ulang diam-diam di belakang, lalu
+    //     digambar ulang SEKALI di akhir.
+    //   - Refresh realtime -> chart yang tampil dibiarkan, digambar ulang
+    //     SEKALI setelah data baru siap.
+    // Token dipakai supaya kalau ada load yang lebih baru (klik cepat /
+    // ganti bulan beruntun), load lama tidak ikut menggambar.
+    // "Sidik jari" semua data yang dipakai chart Kontrol Kualitas (tanpa
+    // detailRows tabel Rekap), untuk cek apakah chart perlu digambar ulang.
+    qcChartSignature() {
+      const skip = (k, v) => (k === "detailRows" ? undefined : v);
+      const t = this.tahunan || {};
+      return JSON.stringify([
+        this.qcLineFilter, this.qcNgInline, this.qcNgTrial, this.qcRepair,
+        this.qcStraightpass, this.qcLineMonthMap, this.qcLineModelMap,
+        t.monthLabels, t.straightpass,
+      ], skip);
+    },
+    _qcRenderedSig: "",
     async loadKualitas(opts = {}) {
-      const render = () => {
-        if (this.activeTab === "kualitas") this.$nextTick(() => this.renderKualitasCharts());
-      };
-      render();
-      await Promise.all([
-        this.fetchTahunan(opts.silent ? { silent: true } : undefined).then(render),
-        this.fetchQcNgInline().then(render),
-        this.fetchQcNgTrial().then(render),
-        this.fetchQcRepairDetail(),
-        this.fetchQcRepairPerlineModel()
-          .then(() => this.fetchQcStraightpassBreakdown())
-          .then(render),
-        this.fetchQcLineModelMap().then(render),
-      ]);
+      const token = ++this._qcLoadToken;
+      const useSkeleton = opts.skeleton || !this.qcHasData;
+      if (useSkeleton) {
+        this.qcChartsLoading = true;
+      } else if (opts.instant) {
+        this.$nextTick(() => this.renderKualitasCharts());
+      }
+      try {
+        await Promise.all([
+          this.fetchTahunan(opts.silent ? { silent: true } : undefined),
+          this.fetchQcNgInline(),
+          this.fetchQcNgTrial(),
+          this.fetchQcRepairDetail(),
+          // Straightpass butuh this.qcRepair.perlineQty/permodelQty --
+          // makanya tetap di-chain setelah Repair Perline/Model.
+          this.fetchQcRepairPerlineModel().then(() => this.fetchQcStraightpassBreakdown()),
+          this.fetchQcLineModelMap(),
+        ]);
+      } finally {
+        if (token === this._qcLoadToken) {
+          this.qcHasData = true;
+          // Data baru PERSIS sama dengan yang sedang tampil (sering terjadi
+          // saat balik ke tab / refresh realtime yang tidak mengubah angka
+          // QC) -> chart tidak disentuh sama sekali.
+          const unchanged = !useSkeleton
+            && Object.keys(this.qcCharts).length > 0
+            && this.qcChartSignature() === this._qcRenderedSig;
+          if (unchanged) {
+            this.qcChartsLoading = false;
+          } else if (this.activeTab === "kualitas") {
+            // Gambar dulu di bawah skeleton, baru skeleton dilepas --
+            // jadi transisinya langsung dari shimmer ke chart jadi.
+            this.$nextTick(() => {
+              this.renderKualitasCharts();
+              this.qcChartsLoading = false;
+            });
+          } else {
+            this.qcChartsLoading = false;
+          }
+        }
+      }
     },
     // -----------------------------------------------------------------
     // Ambil data Bulanan (HARIAN, tanggal 1-31) dari Supabase.
@@ -5372,6 +5413,7 @@ function dashboardExhaust() {
     // disamakan supaya konsisten.
     renderKualitasCharts() {
       if (typeof Chart === "undefined") return;
+      this._qcRenderedSig = this.qcChartSignature();
       const b = this.tahunan;
       if (!b || !b.monthLabels) return;
       const destroy = (id) => { if (this.qcCharts[id]) { this.qcCharts[id].destroy(); delete this.qcCharts[id]; } };
