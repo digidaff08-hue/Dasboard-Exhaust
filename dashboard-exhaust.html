@@ -5318,7 +5318,7 @@ function dashboardExhaust() {
         });
       };
       // Chart utama "🎯 Straight Pass" -- disamakan gaya sama chart
-      // Straightpass Perline/Model: bar "Qty Repair" (kiri) + garis hijau
+      // Straightpass Perline/Model: bar "Qty Repair" (kiri) + garis HITAM
       // "% Straightpass" (kanan) + garis merah putus-putus "Target".
       // Konfigurasi (termasuk axis "grace" & plugin label) SAMA PERSIS
       // dengan qcRepairStraightpassBar (Perline/Model) di tab Kontrol
@@ -5334,7 +5334,7 @@ function dashboardExhaust() {
             labels,
             datasets: [
               { order: 2, type: "bar", label: "Qty Repair", data: qty, backgroundColor: barBg(canvas, hex, qty.length), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7, borderSkipped: false },
-              { order: 1, type: "line", label: "% Straightpass", data: pct, borderColor: "#22C55E", backgroundColor: "#22C55E", yAxisID: "y1", borderWidth: 1.5, pointRadius: 3, tension: 0.3, spanGaps: true },
+              { order: 1, type: "line", label: "% Straightpass", data: pct, borderColor: "#000000", backgroundColor: "#000000", yAxisID: "y1", borderWidth: 1.5, pointRadius: 1, tension: 0.3, spanGaps: true },
               { order: 1, type: "line", label: "Target", data: labels.map(() => target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0, yAxisID: "y1" },
             ],
           },
@@ -5476,11 +5476,12 @@ function dashboardExhaust() {
       // tab Kontrol Downtime, tapi tetap beda jelas per kelompok:
       //   NG Inline    = oranye
       //   NG Trial     = cyan
-      //   Straightpass = ungu (batang Qty Repair) -- sengaja BUKAN merah
-      //                  supaya tidak mirip oranye NG Inline & tidak
-      //                  bentrok dengan garis Target merah.
+      //   Straightpass = hijau tosca (batang Qty Repair) -- DISAMAKAN
+      //                  dengan chart Straight Pass di tab Tahunan.
       // Garis (Value / % Straightpass / Target) tidak diubah.
-      const QC_BAR = { ngInline: "#F97316", ngTrial: "#06B6D4", straightpass: "#8B5CF6" };
+      const QC_BAR = { ngInline: "#F97316", ngTrial: "#06B6D4", straightpass: "#14B8A6" };
+      // Garis "% Straightpass" -- HITAM, disamakan dengan tab Tahunan.
+      const SP_LINE = "#000000";
       this._qcRenderedSig = this.qcChartSignature();
       const b = this.tahunan;
       if (!b || !b.monthLabels) return;
@@ -5772,7 +5773,7 @@ function dashboardExhaust() {
             labels,
             datasets: [
               { order: 2, type: "bar", label: "Qty Repair", data: repairQty, backgroundColor: barBg(canvas, QC_BAR.straightpass, repairQty.length), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
-              { order: 1, type: "line", label: "% Straightpass", data: actual, borderColor: "#22C55E", backgroundColor: "#22C55E", borderWidth: 1.5, yAxisID: "y1", pointRadius: 1, tension: 0.3, spanGaps: true },
+              { order: 1, type: "line", label: "% Straightpass", data: actual, borderColor: SP_LINE, backgroundColor: SP_LINE, borderWidth: 1.5, yAxisID: "y1", pointRadius: 1, tension: 0.3, spanGaps: true },
               { order: 1, type: "line", label: "Target", data: labels.map(() => b.straightpass.target), borderColor: "#EF4444", borderDash: [4, 3], borderWidth: 1.5, pointRadius: 0, tension: 0, yAxisID: "y1" },
             ],
           },
@@ -5804,7 +5805,7 @@ function dashboardExhaust() {
               labels: categories,
               datasets: [
                 { order: 2, type: "bar", label: "Qty Repair", data: qty, backgroundColor: barBgHighlight(canvas, QC_BAR.straightpass, categories, highlightKey), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
-                { order: 1, type: "line", label: "% Straightpass", data: pct, borderColor: "#22C55E", backgroundColor: "#22C55E", borderWidth: 1.5, yAxisID: "y1", pointRadius: 1, tension: 0.3, spanGaps: true },
+                { order: 1, type: "line", label: "% Straightpass", data: pct, borderColor: SP_LINE, backgroundColor: SP_LINE, borderWidth: 1.5, yAxisID: "y1", pointRadius: 1, tension: 0.3, spanGaps: true },
               ],
             },
             options: {
@@ -5958,7 +5959,7 @@ function dashboardExhaust() {
       };
       qcDualAxisDaily("qcNgInlineDaily", QC_BAR.ngInline, "#8B5CF6", "Qty", "Value", false, ngi.dailyQty, ngi.dailyValue, { isMoney: true });
       qcDualAxisDaily("qcNgTrialDaily", QC_BAR.ngTrial, "#8B5CF6", "Qty", "Value", false, ngt.dailyQty, ngt.dailyValue, { isMoney: true });
-      qcDualAxisDaily("qcStraightpassDaily", QC_BAR.straightpass, "#22C55E", "Qty Repair", "% Straightpass", true, this.qcStraightpass.dailyRepairQty, this.qcStraightpass.dailyPercent, { barLabelPos: "base" });
+      qcDualAxisDaily("qcStraightpassDaily", QC_BAR.straightpass, SP_LINE, "Qty Repair", "% Straightpass", true, this.qcStraightpass.dailyRepairQty, this.qcStraightpass.dailyPercent, { barLabelPos: "base" });
     },
     // Chart Trend Kehadiran Harian (tanggal 1-31) di tab Kontrol Attendance.
     // Batang BERTUMPUK (stacked): Hadir + Izin + Sakit + Cuti + Mangkir,
