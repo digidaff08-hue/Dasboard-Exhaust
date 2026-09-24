@@ -855,6 +855,34 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
   if (typeof Chart !== "undefined" && typeof ChartDataLabels !== "undefined") {
     Chart.register(ChartDataLabels);
     Chart.defaults.set("plugins.datalabels", { display: false });
+
+    // Semua GARIS (dataset tipe line, termasuk garis Target & area) di
+    // seluruh dashboard dibuat lebih tipis + marker lebih kecil, dari SATU
+    // tempat ini -- jadi tidak perlu ubah puluhan dataset satu per satu.
+    // Ubah angka di LINE_STYLE kalau mau diatur lagi:
+    //   widthScale : pengali tebal garis   (1.5 -> 1, 2 -> 1.3)
+    //   minWidth   : tebal garis paling tipis
+    //   pointScale : pengali ukuran marker (1 -> 0.6, 3 -> 1.8)
+    //   hoverRadius: ukuran marker saat disorot mouse
+    const LINE_STYLE = { widthScale: 0.67, minWidth: 0.75, pointScale: 0.6, hoverRadius: 3 };
+    const scaleNum = (v, k, min) => (typeof v === "number" ? Math.max(min, Math.round(v * k * 100) / 100) : v);
+    Chart.register({
+      id: "dxThinLines",
+      beforeUpdate(chart) {
+        const chartType = chart.config.type;
+        (chart.data.datasets || []).forEach((ds) => {
+          if (!ds || ds.__dxThin) return;
+          const isLine = (ds.type || chartType) === "line";
+          if (!isLine) return;
+          ds.__dxThin = true;
+          ds.borderWidth = scaleNum(ds.borderWidth ?? 1.5, LINE_STYLE.widthScale, LINE_STYLE.minWidth);
+          const r = ds.pointRadius ?? 3;
+          ds.pointRadius = Array.isArray(r) ? r.map((x) => scaleNum(x, LINE_STYLE.pointScale, 0)) : scaleNum(r, LINE_STYLE.pointScale, 0);
+          if (ds.pointBorderWidth !== undefined) ds.pointBorderWidth = scaleNum(ds.pointBorderWidth, LINE_STYLE.pointScale, 0);
+          ds.pointHoverRadius = LINE_STYLE.hoverRadius;
+        });
+      },
+    });
   }
 </script>
 <script src="assets/supabaseClient.js"></script>
@@ -1334,23 +1362,23 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
             <div class="dxy-qc-col">
               <div class="dxy-panel">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">🔶 NG Inline</span></div>
-                <div class="dxy-chart-box qc-chart-month"><canvas id="qcNgInlineMonth"></canvas><div class="qc-chart-skel" x-show="qcChartsLoading"></div></div>
+                <div class="dxy-chart-box qc-chart-month"><canvas id="qcNgInlineMonth"></canvas></div>
               </div>
 
               <div class="dxy-qc-subgrid">
                 <div class="dxy-panel">
                   <div class="dxy-panel-head"><span class="dxy-panel-title">NG Inline Perline</span></div>
-                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcNgInlinePerline"></canvas><div class="qc-chart-skel" x-show="qcChartsLoading"></div></div>
+                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcNgInlinePerline"></canvas></div>
                 </div>
                 <div class="dxy-panel">
                   <div class="dxy-panel-head"><span class="dxy-panel-title">NG Inline Model</span></div>
-                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcNgInlineModel"></canvas><div class="qc-chart-skel" x-show="qcChartsLoading"></div></div>
+                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcNgInlineModel"></canvas></div>
                 </div>
               </div>
 
               <div class="dxy-panel">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">Daily</span></div>
-                <div class="dxy-chart-box qc-chart-daily"><canvas id="qcNgInlineDaily"></canvas><div class="qc-chart-skel" x-show="qcChartsLoading"></div></div>
+                <div class="dxy-chart-box qc-chart-daily"><canvas id="qcNgInlineDaily"></canvas></div>
               </div>
 
               <div class="dxy-panel dxy-table-panel-sm">
@@ -1399,23 +1427,23 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
             <div class="dxy-qc-col">
               <div class="dxy-panel">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">🔷 NG Inline Trial</span></div>
-                <div class="dxy-chart-box qc-chart-month"><canvas id="qcNgTrialMonth"></canvas><div class="qc-chart-skel" x-show="qcChartsLoading"></div></div>
+                <div class="dxy-chart-box qc-chart-month"><canvas id="qcNgTrialMonth"></canvas></div>
               </div>
 
               <div class="dxy-qc-subgrid">
                 <div class="dxy-panel">
                   <div class="dxy-panel-head"><span class="dxy-panel-title">NG Trial Perline</span></div>
-                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcNgTrialPerline"></canvas><div class="qc-chart-skel" x-show="qcChartsLoading"></div></div>
+                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcNgTrialPerline"></canvas></div>
                 </div>
                 <div class="dxy-panel">
                   <div class="dxy-panel-head"><span class="dxy-panel-title">NG Trial Model</span></div>
-                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcNgTrialModel"></canvas><div class="qc-chart-skel" x-show="qcChartsLoading"></div></div>
+                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcNgTrialModel"></canvas></div>
                 </div>
               </div>
 
               <div class="dxy-panel">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">Daily</span></div>
-                <div class="dxy-chart-box qc-chart-daily"><canvas id="qcNgTrialDaily"></canvas><div class="qc-chart-skel" x-show="qcChartsLoading"></div></div>
+                <div class="dxy-chart-box qc-chart-daily"><canvas id="qcNgTrialDaily"></canvas></div>
               </div>
 
               <div class="dxy-panel dxy-table-panel-sm">
@@ -1463,23 +1491,23 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
             <div class="dxy-qc-col">
               <div class="dxy-panel">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">🟢 Straightpass</span></div>
-                <div class="dxy-chart-box qc-chart-month"><canvas id="qcStraightpassMonth"></canvas><div class="qc-chart-skel" x-show="qcChartsLoading"></div></div>
+                <div class="dxy-chart-box qc-chart-month"><canvas id="qcStraightpassMonth"></canvas></div>
               </div>
 
               <div class="dxy-qc-subgrid">
                 <div class="dxy-panel">
                   <div class="dxy-panel-head"><span class="dxy-panel-title">Straightpass Perline</span></div>
-                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcStraightpassPerline"></canvas><div class="qc-chart-skel" x-show="qcChartsLoading"></div></div>
+                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcStraightpassPerline"></canvas></div>
                 </div>
                 <div class="dxy-panel">
                   <div class="dxy-panel-head"><span class="dxy-panel-title">Straightpass Model</span></div>
-                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcStraightpassModel"></canvas><div class="qc-chart-skel" x-show="qcChartsLoading"></div></div>
+                  <div class="dxy-chart-box qc-chart-sub"><canvas id="qcStraightpassModel"></canvas></div>
                 </div>
               </div>
 
               <div class="dxy-panel">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">Daily · % Straightpass</span></div>
-                <div class="dxy-chart-box qc-chart-daily"><canvas id="qcStraightpassDaily"></canvas><div class="qc-chart-skel" x-show="qcChartsLoading"></div></div>
+                <div class="dxy-chart-box qc-chart-daily"><canvas id="qcStraightpassDaily"></canvas></div>
               </div>
 
               <div class="dxy-panel dxy-table-panel-sm">
@@ -2090,13 +2118,20 @@ function dashboardExhaust() {
       if (this.activeTab === "attendance" && tab !== "attendance") this.destroyAttendanceCharts();
       this.activeTab = tab;
       if (tab === "plan_harian") { await this.fetchPlanHarian(); return; }
+      // Tab langsung digambar pakai data yang sudah ada di memori (hasil
+      // prefetch di init() / kunjungan sebelumnya), baru kemudian fetch
+      // -- jadi tidak ada layar "Memuat data" saat pindah tab.
       if (tab === "bulanan") {
-        await this.fetchBulanan();
         this.$nextTick(() => this.renderBulananCharts());
+        const wasLoaded = this.bulananLoaded;
+        await this.fetchBulanan({ silent: true });
+        if (!wasLoaded && this.activeTab === "bulanan") this.$nextTick(() => this.renderBulananCharts());
       }
       if (tab === "tahunan") {
-        await this.fetchTahunan();
         this.$nextTick(() => this.renderTahunanCharts());
+        const wasLoaded = this.tahunanLoaded;
+        await this.fetchTahunan({ silent: true });
+        if (!wasLoaded && this.activeTab === "tahunan") this.$nextTick(() => this.renderTahunanCharts());
       }
       if (tab === "kualitas") {
         await this.loadKualitas({ instant: true });
@@ -2114,9 +2149,11 @@ function dashboardExhaust() {
       }
     },
     async onTahunanYearChange() {
-      this.destroyTahunanCharts();
+      // Seperti tab Kontrol Downtime: chart lama TETAP tampil selama data
+      // tahun baru diambil (fetch silent, tanpa skeleton), lalu diganti
+      // SEKALI begitu data siap -- tidak ada kedip / "Memuat data".
       this.tahunanLoaded = false;
-      await this.fetchTahunan();
+      await this.fetchTahunan({ silent: true });
       this.qcColFilters = { ...this.qcColFilters, tahunanDowntime: {}, tahunanNg: {}, tahunanRepair: {} };
       this.$nextTick(() => this.renderTahunanCharts());
     },
@@ -2142,7 +2179,7 @@ function dashboardExhaust() {
     // migration_dashboard_bulanan.sql). Skeleton kosong dulu supaya
     // template tidak error sebelum data datang.
     // ---------------------------------------------------------------
-    bulananLoading: true,
+    bulananLoading: false, // skeleton "Memuat data" dinonaktifkan -- konten langsung tampil
     bulananLoaded: false,
     // Line (dxyLineFilterBulanan) yang dipakai waktu fetchBulanan()
     // terakhir sukses -- disimpan supaya bulananLoaded=true tidak cukup
@@ -2554,7 +2591,7 @@ function dashboardExhaust() {
       this.qcLineModelMapLoaded = false;
       // Semua fetch + render sekarang lewat loadKualitas() -- skeleton
       // tampil selama memuat, chart digambar SEKALI (tidak kedip).
-      this.loadKualitas({ skeleton: true });
+      this.loadKualitas();
     },
     // Ambil data kolom "NG Inline" (Month/Perline/Model/Daily/Rekap) dari
     // RPC dashboard_qc_ng_* dengan p_type_ng = 'NG PRODUKSI'.
@@ -3032,7 +3069,7 @@ function dashboardExhaust() {
     bulananCharts: {},
     tahunanYear: new Date().getFullYear(),
     tahunanYearOptions: [2025, 2026, 2027],
-    tahunanLoading: true,
+    tahunanLoading: false, // skeleton "Memuat data" dinonaktifkan -- konten langsung tampil
     tahunanLoaded: false,
     tahunan: {
       monthLabels: [],
@@ -3077,6 +3114,22 @@ function dashboardExhaust() {
       if (this.activeTab === "bulanan") await this.setTab("bulanan");
       if (this.activeTab === "tahunan") await this.setTab("tahunan");
       this.initRealtime();
+      // PREFETCH: begitu tab pertama selesai, data tab Tahunan & Kontrol
+      // Kualitas diambil diam-diam di belakang. Jadi saat user pindah ke
+      // tab itu, datanya sudah ada di memori dan chart langsung tampil
+      // (tidak ada "Memuat data"). Tidak menggambar apa pun selama tab
+      // tersebut belum dibuka.
+      this.prefetchOtherTabs();
+    },
+    async prefetchOtherTabs() {
+      try {
+        await this.fetchTahunan({ silent: true });
+        if (this.activeTab === "tahunan") this.$nextTick(() => this.renderTahunanCharts());
+        if (this.activeTab !== "kualitas") await this.loadKualitas({ silent: true });
+        if (this.activeTab !== "bulanan") await this.fetchBulanan({ silent: true });
+      } catch (e) {
+        console.error("Prefetch tab lain gagal:", e);
+      }
     },
     // =========================================================
     // REALTIME -- begitu ADA SIAPA SAJA (device manapun, line manapun)
@@ -3189,10 +3242,13 @@ function dashboardExhaust() {
     _qcRenderedSig: "",
     async loadKualitas(opts = {}) {
       const token = ++this._qcLoadToken;
-      const useSkeleton = opts.skeleton || !this.qcHasData;
-      if (useSkeleton) {
-        this.qcChartsLoading = true;
-      } else if (opts.instant) {
+      // Tanpa skeleton sama sekali: kalau chart belum ada di layar (buka
+      // tab), langsung digambar pakai data yang ada di memori (hasil
+      // prefetch / kunjungan sebelumnya), lalu diganti SEKALI di akhir
+      // kalau datanya berubah. Kalau chart sudah tampil (ganti bulan /
+      // realtime), chart lama dibiarkan sampai data baru siap.
+      const useSkeleton = false;
+      if (opts.instant || Object.keys(this.qcCharts).length === 0) {
         this.$nextTick(() => this.renderKualitasCharts());
       }
       try {
@@ -3262,7 +3318,7 @@ function dashboardExhaust() {
       // tapi TIDAK menampilkan skeleton "Memuat data..." (yang bikin seluruh
       // panel sempat blank/kedip karena x-if melepas-lalu-pasang ulang DOM).
       // Konten lama tetap tampil sampai data baru siap, baru diganti halus.
-      if (!opts.silent) this.bulananLoading = true;
+      // (skeleton dinonaktifkan: bulananLoading tidak di-set true lagi)
       try {
         const year = this.bulananYear;
         const month = this.bulananMonth; // 1-12
@@ -3509,7 +3565,7 @@ function dashboardExhaust() {
     },
     async fetchTahunan(opts = {}) {
       if (this.tahunanLoaded) return;
-      if (!opts.silent) this.tahunanLoading = true;
+      // (skeleton dinonaktifkan: tahunanLoading tidak di-set true lagi)
       try {
         // Fiscal year: April -> Maret. Tahun mulai FY dipilih dari dropdown Tahunan.
         const fyStartYear = this.tahunanYear;
@@ -5278,7 +5334,7 @@ function dashboardExhaust() {
       };
       safe(() => sparkline("dxySparkProductivity", b.productivity.actual, "#2563EB"), "spark-productivity");
       safe(() => sparkline("dxySparkAvailability", b.availability.actual, "#10B981"), "spark-availability");
-      safe(() => sparkline("dxySparkNg", b.ngInline.qtyByMonth, "#F97316"), "spark-ng");
+      safe(() => sparkline("dxySparkNg", b.ngInline.qtyByMonth, "#F43F5E"), "spark-ng");
       safe(() => sparkline("dxySparkStraightpass", b.straightpass.actual, "#14B8A6"), "spark-straightpass");
 
       // --- Grafik utama KPI (bar gradient + target garis putus-putus merah) ---
@@ -5369,7 +5425,7 @@ function dashboardExhaust() {
           data: {
             labels: b.monthLabels.slice(2),
             datasets: [
-              { order: 2, type: "bar", label: "Qty", data: b.ngInline.qtyByMonth.slice(2), backgroundColor: barBg(canvas, "#F97316", b.ngInline.qtyByMonth.length - 2), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
+              { order: 2, type: "bar", label: "Qty", data: b.ngInline.qtyByMonth.slice(2), backgroundColor: barBg(canvas, "#F43F5E", b.ngInline.qtyByMonth.length - 2), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
               { order: 1, type: "line", label: "Value", data: b.ngInline.valueByMonth.slice(2), borderColor: "#1D4ED8", backgroundColor: "rgba(29,78,216,0.1)", borderWidth: 1.5, fill: true, yAxisID: "y1", pointRadius: 1, tension: 0.3 },
             ],
           },
@@ -5474,12 +5530,12 @@ function dashboardExhaust() {
       if (typeof Chart === "undefined") return;
       // Warna BATANG tab Kontrol Kualitas -- warna TERANG, senada dengan
       // tab Kontrol Downtime, tapi tetap beda jelas per kelompok:
-      //   NG Inline    = oranye
+      //   NG Inline    = merah rose (sama dengan chart NG Inline tab Tahunan)
       //   NG Trial     = cyan
       //   Straightpass = hijau tosca (batang Qty Repair) -- DISAMAKAN
       //                  dengan chart Straight Pass di tab Tahunan.
       // Garis (Value / % Straightpass / Target) tidak diubah.
-      const QC_BAR = { ngInline: "#F97316", ngTrial: "#06B6D4", straightpass: "#14B8A6" };
+      const QC_BAR = { ngInline: "#F43F5E", ngTrial: "#06B6D4", straightpass: "#14B8A6" };
       // Garis "% Straightpass" -- HITAM, disamakan dengan tab Tahunan.
       const SP_LINE = "#000000";
       this._qcRenderedSig = this.qcChartSignature();
