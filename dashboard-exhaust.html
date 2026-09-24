@@ -4581,6 +4581,17 @@ function dashboardExhaust() {
     // ---- Chart Bulanan ----
     // ---- Chart Bulanan (harian 1-31), gaya visual sama seperti Tahunan ----
     renderBulananCharts() {
+      // Palet KALEM tab Kontrol Downtime -- satu keluarga dengan tab
+      // Kontrol Kualitas (saturasi rendah, tingkat terang mirip), supaya
+      // pindah tab tidak terasa seperti aplikasi berbeda.
+      const CALM = {
+        blue: "#86AFCB", sage: "#8FBCA6", sand: "#CEAD8D",
+        lavender: "#A99BCB", rose: "#D39A9A", teal: "#86BDBD",
+        blueLine: "#6F97B8",   // versi sedikit lebih gelap untuk GARIS (biar tetap terbaca)
+        sandLine: "#B8916B",
+        accent: "#C98080",     // sorotan titik line terpilih di Weekly
+      };
+      const CALM_PIC = { PE: CALM.blue, MESIN: CALM.sand, QC: CALM.lavender, PROD: CALM.sage, PRESS: CALM.rose, "PC-SUPP": CALM.teal };
       if (typeof Chart === "undefined") return;
       const b = this.bulanan;
       const destroy = (id) => { if (this.bulananCharts[id]) { this.bulananCharts[id].destroy(); delete this.bulananCharts[id]; } };
@@ -4637,7 +4648,7 @@ function dashboardExhaust() {
             ctx.closePath();
             ctx.fillStyle = "rgba(0,0,0,0.001)";
             // Sisi atas & kiri: bayangan gelap tegas, blur kecil (kesan "masuk")
-            ctx.shadowColor = "rgba(0,0,0,0.92)";
+            ctx.shadowColor = "rgba(0,0,0,0.35)"; // dilunakkan (dulu 0.92) supaya warna kalem tidak kusam
             ctx.shadowBlur = 2;
             ctx.shadowOffsetX = 3;
             ctx.shadowOffsetY = 7;
@@ -4749,7 +4760,7 @@ function dashboardExhaust() {
           ctx.textAlign = "center"; ctx.fillStyle = textColor;
           meta.data.forEach((point, i) => {
             const val = Number(dataset.data[i]);
-            if (val === null || val === undefined || Number.isNaN(val)) return;
+            if (val === null || val === undefined || Number.isNaN(val) || val === 0) return; // angka 0 tidak dilabeli
             const { x, y } = point.getProps(["x", "y"], true);
             ctx.textBaseline = "bottom";
             ctx.fillText(formatter(val), x, y - 8);
@@ -4797,7 +4808,7 @@ function dashboardExhaust() {
               // target = null -> garis Target tidak digambar sama sekali
               // (dipakai Availability). Selain itu tetap garis datar.
               ...(target === null || target === undefined ? [] : [
-                { order: 1, type: "line", label: "Target", data: labels.map(() => target), borderColor: "#EF4444", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0 },
+                { order: 1, type: "line", label: "Target", data: labels.map(() => target), borderColor: "#EF4444", borderDash: [4, 3], borderWidth: 1.5, pointRadius: 0, tension: 0 },
               ]),
             ],
           },
@@ -4812,8 +4823,8 @@ function dashboardExhaust() {
           plugins: [barValueLabels((v) => v + "%", 0, labelScale), barBevelInset(0)],
         });
       };
-      safe(() => kpiBigPct("dxbProductivity", b.dayLabels, b.productivity.actual, b.productivity.target, "#0EA5E9"), "productivity");
-      safe(() => kpiBigPct("dxbAvailability", b.dayLabels, b.availability.actual, b.availability.target, "#10B981", 0.8), "availability");
+      safe(() => kpiBigPct("dxbProductivity", b.dayLabels, b.productivity.actual, b.productivity.target, CALM.blue), "productivity");
+      safe(() => kpiBigPct("dxbAvailability", b.dayLabels, b.availability.actual, b.availability.target, CALM.sage, 0.8), "availability");
 
       // --- Downtime Exhaust (FY, 12 bulan Apr..Mar) -- gaya sama persis
       // seperti chart "Downtime Exhaust" di tab Tahunan, TAPI datanya
@@ -4830,7 +4841,7 @@ function dashboardExhaust() {
           data: {
             labels: labels,
             datasets: [
-              { order: 2, type: "bar", label: "Downtime (menit)", data: vals, backgroundColor: barBg(canvas, "#F97316", vals.length), borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
+              { order: 2, type: "bar", label: "Downtime (menit)", data: vals, backgroundColor: barBg(canvas, CALM.sand, vals.length), borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
             ],
           },
           options: { responsive: true, maintainAspectRatio: false, animation: noAnim, layout: { padding: { top: 20 } }, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
@@ -4847,7 +4858,7 @@ function dashboardExhaust() {
         destroy("dxbDowntimeHarian");
         const canvas = document.getElementById("dxbDowntimeHarian");
         if (!canvas) return;
-        const DT_COLOR = "#F97316";
+        const DT_COLOR = CALM.sandLine;
         const dtAreaLabels = {
           id: "dxbDowntimeHarianLabels",
           afterDatasetsDraw(chart) {
@@ -4917,9 +4928,9 @@ function dashboardExhaust() {
           plugins: [donutLeaderLabels((v) => fmtNum(v))],
         });
       };
-      safe(() => donut("dxbDowntimeSupporting", b.downtimeSupporting.labels, b.downtimeSupporting.act, (pic) => this.dxyPicColor(pic)), "downtimeSupporting");
+      safe(() => donut("dxbDowntimeSupporting", b.downtimeSupporting.labels, b.downtimeSupporting.act, (pic) => CALM_PIC[pic] || "#B8BEC7"), "downtimeSupporting");
       safe(() => {
-        const lineColors = ["#2563EB", "#10B981", "#F97316", "#8B5CF6", "#EF4444", "#14B8A6"];
+        const lineColors = [CALM.blue, CALM.sage, CALM.sand, CALM.lavender, CALM.rose, CALM.teal];
         // Line yang lagi dipilih (dxyLineFilterBulanan) di-highlight full
         // warna; line lain dipudarkan (alpha 40) -- sama pola dengan tab
         // Tahunan, tapi variabel filter-nya sengaja terpisah (KHUSUS
@@ -4947,10 +4958,10 @@ function dashboardExhaust() {
           // (dxyLineFilterBulanan != ALL), titik line itu di-highlight
           // pakai warna BEDA (oranye, bukan biru bawaan) + lebih besar,
           // titik line lain dipudarkan (alpha 40, tetap biru).
-          const HIGHLIGHT_COLOR = "#F97316";
+          const HIGHLIGHT_COLOR = CALM.accent;
           const isHighlighted = (lbl) => this.dxyLineFilterBulanan === "ALL" || lbl === this.dxyLineFilterBulanan;
           const isPicked = (lbl) => this.dxyLineFilterBulanan !== "ALL" && lbl === this.dxyLineFilterBulanan;
-          const pointColors = w.labels.map((lbl) => (isPicked(lbl) ? HIGHLIGHT_COLOR : (isHighlighted(lbl) ? "#2563EB" : "#2563EB40")));
+          const pointColors = w.labels.map((lbl) => (isPicked(lbl) ? HIGHLIGHT_COLOR : (isHighlighted(lbl) ? CALM.blueLine : CALM.blueLine + "40")));
           const pointRadii = w.labels.map((lbl) => (isPicked(lbl) ? 5 : 2.5));
           this.bulananCharts[canvasId] = new Chart(canvas, {
             type: "line",
@@ -4959,8 +4970,8 @@ function dashboardExhaust() {
               datasets: [{
                 data: values,
                 fill: true,
-                backgroundColor: grad(canvas, "#2563EB", 0.30, 0.02), // area transparan
-                borderColor: "#2563EB",
+                backgroundColor: grad(canvas, CALM.blueLine, 0.30, 0.02), // area transparan
+                borderColor: CALM.blueLine,
                 borderWidth: 1, // dikecilkan (sebelumnya 1.5)
                 tension: 0.45, // kurva lebih halus
                 pointRadius: pointRadii,
@@ -4976,7 +4987,7 @@ function dashboardExhaust() {
               plugins: { legend: legend(false), tooltip: tooltip() },
               scales: baseScales(),
             },
-            plugins: [glowPoints((i) => (isPicked(labels[i]) ? HIGHLIGHT_COLOR : (isHighlighted(labels[i]) ? "#2563EB" : null))), areaValueLabels((v) => fmtNum(v))],
+            plugins: [glowPoints((i) => (isPicked(labels[i]) ? HIGHLIGHT_COLOR : (isHighlighted(labels[i]) ? CALM.blueLine : null))), areaValueLabels((v) => fmtNum(v))],
           });
         }, "week" + (idx + 1));
       });
@@ -5563,7 +5574,7 @@ function dashboardExhaust() {
             const raw = dataset.data[i];
             if (raw === null || raw === undefined) return;
             const val = Number(raw);
-            if (Number.isNaN(val)) return;
+            if (Number.isNaN(val) || val === 0) return; // angka 0 (bulan/hari yg belum ada data) tidak dilabeli
             const { x, y, base } = bar.getProps(["x", "y", "base"], true);
             if (pos === "base") {
               // Label di DASAR batang (dekat garis sumbu-x), supaya tidak
@@ -5612,8 +5623,9 @@ function dashboardExhaust() {
             const raw = dataset.data[i];
             if (raw === null || raw === undefined) return;
             const val = Number(raw);
-            if (Number.isNaN(val)) return;
+            if (Number.isNaN(val) || val === 0) return; // angka 0 (bulan/hari yg belum ada data) tidak dilabeli
             const label = formatter(val);
+            if (label === "0" || label === "0%" || label === "") return;
             const { x, y } = point.getProps(["x", "y"], true);
             // Zig-zag: baris genap sedikit lebih dekat titik, baris ganjil
             // digeser lebih tinggi -- supaya 2 label bersebelahan tidak
