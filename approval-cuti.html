@@ -203,15 +203,19 @@
 
   <!-- Error state -->
   <div id="error-state" class="error-wrap" style="display:none">
-    <div class="err-icon">⚠️</div>
+    <div class="err-icon" id="error-icon">⚠️</div>
     <div id="error-msg" class="result-title">Terjadi kesalahan</div>
     <div id="error-sub" class="err-msg"></div>
+    <div id="error-actions" class="btn-row" style="display:none">
+      <button class="btn btn-approve" id="btn-login" onclick="keLogin()">Login sebagai atasan</button>
+    </div>
   </div>
 
   <!-- Main content -->
   <div id="main-content" style="display:none">
     <div class="title">Permohonan <span id="lbl-jenis"></span></div>
     <div class="subtitle">Silakan tinjau dan berikan keputusan Anda</div>
+    <div class="subtitle" id="lbl-login-as" style="margin-top:-16px"></div>
 
     <div class="info-row">
       <span class="info-label">Nama Karyawan</span>
@@ -229,6 +233,10 @@
       <span class="info-label">Jumlah Hari</span>
       <span class="info-value" id="lbl-hari">—</span>
     </div>
+    <div class="info-row" id="row-jenis-cuti" style="display:none">
+      <span class="info-label">Jenis Cuti</span>
+      <span class="info-value" id="lbl-jenis-cuti">—</span>
+    </div>
     <div class="info-row">
       <span class="info-label">Alasan</span>
       <span class="info-value" id="lbl-alasan" style="font-weight:400;font-style:italic;color:var(--sub)">—</span>
@@ -244,7 +252,7 @@
       <div class="result-box">
         <div class="result-icon" id="processed-icon">✅</div>
         <div class="result-title" id="processed-title">Sudah Disetujui</div>
-        <div class="result-sub" id="processed-sub"></div>
+        <div class="result-sub" id="processed-sub" style="white-space:pre-line"></div>
       </div>
     </div>
 
@@ -281,6 +289,7 @@
         Kirim notifikasi ke pengaju
       </div>
       <div class="wa-notif-text" id="wa-text"></div>
+      <div class="err-msg" id="wa-note" style="display:none;margin-bottom:10px"></div>
       <button class="btn-wa" id="btn-wa-send" onclick="sendWA()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12.004 0C5.373 0 0 5.373 0 12.004c0 2.117.554 4.102 1.524 5.831L.054 23.5l5.818-1.528A11.95 11.95 0 0012.004 24C18.627 24 24 18.627 24 12.004 24 5.373 18.627 0 12.004 0zm0 21.818a9.81 9.81 0 01-5.001-1.366l-.359-.213-3.723.977.993-3.63-.234-.374A9.817 9.817 0 012.18 12.004c0-5.422 4.411-9.832 9.824-9.832 5.414 0 9.823 4.41 9.823 9.832 0 5.422-4.409 9.814-9.823 9.814z"/></svg>
         Kirim via WhatsApp
@@ -294,25 +303,27 @@ const SUPABASE_URL = "https://ugrbunhudqhycgjlkwha.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_6TV-ESdlX9EQ5HdrEFPIyg_as3XTP_c";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-let reqData = null;     // data leave_request
-let pengajuData = null; // data profiles pengaju (untuk WA)
+// Halaman login aplikasi. Setelah login, user dikembalikan ke halaman ini
+// lewat parameter ?redirect=. SESUAIKAN kalau nama halaman login berbeda.
+const LOGIN_PAGE = "/index.html";
+
+let reqData = null;   // detail pengajuan dari get_approval_cuti()
 
 // --- Ambil token dari URL ---
 const urlParams = new URLSearchParams(window.location.search);
 const TOKEN = urlParams.get('token');
 
 // --- Format tanggal ---
+// Tanggal (YYYY-MM-DD) SELALU dibaca sebagai tengah malam waktu lokal
+// dengan menambahkan 'T00:00:00'. Tanpa itu, new Date('2026-09-25')
+// dibaca sebagai UTC dan bisa bergeser 1 hari tergantung zona waktu.
+function parseTgl(d) {
+  return new Date(String(d).slice(0, 10) + 'T00:00:00');
+}
 function fmtDate(d) {
   if (!d) return '—';
-  const dt = new Date(d + 'T00:00:00');
-  return dt.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+  return parseTgl(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
 }
-
-function hitungHari(mulai, selesai) {
-  const a = new Date(mulai), b = new Date(selesai);
-  return Math.round((b - a) / 86400000) + 1;
-}
-
 function fmtDatetime(ts) {
   if (!ts) return '—';
   return new Date(ts).toLocaleString('id-ID', {
@@ -320,17 +331,32 @@ function fmtDatetime(ts) {
     hour: '2-digit', minute: '2-digit'
   });
 }
+function rentangTgl(mulai, selesai, sep) {
+  return (!selesai || mulai === selesai) ? fmtDate(mulai) : fmtDate(mulai) + sep + fmtDate(selesai);
+}
 
 function jenisClass(jenis) {
   const map = { Izin: 'badge-izin', Sakit: 'badge-sakit', Cuti: 'badge-cuti', Alfa: 'badge-alfa' };
   return map[jenis] || '';
 }
 
-function showError(msg, sub = '') {
+function showError(msg, sub = '', opts = {}) {
   document.getElementById('loading-state').style.display = 'none';
+  document.getElementById('main-content').style.display = 'none';
   document.getElementById('error-state').style.display = '';
+  document.getElementById('error-icon').textContent = opts.icon || '⚠️';
   document.getElementById('error-msg').textContent = msg;
   document.getElementById('error-sub').textContent = sub;
+  const act = document.getElementById('error-actions');
+  act.style.display = opts.tombolLogin ? '' : 'none';
+  if (opts.tombolLogin) document.getElementById('btn-login').textContent = opts.tombolLogin;
+}
+
+// Ke halaman login, lalu kembali ke link approval ini setelah login.
+// Kalau sedang login dengan akun lain, keluar dulu.
+async function keLogin() {
+  try { await sb.auth.signOut(); } catch (e) {}
+  window.location.href = LOGIN_PAGE + '?redirect=' + encodeURIComponent(window.location.href);
 }
 
 // --- Load data ---
@@ -340,78 +366,82 @@ async function init() {
     return;
   }
 
-  // Ambil data leave_request (tanpa join — RLS profiles butuh auth)
-  const { data, error } = await sb
-    .from('leave_requests')
-    .select('*')
-    .eq('token', TOKEN)
-    .maybeSingle();
+  // 1. Wajib login. Sesi dibagi dengan aplikasi utama (domain & project
+  //    Supabase yang sama), jadi atasan yang sudah login tidak perlu login lagi.
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) {
+    showError('Silakan login dulu',
+      'Demi keamanan, persetujuan cuti hanya bisa dilakukan oleh atasan yang dituju setelah login.',
+      { icon: '🔒', tombolLogin: 'Login sebagai atasan' });
+    return;
+  }
 
-  if (error || !data) {
-    showError('Token tidak ditemukan.', 'Link ini mungkin sudah kadaluarsa atau tidak valid.');
+  // 2. Ambil detail lewat RPC. Server memastikan yang login = atasan_id
+  //    pengajuan ini; selain itu data tidak dikirim sama sekali.
+  const { data, error } = await sb.rpc('get_approval_cuti', { p_token: TOKEN });
+  if (error) {
+    showError('Gagal memuat pengajuan.', error.message);
+    return;
+  }
+  if (!data?.ok) {
+    if (data?.alasan === 'bukan_atasan') {
+      showError('Bukan untuk akun ini', (data.pesan || '') + ' Anda login sebagai ' + (session.user.email || 'akun lain') + '.',
+        { icon: '🔒', tombolLogin: 'Login dengan akun lain' });
+    } else if (data?.alasan === 'belum_login') {
+      showError('Silakan login dulu', data.pesan, { icon: '🔒', tombolLogin: 'Login sebagai atasan' });
+    } else {
+      showError('Pengajuan tidak ditemukan.', data?.pesan || 'Link ini mungkin tidak valid atau pengajuan sudah dibatalkan.');
+    }
     return;
   }
 
   reqData = data;
+  tampilkan(data, session);
+}
 
-  // Ambil data pengaju dari profiles (pakai rpc atau langsung — anon butuh policy)
-  // Coba ambil; kalau gagal (RLS) tetap lanjut tanpa WA notification
-  try {
-    const { data: profil } = await sb
-      .from('profiles')
-      .select('full_name, no_wa')
-      .eq('id', data.user_id)
-      .maybeSingle();
-    pengajuData = profil || null;
-  } catch(e) { pengajuData = null; }
-
-  // Fallback: gunakan nama dari kolom karyawan jika ada (atau kosong)
-  if (!pengajuData) pengajuData = { full_name: data.nama_pengaju || null, no_wa: null };
-
-  // Isi UI
+function tampilkan(data, session) {
   document.getElementById('loading-state').style.display = 'none';
   document.getElementById('main-content').style.display = '';
+
+  document.getElementById('lbl-login-as').textContent = 'Login sebagai ' + (session.user.email || '');
 
   const jBadge = document.getElementById('lbl-jenis-badge');
   jBadge.textContent = data.jenis;
   jBadge.className = 'badge ' + jenisClass(data.jenis);
 
   document.getElementById('lbl-jenis').textContent = data.jenis;
-  document.getElementById('lbl-nama').textContent = pengajuData?.full_name || data.nama_pengaju || '—';
+  document.getElementById('lbl-nama').textContent = (data.nama || '—') + (data.nik ? ' (NIK ' + data.nik + ')' : '');
   document.getElementById('lbl-alasan').textContent = data.alasan || '(tidak ada alasan)';
   document.getElementById('lbl-created').textContent = fmtDatetime(data.created_at);
-
-  const tglMulai = fmtDate(data.tanggal_mulai);
-  const tglSelesai = fmtDate(data.tanggal_selesai);
-  const hari = hitungHari(data.tanggal_mulai, data.tanggal_selesai);
-
-  document.getElementById('lbl-tanggal').textContent =
-    data.tanggal_mulai === data.tanggal_selesai
-      ? tglMulai
-      : tglMulai + ' – ' + tglSelesai;
-
-  document.getElementById('lbl-hari').textContent = hari + ' hari';
+  document.getElementById('lbl-tanggal').textContent = rentangTgl(data.tanggal_mulai, data.tanggal_selesai, ' – ');
+  // Jumlah hari dari server (hitung_hari_cuti) -- rumusnya sama dengan form:
+  // Minggu & tanggal merah tidak dihitung, Sabtu hanya kalau Ganti Hari cocok shift.
+  document.getElementById('lbl-hari').textContent = (data.jumlah_hari ?? 0) + ' hari kerja';
+  if (data.jenis_cuti) {
+    document.getElementById('row-jenis-cuti').style.display = '';
+    document.getElementById('lbl-jenis-cuti').textContent =
+      data.jenis_cuti + (data.jenis_cuti === 'Cuti Tahunan' ? ' (memotong jatah)' : ' (tidak memotong jatah)');
+  }
 
   // Jika sudah diproses
   if (data.status !== 'Menunggu') {
     document.getElementById('action-area').style.display = 'none';
-    const box = document.getElementById('already-processed');
-    box.style.display = '';
-    if (data.status === 'Disetujui') {
-      document.getElementById('processed-icon').textContent = '✅';
-      document.getElementById('processed-title').textContent = 'Sudah Disetujui';
-    } else {
-      document.getElementById('processed-icon').textContent = '❌';
-      document.getElementById('processed-title').textContent = 'Sudah Ditolak';
-    }
+    document.getElementById('already-processed').style.display = '';
+    const ok = data.status === 'Disetujui';
+    document.getElementById('processed-icon').textContent  = ok ? '✅' : '❌';
+    document.getElementById('processed-title').textContent = ok ? 'Sudah Disetujui' : 'Sudah Ditolak';
     document.getElementById('processed-sub').textContent =
-      'Diproses pada ' + fmtDatetime(data.approved_at);
+      'Diproses pada ' + fmtDatetime(data.approved_at) +
+      (data.catatan_atasan ? '\nCatatan: ' + data.catatan_atasan : '');
   }
 }
 
 // --- Proses approve / tolak ---
 async function prosesAction(action) {
   const catatan = document.getElementById('catatan-input').value.trim();
+  const isApprove = action === 'approve';
+  if (!confirm((isApprove ? 'Setujui' : 'Tolak') + ' pengajuan ini?')) return;
+
   const btnApprove = document.getElementById('btn-approve');
   const btnTolak   = document.getElementById('btn-tolak');
   btnApprove.disabled = true;
@@ -432,42 +462,41 @@ async function prosesAction(action) {
 
   // Tampilkan hasil
   document.getElementById('main-content').style.display = 'none';
-  const rs = document.getElementById('result-state');
-  rs.style.display = '';
-
-  const isApprove = action === 'approve';
+  document.getElementById('result-state').style.display = '';
   document.getElementById('result-icon').textContent  = isApprove ? '✅' : '❌';
   document.getElementById('result-title').textContent = isApprove ? 'Pengajuan Disetujui' : 'Pengajuan Ditolak';
   document.getElementById('result-sub').textContent   = data.pesan;
 
-  // Siapkan pesan WA balik ke pengaju
-  if (pengajuData?.no_wa) {
-    const nama    = pengajuData.full_name || 'Karyawan';
-    const jenis   = reqData.jenis;
-    const tglStr  = reqData.tanggal_mulai === reqData.tanggal_selesai
-      ? fmtDate(reqData.tanggal_mulai)
-      : fmtDate(reqData.tanggal_mulai) + ' s/d ' + fmtDate(reqData.tanggal_selesai);
-    const catatanAtasan = catatan ? '\n📝 Catatan: ' + catatan : '';
-    const statusEmoji = isApprove ? '✅' : '❌';
-    const statusTeks  = isApprove ? 'DISETUJUI' : 'DITOLAK';
+  // Notifikasi WA ke pengaju -- untuk DISETUJUI maupun DITOLAK
+  const nama   = reqData.nama || 'Karyawan';
+  const jenis  = reqData.jenis;
+  const hari   = data.jumlah_hari ?? reqData.jumlah_hari ?? 0;
+  const pesanWA =
+    `${isApprove ? '✅' : '❌'} *Pemberitahuan ${jenis}*\n\n` +
+    `Halo ${nama},\n\n` +
+    `Permohonan ${jenis} Anda untuk tanggal *${rentangTgl(reqData.tanggal_mulai, reqData.tanggal_selesai, ' s/d ')}* (${hari} hari) telah *${isApprove ? 'DISETUJUI' : 'DITOLAK'}*.` +
+    (isApprove ? '\nCuti sudah tercatat dan memotong jatah sesuai jenisnya.' : '\nJatah cuti Anda tidak terpotong.') +
+    (catatan ? '\n📝 Catatan: ' + catatan : '') + '\n\n' +
+    '_(Pesan otomatis dari Sistem Cuti)_';
 
-    const pesanWA =
-      `${statusEmoji} *Pemberitahuan ${jenis}*\n\n` +
-      `Halo ${nama},\n\n` +
-      `Permohonan ${jenis} Anda untuk tanggal *${tglStr}* telah *${statusTeks}*.` +
-      catatanAtasan + '\n\n' +
-      '_(Pesan otomatis dari Sistem Cuti)_';
-
-    document.getElementById('wa-text').textContent = pesanWA;
-    document.getElementById('wa-box').style.display = '';
-    document.getElementById('btn-wa-send').dataset.noWa = pengajuData.no_wa;
-    document.getElementById('btn-wa-send').dataset.pesan = pesanWA;
+  document.getElementById('wa-text').textContent = pesanWA;
+  document.getElementById('wa-box').style.display = '';
+  const btn = document.getElementById('btn-wa-send');
+  if (reqData.no_wa_pengaju) {
+    btn.dataset.noWa  = reqData.no_wa_pengaju;
+    btn.dataset.pesan = pesanWA;
+  } else {
+    btn.style.display = 'none';
+    const note = document.getElementById('wa-note');
+    note.textContent = '⚠️ Nomor WA ' + nama + ' belum diisi di profil. Salin pesan di atas dan kirim manual.';
+    note.style.display = '';
   }
 }
 
 function sendWA() {
   const btn = document.getElementById('btn-wa-send');
-  let noWa = btn.dataset.noWa.replace(/\D/g, '');
+  let noWa = (btn.dataset.noWa || '').replace(/\D/g, '');
+  if (!noWa) return;
   if (noWa.startsWith('0')) noWa = '62' + noWa.slice(1);
   const pesan = encodeURIComponent(btn.dataset.pesan);
   window.open('https://wa.me/' + noWa + '?text=' + pesan, '_blank');
