@@ -340,14 +340,10 @@ async function init() {
     return;
   }
 
-  // Ambil data leave_request + profil pengaju sekaligus
+  // Ambil data leave_request (tanpa join — RLS profiles butuh auth)
   const { data, error } = await sb
     .from('leave_requests')
-    .select(`
-      *,
-      pengaju:user_id ( full_name, no_wa ),
-      atasan:atasan_id ( full_name )
-    `)
+    .select('*')
     .eq('token', TOKEN)
     .maybeSingle();
 
@@ -357,7 +353,20 @@ async function init() {
   }
 
   reqData = data;
-  pengajuData = data.pengaju;
+
+  // Ambil data pengaju dari profiles (pakai rpc atau langsung — anon butuh policy)
+  // Coba ambil; kalau gagal (RLS) tetap lanjut tanpa WA notification
+  try {
+    const { data: profil } = await sb
+      .from('profiles')
+      .select('full_name, no_wa')
+      .eq('id', data.user_id)
+      .maybeSingle();
+    pengajuData = profil || null;
+  } catch(e) { pengajuData = null; }
+
+  // Fallback: gunakan nama dari kolom karyawan jika ada (atau kosong)
+  if (!pengajuData) pengajuData = { full_name: data.nama_pengaju || null, no_wa: null };
 
   // Isi UI
   document.getElementById('loading-state').style.display = 'none';
@@ -368,7 +377,7 @@ async function init() {
   jBadge.className = 'badge ' + jenisClass(data.jenis);
 
   document.getElementById('lbl-jenis').textContent = data.jenis;
-  document.getElementById('lbl-nama').textContent = data.pengaju?.full_name || '—';
+  document.getElementById('lbl-nama').textContent = pengajuData?.full_name || data.nama_pengaju || '—';
   document.getElementById('lbl-alasan').textContent = data.alasan || '(tidak ada alasan)';
   document.getElementById('lbl-created').textContent = fmtDatetime(data.created_at);
 
@@ -458,7 +467,8 @@ async function prosesAction(action) {
 
 function sendWA() {
   const btn = document.getElementById('btn-wa-send');
-  const noWa = btn.dataset.noWa.replace(/\D/g, '');
+  let noWa = btn.dataset.noWa.replace(/\D/g, '');
+  if (noWa.startsWith('0')) noWa = '62' + noWa.slice(1);
   const pesan = encodeURIComponent(btn.dataset.pesan);
   window.open('https://wa.me/' + noWa + '?text=' + pesan, '_blank');
 }
