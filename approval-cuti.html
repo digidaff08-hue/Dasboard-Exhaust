@@ -303,9 +303,9 @@ const SUPABASE_URL = "https://ugrbunhudqhycgjlkwha.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_6TV-ESdlX9EQ5HdrEFPIyg_as3XTP_c";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Halaman login aplikasi. Setelah login, user dikembalikan ke halaman ini
-// lewat parameter ?redirect=. SESUAIKAN kalau nama halaman login berbeda.
-const LOGIN_PAGE = "/index.html";
+// Halaman login aplikasi. Setelah login, login.html mengembalikan user ke
+// halaman ini lewat parameter ?redirect=.
+const LOGIN_PAGE = "/login.html";
 
 let reqData = null;   // detail pengajuan dari get_approval_cuti()
 
@@ -356,6 +356,7 @@ function showError(msg, sub = '', opts = {}) {
 // Kalau sedang login dengan akun lain, keluar dulu.
 async function keLogin() {
   try { await sb.auth.signOut(); } catch (e) {}
+  // login.html membaca ?redirect= dan kembali ke link ini setelah login.
   window.location.href = LOGIN_PAGE + '?redirect=' + encodeURIComponent(window.location.href);
 }
 
