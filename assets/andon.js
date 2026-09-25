@@ -301,6 +301,7 @@ function andonBoard() {
     get aktifTampil() { return this.aktif.filter((c) => this.cocokFilter(c)); },
     get riwayatTampil() { return this.riwayat.filter((c) => this.cocokFilter(c)); },
     get jumlahMemanggil() { return this.aktifTampil.filter((c) => c.status === "memanggil").length; },
+    get jumlahDitangani() { return this.aktifTampil.filter((c) => c.status === "ditangani").length; },
 
     toggleTim(kode) {
       const i = this.filterTim.indexOf(kode);

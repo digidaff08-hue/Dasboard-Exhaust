@@ -30,7 +30,6 @@
     <div class="mobile-topbar-top">
       <button class="hamburger" @click="mobileNavOpen = true"><svg class="sb-svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
       <span class="mobile-title">ANDON</span>
-      <span class="andon-jam" style="font-size:15px;" x-text="new Date(now).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'})"></span>
     </div>
   </div>
   <div class="sidebar-overlay" x-show="mobileNavOpen" @click="mobileNavOpen = false" x-cloak></div>
@@ -56,32 +55,46 @@
     <button class="sidebar-logout-collapsed" x-show="sidebarCollapsed" @click="logout()" title="Keluar"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M13 3h-2v10h2V3zm4.83 2.17-1.42 1.42A6.92 6.92 0 0 1 19 12a7 7 0 1 1-11.42-5.42L6.17 5.17A8.93 8.93 0 0 0 3 12a9 9 0 0 0 18 0c0-2.74-1.23-5.18-3.17-6.83z"/></svg></button>
   </aside>
 
-  <main class="main">
-    <div class="andon-top">
-      <h1 class="page-title" style="margin:0;"><span class="eyebrow">Panggilan Supporting</span>Andon</h1>
-      <span class="andon-jam" x-text="new Date(now).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'})"></span>
-    </div>
+  <main class="main ab">
+    <!-- ===== Header ===== -->
+    <section class="ab-hero">
+      <div class="ab-hero-top">
+        <div>
+          <p class="ab-eyebrow"><span class="ab-live"></span> LIVE · Panggilan Supporting</p>
+          <h1 class="ab-title">Andon Board</h1>
+          <p class="ab-date" x-text="new Date(now).toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'})"></p>
+        </div>
+        <div class="ab-hero-right">
+          <span class="ab-clock" x-text="new Date(now).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'})"></span>
+          <button type="button" class="ab-sound" :class="suaraAktif ? 'on' : ''" @click="aktifkanPeringatan()"
+                  :title="suaraAktif ? 'Bunyi aktif — ketuk untuk tes' : 'Aktifkan bunyi & notifikasi'">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true" x-show="suaraAktif"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05A4.47 4.47 0 0 0 16.5 12zM14 3.23v2.06a7 7 0 0 1 0 13.42v2.06A9 9 0 0 0 14 3.23z"/></svg>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true" x-show="!suaraAktif"><path d="M16.5 12A4.5 4.5 0 0 0 14 7.97v2.21l2.45 2.45c.03-.2.05-.41.05-.63zM19 12c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.8 8.8 0 0 0 21 12a9 9 0 0 0-7-8.77v2.06A7 7 0 0 1 19 12zM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a9 9 0 0 0 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4 9.91 6.09 12 8.18V4z"/></svg>
+            <span x-text="suaraAktif ? 'Bunyi aktif' : 'Aktifkan bunyi'"></span>
+          </button>
+        </div>
+      </div>
+      <div class="ab-stats">
+        <div class="ab-stat merah" :class="jumlahMemanggil ? 'nyala' : ''"><b x-text="jumlahMemanggil"></b><span>Memanggil</span></div>
+        <div class="ab-stat kuning"><b x-text="jumlahDitangani"></b><span>Ditangani</span></div>
+        <div class="ab-stat hijau"><b x-text="ringkasan.selesai"></b><span>Selesai hari ini</span></div>
+      </div>
+    </section>
 
     <template x-if="pesan"><div :class="pesanError ? 'error-msg' : 'success-msg'" x-text="pesan"></div></template>
+    <template x-if="!suaraAktif">
+      <button type="button" class="ab-hint" @click="aktifkanPeringatan()">
+        🔕 Bunyi belum aktif — <b>ketuk di sini</b> supaya HP berbunyi saat ada panggilan.
+      </button>
+    </template>
 
-    <!-- Bunyi & notifikasi butuh 1x ketukan (aturan browser) -->
-    <div class="andon-peringatan" :class="suaraAktif ? 'ok' : ''">
-      <template x-if="!suaraAktif">
-        <span style="flex:1;">🔕 Bunyi belum aktif. Ketuk tombol ini supaya halaman berbunyi saat ada panggilan baru.</span>
-      </template>
-      <template x-if="suaraAktif">
-        <span style="flex:1;">🔔 Bunyi aktif<span x-show="notifIzin === 'granted'"> · notifikasi aktif</span><span x-show="notifIzin === 'denied'"> · notifikasi diblokir browser</span>. Biarkan halaman ini tetap terbuka.</span>
-      </template>
-      <button type="button" class="btn-sm" :class="suaraAktif ? 'btn-secondary' : 'btn-primary'" @click="aktifkanPeringatan()"
-              x-text="suaraAktif ? 'Tes bunyi' : 'Aktifkan bunyi & notifikasi'"></button>
-    </div>
-
-    <!-- Filter tim (tersimpan di HP ini) -->
-    <div class="andon-filter">
-      <button type="button" class="andon-chip" :class="!filterTim.length ? 'on' : ''" @click="semuaTim()">Semua tim</button>
+    <!-- ===== Filter tim ===== -->
+    <div class="ab-filter">
+      <button type="button" class="ab-chip" :class="!filterTim.length ? 'on' : ''" @click="semuaTim()">Semua</button>
       <template x-for="t in TIM" :key="t.kode">
-        <button type="button" class="andon-chip" :style="'--c:' + t.warna" :class="filterTim.includes(t.kode) ? 'on' : ''"
-                @click="toggleTim(t.kode)" x-text="t.kode"></button>
+        <button type="button" class="ab-chip" :style="'--c:' + t.warna" :class="filterTim.includes(t.kode) ? 'on' : ''" @click="toggleTim(t.kode)">
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" x-html="t.ikon"></svg><span x-text="t.kode"></span>
+        </button>
       </template>
     </div>
 
@@ -89,66 +102,90 @@
 
     <template x-if="!loading">
       <div>
+        <!-- ===== Panggilan aktif ===== -->
+        <div class="ab-sec-head">
+          <h2>Panggilan aktif</h2>
+          <span class="ab-count" x-text="aktifTampil.length"></span>
+        </div>
+
         <template x-if="!aktifTampil.length">
-          <div class="andon-kosong">✅ Tidak ada panggilan aktif<span x-show="filterTim.length" x-text="' untuk ' + filterTim.join(', ')"></span>.</div>
+          <div class="ab-empty">
+            <div class="ab-empty-ic">
+              <svg viewBox="0 0 24 24" width="34" height="34" fill="currentColor" aria-hidden="true"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+            </div>
+            <b>Semua aman</b>
+            <span>Tidak ada panggilan aktif<span x-show="filterTim.length" x-text="' untuk ' + filterTim.join(', ')"></span>.</span>
+            <small><span class="ab-live hijau"></span> Menunggu panggilan…</small>
+          </div>
         </template>
 
-        <div class="andon-grid" x-show="aktifTampil.length">
+        <div class="ab-grid" x-show="aktifTampil.length">
           <template x-for="c in aktifTampil" :key="c.id">
-            <div class="andon-card" :class="[c.status, telat(c) ? 'telat' : '']">
-              <div class="andon-card-head">
-                <span class="andon-card-mesin" x-text="c.mesin"></span>
-                <span class="andon-card-tim" x-text="c.tim"></span>
+            <article class="ab-card" :class="[c.status, telat(c) ? 'telat' : '']" :style="'--c:' + info(c.tim).warna">
+              <header class="ab-card-head">
+                <div>
+                  <span class="ab-card-mesin" x-text="c.mesin"></span>
+                  <span class="ab-card-state" x-text="c.status === 'memanggil' ? (telat(c) ? '⚠ Belum direspons' : 'Memanggil') : 'Ditangani'"></span>
+                </div>
+                <span class="ab-card-tim"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" x-html="info(c.tim).ikon"></svg><span x-text="c.tim"></span></span>
+              </header>
+              <div class="ab-card-timer">
+                <span x-text="c.status === 'memanggil' ? lama(c) : lamaDitangani(c)"></span>
+                <small x-text="c.status === 'memanggil' ? 'menunggu' : 'ditangani'"></small>
               </div>
-              <span class="andon-card-status" x-text="c.status === 'memanggil' ? (telat(c) ? '⚠ Belum direspons' : '● Memanggil') : '● Ditangani ' + (c.ditangani_nama || '')"></span>
-              <span class="andon-card-timer" x-text="c.status === 'memanggil' ? lama(c) : lamaDitangani(c)"></span>
-              <template x-if="c.keterangan"><span class="andon-card-ket" x-text="c.keterangan"></span></template>
-              <span class="andon-card-meta" x-text="'Dipanggil ' + jam(c.dipanggil_at) + ' oleh ' + (c.dipanggil_nama || '-') + (c.ditangani_at ? ' · respons ' + menit(responsMs(c)) : '')"></span>
-              <div class="andon-card-act" x-show="bolehAksi">
+              <p class="ab-card-ket" x-show="c.keterangan" x-text="c.keterangan"></p>
+              <ul class="ab-card-meta">
+                <li><span>Pemanggil</span><b x-text="(c.dipanggil_nama || '-') + ' · ' + jam(c.dipanggil_at)"></b></li>
+                <li x-show="c.ditangani_at"><span>Ditangani</span><b x-text="(c.ditangani_nama || '-') + ' · respons ' + menit(responsMs(c))"></b></li>
+              </ul>
+              <div class="ab-card-act" x-show="bolehAksi">
                 <template x-if="c.status === 'memanggil'">
-                  <button type="button" @click="aksi(c, 'ambil')">🏃 Saya menuju ke sana</button>
+                  <button type="button" class="ab-btn go" @click="aksi(c, 'ambil')">Saya menuju ke sana</button>
                 </template>
                 <template x-if="c.status === 'ditangani'">
-                  <button type="button" @click="aksi(c, 'selesai')">✔ Selesai</button>
+                  <button type="button" class="ab-btn done" @click="aksi(c, 'selesai')">✔ Selesai</button>
                 </template>
                 <template x-if="c.status === 'memanggil'">
-                  <button type="button" class="kecil" title="Langsung selesai" @click="aksi(c, 'selesai')">✔</button>
+                  <button type="button" class="ab-btn ghost" title="Langsung selesai" @click="aksi(c, 'selesai')">✔</button>
                 </template>
               </div>
-            </div>
+            </article>
           </template>
         </div>
 
-        <!-- Riwayat hari ini -->
-        <div class="panel">
-          <p class="panel-title">Riwayat hari ini</p>
-          <div class="andon-kpi">
-            <div><b x-text="ringkasan.total"></b><span>Total panggilan</span></div>
-            <div><b x-text="ringkasan.selesai"></b><span>Selesai</span></div>
-            <div><b x-text="menit(ringkasan.respons)"></b><span>Rata-rata waktu respons</span></div>
-            <div><b x-text="menit(ringkasan.perbaikan)"></b><span>Rata-rata waktu perbaikan</span></div>
-          </div>
-          <div class="table-wrap" style="overflow-x:auto;">
-            <table>
-              <thead><tr><th>Jam</th><th>Mesin</th><th>Tim</th><th>Masalah</th><th>Respons</th><th>Perbaikan</th><th>Ditangani</th><th>Catatan</th><th>Status</th></tr></thead>
-              <tbody>
-                <template x-if="!riwayatTampil.length"><tr><td colspan="9" style="text-align:center;color:var(--muted);">Belum ada panggilan yang selesai hari ini.</td></tr></template>
-                <template x-for="c in riwayatTampil" :key="c.id">
-                  <tr>
-                    <td class="mono" x-text="jam(c.dipanggil_at)"></td>
-                    <td><b x-text="c.mesin"></b></td>
-                    <td><span class="andon-badge" :style="'background:' + info(c.tim).warna + '1a;color:' + info(c.tim).warna" x-text="c.tim"></span></td>
-                    <td x-text="c.keterangan || '-'"></td>
-                    <td class="mono" x-text="c.status === 'selesai' ? menit(responsMs(c)) : '-'"></td>
-                    <td class="mono" x-text="c.status === 'selesai' ? menit(perbaikanMs(c)) : '-'"></td>
-                    <td x-text="c.ditangani_nama || '-'"></td>
-                    <td x-text="c.catatan || '-'"></td>
-                    <td><span class="andon-badge" :class="c.status" x-text="c.status === 'selesai' ? 'Selesai' : 'Batal'"></span></td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
-          </div>
+        <!-- ===== Ringkasan & riwayat hari ini ===== -->
+        <div class="ab-sec-head" style="margin-top:26px;">
+          <h2>Hari ini</h2>
+        </div>
+        <div class="ab-kpi">
+          <div><span>Total panggilan</span><b x-text="ringkasan.total"></b></div>
+          <div><span>Selesai</span><b x-text="ringkasan.selesai"></b></div>
+          <div><span>Rata-rata respons</span><b x-text="menit(ringkasan.respons)"></b></div>
+          <div><span>Rata-rata perbaikan</span><b x-text="menit(ringkasan.perbaikan)"></b></div>
+        </div>
+
+        <div class="ab-hist">
+          <template x-if="!riwayatTampil.length">
+            <div class="ab-hist-empty">Belum ada panggilan yang selesai hari ini.</div>
+          </template>
+          <template x-for="c in riwayatTampil" :key="c.id">
+            <div class="ab-hist-row" :style="'--c:' + info(c.tim).warna">
+              <div class="ab-hist-ic"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" x-html="info(c.tim).ikon"></svg></div>
+              <div class="ab-hist-main">
+                <div class="ab-hist-line1">
+                  <b x-text="c.mesin"></b><span class="ab-hist-tim" x-text="c.tim"></span>
+                  <span class="ab-hist-status" :class="c.status" x-text="c.status === 'selesai' ? 'Selesai' : 'Batal'"></span>
+                </div>
+                <div class="ab-hist-line2" x-text="(c.keterangan || 'Tanpa keterangan') + (c.catatan ? ' → ' + c.catatan : '')"></div>
+                <div class="ab-hist-line3">
+                  <span x-text="jam(c.dipanggil_at)"></span>
+                  <template x-if="c.status === 'selesai'"><span x-text="'Respons ' + menit(responsMs(c))"></span></template>
+                  <template x-if="c.status === 'selesai'"><span x-text="'Perbaikan ' + menit(perbaikanMs(c))"></span></template>
+                  <span x-show="c.ditangani_nama" x-text="c.ditangani_nama"></span>
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
     </template>

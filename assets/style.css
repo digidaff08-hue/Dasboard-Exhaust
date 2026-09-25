@@ -3070,3 +3070,131 @@ table.plan-shift-table td.balance-bad { color: var(--red); font-weight: 700; }
 @media (prefers-reduced-motion: reduce) {
   .andon-terkirim, .andon-terkirim *, .andon-modal-error { animation: none !important; stroke-dashoffset: 0 !important; }
 }
+
+/* =========================================================
+   ANDON BOARD v2 (andon.html) -- tampilan profesional
+   ========================================================= */
+.main.ab { font-family: 'Manrope', var(--font-body); max-width: 1280px; }
+@keyframes abLive { 0% { box-shadow: 0 0 0 0 rgba(74,222,128,.7); } 70% { box-shadow: 0 0 0 8px rgba(74,222,128,0); } 100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); } }
+@keyframes abNyala { 0%,100% { background: rgba(239,68,68,.22); } 50% { background: rgba(239,68,68,.45); } }
+.ab-live { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #4ade80; animation: abLive 1.8s infinite; vertical-align: middle; }
+
+.ab-hero {
+  background: radial-gradient(circle at 90% 0, rgba(99,102,241,.45) 0, transparent 55%), linear-gradient(135deg, #1e1b4b 0%, #312e81 55%, #3a2fb8 100%);
+  color: #fff; border-radius: 18px; padding: 20px 22px 18px; margin-bottom: 14px;
+  box-shadow: 0 10px 30px rgba(30,27,75,.25);
+}
+.ab-hero-top { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; }
+.ab-eyebrow { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #c7d2fe; }
+.ab-title { margin: 4px 0 2px; font-size: 26px; font-weight: 800; letter-spacing: -.01em; color: #fff; }
+.ab-date { margin: 0; font-size: 12.5px; color: #c7d2fe; }
+.ab-hero-right { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+.ab-clock { font-family: var(--font-mono); font-size: 26px; font-weight: 700; letter-spacing: .02em; }
+.ab-sound {
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.1); color: #fff; font: inherit; font-size: 12px; font-weight: 700;
+}
+.ab-sound.on { background: rgba(74,222,128,.18); border-color: rgba(74,222,128,.5); color: #bbf7d0; }
+.ab-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 18px; }
+.ab-stat { border-radius: 12px; padding: 10px 12px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12); }
+.ab-stat b { display: block; font-size: 26px; font-weight: 800; line-height: 1.1; }
+.ab-stat span { font-size: 11.5px; color: #c7d2fe; font-weight: 600; }
+.ab-stat.merah b { color: #fca5a5; } .ab-stat.kuning b { color: #fcd34d; } .ab-stat.hijau b { color: #86efac; }
+.ab-stat.merah.nyala { animation: abNyala 1.2s infinite; border-color: rgba(252,165,165,.6); }
+
+.ab-hint {
+  display: block; width: 100%; text-align: left; cursor: pointer; margin-bottom: 12px;
+  padding: 11px 14px; border-radius: 12px; border: 1px solid #fcd34d; background: #fffbeb; color: #78350f;
+  font: inherit; font-size: 13px;
+}
+.ab-filter { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 8px; margin-bottom: 8px; scrollbar-width: none; }
+.ab-filter::-webkit-scrollbar { display: none; }
+.ab-chip {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  padding: 8px 14px; border-radius: 999px; font: inherit; font-size: 13px; font-weight: 700;
+  border: 1px solid #e2e8f0; background: #fff; color: #475569; box-shadow: 0 1px 2px rgba(15,23,42,.05);
+}
+.ab-chip svg { fill: var(--c, #3a2fb8); }
+.ab-chip.on { background: var(--c, #3a2fb8); border-color: var(--c, #3a2fb8); color: #fff; }
+.ab-chip.on svg { fill: #fff; }
+
+.ab-sec-head { display: flex; align-items: center; gap: 8px; margin: 8px 0 12px; }
+.ab-sec-head h2 { margin: 0; font-size: 15px; font-weight: 800; color: #0f172a; letter-spacing: .01em; }
+.ab-count { min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; background: #e0e7ff; color: #3730a3; font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+
+.ab-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center;
+  padding: 30px 16px; border-radius: 16px; background: #fff; border: 1px solid #e2e8f0;
+}
+.ab-empty-ic { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #dcfce7; color: #16a34a; margin-bottom: 8px; box-shadow: 0 0 0 8px #f0fdf4; }
+.ab-empty b { font-size: 17px; color: #0f172a; }
+.ab-empty > span { font-size: 13px; color: #64748b; }
+.ab-empty small { margin-top: 10px; font-size: 12px; color: #16a34a; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+.ab-live.hijau { background: #22c55e; }
+
+.ab-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+.ab-card {
+  position: relative; overflow: hidden; border-radius: 16px; background: #fff; border: 1px solid #e2e8f0;
+  padding: 16px 16px 14px 20px; box-shadow: 0 6px 18px rgba(15,23,42,.06);
+}
+.ab-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: var(--st); }
+.ab-card.memanggil { --st: #dc2626; border-color: #fecaca; background: linear-gradient(180deg, #fff5f5, #fff 60%); animation: andonDenyut 1.8s infinite; }
+.ab-card.ditangani { --st: #f59e0b; border-color: #fde68a; background: linear-gradient(180deg, #fffbeb, #fff 60%); }
+.ab-card.telat { border-color: #dc2626; border-width: 2px; }
+.ab-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.ab-card-mesin { display: block; font-size: 30px; font-weight: 800; line-height: 1; color: #0f172a; letter-spacing: -.01em; }
+.ab-card-state { display: inline-block; margin-top: 6px; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--st); }
+.ab-card.memanggil .ab-card-state::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--st); margin-right: 6px; vertical-align: middle; animation: andonKedip 1s infinite; }
+.ab-card-tim { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 10px; font-size: 13px; font-weight: 800; color: var(--c); background: color-mix(in srgb, var(--c) 10%, #fff); border: 1px solid color-mix(in srgb, var(--c) 25%, #fff); }
+.ab-card-tim svg { fill: var(--c); }
+.ab-card-timer { display: flex; align-items: baseline; gap: 8px; margin: 12px 0 6px; }
+.ab-card-timer span { font-family: var(--font-mono); font-size: 34px; font-weight: 700; color: var(--st); letter-spacing: .01em; }
+.ab-card-timer small { font-size: 12px; color: #64748b; font-weight: 600; }
+.ab-card-ket { margin: 0 0 10px; padding: 9px 12px; border-radius: 10px; background: #f8fafc; border: 1px solid #eef2f7; font-size: 14px; color: #1e293b; font-weight: 600; }
+.ab-card-meta { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.ab-card-meta li { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; }
+.ab-card-meta span { color: #94a3b8; font-weight: 600; }
+.ab-card-meta b { color: #334155; font-weight: 700; text-align: right; }
+.ab-card-act { display: flex; gap: 8px; }
+.ab-btn { flex: 1; padding: 12px; border-radius: 11px; border: none; cursor: pointer; font: inherit; font-size: 14px; font-weight: 800; transition: transform .1s ease, filter .15s ease; }
+.ab-btn:active { transform: scale(.97); }
+.ab-btn.go { background: linear-gradient(135deg, #ef4444, #b91c1c); color: #fff; box-shadow: 0 6px 14px rgba(220,38,38,.3); }
+.ab-btn.done { background: linear-gradient(135deg, #22c55e, #15803d); color: #fff; box-shadow: 0 6px 14px rgba(22,163,74,.3); }
+.ab-btn.ghost { flex: 0 0 48px; background: #f1f5f9; color: #16a34a; }
+
+.ab-kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
+.ab-kpi div { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px 14px; }
+.ab-kpi span { display: block; font-size: 11.5px; color: #64748b; font-weight: 700; }
+.ab-kpi b { display: block; font-size: 22px; font-weight: 800; color: #0f172a; margin-top: 2px; }
+
+.ab-hist { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; }
+.ab-hist-empty { padding: 22px; text-align: center; color: #94a3b8; font-size: 13px; }
+.ab-hist-row { display: flex; gap: 12px; padding: 12px 14px; border-bottom: 1px solid #f1f5f9; }
+.ab-hist-row:last-child { border-bottom: none; }
+.ab-hist-ic { width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--c) 12%, #fff); }
+.ab-hist-ic svg { fill: var(--c); }
+.ab-hist-main { flex: 1; min-width: 0; }
+.ab-hist-line1 { display: flex; align-items: center; gap: 8px; }
+.ab-hist-line1 b { font-size: 15px; color: #0f172a; }
+.ab-hist-tim { font-size: 11.5px; font-weight: 800; color: var(--c); }
+.ab-hist-status { margin-left: auto; font-size: 11px; font-weight: 800; padding: 2px 9px; border-radius: 999px; }
+.ab-hist-status.selesai { background: #dcfce7; color: #166534; }
+.ab-hist-status.batal { background: #f1f5f9; color: #64748b; }
+.ab-hist-line2 { font-size: 13px; color: #334155; margin: 3px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ab-hist-line3 { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; color: #94a3b8; font-weight: 600; }
+
+@media (max-width: 800px) {
+  .ab-hero { border-radius: 16px; padding: 16px; }
+  .ab-title { font-size: 22px; }
+  .ab-clock { font-size: 20px; }
+  .ab-stat { padding: 8px 10px; }
+  .ab-stat b { font-size: 22px; }
+  .ab-stat span { font-size: 10.5px; }
+  .ab-kpi { grid-template-columns: repeat(2, 1fr); }
+  .ab-grid { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { .ab-live, .ab-stat.nyala, .ab-card.memanggil { animation: none !important; } }
+.ab-sound { white-space: nowrap; }
+@keyframes abDenyut { 0% { box-shadow: 0 6px 18px rgba(15,23,42,.06), 0 0 0 0 rgba(220,38,38,.35); } 70% { box-shadow: 0 6px 18px rgba(15,23,42,.06), 0 0 0 10px rgba(220,38,38,0); } 100% { box-shadow: 0 6px 18px rgba(15,23,42,.06), 0 0 0 0 rgba(220,38,38,0); } }
+.ab-card.memanggil { animation: abDenyut 1.8s infinite; }
+@media (max-width: 800px) { .ab-eyebrow { font-size: 10px; letter-spacing: .1em; } }
