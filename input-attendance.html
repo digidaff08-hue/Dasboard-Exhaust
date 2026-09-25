@@ -753,7 +753,7 @@ function attendancePage() {
           // Strip link approval dari pesan yang ditampilkan ke user (keamanan)
           const stripLink = (txt) => txt ? txt.replace(/\n\n👆[^\n]*\n?https?:\/\/[^\s]*/g, '').trim() : null;
           this.leaveWaPesan        = stripLink(s.pesan)        || null;
-          this.leaveWaPesanAtasan  = s.pesanAtasan  || s.pesan || null;
+          this.leaveWaPesanAtasan  = s.pesanAtasan              || null;
           this.leaveWaTarget       = s.target       || null;
           this.leaveWaJenis        = s.jenis        || null;
         }
@@ -1383,6 +1383,25 @@ function attendancePage() {
     },
   };
 }
+  // --- Diagnostik ---
+  async function checkStatusCutiAlasan() {
+    try {
+      const { data, error } = await supabaseClient
+        .from('leave_requests')
+        .select('alasan')
+        .like('alasan', '%Cuuuu%')
+        .limit(1)
+        .single();
+
+      if (error) throw error;
+      console.log('leave_requests.alasan bermasalah:', data);
+    } catch (e) {
+      console.error('Gagal:', e);
+    }
+  }
+
+  checkStatusCutiAlasan();
+  // --- End diagnostik ---
 </script>
 </body>
 </html>
