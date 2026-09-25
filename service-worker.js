@@ -5,7 +5,7 @@
 // ini cuma men-cache HTML/CSS/JS-nya, bukan data produksi.
 // =========================================================
 // Naikkan versi ini tiap ada perubahan besar supaya cache lama dibuang.
-const CACHE_NAME = "produksi-downtime-shell-v18-andon";
+const CACHE_NAME = "produksi-downtime-shell-v19-andon";
 
 const SHELL_FILES = [
   "/login.html",
@@ -75,5 +75,19 @@ self.addEventListener("fetch", (event) => {
       .catch(() =>
         caches.match(event.request).then((cached) => cached || Response.error())
       )
+  );
+});
+
+// Notifikasi Andon diketuk -> buka / fokuskan halaman Andon
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || "/andon.html";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      for (const c of list) {
+        if (c.url.includes("/andon") && "focus" in c) return c.focus();
+      }
+      return self.clients.openWindow ? self.clients.openWindow(url) : null;
+    })
   );
 });

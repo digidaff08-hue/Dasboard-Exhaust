@@ -3256,3 +3256,76 @@ table.plan-shift-table td.balance-bad { color: var(--red); font-weight: 700; }
   .asd-overlay > .panel.asd { width: 100vw; border-radius: 22px 22px 0 0; padding: 20px 16px calc(18px + env(safe-area-inset-bottom)); }
   .asd-stats b { font-size: 13px; }
 }
+
+/* =========================================================
+   ANDON: layar PANGGILAN MASUK (seperti telepon masuk)
+   ========================================================= */
+@keyframes apmMasuk { from { opacity: 0; transform: scale(1.04); } to { opacity: 1; transform: none; } }
+@keyframes apmGelombang { 0% { transform: scale(.6); opacity: .7; } 100% { transform: scale(1.9); opacity: 0; } }
+@keyframes apmGoyang { 0%,100% { transform: rotate(0); } 10%,30% { transform: rotate(-14deg); } 20%,40% { transform: rotate(14deg); } 50% { transform: rotate(0); } }
+@keyframes apmNaikTurun { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.apm {
+  position: fixed; inset: 0; z-index: 9800; display: flex; flex-direction: column; justify-content: space-between;
+  color: #fff; font-family: 'Manrope', var(--font-body); text-align: center; overflow: hidden;
+  padding: calc(28px + env(safe-area-inset-top)) 24px calc(34px + env(safe-area-inset-bottom));
+  animation: apmMasuk .3s ease-out;
+}
+.apm-bg { position: absolute; inset: 0; z-index: -1;
+  background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--c) 55%, #0f172a) 0, #0b1020 70%); }
+.apm-top { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.apm-label { margin: 0; font-size: 13px; font-weight: 800; letter-spacing: .2em; color: #fecaca; animation: andonKedip 1.2s infinite; }
+.apm-timer { font-family: var(--font-mono); font-size: 16px; color: rgba(255,255,255,.75); }
+.apm-mid { display: flex; flex-direction: column; align-items: center; }
+.apm-ring { position: relative; width: 150px; height: 150px; display: flex; align-items: center; justify-content: center; margin-bottom: 22px; }
+.apm-ring span { position: absolute; inset: 0; border-radius: 50%; border: 3px solid color-mix(in srgb, var(--c) 70%, #fff); animation: apmGelombang 2.1s ease-out infinite; }
+.apm-ring span:nth-child(2) { animation-delay: .7s; } .apm-ring span:nth-child(3) { animation-delay: 1.4s; }
+.apm-avatar { width: 116px; height: 116px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: #fff; box-shadow: 0 10px 40px color-mix(in srgb, var(--c) 60%, transparent); animation: apmGoyang 1.4s ease-in-out infinite; }
+.apm-avatar svg { fill: var(--c); }
+.apm-mesin { margin: 0; font-size: 56px; font-weight: 800; letter-spacing: -.01em; line-height: 1; }
+.apm-tim { margin: 8px 0 0; font-size: 20px; font-weight: 700; color: rgba(255,255,255,.9); }
+.apm-ket { margin: 16px 0 0; max-width: 420px; padding: 10px 16px; border-radius: 14px; background: rgba(255,255,255,.12); font-size: 16px; font-weight: 600; }
+.apm-oleh { margin: 10px 0 0; font-size: 13px; color: rgba(255,255,255,.65); }
+.apm-sound { margin-top: 16px; padding: 10px 16px !important; border-radius: 999px; border: 1px solid rgba(255,255,255,.4); background: rgba(255,255,255,.12); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.apm-act { display: flex; justify-content: space-around; align-items: flex-start; gap: 20px; max-width: 460px; width: 100%; margin: 0 auto; }
+.apm-btn-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: rgba(255,255,255,.85); }
+.apm-btn { width: 76px; height: 76px; padding: 0 !important; border-radius: 50%; border: none; cursor: pointer; color: #fff;
+  display: flex; align-items: center; justify-content: center; transition: transform .1s ease; }
+.apm-btn:active { transform: scale(.92); }
+.apm-btn.tolak { background: #ef4444; box-shadow: 0 10px 26px rgba(239,68,68,.45); }
+.apm-btn.terima { background: #22c55e; box-shadow: 0 10px 26px rgba(34,197,94,.5); animation: apmNaikTurun 1s ease-in-out infinite; }
+@media (min-width: 900px) { .apm-mesin { font-size: 88px; } .apm-ring { width: 190px; height: 190px; } .apm-avatar { width: 148px; height: 148px; } }
+
+/* ---------- Pengaturan suara (admin) ---------- */
+.ab-top-gear { margin-left: auto; margin-right: 6px; width: 38px; height: 38px; padding: 0 !important; border-radius: 10px; border: 1px solid #e2e8f0; background: #fff; color: #3a2fb8; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.aset-overlay { z-index: 9100; }
+.aset-overlay > .panel.aset { width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow-y: auto; padding: 22px; border-radius: 20px;
+  font-family: 'Manrope', var(--font-body); animation: andonNaik .3s cubic-bezier(.2,.9,.3,1.15); }
+.aset-ic { background: linear-gradient(135deg, #6366f1, #3a2fb8) !important; box-shadow: 0 8px 18px rgba(58,47,184,.3) !important; }
+.aset-label { margin: 14px 0 6px; font-size: 12.5px; font-weight: 800; color: #334155; }
+.aset-label b { color: #3a2fb8; }
+.aset-nada { display: grid; gap: 8px; }
+.aset-nada-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 12px; cursor: pointer;
+  border: 1.5px solid #e2e8f0; background: #fff; transition: border-color .15s, background .15s; }
+.aset-nada-item.on { border-color: #3a2fb8; background: #eef2ff; }
+.aset-nada-item b { display: block; font-size: 14px; color: #0f172a; }
+.aset-nada-item span { font-size: 12px; color: #64748b; }
+.aset-play { width: 36px; height: 36px; padding: 0 !important; border-radius: 50%; border: none; cursor: pointer; flex-shrink: 0; background: #3a2fb8; color: #fff; font-size: 13px; }
+.aset-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.aset-row select { width: 100%; padding: 10px; border-radius: 10px; border: 1.5px solid #cbd5e1; font: inherit; font-size: 14px; background: #fff; }
+.aset-range { width: 100%; accent-color: #3a2fb8; }
+.aset-toggle { display: flex; gap: 12px; align-items: flex-start; margin-top: 12px; cursor: pointer; }
+.aset-toggle input { display: none; }
+.aset-toggle > span { flex-shrink: 0; width: 44px; height: 26px; border-radius: 999px; background: #cbd5e1; position: relative; transition: background .2s; margin-top: 2px; }
+.aset-toggle > span::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+.aset-toggle input:checked + span { background: #22c55e; }
+.aset-toggle input:checked + span::after { transform: translateX(18px); }
+.aset-toggle b { display: block; font-size: 14px; color: #0f172a; }
+.aset-toggle small { font-size: 12px; color: #64748b; }
+.aset-save { background: linear-gradient(135deg, #6366f1, #3a2fb8) !important; box-shadow: 0 8px 18px rgba(58,47,184,.3) !important; }
+@media (max-width: 800px) {
+  .aset-overlay { padding: 0; align-items: flex-end; }
+  .aset-overlay > .panel.aset { width: 100vw; max-height: 92vh; border-radius: 22px 22px 0 0; padding: 20px 16px calc(18px + env(safe-area-inset-bottom)); }
+  .aset-row { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { .apm *, .apm { animation: none !important; } }

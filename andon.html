@@ -30,6 +30,9 @@
     <div class="mobile-topbar-top">
       <button class="hamburger" @click="mobileNavOpen = true"><svg class="sb-svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
       <span class="mobile-title">ANDON</span>
+      <button type="button" class="ab-top-gear" x-show="isAdmin()" @click="bukaSetting()" title="Pengaturan suara">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.47.47 0 0 0-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87a.47.47 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.48.48 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg>
+      </button>
     </div>
   </div>
   <div class="sidebar-overlay" x-show="mobileNavOpen" @click="mobileNavOpen = false" x-cloak></div>
@@ -67,6 +70,10 @@
         <div class="ab-hero-right">
           <span class="ab-clock" x-text="new Date(now).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'})"></span>
           <div class="ab-hero-btns">
+          <button type="button" class="ab-full" x-show="isAdmin()" @click="bukaSetting()" title="Pengaturan suara (admin)">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.47.47 0 0 0-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87a.47.47 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.48.48 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg>
+            <span>Pengaturan</span>
+          </button>
           <button type="button" class="ab-full" @click="layarPenuh()" :title="fullscreen ? 'Keluar layar penuh' : 'Layar penuh (mode TV)'">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true" x-show="!fullscreen"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true" x-show="fullscreen"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>
@@ -200,6 +207,103 @@
       </div>
     </template>
 
+
+    <!-- ===== Layar PANGGILAN MASUK (seperti telepon masuk) ===== -->
+    <template x-if="panggilanMasuk">
+      <div class="apm" :style="'--c:' + info(panggilanMasuk.tim).warna">
+        <div class="apm-bg"></div>
+        <div class="apm-top">
+          <p class="apm-label">📞 PANGGILAN MASUK</p>
+          <span class="apm-timer" x-text="lama(panggilanMasuk)"></span>
+        </div>
+        <div class="apm-mid">
+          <div class="apm-ring">
+            <span></span><span></span><span></span>
+            <div class="apm-avatar"><svg viewBox="0 0 24 24" width="54" height="54" aria-hidden="true" x-html="info(panggilanMasuk.tim).ikon"></svg></div>
+          </div>
+          <h2 class="apm-mesin" x-text="panggilanMasuk.mesin"></h2>
+          <p class="apm-tim" x-text="'memanggil ' + panggilanMasuk.tim"></p>
+          <p class="apm-ket" x-show="panggilanMasuk.keterangan" x-text="panggilanMasuk.keterangan"></p>
+          <p class="apm-oleh" x-text="'oleh ' + (panggilanMasuk.dipanggil_nama || '-') + ' · ' + jam(panggilanMasuk.dipanggil_at)"></p>
+          <template x-if="!suaraAktif">
+            <button type="button" class="apm-sound" @click="bunyikanMasuk()">🔕 Ketuk untuk membunyikan</button>
+          </template>
+        </div>
+        <div class="apm-act">
+          <div class="apm-btn-wrap">
+            <button type="button" class="apm-btn tolak" @click="tutupPanggilanMasuk()" aria-label="Tutup">
+              <svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden="true"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            </button>
+            <span>Tutup</span>
+          </div>
+          <div class="apm-btn-wrap" x-show="bolehAksi">
+            <button type="button" class="apm-btn terima" @click="terimaPanggilan()" aria-label="Terima">
+              <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor" aria-hidden="true"><path d="M20 15.5c-1.25 0-2.45-.2-3.57-.57a1 1 0 0 0-1.02.24l-2.2 2.2a15.07 15.07 0 0 1-6.59-6.59l2.2-2.2a1 1 0 0 0 .25-1.01A11.36 11.36 0 0 1 8.5 4a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1 17 17 0 0 0 17 17 1 1 0 0 0 1-1v-3.5a1 1 0 0 0-1-1z"/></svg>
+            </button>
+            <span>Terima · saya ke sana</span>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ===== Pengaturan suara (khusus admin) ===== -->
+    <div class="modal-overlay aset-overlay" x-show="settingDlg.open" x-cloak @click.self="tutupSetting()">
+      <div class="panel aset">
+        <template x-if="settingDlg.form">
+          <div>
+            <div class="asd-head">
+              <div class="asd-ic aset-ic"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05A4.47 4.47 0 0 0 16.5 12zM14 3.23v2.06a7 7 0 0 1 0 13.42v2.06A9 9 0 0 0 14 3.23z"/></svg></div>
+              <div><h3>Pengaturan suara Andon</h3><p>Berlaku di semua HP &amp; TV yang membuka halaman Andon.</p></div>
+            </div>
+            <template x-if="!settingAda">
+              <div class="andon-modal-error">Tabel pengaturan belum dibuat. Jalankan <b>migration_andon_setting.sql</b> di Supabase dulu.</div>
+            </template>
+
+            <p class="aset-label">Nada dering</p>
+            <div class="aset-nada">
+              <template x-for="n in NADA" :key="n.kode">
+                <div class="aset-nada-item" :class="settingDlg.form.nada === n.kode ? 'on' : ''" @click="settingDlg.form.nada = n.kode">
+                  <div><b x-text="n.label"></b><span x-text="n.ket"></span></div>
+                  <button type="button" class="aset-play" @click.stop="settingDlg.form.nada = n.kode; tesNada(n.kode)" title="Dengarkan">▶</button>
+                </div>
+              </template>
+            </div>
+
+            <div class="aset-row">
+              <div>
+                <p class="aset-label">Lama berdering</p>
+                <select x-model.number="settingDlg.form.durasi">
+                  <option value="10">10 detik</option><option value="30">30 detik</option>
+                  <option value="60">1 menit</option><option value="120">2 menit</option>
+                  <option value="0">Sampai ada yang merespons</option>
+                </select>
+              </div>
+              <div>
+                <p class="aset-label">Ulangi kalau belum direspons</p>
+                <select x-model.number="settingDlg.form.ulang">
+                  <option value="0">Tidak diulang</option><option value="30">Tiap 30 detik</option>
+                  <option value="60">Tiap 1 menit</option><option value="120">Tiap 2 menit</option><option value="300">Tiap 5 menit</option>
+                </select>
+              </div>
+            </div>
+
+            <p class="aset-label">Volume <b x-text="settingDlg.form.volume + '%'"></b></p>
+            <input type="range" min="10" max="100" step="5" class="aset-range" x-model.number="settingDlg.form.volume" @change="tesNada(settingDlg.form.nada)">
+
+            <label class="aset-toggle"><input type="checkbox" x-model="settingDlg.form.layar_panggilan"><span></span>
+              <div><b>Layar panggilan masuk</b><small>Tampil penuh seperti telepon masuk, dengan tombol Terima.</small></div></label>
+            <label class="aset-toggle"><input type="checkbox" x-model="settingDlg.form.getar"><span></span>
+              <div><b>Getar</b><small>HP bergetar selama berdering (Android).</small></div></label>
+
+            <template x-if="settingDlg.error"><div class="andon-modal-error" x-text="settingDlg.error"></div></template>
+            <div class="asd-act">
+              <button type="button" class="asd-btn batal" @click="tutupSetting()">Batal</button>
+              <button type="button" class="asd-btn ok aset-save" @click="simpanSetting()" :disabled="settingDlg.saving" x-text="settingDlg.saving ? 'Menyimpan...' : 'Simpan pengaturan'"></button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
     <!-- ===== Dialog Selesaikan perbaikan ===== -->
     <div class="modal-overlay asd-overlay" x-show="selesaiDlg.open" x-cloak @click.self="tutupSelesai()" @keydown.escape.window="tutupSelesai()">
       <div class="panel asd" :class="selesaiDlg.open ? 'asd-open' : ''" :style="selesaiDlg.c ? '--c:' + info(selesaiDlg.c.tim).warna : ''">
