@@ -1556,6 +1556,39 @@ function masterDataPage() {
       await this.fetchShift2Periodes();
       await this.fetchScrapRows();
       await this.fetchSafetyRows();
+      this.initRealtimeCuti();
+    },
+
+    // ================= REALTIME TAB CUTI =================
+    // Begitu ada cuti yang disetujui atasan, diedit, atau dihapus
+    // (tabel attendance_leave berubah), Rekap Cuti dan angka Terpakai/Sisa
+    // di Jatah Cuti ikut segar sendiri tanpa reload. Hanya tab yang SUDAH
+    // pernah dibuka yang disegarkan, supaya tidak menembak query sia-sia.
+    _rtCutiChannel: null,
+    _rtCutiTimers: {},
+    _rtCutiDebounce(key, fn, delayMs = 500) {
+      clearTimeout(this._rtCutiTimers[key]);
+      this._rtCutiTimers[key] = setTimeout(fn, delayMs);
+    },
+    initRealtimeCuti() {
+      if (this._rtCutiChannel) return;   // sudah jalan, jangan dobel subscribe
+      this._rtCutiChannel = supabaseClient.channel("rt_master_cuti")
+        .on("postgres_changes", { event: "*", schema: "public", table: "attendance_leave" }, () => {
+          this._rtCutiDebounce("leave", () => {
+            if (this.rkLoaded) this.fetchRekap({ diam: true });
+            if (this.ctLoaded) this.refreshTerpakaiCuti();
+          });
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "cuti_jatah" }, () => {
+          this._rtCutiDebounce("jatah", () => {
+            // Jangan menimpa angka jatah yang sedang diketik admin
+            if (this.ctLoaded && !this.ctSaving && !this.ctAdaPerubahan()) this.fetchCuti({ diam: true });
+          }, 700);
+        })
+        .subscribe();
+      window.addEventListener("beforeunload", () => {
+        if (this._rtCutiChannel) supabaseClient.removeChannel(this._rtCutiChannel);
+      });
     },
     // ---- Total Orang (Bulanan) ----
     // Ditampilkan sebagai "Riwayat Total Orang" -- hanya baris yang
@@ -2576,8 +2609,10 @@ function masterDataPage() {
       // Objek per-NIK diganti utuh supaya Alpine ikut merender ulang barisnya
       this.ctJatahEdit[nik] = { ...(this.ctJatahEdit[nik] || {}), [tahun]: val };
     },
-    async fetchCuti() {
-      this.ctLoading = true;
+    // opts.diam = true -> disegarkan diam-diam (realtime), tanpa tulisan
+    // "Memuat..." yang membuat tabel berkedip.
+    async fetchCuti(opts = {}) {
+      if (!opts.diam) this.ctLoading = true;
       this.ctError = "";
       try {
         const tahunList = this.CT_PERIODE.map((p) => p.key);
@@ -2622,15 +2657,41 @@ function masterDataPage() {
         this.ctJatahAwal = awal;
         this.ctJatahEdit = edit;
 
-        const pakai = {};
-        (cutiRes.data || []).forEach((r) => {
-          if (r.jenis_cuti !== "Cuti Tahunan") return;   // hanya ini yang memotong jatah
-          pakai[r.nik] = (pakai[r.nik] || 0) + Number(r.jumlah_hari ?? 1);
-        });
-        this.ctTerpakai = pakai;
+        this.ctTerpakai = this.hitungTerpakaiCuti(cutiRes.data);
       } finally {
         this.ctLoading = false;
       }
+    },
+    // { nik: total hari } -- hanya Cuti Tahunan yang memotong jatah
+    hitungTerpakaiCuti(rows) {
+      const pakai = {};
+      (rows || []).forEach((r) => {
+        if (r.jenis_cuti !== "Cuti Tahunan") return;
+        pakai[r.nik] = (pakai[r.nik] || 0) + Number(r.jumlah_hari ?? 1);
+      });
+      return pakai;
+    },
+    // Segarkan HANYA angka Terpakai/Sisa (dipanggil realtime). Kolom jatah
+    // tidak disentuh, jadi angka yang sedang diketik admin tidak hilang.
+    async refreshTerpakaiCuti() {
+      const tahunList = this.CT_PERIODE.map((p) => p.key);
+      const mulai = tahunList[0] + "-04-01";
+      const akhir = (tahunList[tahunList.length - 1] + 1) + "-03-31";
+      const { data, error } = await supabaseClient.from("attendance_leave")
+        .select("nik,jenis_cuti,jumlah_hari,tanggal")
+        .eq("jenis", "cuti").gte("tanggal", mulai).lte("tanggal", akhir);
+      if (!error) this.ctTerpakai = this.hitungTerpakaiCuti(data);
+    },
+    // Ada angka jatah yang sudah diketik tapi belum disimpan?
+    ctAdaPerubahan() {
+      for (const nik of Object.keys(this.ctJatahEdit || {})) {
+        for (const p of this.CT_PERIODE) {
+          const isi = String((this.ctJatahEdit[nik] || {})[p.key] ?? "").trim();
+          const lama = (this.ctJatahAwal[nik] || {})[p.key];
+          if (isi === "" ? lama !== undefined : Number(isi) !== Number(lama)) return true;
+        }
+      }
+      return false;
     },
     cutiRows() {
       const cari = (this.ctCari || "").trim().toLowerCase();
@@ -2712,8 +2773,9 @@ function masterDataPage() {
     rkPenginput(r) {
       return this.rkProfiles[r.created_by] || "-";
     },
-    async fetchRekap() {
-      this.rkLoading = true;
+    // opts.diam = true -> disegarkan diam-diam (realtime), tabel tidak berkedip
+    async fetchRekap(opts = {}) {
+      if (!opts.diam) this.rkLoading = true;
       this.rkError = "";
       try {
         const th = Number(this.rkTahun);
