@@ -3038,3 +3038,35 @@ table.plan-shift-table td.balance-bad { color: var(--red); font-weight: 700; }
   .andon-tim-ic { width: 32px; height: 32px; margin-bottom: 6px; }
 }
 .andon-tim.sibuk { border-top-style: solid; }
+
+/* ---------- Error di dalam popup & layar "Terkirim!" ---------- */
+.andon-modal { position: relative; }
+.andon-modal-error {
+  margin-top: 12px; padding: 10px 12px; border-radius: 10px;
+  background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b;
+  font-size: 13.5px; font-weight: 600;
+  animation: andonGeleng .35s ease;
+}
+@keyframes andonGeleng { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+
+.andon-terkirim {
+  position: absolute; inset: 0; z-index: 5; border-radius: inherit;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  text-align: center; padding: 24px; cursor: pointer;
+  background: radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--c) 14%, #fff) 0, #fff 62%);
+  animation: andonLatarMasuk .2s ease-out;
+}
+.andon-terkirim b { font-size: 22px; color: #0f172a; margin-top: 8px; animation: andonMuncul .35s ease-out .45s both; }
+.andon-terkirim-tim {
+  font-size: 30px; font-weight: 800; color: var(--c); letter-spacing: .03em;
+  animation: andonMuncul .35s ease-out .55s both;
+}
+.andon-terkirim span:not(.andon-terkirim-tim) { font-size: 15px; color: #475569; animation: andonMuncul .35s ease-out .6s both; }
+.andon-terkirim small { font-size: 12px; color: #94a3b8; margin-top: 10px; animation: andonMuncul .35s ease-out .7s both; }
+.andon-centang { width: 96px; height: 96px; }
+.andon-centang-o { stroke: #16a34a; stroke-width: 3; stroke-dasharray: 151; stroke-dashoffset: 151; animation: andonGaris .45s ease-out forwards; }
+.andon-centang-v { stroke: #16a34a; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 40; stroke-dashoffset: 40; animation: andonGaris .3s ease-out .4s forwards; }
+@keyframes andonGaris { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .andon-terkirim, .andon-terkirim *, .andon-modal-error { animation: none !important; stroke-dashoffset: 0 !important; }
+}

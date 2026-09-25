@@ -288,15 +288,28 @@
         <span>Panggil Supporting</span>
       </button>
 
-      <div class="modal-overlay andon-overlay" x-show="modalOpen" @click.self="modalOpen = false">
+      <div class="modal-overlay andon-overlay" x-show="modalOpen" @click.self="tutupModal()">
         <div class="panel andon-modal">
+          <!-- Layar "Terkirim!" setelah panggilan berhasil -->
+          <template x-if="terkirimTim">
+            <div class="andon-terkirim" :style="'--c:' + info(terkirimTim).warna" @click="tutupModal()">
+              <svg class="andon-centang" viewBox="0 0 52 52" aria-hidden="true">
+                <circle class="andon-centang-o" cx="26" cy="26" r="24" fill="none"/>
+                <path class="andon-centang-v" fill="none" d="M14 27l8 8 16-17"/>
+              </svg>
+              <b>Panggilan terkirim!</b>
+              <span class="andon-terkirim-tim" x-text="terkirimTim"></span>
+              <span x-text="'sedang dipanggil ke ' + mesin"></span>
+              <small>Status panggilan tampil di atas halaman ini.</small>
+            </div>
+          </template>
           <p class="panel-title andon-modal-title"><span class="andon-lonceng">🔔</span><span x-text="'Panggil Supporting — ' + mesin"></span></p>
           <p class="hint andon-sub">Pilih tim yang dibutuhkan.</p>
           <div class="andon-tim-grid">
             <template x-for="(t, i) in TIM" :key="t.kode">
               <button type="button" class="andon-tim" :style="'--c:' + t.warna + ';--i:' + i"
                       :class="[form.tim === t.kode ? 'on' : '', timSedangAktif(t.kode) ? 'sibuk' : '']"
-                      :disabled="timSedangAktif(t.kode)" @click="form.tim = t.kode">
+                      :disabled="timSedangAktif(t.kode)" @click="form.tim = t.kode; modalError = ''">
                 <svg class="andon-tim-ic" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" x-html="t.ikon"></svg><b x-text="t.kode"></b><span x-show="timSedangAktif(t.kode)">sudah dipanggil</span>
               </button>
             </template>
@@ -305,8 +318,9 @@
             <label>Ketik problem di sini</label>
             <textarea x-model="form.keterangan" maxlength="200" rows="3"></textarea>
           </div>
+          <template x-if="modalError"><div class="andon-modal-error" x-text="modalError"></div></template>
           <div class="andon-modal-act">
-            <button type="button" class="btn-secondary" @click="modalOpen = false">Batal</button>
+            <button type="button" class="btn-secondary" @click="tutupModal()">Batal</button>
             <button type="button" class="andon-btn-call" :class="form.tim ? 'siap' : ''" :disabled="sending || !form.tim" @click="panggil()"
                     x-text="sending ? 'Memanggil...' : (form.tim ? 'Panggil ' + form.tim : 'Pilih tim dulu')"></button>
           </div>

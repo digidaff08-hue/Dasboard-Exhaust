@@ -83,6 +83,17 @@ const AndonSuara = {
   },
 };
 
+// Terjemahkan error Supabase jadi kalimat yang bisa dipahami operator
+function andonPesanError(error, tim) {
+  const m = String(error?.message || error || "");
+  if (m.includes("andon_call_aktif_uq")) return "Tim " + tim + " sudah dipanggil dan belum selesai.";
+  if (/andon_call/.test(m) && /(does not exist|schema cache|not find)/i.test(m))
+    return "Fitur Andon belum aktif di database. Admin perlu menjalankan migration_andon.sql di Supabase.";
+  if (/row-level security|permission denied/i.test(m)) return "Akun ini tidak diizinkan memanggil supporting.";
+  if (/Failed to fetch|NetworkError|network/i.test(m)) return "Tidak ada koneksi internet. Coba lagi.";
+  return "Gagal memanggil: " + m;
+}
+
 async function andonAksi(id, aksi, catatan) {
   const { data, error } = await supabaseClient.rpc("andon_aksi", {
     p_id: id, p_aksi: aksi, p_catatan: catatan || null,
@@ -109,6 +120,8 @@ function andonWidget(mesin) {
     TIM: ANDON_TIM,
     calls: [],            // panggilan aktif mesin ini (memanggil / ditangani)
     modalOpen: false,
+    modalError: "",
+    terkirimTim: "",      // terisi = layar "Terkirim!" sedang tampil
     form: { tim: "", keterangan: "" },
     sending: false,
     pesan: "", pesanError: false,
@@ -146,26 +159,41 @@ function andonWidget(mesin) {
 
     bukaModal() {
       this.form = { tim: "", keterangan: "" };
-      this.pesan = "";
+      this.pesan = ""; this.modalError = ""; this.terkirimTim = "";
       this.modalOpen = true;
     },
 
     async panggil() {
-      if (!this.form.tim) { this.flash("Pilih dulu tim yang dipanggil.", true); return; }
-      if (this.timSedangAktif(this.form.tim)) { this.flash("Tim " + this.form.tim + " sudah dipanggil dan belum selesai.", true); return; }
+      this.modalError = "";
+      if (!this.form.tim) { this.modalError = "Pilih dulu tim yang dipanggil."; return; }
+      if (this.timSedangAktif(this.form.tim)) { this.modalError = "Tim " + this.form.tim + " sudah dipanggil dan belum selesai."; return; }
       this.sending = true;
-      const { error } = await supabaseClient.from("andon_call").insert({
-        mesin: this.mesin, tim: this.form.tim, keterangan: this.form.keterangan || null,
-      });
+      let error;
+      try {
+        ({ error } = await supabaseClient.from("andon_call").insert({
+          mesin: this.mesin, tim: this.form.tim, keterangan: this.form.keterangan || null,
+        }));
+      } catch (e) {
+        error = { message: e?.message || String(e) };
+      }
       this.sending = false;
       if (error) {
-        const dobel = String(error.message || "").includes("andon_call_aktif_uq");
-        this.flash(dobel ? "Tim " + this.form.tim + " sudah dipanggil dan belum selesai." : "Gagal memanggil: " + error.message, true);
+        // Pesan error ditampilkan DI DALAM popup (dulu muncul di belakang
+        // popup sehingga tidak terlihat).
+        this.modalError = andonPesanError(error, this.form.tim);
         return;
       }
-      this.modalOpen = false;
-      this.flash("Panggilan ke " + this.form.tim + " terkirim. Tunggu sampai ada yang merespons.");
+      // Berhasil -> layar "Terkirim!" sebentar, lalu popup menutup sendiri
+      this.terkirimTim = this.form.tim;
+      if (navigator.vibrate) { try { navigator.vibrate(120); } catch (e) {} }
       await this.muat();
+      clearTimeout(this._tutup);
+      this._tutup = setTimeout(() => { this.modalOpen = false; this.terkirimTim = ""; }, 2200);
+    },
+
+    tutupModal() {
+      clearTimeout(this._tutup);
+      this.modalOpen = false; this.terkirimTim = ""; this.modalError = "";
     },
 
     async aksi(c, jenis) {
