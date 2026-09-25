@@ -591,29 +591,37 @@
               <p class="panel-title">Status Pengajuan Cuti Saya <span class="count" x-text="statusCutiRows.length + ' baris'"></span></p>
               <p class="hint" style="margin-bottom:14px;">Daftar cuti yang kamu ajukan dan status persetujuannya.</p>
               <template x-if="statusCutiLoading"><p class="empty-state">Memuat data...</p></template>
-              <template x-if="!statusCutiLoading">
-                <div class="table-wrap la-table-wrap">
-                  <table class="la-stack">
-                    <thead><tr><th>Jenis</th><th>Tanggal</th><th>Hari</th><th>Alasan</th><th>Status</th><th>Catatan Atasan</th><th>Diajukan</th></tr></thead>
-                    <tbody>
-                      <template x-for="r in statusCutiRows" :key="r.id">
-                        <tr>
-                          <td data-label="Jenis"><span class="la-badge" :style="'--c: var(--' + ajukanJenisWarna(r.jenis) + ')'" x-text="r.jenis"></span></td>
-                          <td data-label="Tanggal" class="mono" x-text="ajukanFmtTgl(r.tanggal_mulai, r.tanggal_selesai)"></td>
-                          <td data-label="Hari" class="mono" x-text="ajukanHari(r.tanggal_mulai, r.tanggal_selesai) + ' hari'"></td>
-                          <td data-label="Alasan" x-text="r.alasan || '-'"></td>
-                          <td data-label="Status">
-                            <span class="la-badge" :style="'--c: var(--' + ajukanStatusWarna(r.status) + ')'" x-text="r.status"></span>
-                          </td>
-                          <td data-label="Catatan Atasan" x-text="r.catatan_atasan || '-'"></td>
-                          <td data-label="Diajukan" class="mono" x-text="fmtTgl(r.created_at?.slice(0,10))"></td>
-                        </tr>
-                      </template>
-                      <tr x-show="statusCutiRows.length === 0 && !statusCutiLoading">
-                        <td colspan="7" class="empty-state">Belum ada pengajuan cuti.</td>
-                      </tr>
-                    </tbody>
-                  </table>
+              <template x-if="!statusCutiLoading && statusCutiRows.length === 0">
+                <p class="empty-state">Belum ada pengajuan cuti.</p>
+              </template>
+              <template x-if="!statusCutiLoading && statusCutiRows.length > 0">
+                <div>
+                  <template x-for="r in statusCutiRows" :key="r.id">
+                    <div style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;background:var(--panel-2);">
+                      <!-- Baris atas: badge jenis + badge status -->
+                      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
+                        <span class="la-badge" :style="'--c: var(--' + ajukanJenisWarna(r.jenis) + ')'" x-text="r.jenis"></span>
+                        <span class="la-badge" :style="'--c: var(--' + ajukanStatusWarna(r.status) + ')'" x-text="r.status"></span>
+                      </div>
+                      <!-- Detail rows -->
+                      <div style="font-size:13px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;">
+                        <span style="color:var(--muted);">Tanggal</span>
+                        <span class="mono" x-text="ajukanFmtTgl(r.tanggal_mulai, r.tanggal_selesai)"></span>
+                        <span style="color:var(--muted);">Hari</span>
+                        <span class="mono" x-text="ajukanHari(r.tanggal_mulai, r.tanggal_selesai) + ' hari'"></span>
+                        <span style="color:var(--muted);">Alasan</span>
+                        <span x-text="r.alasan || '-'"></span>
+                        <template x-if="r.catatan_atasan">
+                          <span style="color:var(--muted);">Catatan</span>
+                        </template>
+                        <template x-if="r.catatan_atasan">
+                          <span x-text="r.catatan_atasan"></span>
+                        </template>
+                        <span style="color:var(--muted);">Diajukan</span>
+                        <span class="mono" x-text="fmtTgl(r.created_at?.slice(0,10))"></span>
+                      </div>
+                    </div>
+                  </template>
                 </div>
               </template>
             </div>
@@ -713,7 +721,8 @@ function attendancePage() {
     // PADA MINGGU tanggal cuti itu.
     shift2Periodes: [],   // { tanggal_mulai, tanggal_selesai, nikSet:Set }
     // WA notification setelah simpan — persisten via localStorage
-    leaveWaPesan: null,
+    leaveWaPesan: null,        // pesan yang ditampilkan ke user (cuti: tanpa link)
+    leaveWaPesanAtasan: null,  // pesan yang dikirim ke atasan (cuti: dengan link)
     leaveWaTarget: null,
     leaveWaJenis: null,   // 'cuti' / 'izin' / 'sakit' — untuk label kotak
     // Info atasan (cached, dipakai untuk WA notification)
@@ -735,9 +744,10 @@ function attendancePage() {
         const saved = localStorage.getItem('leaveWaState_' + this.session?.user?.id);
         if (saved) {
           const s = JSON.parse(saved);
-          this.leaveWaPesan  = s.pesan  || null;
-          this.leaveWaTarget = s.target || null;
-          this.leaveWaJenis  = s.jenis  || null;
+          this.leaveWaPesan        = s.pesan        || null;
+          this.leaveWaPesanAtasan  = s.pesanAtasan  || s.pesan || null;
+          this.leaveWaTarget       = s.target       || null;
+          this.leaveWaJenis        = s.jenis        || null;
         }
       } catch(e) {}
       // NIK & Nama otomatis dari profil yang login
@@ -1069,9 +1079,10 @@ function attendancePage() {
       // atau saat user menekan "Batal Edit".
     },
     clearLeaveWA() {
-      this.leaveWaPesan = null;
-      this.leaveWaTarget = null;
-      this.leaveWaJenis  = null;
+      this.leaveWaPesan       = null;
+      this.leaveWaPesanAtasan = null;
+      this.leaveWaTarget      = null;
+      this.leaveWaJenis       = null;
       try { localStorage.removeItem('leaveWaState_' + this.session?.user?.id); } catch(e) {}
     },
     editLeave(r) {
@@ -1087,8 +1098,9 @@ function attendancePage() {
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
     async saveLeave() {
-      this.leaveWaPesan = null;
-      this.leaveWaTarget = null;
+      this.leaveWaPesan       = null;
+      this.leaveWaPesanAtasan = null;
+      this.leaveWaTarget      = null;
       const f = this.leaveForm;
       const nik = (f.nik || "").trim();
       const nama = (f.nama || "").trim();
@@ -1163,8 +1175,15 @@ function attendancePage() {
 
       let pesan = '';
 
+      const pesanDasar =
+        '📋 *Pemberitahuan ' + (jenis === 'cuti' ? 'Cuti' : jenisLabel) + '*\n\n' +
+        'Nama: *' + namaKu + '* (NIK ' + nik + ')\n' +
+        'Tanggal: *' + tglStr + '* (' + hari + ' hari)' +
+        (jenis === 'cuti' && f.jenis_cuti ? '\nJenis: ' + f.jenis_cuti : '') +
+        alasanTeks;
+
       if (jenis === 'cuti') {
-        // Untuk CUTI: insert ke leave_requests supaya bisa di-approve, dan sertakan link
+        // Untuk CUTI: insert ke leave_requests, buat link untuk atasan saja
         let approvalLink = '';
         try {
           let atasanId2 = this.atasanInfo?.id || null;
@@ -1185,21 +1204,14 @@ function attendancePage() {
           }
         } catch(e) { /* leave_requests belum ada -- tetap buat pesan tanpa link */ }
 
-        pesan =
-          '📋 *Pemberitahuan Cuti*\n\n' +
-          'Nama: *' + namaKu + '* (NIK ' + nik + ')\n' +
-          'Tanggal: *' + tglStr + '* (' + hari + ' hari)' +
-          (f.jenis_cuti ? '\nJenis: ' + f.jenis_cuti : '') +
-          alasanTeks +
-          approvalLink;
+        // Pesan untuk USER (ditampilkan di kotak) — TANPA link
+        pesan = pesanDasar;
+        // Pesan untuk ATASAN (dikirim via WA) — DENGAN link
+        this.leaveWaPesanAtasan = pesanDasar + approvalLink;
       } else {
-        // Untuk IZIN / SAKIT: hanya notifikasi, tidak perlu approve
-        pesan =
-          '📋 *Pemberitahuan ' + jenisLabel + '*\n\n' +
-          'Nama: *' + namaKu + '* (NIK ' + nik + ')\n' +
-          'Tanggal: *' + tglStr + '*' +
-          alasanTeks + '\n\n' +
-          '_(Tidak memerlukan persetujuan)_';
+        // Untuk IZIN / SAKIT: pesan sama (tidak ada link)
+        pesan = pesanDasar + '\n\n_(Tidak memerlukan persetujuan)_';
+        this.leaveWaPesanAtasan = pesan;
       }
 
       this.leaveWaPesan  = pesan;
@@ -1209,9 +1221,10 @@ function attendancePage() {
       // Simpan ke localStorage supaya tidak hilang kalau refresh
       try {
         localStorage.setItem('leaveWaState_' + this.session.user.id, JSON.stringify({
-          pesan: this.leaveWaPesan,
-          target: this.leaveWaTarget,
-          jenis: this.leaveWaJenis,
+          pesan:       this.leaveWaPesan,
+          pesanAtasan: this.leaveWaPesanAtasan,
+          target:      this.leaveWaTarget,
+          jenis:       this.leaveWaJenis,
         }));
       } catch(e) {}
     },
@@ -1240,10 +1253,12 @@ function attendancePage() {
     },
 
     sendLeaveWA() {
-      if (!this.leaveWaTarget || !this.leaveWaPesan) return;
+      if (!this.leaveWaTarget || !this.leaveWaPesanAtasan) return;
       let no = this.leaveWaTarget.replace(/\D/g, '');
       if (no.startsWith('0')) no = '62' + no.slice(1);
-      window.open('https://wa.me/' + no + '?text=' + encodeURIComponent(this.leaveWaPesan), '_blank');
+      window.open('https://wa.me/' + no + '?text=' + encodeURIComponent(this.leaveWaPesanAtasan), '_blank');
+      // Hapus notif setelah buka WA supaya tidak muncul lagi
+      setTimeout(() => this.clearLeaveWA(), 1500);
     },
     async deleteLeave(r) {
       if (!confirm(`Hapus data ${this.leaveJenisLabel(r.jenis)} atas nama ${r.nama} (${r.tanggal})?`)) return;
