@@ -26,7 +26,7 @@ async function requireAuth() {
 }
 
 // Role user yang sedang login (huruf kecil), mis. "admin" / "leader" /
-// "operator" / "guest". Kosong kalau profil gagal dibaca.
+// "operator" / "viewer" / "guest". Kosong kalau profil gagal dibaca.
 async function getMyRole(session) {
   if (!session) return "";
   try {
@@ -62,6 +62,14 @@ async function requireStaff(session) {
   if (r === "guest") {
     if (isDashboardExhaustPage()) return true;
     window.location.href = getBasePath() + "dashboard-exhaust.html";
+    return false;
+  }
+  // VIEWER: karyawan yang boleh MELIHAT Dashboard Exhaust + Attendance
+  // (Attendance memang terbuka untuk semua yang login, tidak lewat sini).
+  // Halaman lain dipantulkan ke Attendance.
+  if (r === "viewer") {
+    if (isDashboardExhaustPage()) return true;
+    window.location.href = getBasePath() + "input-attendance.html";
     return false;
   }
   const boleh = ["admin", "leader"].includes(r) || ["admin", "leader"].includes(j);

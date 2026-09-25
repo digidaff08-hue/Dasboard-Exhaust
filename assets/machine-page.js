@@ -1478,7 +1478,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       }
 
       combined.sort((a, b) => {
-        const dayA = a.waktu_awal.slice(0, 10), dayB = b.waktu_awal.slice(0, 10);
+        // Tanggal LOKAL (WIB). waktu_awal dari Supabase berformat UTC, jadi
+        // .slice(0,10) dulu memberi tanggal UTC -- produksi jam 00:00-06:59
+        // WIB masuk ke hari sebelumnya.
+        const dayA = localDateStr(new Date(a.waktu_awal)), dayB = localDateStr(new Date(b.waktu_awal));
         if (dayA !== dayB) return dayB.localeCompare(dayA); // hari terbaru duluan
         if (this.stationConfig.mode !== "none") {
           const sa = this.stationSortKey(a.stasiun), sb = this.stationSortKey(b.stasiun);
@@ -1491,8 +1494,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     riwayatGabungan() {
       let combined = this.combinedAll();
       const f = this.riwayatFilter;
-      if (f.dari) combined = combined.filter((r) => r.waktu_awal >= f.dari);
-      if (f.sampai) combined = combined.filter((r) => r.waktu_awal <= f.sampai + "T23:59:59");
+      // Dibandingkan per TANGGAL LOKAL (WIB). Dulu string waktu_awal (UTC)
+      // dibandingkan langsung dengan tanggal lokal, jadi batasnya bergeser 7 jam.
+      if (f.dari) combined = combined.filter((r) => localDateStr(new Date(r.waktu_awal)) >= f.dari);
+      if (f.sampai) combined = combined.filter((r) => localDateStr(new Date(r.waktu_awal)) <= f.sampai);
       if (f.part_number) {
         const q = f.part_number.toLowerCase();
         combined = combined.filter((r) => (r._tipe === "produksi" ? r.part_number : r.part_ke || r.part_dari || "").toLowerCase().includes(q));
@@ -4218,6 +4223,19 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.repairPoints.push(data);
       this.rebuildRepairMarkers();
       this.flash(jalur ? ("Jalur las ketemu (" + titikJalur.length + " titik) ✓") : "Lipatan tidak ketemu di situ — dibuat titik tunggal.");
+    },
+    // Daftar AREA las yang tersimpan untuk model yang sedang dibuka --
+    // yaitu repair_points yang path.kind === "area" (lihat simpanRepairArea
+    // / simpanAreaDariJalur / tapWeldArea). Urutannya mengikuti
+    // fetchRepairPoints (created_at naik), jadi elemen terakhir = area
+    // yang paling baru dibuat. Dipakai penghitung "Area tersimpan" dan
+    // tombol "Undo Area Terakhir" di Master Data > Repair.
+    repairAreaList() {
+      return (this.repairPoints || []).filter((p) => {
+        let path = p && p.path;
+        if (typeof path === "string") { try { path = JSON.parse(path); } catch { path = null; } }
+        return !!(path && path.kind === "area");
+      });
     },
     async undoAreaTerakhir() {
       const area = this.repairAreaList();

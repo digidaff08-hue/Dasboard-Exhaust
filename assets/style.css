@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
 /* =========================================================
    Sistem Input Produksi & Downtime — tema industrial/pabrik
    ========================================================= */
@@ -2690,3 +2691,158 @@ table.plan-shift-table td.balance-bad { color: var(--red); font-weight: 700; }
 .sidebar.sidebar-collapsed .sidebar-link span.sb-ico { width: 22px; height: 22px; }
 .sidebar.sidebar-collapsed .sidebar-link span.sb-ico .sb-svg { width: 20px; height: 20px; }
 .sidebar-logout-collapsed .sb-svg, .hamburger .sb-svg { display: inline-block; vertical-align: middle; }
+
+
+/* =========================================================
+   SIDEBAR — MODEL D (gradasi brand biru-ungu, font Manrope)
+   Ditaruh paling bawah supaya menimpa aturan sidebar lama.
+   ========================================================= */
+.sidebar {
+  --sbd-top: #4f5fe0;
+  --sbd-bottom: #3a2fb8;
+  --sbd-text: #dfe3ff;
+  --sbd-strong: #ffffff;
+  --sbd-line: rgba(255,255,255,0.15);
+  --sbd-hover: rgba(255,255,255,0.12);
+  font-family: 'Manrope', var(--font-body);
+  background: linear-gradient(180deg, var(--sbd-top) 0%, var(--sbd-bottom) 100%);
+  border-right: none;
+  color: var(--sbd-text);
+  padding: 0 0 12px;
+  width: 232px;
+}
+.sidebar.sidebar-collapsed { padding: 16px 0 12px; }
+
+.sidebar-collapse-btn {
+  background: #fff;
+  border: 1px solid rgba(58,47,184,0.25);
+  color: var(--sbd-bottom);
+  box-shadow: 0 2px 6px rgba(30,20,120,0.25);
+}
+.sidebar-collapse-btn:hover { color: #fff; background: var(--sbd-bottom); border-color: var(--sbd-bottom); }
+
+/* Brand: logo + judul + nama perusahaan */
+.sidebar-brand {
+  font-family: 'Manrope', var(--font-display);
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  align-items: center;
+  padding: 20px 16px 18px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--sbd-line);
+  color: var(--sbd-strong);
+  letter-spacing: 0;
+}
+.sidebar-brand::before {
+  content: '';
+  grid-row: 1 / span 2;
+  width: 36px; height: 36px;
+  border-radius: 9px;
+  background: #fff url('icons/logo-futaba.png') center / 28px 28px no-repeat;
+  box-shadow: 0 2px 8px rgba(20,10,90,0.25);
+}
+.sidebar-brand span { color: inherit; }
+.sidebar-brand .sb-brand-title {
+  font-size: 13px; font-weight: 800; letter-spacing: 0.04em;
+  color: #fff; line-height: 1.2; align-self: end;
+}
+.sidebar-brand .sb-brand-sub {
+  font-size: 10.5px; font-weight: 500; color: rgba(255,255,255,0.7);
+  line-height: 1.3; align-self: start;
+}
+
+/* Label kecil "MENU" di atas daftar menu */
+.sidebar-nav { gap: 3px; padding: 0 10px; }
+.sidebar:not(.sidebar-collapsed) .sidebar-nav::before {
+  content: 'MENU';
+  font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
+  color: rgba(255,255,255,0.55);
+  padding: 10px 8px 6px;
+}
+
+.sidebar-link {
+  border-left: none;
+  border-radius: 9px;
+  padding: 10px 12px;
+  gap: 11px;
+  color: var(--sbd-text);
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.sidebar-link:hover { background: var(--sbd-hover); color: #fff; }
+.sidebar-link.active {
+  background: #fff;
+  color: var(--sbd-bottom);
+  font-weight: 700;
+  border-left: none;
+  box-shadow: 0 4px 12px rgba(20,10,90,0.22);
+}
+.sidebar-link .sb-ico { opacity: 0.9; }
+.sidebar-tag { color: #fff; background: rgba(255,255,255,0.18); }
+
+/* Rail ikon (menciut) */
+.sidebar.sidebar-collapsed .sidebar-nav { padding: 0 6px; }
+.sidebar.sidebar-collapsed .sidebar-link { padding: 10px 0; border-radius: 8px; }
+.sidebar-logout-collapsed { color: rgba(255,255,255,0.8); }
+.sidebar-logout-collapsed:hover { color: #fecaca; }
+
+/* Footer: avatar + nama + jabatan, lalu tombol Keluar */
+.sidebar-foot {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  column-gap: 10px;
+  align-items: center;
+  padding: 14px 16px 4px;
+  margin-top: 12px;
+  border-top: 1px solid var(--sbd-line);
+  color: var(--sbd-text);
+}
+.sidebar-foot > :not(.sb-av):not(.sb-user) { grid-column: 1 / -1; }
+.sidebar-foot .sb-av {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: #fff; color: var(--sbd-bottom);
+  font-weight: 800; font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+}
+.sidebar-foot .sb-user { min-width: 0; }
+.sidebar-foot .who {
+  color: #fff; font-weight: 700; font-size: 12.5px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sidebar-foot .badge,
+.sidebar-foot .badge.role-admin {
+  background: transparent; padding: 0; border: none;
+  font-family: 'Manrope', var(--font-body);
+  color: #bbf7d0; font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.04em; text-transform: uppercase;
+}
+.sidebar-foot .net-status { margin-top: 8px; font-size: 11px; color: rgba(255,255,255,0.85); }
+.sidebar-foot .net-status.net-online,
+.sidebar-foot .net-status.net-offline { color: rgba(255,255,255,0.85); }
+.sidebar-foot button,
+.sidebar-foot .btn-ghost {
+  margin-top: 12px;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.25);
+  color: #fff;
+  font-family: 'Manrope', var(--font-body);
+  font-weight: 600;
+  border-radius: 8px;
+}
+.sidebar-foot .btn-ghost:hover { background: #fff; color: var(--sbd-bottom); border-color: #fff; }
+
+@media (min-width: 801px) {
+  .sidebar.sidebar-collapsed:hover,
+  .sidebar.sidebar-collapsed:focus-within {
+    padding: 16px 0 12px;
+    border-right: none;
+    box-shadow: 4px 0 24px rgba(30,20,120,0.35);
+  }
+}
+@media (max-width: 800px) {
+  .sidebar { width: 264px; box-shadow: 4px 0 28px rgba(30,20,120,0.35); }
+  .sidebar-link { padding: 12px 14px; font-size: 14.5px; }
+}
