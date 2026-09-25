@@ -94,7 +94,7 @@
 
     <h1 x-text="judul"></h1>
     <p class="sub" x-show="mode === 'signup'">Daftar pakai email asli + NIK. Login berikutnya cukup pakai NIK.</p>
-    <p class="sub" x-show="mode === 'reset'">Masukkan NIK, kami kirim link ganti password ke email terdaftar.</p>
+    <p class="sub" x-show="mode === 'reset'">Masukkan NIK dan email yang dipakai saat daftar. Link ganti password dikirim ke email itu.</p>
 
     <template x-if="errorMsg">
       <div class="error-msg" x-text="errorMsg"></div>
@@ -155,12 +155,12 @@
             <label>Password</label>
             <div class="password-wrap input-icon-wrap">
               <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="3.2"/><path d="M10.5 12.5 19 4M16 6l2 2M13.5 9l2 2"/></svg>
-              <input :type="showPassword ? 'text' : 'password'" class="has-icon" x-model="password" required minlength="6" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')">
+              <input :type="showPassword ? 'text' : 'password'" class="has-icon" x-model="password" required minlength="8" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')">
               <button type="button" class="password-toggle" @click="showPassword = !showPassword" :aria-label="showPassword ? 'Sembunyikan password' : 'Tampilkan password'" tabindex="-1">
                 <span x-text="showPassword ? '🙈' : '👁️'"></span>
               </button>
             </div>
-            <p class="hint">Minimal 6 karakter. Password default: 123456 (boleh diganti).</p>
+            <p class="hint">Minimal 8 karakter. Jangan pakai 123456, NIK sendiri, atau password yang mudah ditebak.</p>
           </div>
           <button type="submit" class="btn-primary" :disabled="busy">
             <span x-show="!busy">Daftar</span>
@@ -177,6 +177,11 @@
               <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6"/><circle cx="12" cy="8" r="4"/></svg>
               <input type="text" inputmode="numeric" class="has-icon" x-model="nik" required autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" placeholder="Contoh: 130714">
             </div>
+          </div>
+          <div class="field">
+            <label>Email</label>
+            <input type="email" x-model="email" required autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" placeholder="Email yang dipakai saat daftar">
+            <p class="hint">Lupa email yang dipakai? Minta admin mengganti password Anda.</p>
           </div>
           <button type="submit" class="btn-primary" :disabled="busy">
             <span x-show="!busy">Kirim Link Ganti Password</span>
@@ -274,25 +279,58 @@ function loginPage() {
     },
 
     async login() {
-      this.busy = true; this.errorMsg = "";
-      // NIK dulu di-cari email aslinya lewat fungsi email_for_nik,
-      // baru login beneran ke Supabase pakai email itu.
-      const { data: foundEmail, error: lookupErr } = await supabaseClient.rpc("email_for_nik", { p_nik: this.nik.trim() });
-      if (lookupErr || !foundEmail) {
+      this.busy = true; this.errorMsg = ""; this.infoMsg = "";
+      // login_nik (lihat migration_keamanan_login.sql) baru memberikan email
+      // KALAU password-nya benar -- email tidak bisa lagi diambil cuma
+      // dengan NIK. Di sana juga ada kunci 15 menit setelah 5x salah, dan
+      // password default (123456 dst) ditolak.
+      const { data: hasil, error: rpcErr } = await supabaseClient.rpc("login_nik", {
+        p_nik: this.nik.trim(), p_password: this.password,
+      });
+      if (rpcErr || !hasil) {
         this.busy = false;
-        this.errorMsg = "Login gagal: NIK atau password salah.";
+        this.errorMsg = "Login sedang tidak bisa dipakai. Coba lagi sebentar, atau hubungi admin.";
+        console.error("login_nik:", rpcErr);
+        return;
+      }
+      if (!hasil.ok) {
+        this.busy = false;
+        if (hasil.kode === "terkunci") {
+          this.errorMsg = "Terlalu banyak percobaan salah. NIK ini dikunci sementara, coba lagi dalam " + (hasil.menit || 15) + " menit.";
+        } else if (hasil.kode === "password_default") {
+          this.errorMsg = "Password Anda masih password awal / terlalu mudah ditebak, jadi belum boleh dipakai masuk. "
+            + "Buat password baru dulu lewat Ganti Password: isi NIK dan email Anda, lalu buka link yang dikirim ke email.";
+          this.mode = "reset";
+        } else {
+          this.errorMsg = "Login gagal: NIK atau password salah.";
+        }
         return;
       }
       const { data: masuk, error } = await supabaseClient.auth.signInWithPassword({
-        email: foundEmail, password: this.password
+        email: hasil.email, password: this.password
       });
       if (error) { this.busy = false; this.errorMsg = "Login gagal: NIK atau password salah."; return; }
       window.location.href = await this.tujuanSetelahLogin(masuk.user.id);
     },
 
+    // HARUS SAMA dengan password_lemah() di migration_keamanan_login.sql
+    // dan PASSWORD_LEMAH di reset-password.html.
+    PASSWORD_LEMAH: ["123456", "1234567", "12345678", "123456789", "1234567890",
+      "111111", "000000", "654321", "112233", "121212",
+      "password", "qwerty", "abc123", "futaba", "welding"],
+    alasanPasswordLemah(pw, nik) {
+      if ((pw || "").length < 8) return "Password minimal 8 karakter.";
+      if (this.PASSWORD_LEMAH.includes(String(pw).toLowerCase())) return "Password itu terlalu mudah ditebak. Pakai yang lain.";
+      if (pw === String(nik || "").trim()) return "Password tidak boleh sama dengan NIK.";
+      return "";
+    },
+
     async signup() {
-      this.busy = true; this.errorMsg = "";
+      this.errorMsg = "";
       const nik = this.nik.trim();
+      const lemah = this.alasanPasswordLemah(this.password, nik);
+      if (lemah) { this.errorMsg = lemah; return; }
+      this.busy = true;
       // Dicek dulu sebelum menembak signup, supaya pesannya jelas dan
       // tidak berupa error mentah dari database. Penjagaan SEBENARNYA
       // ada di trigger handle_new_user() -- lihat
@@ -322,17 +360,24 @@ function loginPage() {
 
     async resetPassword() {
       this.busy = true; this.errorMsg = ""; this.infoMsg = "";
-      // Sama seperti login: NIK dulu dicariin email aslinya, baru
-      // dikirimin link ganti password ke email itu lewat Supabase.
-      const { data: foundEmail, error: lookupErr } = await supabaseClient.rpc("email_for_nik", { p_nik: this.nik.trim() });
-      if (lookupErr || !foundEmail) {
+      // Email TIDAK lagi dicarikan dari NIK (itu yang dulu membocorkan
+      // email). User mengetik emailnya sendiri, dan server cuma menjawab
+      // cocok / tidak dengan NIK-nya.
+      const email = (this.email || "").trim();
+      const { data: cocok, error: cekErr } = await supabaseClient.rpc("cek_email_nik", { p_nik: this.nik.trim(), p_email: email });
+      if (cekErr) {
         this.busy = false;
-        this.errorMsg = "NIK tidak ditemukan.";
+        this.errorMsg = "Gagal memeriksa data. Coba lagi sebentar.";
+        return;
+      }
+      if (!cocok) {
+        this.busy = false;
+        this.errorMsg = "NIK dan email tidak cocok dengan data akun. Periksa lagi, atau minta admin mengganti password Anda.";
         return;
       }
       // busy baru dimatikan SETELAH email terkirim -- sebelumnya dimatikan
       // duluan, jadi tombol bisa diklik 2x dan link reset terkirim dobel.
-      const { error } = await supabaseClient.auth.resetPasswordForEmail(foundEmail, {
+      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
         redirectTo: window.location.origin + window.location.pathname.replace("login.html", "") + "reset-password.html"
       });
       this.busy = false;

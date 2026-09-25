@@ -2103,6 +2103,12 @@ function fmtRibuan(n) {
   if (n === null || n === undefined || n === "" || Number.isNaN(Number(n))) return n ?? "";
   return Number(n).toLocaleString("id-ID", { maximumFractionDigits: 0 });
 }
+// Tahun awal fiskal (April-Maret) yang MEMUAT bulan tertentu.
+// Januari-Maret masih ikut FY yang mulai April tahun SEBELUMNYA.
+//   fyStartOf(2027, 2) -> 2026   |   fyStartOf(2026, 9) -> 2026
+function fyStartOf(year, month1to12) {
+  return month1to12 >= 4 ? year : year - 1;
+}
 function localDateStr(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -2620,8 +2626,10 @@ function dashboardExhaust() {
     },
     // Dipanggil saat dropdown Bulan/Tahun di tab Kontrol Kualitas berubah.
     onQcPeriodChange() {
-      if (this.qcYear !== this.tahunanYear) {
-        this.tahunanYear = this.qcYear;
+      // Tab Tahunan memakai tahun AWAL fiskal -- bukan tahun kalender.
+      const qcFy = fyStartOf(this.qcYear, this.qcMonth);
+      if (qcFy !== this.tahunanYear) {
+        this.tahunanYear = qcFy;
         this.tahunanLoaded = false;
       }
       // Balik ke mode "sebulan" (ikut bulan+tahun yang baru dipilih), dan
@@ -2655,7 +2663,7 @@ function dashboardExhaust() {
     async fetchQcNgInline() {
       if (this.qcNgInlineLoaded) return;
       try {
-        const fyStartYear = this.qcYear;
+        const fyStartYear = fyStartOf(this.qcYear, this.qcMonth);
         const fyStart = new Date(fyStartYear, 3, 1);
         const fyEnd = new Date(fyStartYear + 1, 3, 1);
         const monthStart = new Date(this.qcYear, this.qcMonth - 1, 1);
@@ -2771,7 +2779,7 @@ function dashboardExhaust() {
     async fetchQcNgTrial() {
       if (this.qcNgTrialLoaded) return;
       try {
-        const fyStartYear = this.qcYear;
+        const fyStartYear = fyStartOf(this.qcYear, this.qcMonth);
         const fyStart = new Date(fyStartYear, 3, 1);
         const fyEnd = new Date(fyStartYear + 1, 3, 1);
         const monthStart = new Date(this.qcYear, this.qcMonth - 1, 1);
@@ -3039,7 +3047,7 @@ function dashboardExhaust() {
     async fetchQcLineModelMap() {
       if (this.qcLineModelMapLoaded) return;
       try {
-        const fyStartYear = this.qcYear;
+        const fyStartYear = fyStartOf(this.qcYear, this.qcMonth);
         const fyStart = new Date(fyStartYear, 3, 1);
         const fyEnd = new Date(fyStartYear + 1, 3, 1);
         const [ngInlineRes, ngTrialRes, repairRes] = await Promise.all([
@@ -3123,7 +3131,8 @@ function dashboardExhaust() {
       downtimeTerbesarBulan: [],   // rekap 1 bulan penuh per Problem: { problem, menit, frekuensi }
     },
     bulananCharts: {},
-    tahunanYear: new Date().getFullYear(),
+    // Default = FY yang sedang berjalan (Jan-Mar masih FY tahun lalu).
+    tahunanYear: fyStartOf(new Date().getFullYear(), new Date().getMonth() + 1),
     tahunanYearOptions: [2025, 2026, 2027],
     tahunanLoading: false, // skeleton "Memuat data" dinonaktifkan -- konten langsung tampil
     tahunanLoaded: false,
@@ -4109,14 +4118,14 @@ function dashboardExhaust() {
           // Total Orang jarang berubah -- ambil 1 baris log PALING BARU
           // sebelum awal bulan ini, buat "seed" nilai carry-forward di
           // tanggal 1 kalau bulan ini sendiri belum ada input di awal.
-          supabaseClient.from("attendance_log").select("tanggal, total_orang").lt("tanggal", firstDay).order("tanggal", { ascending: false }).limit(1).maybeSingle(),
+          supabaseClient.from("attendance_log").select("tanggal, total_orang").lt("tanggal", firstDay).gt("total_orang", 0).order("tanggal", { ascending: false }).limit(1).maybeSingle(),
           // Fallback KEBALIKANNYA: kalau sama sekali belum pernah ada input
           // SEBELUM awal bulan ini (mis. baru pertama kali diisi mulai
           // tanggal 3), tanggal 1-2 tetap butuh angka. Ambil baris log
           // PALING AWAL yang >= awal bulan (bisa di bulan ini atau bulan
           // depan) buat backward-fill tanggal-tanggal sebelum input
           // pertama itu, supaya Total Orang tidak nge-0.
-          supabaseClient.from("attendance_log").select("tanggal, total_orang").gte("tanggal", firstDay).order("tanggal", { ascending: true }).limit(1).maybeSingle(),
+          supabaseClient.from("attendance_log").select("tanggal, total_orang").gte("tanggal", firstDay).gt("total_orang", 0).order("tanggal", { ascending: true }).limit(1).maybeSingle(),
           supabaseClient.from("attendance_leave").select("*").neq("jenis", "cuti").gte("tanggal", firstDay).lte("tanggal", lastDay),
           supabaseClient.from("attendance_leave").select("*").eq("jenis", "cuti").lte("tanggal", lastDay).or(`tanggal_selesai.is.null,tanggal_selesai.gte.${firstDay}`),
         ]);
@@ -4223,7 +4232,9 @@ function dashboardExhaust() {
     // Hari yang belum "kejadian" (tanggal > hari ini) TIDAK ikut dirata-
     // rata, sama seperti aturan Hadir di fetchAttendance().
     async fetchAttendanceTahunan() {
-      const fyStartYear = this.attendanceYear;
+      // FY yang memuat Bulan/Tahun yang dipilih di dropdown (dipakai
+      // bersama tampilan Bulanan) -- Jan-Mar ikut FY tahun sebelumnya.
+      const fyStartYear = fyStartOf(this.attendanceYear, this.attendanceMonth);
       if (this.attendanceTahunanLoaded && this._attendanceTahunanLoadedYear === fyStartYear) return;
       this.attendanceTahunanLoading = true;
       try {
@@ -4237,7 +4248,7 @@ function dashboardExhaust() {
           supabaseClient.from("attendance_log").select("tanggal, total_orang").gte("tanggal", fyStartStr).lte("tanggal", fyLastDayStr).order("tanggal", { ascending: true }),
           // Seed carry-forward SEBELUM awal FY -- dipakai kalau bulan
           // pertama (April) belum ada input sama sekali di bulan itu.
-          supabaseClient.from("attendance_log").select("tanggal, total_orang").lt("tanggal", fyStartStr).order("tanggal", { ascending: false }).limit(1).maybeSingle(),
+          supabaseClient.from("attendance_log").select("tanggal, total_orang").lt("tanggal", fyStartStr).gt("total_orang", 0).order("tanggal", { ascending: false }).limit(1).maybeSingle(),
           supabaseClient.from("attendance_leave").select("tanggal, jenis").neq("jenis", "cuti").gte("tanggal", fyStartStr).lte("tanggal", fyLastDayStr),
           supabaseClient.from("attendance_leave").select("tanggal, tanggal_selesai").eq("jenis", "cuti").lte("tanggal", fyLastDayStr).or(`tanggal_selesai.is.null,tanggal_selesai.gte.${fyStartStr}`),
         ]);
@@ -4285,7 +4296,7 @@ function dashboardExhaust() {
           // diinput), biarkan null -- TIDAK fallback ke carry-forward lagi,
           // supaya bulan yang belum ada inputnya (mis. bulan depan) memang
           // kosong, bukan "kepinjem" angka bulan sebelumnya.
-          const rowsInMonth = logRows.filter((r) => r.tanggal >= firstDay && r.tanggal <= lastDay);
+          const rowsInMonth = logRows.filter((r) => r.tanggal >= firstDay && r.tanggal <= lastDay && Number(r.total_orang) > 0);
           totalMp.push(rowsInMonth.length ? Number(rowsInMonth[0].total_orang) || 0 : null);
 
           // --- Rata-rata Kehadiran & Rasio Kehadiran: rata-rata harian
@@ -4352,7 +4363,10 @@ function dashboardExhaust() {
           // Ambil baris attendance_log PALING BARU yang tanggalnya <= d.
           // Kalau ada input PERSIS di tanggal d, ini otomatis dapat baris
           // itu (jadi exact match tetap prioritas utama).
-          supabaseClient.from("attendance_log").select("tanggal, total_orang").lte("tanggal", d).order("tanggal", { ascending: false }).limit(1).maybeSingle(),
+          // Baris dengan total_orang 0 dilewati: itu baris yang dibuat form
+          // Overtime (Master Data) di tanggal yang belum punya Total Orang,
+          // bukan berarti orangnya 0. Sama dengan aturan "|| carry" di chart.
+          supabaseClient.from("attendance_log").select("tanggal, total_orang").lte("tanggal", d).gt("total_orang", 0).order("tanggal", { ascending: false }).limit(1).maybeSingle(),
           supabaseClient.from("attendance_log").select("overtime_jam").eq("tanggal", d).maybeSingle(),
           supabaseClient.from("attendance_leave").select("*").eq("tanggal", d).neq("jenis", "cuti"),
           supabaseClient.from("attendance_leave").select("*").eq("jenis", "cuti").lte("tanggal", d).or(`tanggal_selesai.is.null,tanggal_selesai.gte.${d}`),

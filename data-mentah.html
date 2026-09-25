@@ -1960,7 +1960,11 @@ function dataMentah() {
     cfFiltered(section) {
       const rows = this.data[section] || [];
       const filters = this.colFilters[section] || {};
-      const activeCols = Object.keys(filters).filter(c => filters[c] && filters[c].size > 0);
+      // Filter yang ada (termasuk Set KOSONG hasil tombol "Kosongkan") tetap
+      // dihitung aktif -- Set kosong artinya tidak ada nilai yang dicentang,
+      // jadi tidak ada baris yang tampil. Dulu Set kosong diabaikan sehingga
+      // "Kosongkan" malah menampilkan semua baris.
+      const activeCols = Object.keys(filters).filter(c => filters[c]);
       if (activeCols.length === 0) return rows;
       return rows.filter(row =>
         activeCols.every(col => {
