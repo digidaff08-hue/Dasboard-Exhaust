@@ -297,7 +297,7 @@
               <button type="button" class="andon-tim" :style="'--c:' + t.warna"
                       :class="[form.tim === t.kode ? 'on' : '', timSedangAktif(t.kode) ? 'sibuk' : '']"
                       :disabled="timSedangAktif(t.kode)" @click="form.tim = t.kode">
-                <b x-text="t.kode"></b><span x-text="timSedangAktif(t.kode) ? 'sudah dipanggil' : t.label"></span>
+                <b x-text="t.kode"></b><span x-show="timSedangAktif(t.kode)">sudah dipanggil</span>
               </button>
             </template>
           </div>

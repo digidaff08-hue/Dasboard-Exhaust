@@ -15,7 +15,6 @@ const ANDON_TIM = [
   { kode: "DIES",    label: "Dies / Jig",          warna: "#dc2626" },
   { kode: "PE",      label: "PE",                  warna: "#7c3aed" },
   { kode: "QC",      label: "QC",                  warna: "#059669" },
-  { kode: "PROD",    label: "Produksi (Leader)",   warna: "#ea580c" },
   { kode: "PC-SUPP", label: "PC / Supply Part",    warna: "#0891b2" },
   { kode: "PRESS",   label: "Press",               warna: "#be185d" },
 ];
