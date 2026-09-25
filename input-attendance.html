@@ -364,7 +364,11 @@
              menambahkan NIK tsb ke karyawan_master dulu.
              Urutan field: Jenis, NIK, Nama, lalu Tanggal (Izin/Sakit/
              Mangkir) atau Tanggal Mulai/Selesai/Total Hari/Jenis Cuti
-             (Cuti). Total Hari otomatis TIDAK menghitung Sabtu & Minggu. -->
+             (Cuti). Total Hari memakai rumus hitungHariKerja(): Minggu &
+             tanggal merah tidak dihitung, Sabtu hanya kalau Ganti Hari cocok shift.
+             CUTI tidak langsung disimpan ke attendance_leave -- masuk dulu ke
+             leave_requests (status Menunggu). Baru tercatat & memotong jatah
+             setelah atasan menyetujui (proses_approval_cuti di database). -->
         <template x-if="tab === 'form'">
           <div>
         <div class="panel">
@@ -435,7 +439,7 @@
                     <option value="Cuti Tahunan">Cuti Tahunan</option>
                     <option value="Cuti Khusus">Cuti Khusus</option>
                   </select>
-                  <span class="la-hint" x-show="leaveForm.jenis_cuti === 'Cuti Tahunan'">Memotong jatah cuti tahunan</span>
+                  <span class="la-hint" x-show="leaveForm.jenis_cuti === 'Cuti Tahunan'">Memotong jatah cuti tahunan setelah disetujui atasan</span>
                   <span class="la-hint" x-show="leaveForm.jenis_cuti === 'Cuti Khusus'">Tidak memotong jatah cuti</span>
                 </div>
               </template>
@@ -453,15 +457,16 @@
           </div>
 
           <div class="form-actions">
-            <button type="button" class="btn-primary" @click="saveLeave()">Simpan</button>
+            <button type="button" class="btn-primary" :disabled="leaveSaving" @click="saveLeave()"
+                    x-text="leaveSaving ? 'Menyimpan...' : ((leaveForm.jenis === 'cuti' && !leaveEditId) ? 'Ajukan Cuti' : 'Simpan')"></button>
             <button type="button" class="btn-secondary" x-show="leaveEditId" @click="resetLeaveForm(); clearLeaveWA()">Batal Edit</button>
           </div>
 
           <!-- Kotak WA muncul setelah simpan — bertahan walau di-refresh -->
           <template x-if="leaveWaPesan">
             <div style="margin-top:14px;padding:14px;border-radius:10px;border:1px solid color-mix(in srgb,var(--green) 40%,transparent);background:color-mix(in srgb,var(--green) 8%,var(--panel));">
-              <p style="font-size:13px;font-weight:700;margin-bottom:6px;" x-text="leaveWaJenis === 'cuti' ? '✅ Cuti tersimpan!' : '✅ Data tersimpan!'"></p>
-              <p style="font-size:12px;color:var(--muted);margin-bottom:10px;" x-text="leaveWaJenis === 'cuti' ? 'Kirim notifikasi + link approval ke atasan via WhatsApp.' : 'Kirim notifikasi ke atasan via WhatsApp.'"></p>
+              <p style="font-size:13px;font-weight:700;margin-bottom:6px;" x-text="leaveWaJenis === 'cuti' ? '✅ Pengajuan cuti terkirim, menunggu persetujuan atasan' : '✅ Data tersimpan!'"></p>
+              <p style="font-size:12px;color:var(--muted);margin-bottom:10px;" x-text="leaveWaJenis === 'cuti' ? 'Jatah cuti belum terpotong sampai atasan menyetujui. Kirim link approval ke atasan via WhatsApp, lalu pantau di tab Status Cuti.' : 'Kirim notifikasi ke atasan via WhatsApp.'"></p>
               <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                 <template x-if="leaveWaTarget">
                   <button type="button" class="btn-primary btn-sm" @click="sendLeaveWA()" style="background:#25d366;font-size:13px;padding:8px 16px;">📲 Kirim WA ke Atasan</button>
@@ -608,7 +613,13 @@
                         <span style="color:var(--muted);">Tanggal</span>
                         <span class="mono" x-text="ajukanFmtTgl(r.tanggal_mulai, r.tanggal_selesai)"></span>
                         <span style="color:var(--muted);">Hari</span>
-                        <span class="mono" x-text="ajukanHari(r.tanggal_mulai, r.tanggal_selesai) + ' hari'"></span>
+                        <span class="mono" x-text="ajukanHari(r) + ' hari'"></span>
+                        <template x-if="r.jenis_cuti">
+                          <span style="color:var(--muted);">Jenis Cuti</span>
+                        </template>
+                        <template x-if="r.jenis_cuti">
+                          <span x-text="r.jenis_cuti"></span>
+                        </template>
                         <span style="color:var(--muted);">Alasan</span>
                         <span x-text="r.alasan || '-'"></span>
                         <template x-if="r.catatan_atasan">
@@ -639,6 +650,19 @@
           <div>
             <div class="panel">
               <p class="panel-title">Pengajuan yang Perlu Disetujui</p>
+
+              <!-- Notifikasi WA ke pengaju setelah approve/tolak. Muncul kalau
+                   browser memblokir jendela WA yang dibuka otomatis. -->
+              <template x-if="notifPengaju">
+                <div style="margin-bottom:14px;padding:14px;border-radius:10px;border:1px solid color-mix(in srgb,var(--green) 40%,transparent);background:color-mix(in srgb,var(--green) 8%,var(--panel));">
+                  <p style="font-size:13px;font-weight:700;margin-bottom:6px;" x-text="'Beri tahu ' + notifPengaju.nama + ' bahwa cutinya ' + notifPengaju.statusTeks"></p>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                    <button type="button" class="btn-primary btn-sm" style="background:#25d366;" @click="bukaWa(notifPengaju.noWa, notifPengaju.pesan); notifPengaju = null">📲 Kirim WA ke Pengaju</button>
+                    <button type="button" class="btn-secondary btn-sm" style="font-size:11px;" @click="notifPengaju = null">✕ Tutup</button>
+                  </div>
+                </div>
+              </template>
+
               <template x-if="approveLoading"><p class="empty-state">Memuat data...</p></template>
               <template x-if="!approveLoading && pendingApprovals.length === 0">
                 <p class="empty-state">Tidak ada pengajuan yang menunggu persetujuan kamu.</p>
@@ -647,11 +671,11 @@
                 <div style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;background:var(--panel-2);">
                   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
                     <div>
-                      <div style="font-weight:700;font-size:15px;" x-text="r.pengaju?.full_name || '—'"></div>
+                      <div style="font-weight:700;font-size:15px;" x-text="r.nama || r.pengaju?.full_name || '—'"></div>
                       <div style="font-size:12px;color:var(--muted);margin-top:3px;">
                         <span class="la-badge" :style="'--c: var(--' + ajukanJenisWarna(r.jenis) + ')'" x-text="r.jenis"></span>
                         &nbsp;<span class="mono" x-text="ajukanFmtTgl(r.tanggal_mulai, r.tanggal_selesai)"></span>
-                        &nbsp;(<span x-text="ajukanHari(r.tanggal_mulai, r.tanggal_selesai)"></span> hari)
+                        &nbsp;(<span x-text="ajukanHari(r)"></span> hari<span x-show="r.jenis_cuti" x-text="', ' + r.jenis_cuti"></span>)
                       </div>
                       <div x-show="r.alasan" style="font-size:12px;color:var(--muted);margin-top:4px;font-style:italic;" x-text="'Alasan: ' + r.alasan"></div>
                     </div>
@@ -742,6 +766,8 @@ function attendancePage() {
     pendingApprovals: [],
     pendingCount: 0,
     approveLoading: false,
+    notifPengaju: null,   // { nama, noWa, pesan, statusTeks } -- fallback kalau pop-up WA diblokir
+    leaveSaving: false,   // cegah tombol Simpan diklik dua kali
 
     async init() {
       if (!await this.initBase()) return;
@@ -857,6 +883,23 @@ function attendancePage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "hari_libur" },
         () => this._rtDebounce("libur", () => this.fetchHariLibur())
+      );
+
+      // Pengajuan cuti berubah (baru, disetujui, ditolak, dibatalkan) ->
+      // tab Status Cuti & Perlu Disetujui ikut segar. RLS membatasi event
+      // yang diterima hanya ke baris milik sendiri / yang ditujukan ke kita.
+      channel = channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "leave_requests" },
+        () => {
+          this._rtDebounce("lr", () => {
+            if (this.tab === "statuscuti") this.loadStatusCutiSaya();
+            if (this.canApprove) {
+              if (this.tab === "approve") this.loadPendingApprovals();
+              else this.loadPendingCount();
+            }
+          }, 500);
+        }
       );
 
       this._rtChannel = channel.subscribe();
@@ -1020,13 +1063,19 @@ function attendancePage() {
     // ulang oleh trigger set_jumlah_hari_cuti() di database (lihat
     // migration_shift2_periode.sql) -- rumusnya harus sama persis dengan
     // di sini, dan dengan rkHitungHari() di master-data.html.
-    leaveTotalHari() {
-      const mulai = this.leaveForm.tanggal;
-      const selesai = this.leaveForm.tanggal_selesai || this.leaveForm.tanggal;
+    //
+    // SATU-SATUNYA rumus hitung hari di halaman ini. Dipakai oleh form
+    // (leaveTotalHari), pesan WA (leaveTotalHariDari), dan tab Status /
+    // Perlu Disetujui (ajukanHari, kalau jumlah_hari dari server belum ada).
+    // Versi database-nya: public.hitung_hari_cuti() di
+    // migration_approval_cuti_v2.sql -- rumusnya harus sama persis.
+    hitungHariKerja(nik, mulai, selesai) {
+      selesai = selesai || mulai;
       if (!mulai || !selesai) return 0;
-      let d = new Date(mulai + "T00:00:00");
-      const akhir = new Date(selesai + "T00:00:00");
-      if (akhir < d) return 0;
+      const d = new Date(String(mulai).slice(0, 10) + "T00:00:00");
+      const akhir = new Date(String(selesai).slice(0, 10) + "T00:00:00");
+      if (isNaN(d) || isNaN(akhir) || akhir < d) return 0;
+      const nikStr = String(nik || "").trim();
       let total = 0;
       while (d <= akhir) {
         const dow = d.getDay(); // 0 = Minggu, 6 = Sabtu
@@ -1035,13 +1084,16 @@ function attendancePage() {
         if (dow === 0) {
           // Minggu: tidak dihitung
         } else if (dow === 6) {
-          if (lib && lib.jenis === "ganti_hari" && (lib.shift === "penuh" || lib.shift === this.shiftPadaTanggal(this.leaveForm.nik, dStr))) total++;
+          if (lib && lib.jenis === "ganti_hari" && (lib.shift === "penuh" || lib.shift === this.shiftPadaTanggal(nikStr, dStr))) total++;
         } else {
           if (!lib || lib.jenis !== "libur") total++;
         }
         d.setDate(d.getDate() + 1);
       }
       return total;
+    },
+    leaveTotalHari() {
+      return this.hitungHariKerja(this.leaveForm.nik, this.leaveForm.tanggal, this.leaveForm.tanggal_selesai || this.leaveForm.tanggal);
     },
     // Baca daftar hari libur & ganti hari (read-only) -- pengelolaan
     // (tambah/hapus) ada di halaman Master Data > Attendance.
@@ -1124,17 +1176,59 @@ function attendancePage() {
       const tanggalSelesai = f.jenis === "cuti" ? f.tanggal_selesai : null;
       if (f.jenis === "cuti" && tanggalSelesai < f.tanggal) { this.flash("Tanggal Selesai tidak boleh sebelum Tanggal Mulai.", true); return; }
 
+      // ---- CUTI BARU: masuk leave_requests dulu, BUKAN attendance_leave ----
+      // Data cuti baru tercatat (dan jatah terpotong) setelah atasan
+      // menyetujui -- proses_approval_cuti() di database yang menyalinnya
+      // ke attendance_leave. Ditolak / dibatalkan = tidak pernah tercatat.
+      // Edit baris cuti yang SUDAH tercatat (admin) tetap langsung ke
+      // attendance_leave seperti sebelumnya.
+      if (f.jenis === "cuti" && !this.leaveEditId) {
+        const hari = this.leaveTotalHari();
+        if (hari <= 0) { this.flash("Tidak ada hari kerja di rentang tanggal ini (Minggu / tanggal merah). Periksa tanggalnya.", true); return; }
+
+        this.leaveSaving = true;
+        let req, error;
+        try {
+          ({ data: req, error } = await supabaseClient.from("leave_requests").insert({
+            user_id: this.session.user.id,
+            jenis: "Cuti",
+            tanggal_mulai: f.tanggal,
+            tanggal_selesai: tanggalSelesai,
+            alasan: keterangan,
+            nik, nama,
+            jenis_cuti: f.jenis_cuti,
+            jumlah_hari: hari,   // hanya perkiraan -- server menghitung ulang
+            // atasan_id sengaja TIDAK dikirim: ditentukan server (get_atasan_id)
+          }).select("id,token,jumlah_hari").single());
+        } finally {
+          this.leaveSaving = false;
+        }
+        if (error || !req) { this.flash("Gagal mengajukan cuti: " + (error?.message || "tidak ada respon"), true); return; }
+
+        this.flash("Pengajuan cuti terkirim. Jatah cuti baru terpotong setelah disetujui atasan.");
+        const snapF = { ...f };
+        this.resetLeaveForm();
+        await this.generateLeaveWA(snapF, nik, nama, keterangan, { token: req.token, hari: req.jumlah_hari ?? hari });
+        if (this.leaveWaTarget) this.sendLeaveWA();
+        return;
+      }
+
       const payload = {
         tanggal: f.tanggal, tanggal_selesai: tanggalSelesai, nik, nama, jenis: f.jenis,
         jenis_cuti: f.jenis === "cuti" ? f.jenis_cuti : null,
         keterangan,
         updated_by: this.session.user.id,
       };
+      this.leaveSaving = true;
       let error;
-      if (this.leaveEditId) {
-        ({ error } = await supabaseClient.from("attendance_leave").update(payload).eq("id", this.leaveEditId));
-      } else {
-        ({ error } = await supabaseClient.from("attendance_leave").insert({ ...payload, created_by: this.session.user.id }));
+      try {
+        if (this.leaveEditId) {
+          ({ error } = await supabaseClient.from("attendance_leave").update(payload).eq("id", this.leaveEditId));
+        } else {
+          ({ error } = await supabaseClient.from("attendance_leave").insert({ ...payload, created_by: this.session.user.id }));
+        }
+      } finally {
+        this.leaveSaving = false;
       }
       if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
       this.flash("Data tersimpan.");
@@ -1142,80 +1236,49 @@ function attendancePage() {
       // Snapshot sebelum form direset
       const isBaruBukanEdit = !this.leaveEditId;
       const snapJenis = f.jenis, snapF = { ...f };
-      const snapNik = nik, snapNama = nama, snapKet = keterangan;
 
       this.resetLeaveForm();
       await this.fetchLeaveRows();
 
-      // Setelah reset: buat WA notif untuk cuti/izin/sakit (bukan edit, bukan mangkir)
-      if (isBaruBukanEdit && ['cuti','izin','sakit'].includes(snapJenis)) {
-        await this.generateLeaveWA(snapF, snapNik, snapNama, snapKet);
-        // Langsung buka WA kalau ada nomor atasan
-        if (this.leaveWaTarget) {
-          this.sendLeaveWA();
-        }
+      // Izin / Sakit baru: kirim pemberitahuan ke atasan (tanpa approval)
+      if (isBaruBukanEdit && ['izin','sakit'].includes(snapJenis)) {
+        await this.generateLeaveWA(snapF, nik, nama, keterangan);
+        if (this.leaveWaTarget) this.sendLeaveWA();
       }
     },
 
-    async generateLeaveWA(f, nik, nama, keterangan) {
+    // Susun pesan WA ke atasan. Untuk cuti, `opts.token` adalah token
+    // pengajuan yang sudah dibuat di saveLeave() -- fungsi ini TIDAK lagi
+    // membuat baris leave_requests sendiri.
+    async generateLeaveWA(f, nik, nama, keterangan, opts = {}) {
       const jenis = f.jenis; // 'cuti' / 'izin' / 'sakit'
 
-      // Coba cari atasan (pakai cache kalau sudah ada)
-      if (!this.atasanInfo) {
-        try {
-          const { data: atasanId, error: rpcErr } = await supabaseClient.rpc('get_atasan_id', { p_user_id: this.session.user.id });
-          if (!rpcErr && atasanId) {
-            const { data: ap } = await supabaseClient.from('profiles').select('id,full_name,no_wa').eq('id', atasanId).maybeSingle();
-            this.atasanInfo = ap || null;
-          }
-        } catch(e) { /* RPC belum ada -- abaikan */ }
-      }
+      if (!this.atasanInfo) await this.muatAtasanInfo();
 
       const namaKu = nama || this.profile?.full_name || 'Karyawan';
       const tglMulai = this.fmtTgl(f.tanggal);
       const tglSelesai = f.tanggal_selesai ? this.fmtTgl(f.tanggal_selesai) : tglMulai;
       const tglStr = tglMulai === tglSelesai ? tglMulai : tglMulai + ' – ' + tglSelesai;
-      const hari = this.leaveTotalHariDari(f.tanggal, f.tanggal_selesai || f.tanggal);
+      const hari = opts.hari ?? this.leaveTotalHariDari(f.tanggal, f.tanggal_selesai || f.tanggal, nik);
       const alasanTeks = keterangan ? '\nAlasan: ' + keterangan : '';
       const jenisLabel = { cuti:'Cuti', izin:'Izin', sakit:'Sakit' }[jenis] || jenis;
 
-      let pesan = '';
-
       const pesanDasar =
-        '📋 *Pemberitahuan ' + (jenis === 'cuti' ? 'Cuti' : jenisLabel) + '*\n\n' +
+        '📋 *' + (jenis === 'cuti' ? 'Pengajuan Cuti' : 'Pemberitahuan ' + jenisLabel) + '*\n\n' +
         'Nama: *' + namaKu + '* (NIK ' + nik + ')\n' +
         'Tanggal: *' + tglStr + '* (' + hari + ' hari)' +
         (jenis === 'cuti' && f.jenis_cuti ? '\nJenis: ' + f.jenis_cuti : '') +
         alasanTeks;
 
+      let pesan;
       if (jenis === 'cuti') {
-        // Untuk CUTI: insert ke leave_requests, buat link untuk atasan saja
-        let approvalLink = '';
-        try {
-          let atasanId2 = this.atasanInfo?.id || null;
-          if (!atasanId2) {
-            const { data: aid } = await supabaseClient.rpc('get_atasan_id', { p_user_id: this.session.user.id });
-            atasanId2 = aid || null;
-          }
-          const { data: req } = await supabaseClient.from('leave_requests').insert({
-            user_id: this.session.user.id,
-            jenis: 'Cuti',
-            tanggal_mulai: f.tanggal,
-            tanggal_selesai: f.tanggal_selesai || f.tanggal,
-            alasan: keterangan || null,
-            atasan_id: atasanId2,
-          }).select('token').single();
-          if (req?.token) {
-            approvalLink = '\n\n👆 *Ketuk link di bawah untuk approve/tolak:*\n' + window.location.origin + '/approval-cuti.html?token=' + req.token;
-          }
-        } catch(e) { /* leave_requests belum ada -- tetap buat pesan tanpa link */ }
-
-        // Pesan untuk USER (ditampilkan di kotak) — TANPA link
-        pesan = pesanDasar;
-        // Pesan untuk ATASAN (dikirim via WA) — DENGAN link
-        this.leaveWaPesanAtasan = pesanDasar + approvalLink;
+        const approvalLink = opts.token
+          ? '\n\n👆 *Ketuk link di bawah untuk approve/tolak* (login dengan akun atasan):\n' +
+            window.location.origin + '/approval-cuti.html?token=' + opts.token
+          : '';
+        pesan = pesanDasar + '\n\n_Status: menunggu persetujuan atasan_';   // ditampilkan ke pengaju
+        this.leaveWaPesanAtasan = pesanDasar + approvalLink;                  // dikirim ke atasan
       } else {
-        // Untuk IZIN / SAKIT: pesan sama (tidak ada link)
         pesan = pesanDasar + '\n\n_(Tidak memerlukan persetujuan)_';
         this.leaveWaPesanAtasan = pesan;
       }
@@ -1235,36 +1298,40 @@ function attendancePage() {
       } catch(e) {}
     },
 
-    // Hitung hari kerja antara dua tanggal (versi tanpa akses ke this.leaveForm)
-    leaveTotalHariDari(mulai, selesai) {
-      if (!mulai || !selesai) return 0;
-      let d = new Date(mulai + "T00:00:00");
-      const akhir = new Date(selesai + "T00:00:00");
-      if (akhir < d) return 0;
-      let total = 0;
-      while (d <= akhir) {
-        const dow = d.getDay();
-        const dStr = localDateStr(d);
-        const lib = this.hariLibur.find((r) => r.tanggal === dStr);
-        if (dow === 0) {
-          // Minggu: skip
-        } else if (dow === 6) {
-          if (lib && lib.jenis === "ganti_hari") total++;
-        } else {
-          if (!lib || lib.jenis !== "libur") total++;
-        }
-        d.setDate(d.getDate() + 1);
-      }
-      return total;
+    // Versi tanpa akses ke this.leaveForm -- rumusnya SAMA dengan form
+    // (termasuk cek shift untuk Sabtu Ganti Hari).
+    leaveTotalHariDari(mulai, selesai, nik) {
+      return this.hitungHariKerja(nik ?? this.leaveForm.nik, mulai, selesai);
     },
 
+    // Ambil info atasan (id, nama, no WA) sekali, lalu di-cache
+    async muatAtasanInfo() {
+      try {
+        const { data: atasanId, error } = await supabaseClient.rpc('get_atasan_id', { p_user_id: this.session.user.id });
+        if (!error && atasanId) {
+          const { data: ap } = await supabaseClient.from('profiles').select('id,full_name,no_wa').eq('id', atasanId).maybeSingle();
+          this.atasanInfo = ap || null;
+        } else {
+          this.atasanInfo = null;
+        }
+      } catch(e) { this.atasanInfo = null; }
+    },
+
+    // Buka WhatsApp ke nomor tertentu. Mengembalikan false kalau pop-up
+    // diblokir browser (biasanya karena dipanggil setelah await).
+    bukaWa(noWa, pesan) {
+      let no = String(noWa || '').replace(/\D/g, '');
+      if (!no) return false;
+      if (no.startsWith('0')) no = '62' + no.slice(1);
+      const w = window.open('https://wa.me/' + no + '?text=' + encodeURIComponent(pesan), '_blank');
+      return !!w;
+    },
     sendLeaveWA() {
       if (!this.leaveWaTarget || !this.leaveWaPesanAtasan) return;
-      let no = this.leaveWaTarget.replace(/\D/g, '');
-      if (no.startsWith('0')) no = '62' + no.slice(1);
-      window.open('https://wa.me/' + no + '?text=' + encodeURIComponent(this.leaveWaPesanAtasan), '_blank');
-      // Hapus notif setelah buka WA supaya tidak muncul lagi
-      setTimeout(() => this.clearLeaveWA(), 1500);
+      // Kalau pop-up diblokir, kotak WA dibiarkan supaya user bisa klik tombolnya.
+      if (this.bukaWa(this.leaveWaTarget, this.leaveWaPesanAtasan)) {
+        setTimeout(() => this.clearLeaveWA(), 1500);
+      }
     },
     async deleteLeave(r) {
       if (!confirm(`Hapus data ${this.leaveJenisLabel(r.jenis)} atas nama ${r.nama} (${r.tanggal})?`)) return;
@@ -1280,7 +1347,7 @@ function attendancePage() {
       try {
         const { data, error } = await supabaseClient
           .from('leave_requests')
-          .select('id,jenis,tanggal_mulai,tanggal_selesai,alasan,status,catatan_atasan,created_at')
+          .select('id,jenis,jenis_cuti,nik,jumlah_hari,tanggal_mulai,tanggal_selesai,alasan,status,catatan_atasan,created_at,approved_at')
           .eq('user_id', this.session.user.id)
           .order('created_at', { ascending: false })
           .limit(50);
@@ -1314,13 +1381,7 @@ function attendancePage() {
       if (this.canApprove) await this.loadPendingCount();
 
       // Cache info atasan (dipakai untuk WA notification setelah simpan cuti)
-      try {
-        const { data: atasanId } = await supabaseClient.rpc('get_atasan_id', { p_user_id: this.session.user.id });
-        if (atasanId) {
-          const { data: ap } = await supabaseClient.from('profiles').select('id,full_name,no_wa').eq('id', atasanId).maybeSingle();
-          this.atasanInfo = ap || null;
-        }
-      } catch(e) { this.atasanInfo = null; }
+      await this.muatAtasanInfo();
     },
 
     ajukanJenisWarna(j) {
@@ -1334,9 +1395,14 @@ function attendancePage() {
       const f = (t) => { const [y,m,d] = t.split('-'); return d+'/'+m+'/'+y; };
       return mulai === selesai ? f(mulai) : f(mulai) + ' – ' + f(selesai);
     },
-    ajukanHari(mulai, selesai) {
-      if (!mulai || !selesai) return 0;
-      return Math.round((new Date(selesai) - new Date(mulai)) / 86400000) + 1;
+    // Jumlah hari sebuah pengajuan. Utamakan angka dari server
+    // (leave_requests.jumlah_hari, dihitung hitung_hari_cuti()); pengajuan
+    // lama yang belum punya angka itu dihitung dengan rumus yang sama.
+    ajukanHari(r) {
+      if (!r) return 0;
+      if (r.jumlah_hari !== null && r.jumlah_hari !== undefined) return r.jumlah_hari;
+      const nik = r.nik || (r.user_id === this.session?.user?.id ? this.nikSendiri() : '');
+      return this.hitungHariKerja(nik, r.tanggal_mulai, r.tanggal_selesai);
     },
 
     // ===== APPROVE PANEL =====
@@ -1360,25 +1426,55 @@ function attendancePage() {
       window.open(window.location.origin + '/approval-cuti.html?token=' + r.token, '_blank');
     },
     async quickApprove(r, action) {
+      const isApprove = action === 'approve';
+      const nama = r.nama || r.pengaju?.full_name || 'Karyawan';
+      const tglStr = this.ajukanFmtTgl(r.tanggal_mulai, r.tanggal_selesai);
+
+      // Catatan opsional. Batal di dialog = batal memproses.
+      const catatan = prompt(
+        (isApprove ? 'Setujui' : 'Tolak') + ' cuti ' + nama + ' (' + tglStr + ', ' + this.ajukanHari(r) + ' hari)?\n\n' +
+        'Catatan untuk pengaju (opsional):', '');
+      if (catatan === null) return;
+
       r._loading = true;
-      const { data, error } = await supabaseClient.rpc('proses_approval_cuti', { p_token: r.token, p_action: action, p_catatan: null });
+      const { data, error } = await supabaseClient.rpc('proses_approval_cuti', {
+        p_token: r.token, p_action: action, p_catatan: catatan.trim() || null,
+      });
       r._loading = false;
       if (error || !data?.ok) { this.flash(data?.pesan || error?.message || 'Gagal', true); return; }
       this.flash(data.pesan);
       this.pendingApprovals = this.pendingApprovals.filter(x => x.id !== r.id);
       this.pendingCount = this.pendingApprovals.length;
-      // Kirim WA balik ke pengaju jika disetujui
-      if (action === 'approve' && r.pengaju?.no_wa) {
-        const nama = r.pengaju.full_name || 'Karyawan';
-        const tglStr = this.ajukanFmtTgl(r.tanggal_mulai, r.tanggal_selesai);
-        const pesan = '✅ *' + r.jenis + ' Disetujui*\n\nHalo ' + nama + ',\nPermohonan ' + r.jenis + ' untuk *' + tglStr + '* telah *DISETUJUI*.\n_(Pesan otomatis)_';
-        let noWa = r.pengaju.no_wa.replace(/\D/g,'');
-        if (noWa.startsWith('0')) noWa = '62' + noWa.slice(1);
-        window.open('https://wa.me/' + noWa + '?text=' + encodeURIComponent(pesan), '_blank');
+
+      // Beri tahu pengaju -- DISETUJUI maupun DITOLAK
+      const noWa = r.pengaju?.no_wa;
+      if (!noWa) {
+        this.flash(data.pesan + ' Nomor WA ' + nama + ' belum diisi di profil, notifikasi tidak bisa dikirim.', true);
+        return;
       }
+      const pesan = this.pesanHasilApproval({
+        nama, jenis: r.jenis, tglStr,
+        hari: data.jumlah_hari ?? this.ajukanHari(r),
+        isApprove, catatan: catatan.trim(),
+      });
+      if (!this.bukaWa(noWa, pesan)) {
+        // Pop-up diblokir -> tampilkan tombol kirim manual
+        this.notifPengaju = { nama, noWa, pesan, statusTeks: isApprove ? 'disetujui' : 'ditolak' };
+      }
+    },
+
+    // Pesan WA ke pengaju setelah diproses. Formatnya sama dengan yang
+    // dikirim dari approval-cuti.html.
+    pesanHasilApproval({ nama, jenis, tglStr, hari, isApprove, catatan }) {
+      return (isApprove ? '✅' : '❌') + ' *Pemberitahuan ' + jenis + '*\n\n' +
+        'Halo ' + nama + ',\n\n' +
+        'Permohonan ' + jenis + ' Anda untuk tanggal *' + tglStr + '* (' + hari + ' hari) telah *' + (isApprove ? 'DISETUJUI' : 'DITOLAK') + '*.' +
+        (isApprove ? '\nCuti sudah tercatat dan memotong jatah sesuai jenisnya.' : '\nJatah cuti Anda tidak terpotong.') +
+        (catatan ? '\n📝 Catatan: ' + catatan : '') +
+        '\n\n_(Pesan otomatis dari Sistem Cuti)_';
     },
   };
 }
 </script>
 </body>
-</html>	
+</html>
