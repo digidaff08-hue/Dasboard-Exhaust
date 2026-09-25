@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Persetujuan Cuti</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --border: #334155;
+      --text: #f1f5f9;
+      --sub: #94a3b8;
+      --green: #22c55e;
+      --green-dark: #16a34a;
+      --red: #ef4444;
+      --red-dark: #dc2626;
+      --orange: #f97316;
+      --blue: #3b82f6;
+      --yellow: #eab308;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px 28px;
+      width: 100%;
+      max-width: 460px;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .logo svg { color: var(--orange); }
+    .logo span { font-weight: 700; font-size: 1.1rem; color: var(--orange); }
+    .title { font-size: 1.25rem; font-weight: 700; margin-bottom: 6px; }
+    .subtitle { font-size: 0.875rem; color: var(--sub); margin-bottom: 24px; }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { font-size: 0.8rem; color: var(--sub); flex-shrink: 0; width: 130px; }
+    .info-value { font-size: 0.9rem; font-weight: 600; text-align: right; }
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    .badge-izin    { background: #1e40af33; color: #60a5fa; }
+    .badge-sakit   { background: #7c3aed33; color: #a78bfa; }
+    .badge-cuti    { background: #059669-33; background-color: #06966930; color: #34d399; }
+    .badge-alfa    { background: #dc262633; color: #f87171; }
+    .badge-menunggu  { background: #92400e33; color: var(--yellow); }
+    .badge-disetujui { background: #16653133; color: var(--green); }
+    .badge-ditolak   { background: #7f1d1d33; color: var(--red); }
+    .divider { height: 1px; background: var(--border); margin: 20px 0; }
+    .catatan-label { font-size: 0.82rem; color: var(--sub); margin-bottom: 6px; }
+    textarea {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 10px 12px;
+      font-size: 0.875rem;
+      resize: vertical;
+      min-height: 80px;
+      outline: none;
+      transition: border-color .2s;
+    }
+    textarea:focus { border-color: var(--orange); }
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .btn {
+      flex: 1;
+      padding: 13px;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: opacity .15s, transform .1s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-approve { background: var(--green); color: #fff; }
+    .btn-tolak   { background: var(--red);   color: #fff; }
+    .result-box {
+      text-align: center;
+      padding: 24px 0 8px;
+    }
+    .result-icon { font-size: 3rem; margin-bottom: 12px; }
+    .result-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; }
+    .result-sub { font-size: 0.875rem; color: var(--sub); }
+    .wa-notif-box {
+      background: #16532133;
+      border: 1px solid #22c55e44;
+      border-radius: 10px;
+      padding: 14px;
+      margin-top: 20px;
+    }
+    .wa-notif-label {
+      font-size: 0.8rem;
+      color: var(--green);
+      font-weight: 600;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .wa-notif-text {
+      font-size: 0.82rem;
+      color: var(--sub);
+      line-height: 1.5;
+      white-space: pre-wrap;
+      background: #0f172a;
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    .btn-wa {
+      width: 100%;
+      padding: 11px;
+      background: #25d366;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .spinner {
+      width: 20px; height: 20px;
+      border: 3px solid #ffffff44;
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-wrap {
+      text-align: center;
+      padding: 40px 0;
+      color: var(--sub);
+    }
+    .error-wrap {
+      text-align: center;
+      padding: 32px 0;
+      color: #f87171;
+    }
+    .error-wrap .err-icon { font-size: 2.5rem; margin-bottom: 10px; }
+    .err-msg { font-size: 0.875rem; color: var(--sub); margin-top: 6px; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+      <line x1="16" y1="2" x2="16" y2="6"></line>
+      <line x1="8" y1="2" x2="8" y2="6"></line>
+      <line x1="3" y1="10" x2="21" y2="10"></line>
+    </svg>
+    <span>Sistem Pengajuan Cuti</span>
+  </div>
+
+  <!-- Loading state -->
+  <div id="loading-state" class="loading-wrap">
+    <div class="spinner" style="margin:0 auto 12px;border-top-color:var(--orange);border-color:#33415544;"></div>
+    Memuat data pengajuan...
+  </div>
+
+  <!-- Error state -->
+  <div id="error-state" class="error-wrap" style="display:none">
+    <div class="err-icon">⚠️</div>
+    <div id="error-msg" class="result-title">Terjadi kesalahan</div>
+    <div id="error-sub" class="err-msg"></div>
+  </div>
+
+  <!-- Main content -->
+  <div id="main-content" style="display:none">
+    <div class="title">Permohonan <span id="lbl-jenis"></span></div>
+    <div class="subtitle">Silakan tinjau dan berikan keputusan Anda</div>
+
+    <div class="info-row">
+      <span class="info-label">Nama Karyawan</span>
+      <span class="info-value" id="lbl-nama">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Jenis</span>
+      <span class="info-value"><span class="badge" id="lbl-jenis-badge">—</span></span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Tanggal</span>
+      <span class="info-value" id="lbl-tanggal">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Jumlah Hari</span>
+      <span class="info-value" id="lbl-hari">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Alasan</span>
+      <span class="info-value" id="lbl-alasan" style="font-weight:400;font-style:italic;color:var(--sub)">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Diajukan Pada</span>
+      <span class="info-value" id="lbl-created">—</span>
+    </div>
+
+    <!-- Sudah diproses -->
+    <div id="already-processed" style="display:none">
+      <div class="divider"></div>
+      <div class="result-box">
+        <div class="result-icon" id="processed-icon">✅</div>
+        <div class="result-title" id="processed-title">Sudah Disetujui</div>
+        <div class="result-sub" id="processed-sub"></div>
+      </div>
+    </div>
+
+    <!-- Tombol approve / tolak -->
+    <div id="action-area">
+      <div class="divider"></div>
+      <div class="catatan-label">Catatan (opsional)</div>
+      <textarea id="catatan-input" placeholder="Tambahkan catatan jika diperlukan..."></textarea>
+      <div class="btn-row">
+        <button class="btn btn-tolak" id="btn-tolak" onclick="prosesAction('tolak')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          Tolak
+        </button>
+        <button class="btn btn-approve" id="btn-approve" onclick="prosesAction('approve')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          Setujui
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hasil setelah klik -->
+  <div id="result-state" style="display:none">
+    <div class="result-box">
+      <div class="result-icon" id="result-icon">✅</div>
+      <div class="result-title" id="result-title">Berhasil Disetujui</div>
+      <div class="result-sub" id="result-sub"></div>
+    </div>
+
+    <!-- Notif WA balik ke pengaju -->
+    <div class="wa-notif-box" id="wa-box" style="display:none">
+      <div class="wa-notif-label">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12.004 0C5.373 0 0 5.373 0 12.004c0 2.117.554 4.102 1.524 5.831L.054 23.5l5.818-1.528A11.95 11.95 0 0012.004 24C18.627 24 24 18.627 24 12.004 24 5.373 18.627 0 12.004 0zm0 21.818a9.81 9.81 0 01-5.001-1.366l-.359-.213-3.723.977.993-3.63-.234-.374A9.817 9.817 0 012.18 12.004c0-5.422 4.411-9.832 9.824-9.832 5.414 0 9.823 4.41 9.823 9.832 0 5.422-4.409 9.814-9.823 9.814z"/></svg>
+        Kirim notifikasi ke pengaju
+      </div>
+      <div class="wa-notif-text" id="wa-text"></div>
+      <button class="btn-wa" id="btn-wa-send" onclick="sendWA()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12.004 0C5.373 0 0 5.373 0 12.004c0 2.117.554 4.102 1.524 5.831L.054 23.5l5.818-1.528A11.95 11.95 0 0012.004 24C18.627 24 24 18.627 24 12.004 24 5.373 18.627 0 12.004 0zm0 21.818a9.81 9.81 0 01-5.001-1.366l-.359-.213-3.723.977.993-3.63-.234-.374A9.817 9.817 0 012.18 12.004c0-5.422 4.411-9.832 9.824-9.832 5.414 0 9.823 4.41 9.823 9.832 0 5.422-4.409 9.814-9.823 9.814z"/></svg>
+        Kirim via WhatsApp
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://ugrbunhudqhycgjlkwha.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_6TV-ESdlX9EQ5HdrEFPIyg_as3XTP_c";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let reqData = null;     // data leave_request
+let pengajuData = null; // data profiles pengaju (untuk WA)
+
+// --- Ambil token dari URL ---
+const urlParams = new URLSearchParams(window.location.search);
+const TOKEN = urlParams.get('token');
+
+// --- Format tanggal ---
+function fmtDate(d) {
+  if (!d) return '—';
+  const dt = new Date(d + 'T00:00:00');
+  return dt.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+}
+
+function hitungHari(mulai, selesai) {
+  const a = new Date(mulai), b = new Date(selesai);
+  return Math.round((b - a) / 86400000) + 1;
+}
+
+function fmtDatetime(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleString('id-ID', {
+    day: '2-digit', month: 'long', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
+}
+
+function jenisClass(jenis) {
+  const map = { Izin: 'badge-izin', Sakit: 'badge-sakit', Cuti: 'badge-cuti', Alfa: 'badge-alfa' };
+  return map[jenis] || '';
+}
+
+function showError(msg, sub = '') {
+  document.getElementById('loading-state').style.display = 'none';
+  document.getElementById('error-state').style.display = '';
+  document.getElementById('error-msg').textContent = msg;
+  document.getElementById('error-sub').textContent = sub;
+}
+
+// --- Load data ---
+async function init() {
+  if (!TOKEN) {
+    showError('Link tidak valid.', 'Token tidak ditemukan di URL.');
+    return;
+  }
+
+  // Ambil data leave_request + profil pengaju sekaligus
+  const { data, error } = await sb
+    .from('leave_requests')
+    .select(`
+      *,
+      pengaju:user_id ( full_name, no_wa ),
+      atasan:atasan_id ( full_name )
+    `)
+    .eq('token', TOKEN)
+    .maybeSingle();
+
+  if (error || !data) {
+    showError('Token tidak ditemukan.', 'Link ini mungkin sudah kadaluarsa atau tidak valid.');
+    return;
+  }
+
+  reqData = data;
+  pengajuData = data.pengaju;
+
+  // Isi UI
+  document.getElementById('loading-state').style.display = 'none';
+  document.getElementById('main-content').style.display = '';
+
+  const jBadge = document.getElementById('lbl-jenis-badge');
+  jBadge.textContent = data.jenis;
+  jBadge.className = 'badge ' + jenisClass(data.jenis);
+
+  document.getElementById('lbl-jenis').textContent = data.jenis;
+  document.getElementById('lbl-nama').textContent = data.pengaju?.full_name || '—';
+  document.getElementById('lbl-alasan').textContent = data.alasan || '(tidak ada alasan)';
+  document.getElementById('lbl-created').textContent = fmtDatetime(data.created_at);
+
+  const tglMulai = fmtDate(data.tanggal_mulai);
+  const tglSelesai = fmtDate(data.tanggal_selesai);
+  const hari = hitungHari(data.tanggal_mulai, data.tanggal_selesai);
+
+  document.getElementById('lbl-tanggal').textContent =
+    data.tanggal_mulai === data.tanggal_selesai
+      ? tglMulai
+      : tglMulai + ' – ' + tglSelesai;
+
+  document.getElementById('lbl-hari').textContent = hari + ' hari';
+
+  // Jika sudah diproses
+  if (data.status !== 'Menunggu') {
+    document.getElementById('action-area').style.display = 'none';
+    const box = document.getElementById('already-processed');
+    box.style.display = '';
+    if (data.status === 'Disetujui') {
+      document.getElementById('processed-icon').textContent = '✅';
+      document.getElementById('processed-title').textContent = 'Sudah Disetujui';
+    } else {
+      document.getElementById('processed-icon').textContent = '❌';
+      document.getElementById('processed-title').textContent = 'Sudah Ditolak';
+    }
+    document.getElementById('processed-sub').textContent =
+      'Diproses pada ' + fmtDatetime(data.approved_at);
+  }
+}
+
+// --- Proses approve / tolak ---
+async function prosesAction(action) {
+  const catatan = document.getElementById('catatan-input').value.trim();
+  const btnApprove = document.getElementById('btn-approve');
+  const btnTolak   = document.getElementById('btn-tolak');
+  btnApprove.disabled = true;
+  btnTolak.disabled   = true;
+
+  const { data, error } = await sb.rpc('proses_approval_cuti', {
+    p_token:  TOKEN,
+    p_action: action,
+    p_catatan: catatan || null
+  });
+
+  if (error || !data?.ok) {
+    alert('Gagal: ' + (data?.pesan || error?.message || 'Terjadi kesalahan.'));
+    btnApprove.disabled = false;
+    btnTolak.disabled   = false;
+    return;
+  }
+
+  // Tampilkan hasil
+  document.getElementById('main-content').style.display = 'none';
+  const rs = document.getElementById('result-state');
+  rs.style.display = '';
+
+  const isApprove = action === 'approve';
+  document.getElementById('result-icon').textContent  = isApprove ? '✅' : '❌';
+  document.getElementById('result-title').textContent = isApprove ? 'Pengajuan Disetujui' : 'Pengajuan Ditolak';
+  document.getElementById('result-sub').textContent   = data.pesan;
+
+  // Siapkan pesan WA balik ke pengaju
+  if (pengajuData?.no_wa) {
+    const nama    = pengajuData.full_name || 'Karyawan';
+    const jenis   = reqData.jenis;
+    const tglStr  = reqData.tanggal_mulai === reqData.tanggal_selesai
+      ? fmtDate(reqData.tanggal_mulai)
+      : fmtDate(reqData.tanggal_mulai) + ' s/d ' + fmtDate(reqData.tanggal_selesai);
+    const catatanAtasan = catatan ? '\n📝 Catatan: ' + catatan : '';
+    const statusEmoji = isApprove ? '✅' : '❌';
+    const statusTeks  = isApprove ? 'DISETUJUI' : 'DITOLAK';
+
+    const pesanWA =
+      `${statusEmoji} *Pemberitahuan ${jenis}*\n\n` +
+      `Halo ${nama},\n\n` +
+      `Permohonan ${jenis} Anda untuk tanggal *${tglStr}* telah *${statusTeks}*.` +
+      catatanAtasan + '\n\n' +
+      '_(Pesan otomatis dari Sistem Cuti)_';
+
+    document.getElementById('wa-text').textContent = pesanWA;
+    document.getElementById('wa-box').style.display = '';
+    document.getElementById('btn-wa-send').dataset.noWa = pengajuData.no_wa;
+    document.getElementById('btn-wa-send').dataset.pesan = pesanWA;
+  }
+}
+
+function sendWA() {
+  const btn = document.getElementById('btn-wa-send');
+  const noWa = btn.dataset.noWa.replace(/\D/g, '');
+  const pesan = encodeURIComponent(btn.dataset.pesan);
+  window.open('https://wa.me/' + noWa + '?text=' + pesan, '_blank');
+}
+
+init();
+</script>
+</body>
+</html>

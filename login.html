@@ -237,6 +237,7 @@ function loginPage() {
       //   leader   -> Input Produksi (yang paling sering dikerjakan)
       //   operator -> Attendance (satu-satunya halaman yang boleh dibuka;
       //               kalau lewat Dashboard dulu dia cuma akan dipantulkan)
+      if (role === "guest") return "dashboard-exhaust.html"; // guest: hanya Dashboard Exhaust
       if (admin) return "dashboard-exhaust.html";
       if (leader) return "input-produksi.html";
       return "input-attendance.html";

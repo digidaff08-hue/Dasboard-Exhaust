@@ -15,7 +15,31 @@ async function requireAuth() {
     window.location.href = getBasePath() + "login.html";
     return null;
   }
+  // Akun GUEST hanya boleh membuka Dashboard Exhaust. Halaman lain
+  // (Input Produksi, Attendance, halaman mesin, dst) langsung dipantulkan
+  // ke Dashboard Exhaust -- termasuk kalau alamatnya diketik manual.
+  if (!isDashboardExhaustPage() && (await getMyRole(session)) === "guest") {
+    window.location.href = getBasePath() + "dashboard-exhaust.html";
+    return null;
+  }
   return session;
+}
+
+// Role user yang sedang login (huruf kecil), mis. "admin" / "leader" /
+// "operator" / "guest". Kosong kalau profil gagal dibaca.
+async function getMyRole(session) {
+  if (!session) return "";
+  try {
+    const { data } = await supabaseClient
+      .from("profiles").select("role").eq("id", session.user.id).maybeSingle();
+    return ((data && data.role) || "").toLowerCase();
+  } catch (e) {
+    return "";
+  }
+}
+
+function isDashboardExhaustPage() {
+  return window.location.pathname.toLowerCase().includes("dashboard-exhaust");
 }
 
 // Penjaga halaman: hanya admin & leader yang boleh membuka halaman
@@ -33,6 +57,13 @@ async function requireStaff(session) {
     .from("profiles").select("role,jabatan").eq("id", session.user.id).maybeSingle();
   const r = ((data && data.role) || "").toLowerCase();
   const j = ((data && data.jabatan) || "").toLowerCase();
+  // GUEST: boleh HANYA di Dashboard Exhaust (lihat saja), halaman lain
+  // dipantulkan ke Dashboard Exhaust.
+  if (r === "guest") {
+    if (isDashboardExhaustPage()) return true;
+    window.location.href = getBasePath() + "dashboard-exhaust.html";
+    return false;
+  }
   const boleh = ["admin", "leader"].includes(r) || ["admin", "leader"].includes(j);
   if (!boleh) {
     window.location.href = getBasePath() + "input-attendance.html";
