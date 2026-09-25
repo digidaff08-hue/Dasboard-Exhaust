@@ -753,7 +753,7 @@ function attendancePage() {
           // Strip link approval dari pesan yang ditampilkan ke user (keamanan)
           const stripLink = (txt) => txt ? txt.replace(/\n\n👆[^\n]*\n?https?:\/\/[^\s]*/g, '').trim() : null;
           this.leaveWaPesan        = stripLink(s.pesan)        || null;
-          this.leaveWaPesanAtasan  = s.pesanAtasan              || null;
+          this.leaveWaPesanAtasan  = s.pesanAtasan             || null; // link tetap ada di pesan untuk atasan
           this.leaveWaTarget       = s.target       || null;
           this.leaveWaJenis        = s.jenis        || null;
         }
