@@ -2846,3 +2846,113 @@ table.plan-shift-table td.balance-bad { color: var(--red); font-weight: 700; }
   .sidebar { width: 264px; box-shadow: 4px 0 24px rgba(15,23,42,0.18); }
   .sidebar-link { padding: 12px 14px; font-size: 14.5px; }
 }
+
+/* =========================================================
+   ANDON (assets/andon.js)
+   ========================================================= */
+@keyframes andonKedip { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+@keyframes andonDenyut { 0% { box-shadow: 0 0 0 0 rgba(220,38,38,.55); } 70% { box-shadow: 0 0 0 16px rgba(220,38,38,0); } 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); } }
+
+/* --- tombol melayang di halaman mesin --- */
+.andon-fab {
+  position: fixed; right: 22px; bottom: 22px; z-index: 60;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 13px 20px; border-radius: 999px; border: none;
+  background: linear-gradient(135deg, #ef4444, #b91c1c); color: #fff;
+  font-weight: 800; font-size: 14px; letter-spacing: .02em; cursor: pointer;
+  box-shadow: 0 8px 22px rgba(185,28,28,.35);
+}
+.andon-fab:hover { filter: brightness(1.06); }
+.andon-fab.ramai { animation: andonDenyut 1.6s infinite; }
+
+.andon-strip { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.andon-strip-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-radius: 10px; border: 1px solid;
+}
+.andon-strip-item.memanggil { background: #fef2f2; border-color: #fca5a5; color: #7f1d1d; }
+.andon-strip-item.ditangani { background: #fffbeb; border-color: #fcd34d; color: #78350f; }
+.andon-strip-item .andon-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; background: currentColor; }
+.andon-strip-item.memanggil .andon-dot { background: #dc2626; animation: andonKedip 1s infinite; }
+.andon-strip-item.ditangani .andon-dot { background: #f59e0b; }
+.andon-strip-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.andon-strip-text b { font-size: 14px; }
+.andon-strip-text span { font-size: 12px; opacity: .85; }
+.andon-strip-act { display: flex; gap: 6px; flex-shrink: 0; }
+.andon-btn-ok { background: #16a34a; color: #fff; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; }
+.andon-btn-call {
+  background: #dc2626; color: #fff; border: none; border-radius: 8px;
+  padding: 10px 18px; font-weight: 800; cursor: pointer;
+}
+.andon-btn-call:disabled { opacity: .5; cursor: not-allowed; }
+
+.andon-modal { width: min(560px, calc(100vw - 32px)); }
+.andon-tim-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.andon-tim {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: 12px; border-radius: 10px; cursor: pointer; text-align: left;
+  background: var(--panel); border: 2px solid var(--border); color: var(--text);
+}
+.andon-tim b { font-size: 15px; color: var(--c); }
+.andon-tim span { font-size: 11.5px; color: var(--muted); }
+.andon-tim:hover { border-color: var(--c); }
+.andon-tim.on { border-color: var(--c); background: color-mix(in srgb, var(--c) 10%, var(--panel)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 18%, transparent); }
+.andon-tim.sibuk { opacity: .5; cursor: not-allowed; }
+
+@media (max-width: 800px) {
+  .andon-top .andon-jam { display: none; }
+  .andon-fab { right: 14px; bottom: 14px; padding: 14px; }
+  .andon-fab span { display: none; }
+  .andon-strip-item { flex-wrap: wrap; }
+  .andon-strip-act { width: 100%; justify-content: flex-end; }
+}
+
+/* --- papan andon.html --- */
+.andon-top { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.andon-jam { font-family: var(--font-mono); font-size: 22px; font-weight: 700; color: var(--text); }
+.andon-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.andon-chip {
+  padding: 6px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  border: 1.5px solid var(--border); background: var(--panel); color: var(--muted);
+}
+.andon-chip.on { background: var(--c, #3a2fb8); border-color: var(--c, #3a2fb8); color: #fff; }
+.andon-peringatan {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  padding: 10px 14px; border-radius: 10px; margin-bottom: 14px;
+  background: #eef2ff; border: 1px solid #c7d2fe; color: #312e81; font-size: 13px;
+}
+.andon-peringatan.ok { background: #f0fdf4; border-color: #bbf7d0; color: #14532d; }
+
+.andon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.andon-card {
+  border-radius: 14px; padding: 16px; color: #fff; position: relative;
+  display: flex; flex-direction: column; gap: 6px; min-height: 170px;
+}
+.andon-card.memanggil { background: linear-gradient(135deg, #ef4444, #b91c1c); animation: andonDenyut 1.6s infinite; }
+.andon-card.ditangani { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.andon-card.telat { outline: 4px solid #7f1d1d; }
+.andon-card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.andon-card-mesin { font-size: 34px; font-weight: 800; letter-spacing: .02em; line-height: 1; }
+.andon-card-tim { font-size: 13px; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: rgba(255,255,255,.22); }
+.andon-card-status { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; opacity: .95; }
+.andon-card-timer { font-family: var(--font-mono); font-size: 30px; font-weight: 800; }
+.andon-card-ket { font-size: 13.5px; background: rgba(0,0,0,.15); padding: 6px 10px; border-radius: 8px; }
+.andon-card-meta { font-size: 12px; opacity: .9; }
+.andon-card-act { display: flex; gap: 8px; margin-top: auto; padding-top: 6px; }
+.andon-card-act button {
+  flex: 1; padding: 11px; border-radius: 9px; border: none; cursor: pointer;
+  font-weight: 800; font-size: 14px; background: #fff; color: #991b1b;
+}
+.andon-card.ditangani .andon-card-act button { color: #92400e; }
+.andon-card-act button.kecil { flex: 0 0 auto; background: rgba(255,255,255,.2); color: #fff; }
+.andon-kosong {
+  padding: 34px; text-align: center; border-radius: 14px; margin-bottom: 20px;
+  background: #f0fdf4; border: 1px dashed #86efac; color: #166534; font-weight: 700;
+}
+.andon-kpi { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.andon-kpi div { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+.andon-kpi b { display: block; font-size: 20px; color: var(--text); }
+.andon-kpi span { font-size: 11.5px; color: var(--muted); }
+.andon-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.andon-badge.selesai { background: #dcfce7; color: #166534; }
+.andon-badge.batal { background: #f1f5f9; color: #64748b; }

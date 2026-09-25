@@ -5,7 +5,7 @@
 // ini cuma men-cache HTML/CSS/JS-nya, bukan data produksi.
 // =========================================================
 // Naikkan versi ini tiap ada perubahan besar supaya cache lama dibuang.
-const CACHE_NAME = "produksi-downtime-shell-v6-sidebar-putih";
+const CACHE_NAME = "produksi-downtime-shell-v7-andon";
 
 const SHELL_FILES = [
   "/login.html",
@@ -16,11 +16,13 @@ const SHELL_FILES = [
   "/input-attendance.html",
   "/master-data.html",
   "/data-mentah.html",
+  "/andon.html",
   "/reset-password.html",
   "/manifest.json",
   "/assets/style.css",
   "/assets/supabaseClient.js",
   "/assets/machine-page.js",
+  "/assets/andon.js",
   "/machines/e-02.html",
   "/machines/e-03.html",
   "/machines/e-04.html",

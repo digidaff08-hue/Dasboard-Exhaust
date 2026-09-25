@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#b91c1c">
+<title>Andon — Welding Exhaust System</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script>document.documentElement.setAttribute("data-theme", "light");</script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/supabaseClient.js"></script>
+<script src="assets/andon.js"></script>
+</head>
+<body>
+<!--
+  ANDON -- papan panggilan supporting.
+  Buka di HP orang supporting atau di TV area produksi. Panggilan dari
+  tombol "Panggil Supporting" di halaman mesin muncul di sini secara
+  langsung (realtime), berbunyi, dan bisa diambil ("Saya menuju ke sana")
+  lalu ditutup ("Selesai"). Tahap 1: bunyi & notifikasi hanya saat
+  halaman ini sedang terbuka.
+-->
+<div class="app-shell" x-data="andonBoard()">
+  <div class="mobile-topbar">
+    <div class="mobile-topbar-top">
+      <button class="hamburger" @click="mobileNavOpen = true"><svg class="sb-svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
+      <span class="mobile-title">ANDON</span>
+      <span class="andon-jam" style="font-size:15px;" x-text="new Date(now).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'})"></span>
+    </div>
+  </div>
+  <div class="sidebar-overlay" x-show="mobileNavOpen" @click="mobileNavOpen = false" x-cloak></div>
+<aside class="sidebar" :class="[mobileNavOpen ? 'sidebar-open' : '', sidebarCollapsed ? 'sidebar-collapsed' : '']">
+    <button class="sidebar-collapse-btn" @click="sidebarCollapsed = !sidebarCollapsed">
+      <span x-show="!sidebarCollapsed">‹</span><span x-show="sidebarCollapsed">›</span>
+    </button>
+    <div class="sidebar-brand" x-show="!sidebarCollapsed"><span class="sb-brand-title">WELDING EXHAUST</span><span class="sb-brand-sub">PT Futaba Industrial Indonesia</span></div>
+    <nav class="sidebar-nav" @click="mobileNavOpen = false">
+      <a href="dashboard-exhaust.html" class="sidebar-link" title="Dashboard Exhaust" x-show="isLeaderOrAdmin() || isViewer()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M3 13h4v8H3zM10 3h4v18h-4zM17 8h4v13h-4z"/></svg></span><span x-show="!sidebarCollapsed">Dashboard Exhaust</span></a>
+      <a href="input-produksi.html" class="sidebar-link" title="Input Produksi" x-show="isLeaderOrAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
+      <a href="input-attendance.html" class="sidebar-link" title="Attendance"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></span><span x-show="!sidebarCollapsed">Attendance</span></a>
+      <a href="andon.html" class="sidebar-link active" title="Andon"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm7-6V11c0-3.07-1.64-5.64-4.5-6.32V4a1.5 1.5 0 0 0-3 0v.68C8.63 5.36 7 7.92 7 11v5l-2 2v1h14v-1l-2-2z"/></svg></span><span x-show="!sidebarCollapsed">Andon</span></a>
+            <a href="data-mentah.html" class="sidebar-link" title="Data Mentah" x-show="isAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 7.6V12c0 1.66 3.58 3 8 3s8-1.34 8-3V7.6C18.4 8.9 15.3 9.6 12 9.6S5.6 8.9 4 7.6z"/><path d="M4 14.6V19c0 1.66 3.58 3 8 3s8-1.34 8-3v-4.4c-1.6 1.3-4.7 2-8 2s-6.4-.7-8-2z"/></svg></span><span x-show="!sidebarCollapsed">Data Mentah</span></a>
+<a href="master-data.html" class="sidebar-link" title="Master Data" x-show="isAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg></span><span x-show="!sidebarCollapsed">Master Data</span></a>
+    </nav>
+    <div class="sidebar-foot" x-show="!sidebarCollapsed">
+      <div class="sb-av" x-text="((profile?.full_name || session?.user?.email || '?').trim().charAt(0) || '?').toUpperCase()"></div>
+      <div class="sb-user"><div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
+      <span class="badge" :class="profile?.role === 'admin' ? 'role-admin' : ''" x-text="profile?.jabatan || profile?.role || '...'"></span></div>
+      <button class="btn-ghost btn-sm" @click="logout()">Keluar</button>
+    </div>
+    <button class="sidebar-logout-collapsed" x-show="sidebarCollapsed" @click="logout()" title="Keluar"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M13 3h-2v10h2V3zm4.83 2.17-1.42 1.42A6.92 6.92 0 0 1 19 12a7 7 0 1 1-11.42-5.42L6.17 5.17A8.93 8.93 0 0 0 3 12a9 9 0 0 0 18 0c0-2.74-1.23-5.18-3.17-6.83z"/></svg></button>
+  </aside>
+
+  <main class="main">
+    <div class="andon-top">
+      <h1 class="page-title" style="margin:0;"><span class="eyebrow">Panggilan Supporting</span>Andon</h1>
+      <span class="andon-jam" x-text="new Date(now).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'})"></span>
+    </div>
+
+    <template x-if="pesan"><div :class="pesanError ? 'error-msg' : 'success-msg'" x-text="pesan"></div></template>
+
+    <!-- Bunyi & notifikasi butuh 1x ketukan (aturan browser) -->
+    <div class="andon-peringatan" :class="suaraAktif ? 'ok' : ''">
+      <template x-if="!suaraAktif">
+        <span style="flex:1;">🔕 Bunyi belum aktif. Ketuk tombol ini supaya halaman berbunyi saat ada panggilan baru.</span>
+      </template>
+      <template x-if="suaraAktif">
+        <span style="flex:1;">🔔 Bunyi aktif<span x-show="notifIzin === 'granted'"> · notifikasi aktif</span><span x-show="notifIzin === 'denied'"> · notifikasi diblokir browser</span>. Biarkan halaman ini tetap terbuka.</span>
+      </template>
+      <button type="button" class="btn-sm" :class="suaraAktif ? 'btn-secondary' : 'btn-primary'" @click="aktifkanPeringatan()"
+              x-text="suaraAktif ? 'Tes bunyi' : 'Aktifkan bunyi & notifikasi'"></button>
+    </div>
+
+    <!-- Filter tim (tersimpan di HP ini) -->
+    <div class="andon-filter">
+      <button type="button" class="andon-chip" :class="!filterTim.length ? 'on' : ''" @click="semuaTim()">Semua tim</button>
+      <template x-for="t in TIM" :key="t.kode">
+        <button type="button" class="andon-chip" :style="'--c:' + t.warna" :class="filterTim.includes(t.kode) ? 'on' : ''"
+                @click="toggleTim(t.kode)" x-text="t.kode"></button>
+      </template>
+    </div>
+
+    <template x-if="loading"><div class="empty-state">Memuat...</div></template>
+
+    <template x-if="!loading">
+      <div>
+        <template x-if="!aktifTampil.length">
+          <div class="andon-kosong">✅ Tidak ada panggilan aktif<span x-show="filterTim.length" x-text="' untuk ' + filterTim.join(', ')"></span>.</div>
+        </template>
+
+        <div class="andon-grid" x-show="aktifTampil.length">
+          <template x-for="c in aktifTampil" :key="c.id">
+            <div class="andon-card" :class="[c.status, telat(c) ? 'telat' : '']">
+              <div class="andon-card-head">
+                <span class="andon-card-mesin" x-text="c.mesin"></span>
+                <span class="andon-card-tim" x-text="c.tim"></span>
+              </div>
+              <span class="andon-card-status" x-text="c.status === 'memanggil' ? (telat(c) ? '⚠ Belum direspons' : '● Memanggil') : '● Ditangani ' + (c.ditangani_nama || '')"></span>
+              <span class="andon-card-timer" x-text="c.status === 'memanggil' ? lama(c) : lamaDitangani(c)"></span>
+              <template x-if="c.keterangan"><span class="andon-card-ket" x-text="c.keterangan"></span></template>
+              <span class="andon-card-meta" x-text="'Dipanggil ' + jam(c.dipanggil_at) + ' oleh ' + (c.dipanggil_nama || '-') + (c.ditangani_at ? ' · respons ' + menit(responsMs(c)) : '')"></span>
+              <div class="andon-card-act" x-show="bolehAksi">
+                <template x-if="c.status === 'memanggil'">
+                  <button type="button" @click="aksi(c, 'ambil')">🏃 Saya menuju ke sana</button>
+                </template>
+                <template x-if="c.status === 'ditangani'">
+                  <button type="button" @click="aksi(c, 'selesai')">✔ Selesai</button>
+                </template>
+                <template x-if="c.status === 'memanggil'">
+                  <button type="button" class="kecil" title="Langsung selesai" @click="aksi(c, 'selesai')">✔</button>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- Riwayat hari ini -->
+        <div class="panel">
+          <p class="panel-title">Riwayat hari ini</p>
+          <div class="andon-kpi">
+            <div><b x-text="ringkasan.total"></b><span>Total panggilan</span></div>
+            <div><b x-text="ringkasan.selesai"></b><span>Selesai</span></div>
+            <div><b x-text="menit(ringkasan.respons)"></b><span>Rata-rata waktu respons</span></div>
+            <div><b x-text="menit(ringkasan.perbaikan)"></b><span>Rata-rata waktu perbaikan</span></div>
+          </div>
+          <div class="table-wrap" style="overflow-x:auto;">
+            <table>
+              <thead><tr><th>Jam</th><th>Mesin</th><th>Tim</th><th>Masalah</th><th>Respons</th><th>Perbaikan</th><th>Ditangani</th><th>Catatan</th><th>Status</th></tr></thead>
+              <tbody>
+                <template x-if="!riwayatTampil.length"><tr><td colspan="9" style="text-align:center;color:var(--muted);">Belum ada panggilan yang selesai hari ini.</td></tr></template>
+                <template x-for="c in riwayatTampil" :key="c.id">
+                  <tr>
+                    <td class="mono" x-text="jam(c.dipanggil_at)"></td>
+                    <td><b x-text="c.mesin"></b></td>
+                    <td><span class="andon-badge" :style="'background:' + info(c.tim).warna + '1a;color:' + info(c.tim).warna" x-text="c.tim"></span></td>
+                    <td x-text="c.keterangan || '-'"></td>
+                    <td class="mono" x-text="c.status === 'selesai' ? menit(responsMs(c)) : '-'"></td>
+                    <td class="mono" x-text="c.status === 'selesai' ? menit(perbaikanMs(c)) : '-'"></td>
+                    <td x-text="c.ditangani_nama || '-'"></td>
+                    <td x-text="c.catatan || '-'"></td>
+                    <td><span class="andon-badge" :class="c.status" x-text="c.status === 'selesai' ? 'Selesai' : 'Batal'"></span></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </template>
+  </main>
+</div>
+</body>
+</html>
