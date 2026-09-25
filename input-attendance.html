@@ -694,6 +694,8 @@ function attendancePage() {
     ...baseInputPage(),
     // ---- Form Izin/Sakit/Cuti/Mangkir (per-orang) ----
     leaveForm: { tanggal: localDateStr(new Date()), tanggal_selesai: localDateStr(new Date()), jenis: "izin", nik: "", nama: "", jenis_cuti: "", keterangan: "" },
+    _profileNik: "",    // NIK dari profil login — disimpan untuk reset form
+    _profileNama: "",   // Nama dari profil login — disimpan untuk reset form
     leaveRows: [],
     leaveEditId: null,
     leaveNikFound: false,
@@ -738,6 +740,8 @@ function attendancePage() {
           this.leaveWaJenis  = s.jenis  || null;
         }
       } catch(e) {}
+      // NIK & Nama otomatis dari profil yang login
+      await this.prefillNikFromProfile();
       await this.fetchLeaveRows();
       await this.fetchHariLibur();
       await this.fetchShift2Periodes();
@@ -748,6 +752,27 @@ function attendancePage() {
       // Cek apakah user ini Foreman/Supervisor (bisa approve)
       await this.initApproveState();
     },
+    // ---- NIK Auto-fill ----
+    // Isi NIK & Nama dari profil yang sedang login. Dipanggil sekali di init().
+    // Kalau profiles.nik kosong (akun belum dipasangkan), form tetap kosong
+    // dan user bisa ketik manual seperti sebelumnya.
+    async prefillNikFromProfile() {
+      const nik = (this.profile?.nik || '').trim();
+      if (!nik) return;
+      // Cari nama dari karyawan_master supaya konsisten
+      const { data } = await supabaseClient
+        .from('karyawan_master').select('nama').eq('nik', nik).maybeSingle();
+      const nama = (data && data.nama) ? data.nama : (this.profile?.full_name || '');
+      if (!nama) return;
+      // Simpan untuk dipakai ulang di resetLeaveForm()
+      this._profileNik  = nik;
+      this._profileNama = nama;
+      // Isi form sekarang
+      this.leaveForm.nik  = nik;
+      this.leaveForm.nama = nama;
+      this.leaveNikFound  = true;
+    },
+
     // ---- Izin/Sakit/Cuti/Mangkir ----
     // Riwayat hanya menampilkan data yang DIINPUT oleh orang yang sedang
     // login (kolom created_by). Jadi si A tidak melihat catatan si B.
@@ -1033,9 +1058,12 @@ function attendancePage() {
       return cocok[0].nikSet.has(nik) ? "2" : "1";
     },
     resetLeaveForm() {
-      this.leaveForm = { tanggal: localDateStr(new Date()), tanggal_selesai: localDateStr(new Date()), jenis: "izin", nik: "", nama: "", jenis_cuti: "", keterangan: "" };
-      this.leaveEditId = null;
-      this.leaveNikFound = false;
+      // Prefill ulang NIK & Nama dari profil yang login (sudah di-cache di _profileNik/_profileNama)
+      const nik  = this._profileNik  || '';
+      const nama = this._profileNama || '';
+      this.leaveForm = { tanggal: localDateStr(new Date()), tanggal_selesai: localDateStr(new Date()), jenis: "izin", nik, nama, jenis_cuti: "", keterangan: "" };
+      this.leaveEditId   = null;
+      this.leaveNikFound = !!nik;
       // leaveWaPesan & leaveWaTarget TIDAK direset di sini supaya kotak WA
       // tetap muncul setelah form dikosongkan. Dibersihkan di awal saveLeave()
       // atau saat user menekan "Batal Edit".
