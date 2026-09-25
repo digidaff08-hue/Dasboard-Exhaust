@@ -354,19 +354,24 @@ async function init() {
 
   reqData = data;
 
-  // Ambil data pengaju dari profiles (pakai rpc atau langsung — anon butuh policy)
-  // Coba ambil; kalau gagal (RLS) tetap lanjut tanpa WA notification
+  // Nama sudah disimpan di leave_requests.nama_pengaju saat pengajuan
+  // Coba juga ambil no_wa dari profiles untuk notif balik ke pengaju
+  pengajuData = {
+    full_name: data.nama_pengaju || null,
+    nik: data.nik_pengaju || null,
+    no_wa: null,
+  };
   try {
     const { data: profil } = await sb
       .from('profiles')
       .select('full_name, no_wa')
       .eq('id', data.user_id)
       .maybeSingle();
-    pengajuData = profil || null;
-  } catch(e) { pengajuData = null; }
-
-  // Fallback: gunakan nama dari kolom karyawan jika ada (atau kosong)
-  if (!pengajuData) pengajuData = { full_name: data.nama_pengaju || null, no_wa: null };
+    if (profil) {
+      pengajuData.full_name = pengajuData.full_name || profil.full_name;
+      pengajuData.no_wa = profil.no_wa || null;
+    }
+  } catch(e) { /* RLS profiles — lanjut tanpa no_wa */ }
 
   // Isi UI
   document.getElementById('loading-state').style.display = 'none';
@@ -377,7 +382,7 @@ async function init() {
   jBadge.className = 'badge ' + jenisClass(data.jenis);
 
   document.getElementById('lbl-jenis').textContent = data.jenis;
-  document.getElementById('lbl-nama').textContent = pengajuData?.full_name || data.nama_pengaju || '—';
+  document.getElementById('lbl-nama').textContent = pengajuData?.full_name || '—';
   document.getElementById('lbl-alasan').textContent = data.alasan || '(tidak ada alasan)';
   document.getElementById('lbl-created').textContent = fmtDatetime(data.created_at);
 
