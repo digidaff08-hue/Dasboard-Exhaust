@@ -288,26 +288,26 @@
         <span>Panggil Supporting</span>
       </button>
 
-      <div class="modal-overlay" x-show="modalOpen" @click.self="modalOpen = false">
+      <div class="modal-overlay andon-overlay" x-show="modalOpen" @click.self="modalOpen = false">
         <div class="panel andon-modal">
-          <p class="panel-title"><span x-text="'🔔 Panggil Supporting — ' + mesin"></span></p>
-          <p class="hint" style="margin-top:-4px;">Pilih tim yang dibutuhkan. Panggilan langsung muncul di halaman Andon (HP supporting / TV).</p>
+          <p class="panel-title andon-modal-title"><span class="andon-lonceng">🔔</span><span x-text="'Panggil Supporting — ' + mesin"></span></p>
+          <p class="hint andon-sub">Pilih tim yang dibutuhkan.</p>
           <div class="andon-tim-grid">
-            <template x-for="t in TIM" :key="t.kode">
-              <button type="button" class="andon-tim" :style="'--c:' + t.warna"
+            <template x-for="(t, i) in TIM" :key="t.kode">
+              <button type="button" class="andon-tim" :style="'--c:' + t.warna + ';--i:' + i"
                       :class="[form.tim === t.kode ? 'on' : '', timSedangAktif(t.kode) ? 'sibuk' : '']"
                       :disabled="timSedangAktif(t.kode)" @click="form.tim = t.kode">
-                <b x-text="t.kode"></b><span x-show="timSedangAktif(t.kode)">sudah dipanggil</span>
+                <svg class="andon-tim-ic" viewBox="0 0 24 24" aria-hidden="true" x-html="t.ikon"></svg><b x-text="t.kode"></b><span x-show="timSedangAktif(t.kode)">sudah dipanggil</span>
               </button>
             </template>
           </div>
-          <div class="field" style="margin-top:12px;">
-            <label>Masalahnya apa? <span class="hint">(boleh kosong)</span></label>
-            <input type="text" x-model="form.keterangan" maxlength="120" placeholder="mis. robot 2 alarm, jig 3 clamp tidak menjepit" @keydown.enter="panggil()">
+          <div class="field andon-ket">
+            <label>Ketik problem di sini</label>
+            <textarea x-model="form.keterangan" maxlength="200" rows="3"></textarea>
           </div>
-          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
+          <div class="andon-modal-act">
             <button type="button" class="btn-secondary" @click="modalOpen = false">Batal</button>
-            <button type="button" class="andon-btn-call" :disabled="sending || !form.tim" @click="panggil()"
+            <button type="button" class="andon-btn-call" :class="form.tim ? 'siap' : ''" :disabled="sending || !form.tim" @click="panggil()"
                     x-text="sending ? 'Memanggil...' : (form.tim ? 'Panggil ' + form.tim : 'Pilih tim dulu')"></button>
           </div>
         </div>
