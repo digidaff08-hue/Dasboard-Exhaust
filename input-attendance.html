@@ -750,10 +750,8 @@ function attendancePage() {
         const saved = localStorage.getItem('leaveWaState_' + this.session?.user?.id);
         if (saved) {
           const s = JSON.parse(saved);
-          // Strip link approval dari pesan yang ditampilkan ke user (keamanan)
-          const stripLink = (txt) => txt ? txt.replace(/\n\n👆[^\n]*\n?https?:\/\/[^\s]*/g, '').trim() : null;
-          this.leaveWaPesan        = stripLink(s.pesan)        || null;
-          this.leaveWaPesanAtasan  = s.pesanAtasan             || null; // link tetap ada di pesan untuk atasan
+          this.leaveWaPesan        = s.pesan        || null;
+          this.leaveWaPesanAtasan  = s.pesanAtasan  || s.pesan || null;
           this.leaveWaTarget       = s.target       || null;
           this.leaveWaJenis        = s.jenis        || null;
         }
@@ -1156,7 +1154,6 @@ function attendancePage() {
         if (this.leaveWaTarget) {
           this.sendLeaveWA();
         }
-        await this.loadStatusCutiSaya();
       }
     },
 
@@ -1207,8 +1204,6 @@ function attendancePage() {
             tanggal_selesai: f.tanggal_selesai || f.tanggal,
             alasan: keterangan || null,
             atasan_id: atasanId2,
-            nama_pengaju: nama || this.profile?.full_name || '',
-            nik_pengaju: nik || this.profile?.nik || '',
           }).select('token').single();
           if (req?.token) {
             approvalLink = '\n\n👆 *Ketuk link di bawah untuk approve/tolak:*\n' + window.location.origin + '/approval-cuti.html?token=' + req.token;
@@ -1384,25 +1379,6 @@ function attendancePage() {
     },
   };
 }
-  // --- Diagnostik ---
-  async function checkStatusCutiAlasan() {
-    try {
-      const { data, error } = await supabaseClient
-        .from('leave_requests')
-        .select('alasan')
-        .like('alasan', '%Cuuuu%')
-        .limit(1)
-        .single();
-
-      if (error) throw error;
-      console.log('leave_requests.alasan bermasalah:', data);
-    } catch (e) {
-      console.error('Gagal:', e);
-    }
-  }
-
-  checkStatusCutiAlasan();
-  // --- End diagnostik ---
 </script>
 </body>
-</html>
+</html>	
