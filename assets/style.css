@@ -2887,6 +2887,13 @@ table.plan-shift-table td.balance-bad { color: var(--red); font-weight: 700; }
 .andon-btn-call:disabled { opacity: .5; cursor: not-allowed; }
 
 .andon-modal { width: min(560px, calc(100vw - 32px)); }
+.andon-ket { margin-top: 14px; }
+.andon-ket textarea {
+  width: 100%; min-height: 90px; resize: vertical; box-sizing: border-box;
+  padding: 10px 12px; font: inherit; font-size: 14px;
+  border: 1px solid var(--field-border, var(--border)); border-radius: 10px;
+}
+.andon-modal-act { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
 .andon-tim-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .andon-tim {
   display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
@@ -2901,9 +2908,24 @@ table.plan-shift-table td.balance-bad { color: var(--red); font-weight: 700; }
 
 @media (max-width: 800px) {
   .andon-top .andon-jam { display: none; }
-  .andon-tim-grid { grid-template-columns: repeat(2, 1fr); }
-  .andon-tim { padding: 14px 12px; align-items: center; justify-content: center; text-align: center; }
-  .andon-tim b { font-size: 16px; }
+  /* Popup Panggil Supporting = penuh 1 layar HP */
+  .andon-overlay { padding: 0; align-items: stretch; }
+  .andon-overlay > .panel.andon-modal {
+    width: 100vw; height: 100vh; height: 100dvh; max-height: none;
+    border-radius: 0; margin: 0; overflow-y: auto;
+    display: flex; flex-direction: column;
+    padding: 20px 16px calc(16px + env(safe-area-inset-bottom));
+  }
+  .andon-modal .panel-title { font-size: 19px; font-weight: 700; }
+  .andon-tim-grid {
+    grid-template-columns: repeat(2, 1fr); grid-auto-rows: 1fr;
+    flex: 1 1 auto; min-height: 330px; gap: 10px;
+  }
+  .andon-tim { padding: 14px 12px; align-items: center; justify-content: center; text-align: center; border-radius: 14px; }
+  .andon-tim b { font-size: 22px; letter-spacing: .02em; }
+  .andon-tim span { font-size: 12.5px; }
+  .andon-ket textarea { min-height: 130px; font-size: 16px; }
+  .andon-modal-act button { flex: 1; padding: 16px; font-size: 16px; border-radius: 12px; }
   .andon-fab { right: 14px; bottom: 14px; padding: 14px; }
   .andon-fab span { display: none; }
   .andon-strip-item { flex-wrap: wrap; }
@@ -2959,3 +2981,60 @@ table.plan-shift-table td.balance-bad { color: var(--red); font-weight: 700; }
 .andon-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
 .andon-badge.selesai { background: #dcfce7; color: #166534; }
 .andon-badge.batal { background: #f1f5f9; color: #64748b; }
+
+/* ---------- Animasi popup Panggil Supporting ---------- */
+@keyframes andonLatarMasuk { from { opacity: 0; } to { opacity: 1; } }
+@keyframes andonNaik { from { opacity: 0; transform: translateY(40px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes andonMuncul { from { opacity: 0; transform: translateY(14px) scale(.9); } to { opacity: 1; transform: none; } }
+@keyframes andonGoyang {
+  0%, 100% { transform: rotate(0); } 15% { transform: rotate(18deg); } 30% { transform: rotate(-16deg); }
+  45% { transform: rotate(12deg); } 60% { transform: rotate(-8deg); } 75% { transform: rotate(4deg); }
+}
+@keyframes andonPilih { 0% { transform: scale(1); } 40% { transform: scale(1.06); } 100% { transform: scale(1); } }
+@keyframes andonCahaya { 0%, 100% { box-shadow: 0 6px 16px rgba(220,38,38,.28); } 50% { box-shadow: 0 6px 26px rgba(220,38,38,.6); } }
+
+/* setiap popup dibuka, animasi diputar ulang (display none -> tampil) */
+.andon-overlay { animation: andonLatarMasuk .2s ease-out; }
+.andon-overlay > .panel.andon-modal { animation: andonNaik .32s cubic-bezier(.2,.9,.3,1.15); }
+.andon-modal-title { display: flex; align-items: center; justify-content: flex-start !important; gap: 8px; }
+.andon-lonceng { display: inline-block; transform-origin: 50% 10%; animation: andonGoyang 1s ease-in-out .25s 2; }
+.andon-tim {
+  opacity: 0; animation: andonMuncul .35s ease-out forwards;
+  animation-delay: calc(.08s + var(--i, 0) * .05s);
+  transition: transform .12s ease, border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+.andon-tim:active:not(:disabled) { transform: scale(.95); }
+.andon-tim.on { animation: andonMuncul .35s ease-out forwards, andonPilih .3s ease-out; animation-delay: 0s, 0s; }
+.andon-tim.on b { transform: scale(1.08); }
+.andon-tim b { transition: transform .15s ease; }
+.andon-ket, .andon-modal-act { opacity: 0; animation: andonMuncul .35s ease-out .4s forwards; }
+.andon-btn-call { transition: transform .12s ease, opacity .2s ease, background .2s ease; }
+.andon-btn-call.siap { animation: andonCahaya 1.6s ease-in-out infinite; }
+.andon-btn-call:active:not(:disabled) { transform: scale(.96); }
+
+@media (prefers-reduced-motion: reduce) {
+  .andon-overlay, .andon-overlay > .panel.andon-modal, .andon-lonceng, .andon-tim, .andon-tim.on,
+  .andon-ket, .andon-modal-act, .andon-btn-call.siap, .andon-fab.ramai, .andon-card.memanggil { animation: none !important; opacity: 1 !important; }
+}
+/* animasi memaksa opacity 1, jadi tanda "sudah dipanggil" dibuat lewat isi & latar */
+.andon-tim.sibuk { background: #f1f5f9; border-style: dashed; }
+.andon-tim.sibuk b, .andon-tim.sibuk span { opacity: .5; }
+.andon-sub { margin: -6px 0 12px; opacity: 0; animation: andonMuncul .3s ease-out .05s forwards; }
+
+/* ---------- Dekorasi popup (opsi B): ikon + pita warna tim ---------- */
+.andon-tim-ic { width: 26px; height: 26px; fill: var(--c); margin-bottom: 4px; flex-shrink: 0; }
+.andon-tim {
+  border-top: 6px solid var(--c);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 7%, #fff), #fff);
+}
+.andon-tim.sibuk { border-top-color: color-mix(in srgb, var(--c) 45%, #fff); }
+.andon-tim.sibuk .andon-tim-ic { opacity: .45; }
+.andon-tim.on .andon-tim-ic { transform: scale(1.1); }
+.andon-tim-ic { transition: transform .15s ease; }
+.andon-overlay > .panel.andon-modal { background: radial-gradient(circle at 100% 0, #fee2e2 0, transparent 45%), var(--panel) !important; }
+.andon-modal-title { padding-bottom: 10px; border-bottom: 2px dashed #fecaca; }
+.andon-sub { margin-top: 10px; }
+@media (max-width: 800px) {
+  .andon-tim-ic { width: 32px; height: 32px; margin-bottom: 6px; }
+}
+.andon-tim.sibuk { border-top-style: solid; }

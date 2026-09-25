@@ -297,7 +297,7 @@
               <button type="button" class="andon-tim" :style="'--c:' + t.warna + ';--i:' + i"
                       :class="[form.tim === t.kode ? 'on' : '', timSedangAktif(t.kode) ? 'sibuk' : '']"
                       :disabled="timSedangAktif(t.kode)" @click="form.tim = t.kode">
-                <svg class="andon-tim-ic" viewBox="0 0 24 24" aria-hidden="true" x-html="t.ikon"></svg><b x-text="t.kode"></b><span x-show="timSedangAktif(t.kode)">sudah dipanggil</span>
+                <svg class="andon-tim-ic" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" x-html="t.ikon"></svg><b x-text="t.kode"></b><span x-show="timSedangAktif(t.kode)">sudah dipanggil</span>
               </button>
             </template>
           </div>
