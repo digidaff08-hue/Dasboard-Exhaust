@@ -13,6 +13,18 @@
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/supabaseClient.js"></script>
+<style>
+  /* Tab jenis login: Karyawan / Administrator / Guest */
+  .login-jenis { display: flex; gap: 6px; margin: 4px 0 14px; }
+  .login-jenis button {
+    flex: 1; padding: 8px 6px; font-size: 12.5px; font-weight: 600;
+    border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.55);
+    background: rgba(255, 255, 255, 0.10); color: #fff; cursor: pointer;
+  }
+  .login-jenis button.aktif {
+    background: var(--primary, #1a3fbf); border-color: var(--primary, #1a3fbf); color: #fff;
+  }
+</style>
 </head>
 <body>
 
@@ -103,7 +115,32 @@
       <div class="success-msg" x-text="infoMsg"></div>
     </template>
 
+    <div class="login-jenis" x-show="['login', 'admin', 'guest'].includes(mode)">
+      <button type="button" :class="mode === 'login' ? 'aktif' : ''" @click="gantiJenis('login')">Karyawan</button>
+      <button type="button" :class="mode === 'admin' ? 'aktif' : ''" @click="gantiJenis('admin')">Administrator</button>
+      <button type="button" :class="mode === 'guest' ? 'aktif' : ''" @click="gantiJenis('guest')">Guest</button>
+    </div>
+
     <div class="login-form-area">
+      <template x-if="mode === 'admin' || mode === 'guest'">
+        <form @submit.prevent="loginKhusus(mode)" autocomplete="off">
+          <div class="field">
+            <label x-text="mode === 'admin' ? 'Password Administrator' : 'Password Guest'"></label>
+            <div class="password-wrap input-icon-wrap">
+              <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="3.2"/><path d="M10.5 12.5 19 4M16 6l2 2M13.5 9l2 2"/></svg>
+              <input :type="showPassword ? 'text' : 'password'" class="has-icon" x-model="password" required autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" placeholder="Masukkan Password">
+              <button type="button" class="password-toggle" @click="showPassword = !showPassword" :aria-label="showPassword ? 'Sembunyikan password' : 'Tampilkan password'" tabindex="-1">
+                <span x-text="showPassword ? '🙈' : '👁️'"></span>
+              </button>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary" :disabled="busy">
+            <span x-show="!busy">Masuk</span>
+            <span x-show="busy">Memproses…</span>
+          </button>
+        </form>
+      </template>
+
       <template x-if="mode === 'login'">
         <form @submit.prevent="login" autocomplete="off">
           <div class="field">
@@ -274,6 +311,51 @@ function loginPage() {
       if (session) window.location.href = await this.tujuanSetelahLogin(session.user.id);
     },
 
+    gantiJenis(jenis) {
+      this.mode = jenis; this.errorMsg = ""; this.infoMsg = ""; this.password = "";
+    },
+
+    // Tab Administrator / Guest: cukup password. login_khusus (lihat
+    // migration_keamanan_login.sql) mencari akun ber-role itu yang
+    // password-nya cocok, dan menolak password lemah (123456 dst).
+    async loginKhusus(jenis) {
+      this.busy = true; this.errorMsg = ""; this.infoMsg = "";
+      const { data: hasil, error: rpcErr } = await supabaseClient.rpc("login_khusus", {
+        p_jenis: jenis, p_password: this.password,
+      });
+      if (rpcErr || !hasil) {
+        this.busy = false;
+        this.errorMsg = "Login sedang tidak bisa dipakai. Coba lagi sebentar.";
+        console.error("login_khusus:", rpcErr);
+        return;
+      }
+      const label = jenis === "admin" ? "Administrator" : "Guest";
+      if (!hasil.ok) {
+        this.busy = false;
+        if (hasil.kode === "terkunci") {
+          this.errorMsg = "Terlalu banyak percobaan salah. Login " + label + " dikunci sementara, coba lagi dalam " + (hasil.menit || 15) + " menit.";
+        } else if (hasil.kode === "password_default") {
+          this.errorMsg = "Password akun " + label + " masih password awal / terlalu mudah ditebak. Ganti dulu lewat Supabase (lihat petunjuk di migration_keamanan_login.sql).";
+        } else {
+          this.errorMsg = "Password " + label + " salah.";
+        }
+        return;
+      }
+      const { data: masuk, error } = await supabaseClient.auth.signInWithPassword({
+        email: hasil.email, password: this.password,
+      });
+      if (error) { this.busy = false; this.errorMsg = "Password " + label + " salah."; return; }
+      // Jaga-jaga: pastikan akun yang masuk memang ber-role sesuai tab.
+      const { data: prof } = await supabaseClient.from("profiles").select("role").eq("id", masuk.user.id).maybeSingle();
+      if (((prof && prof.role) || "").toLowerCase() !== jenis) {
+        await supabaseClient.auth.signOut();
+        this.busy = false;
+        this.errorMsg = "Akun ini bukan akun " + label + ".";
+        return;
+      }
+      window.location.href = await this.tujuanSetelahLogin(masuk.user.id);
+    },
+
     goReset() {
       this.errorMsg = ""; this.infoMsg = ""; this.mode = "reset";
     },
@@ -297,10 +379,10 @@ function loginPage() {
         this.busy = false;
         if (hasil.kode === "terkunci") {
           this.errorMsg = "Terlalu banyak percobaan salah. NIK ini dikunci sementara, coba lagi dalam " + (hasil.menit || 15) + " menit.";
-        } else if (hasil.kode === "password_default") {
-          this.errorMsg = "Password Anda masih password awal / terlalu mudah ditebak, jadi belum boleh dipakai masuk. "
-            + "Buat password baru dulu lewat Ganti Password: isi NIK dan email Anda, lalu buka link yang dikirim ke email.";
-          this.mode = "reset";
+        } else if (hasil.kode === "akun_khusus") {
+          this.errorMsg = hasil.role === "guest"
+            ? "Akun ini akun Guest. Silakan masuk lewat tab Guest."
+            : "Akun ini akun Administrator. Silakan masuk lewat tab Administrator.";
         } else {
           this.errorMsg = "Login gagal: NIK atau password salah.";
         }
