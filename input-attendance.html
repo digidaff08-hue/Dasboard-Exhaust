@@ -1108,7 +1108,8 @@ function attendancePage() {
 
     sendLeaveWA() {
       if (!this.leaveWaTarget || !this.leaveWaPesan) return;
-      const no = this.leaveWaTarget.replace(/\D/g, '');
+      let no = this.leaveWaTarget.replace(/\D/g, '');
+      if (no.startsWith('0')) no = '62' + no.slice(1);
       window.open('https://wa.me/' + no + '?text=' + encodeURIComponent(this.leaveWaPesan), '_blank');
     },
     async deleteLeave(r) {
@@ -1185,7 +1186,9 @@ function attendancePage() {
         const nama = r.pengaju.full_name || 'Karyawan';
         const tglStr = this.ajukanFmtTgl(r.tanggal_mulai, r.tanggal_selesai);
         const pesan = '✅ *' + r.jenis + ' Disetujui*\n\nHalo ' + nama + ',\nPermohonan ' + r.jenis + ' untuk *' + tglStr + '* telah *DISETUJUI*.\n_(Pesan otomatis)_';
-        window.open('https://wa.me/' + r.pengaju.no_wa.replace(/\D/g,'') + '?text=' + encodeURIComponent(pesan), '_blank');
+        let noWa = r.pengaju.no_wa.replace(/\D/g,'');
+        if (noWa.startsWith('0')) noWa = '62' + noWa.slice(1);
+        window.open('https://wa.me/' + noWa + '?text=' + encodeURIComponent(pesan), '_blank');
       }
     },
   };
