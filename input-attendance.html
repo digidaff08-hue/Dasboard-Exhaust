@@ -301,7 +301,6 @@
     <div class="mobile-topbar-tabs" x-show="profile">
       <button type="button" class="btn-secondary btn-sm" :class="tab === 'form' ? 'btn-primary' : ''" @click="tab = 'form'">Form Ketidakhadiran</button>
       <button type="button" class="btn-secondary btn-sm" :class="tab === 'sisa' ? 'btn-primary' : ''" @click="tab = 'sisa'">Sisa Cuti</button>
-      <button type="button" class="btn-secondary btn-sm" :class="tab === 'ajukan' ? 'btn-primary' : ''" @click="tab = 'ajukan'">Pengajuan Cuti</button>
       <template x-if="canApprove">
         <button type="button" class="btn-secondary btn-sm" :class="tab === 'approve' ? 'btn-primary' : ''" @click="tab = 'approve'; loadPendingApprovals()">
           Perlu Disetujui<template x-if="pendingCount > 0"><span style="background:#ef4444;color:#fff;border-radius:9px;padding:0 5px;font-size:11px;margin-left:4px" x-text="pendingCount"></span></template>
@@ -339,7 +338,6 @@
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;" x-show="profile">
         <button type="button" class="btn-secondary btn-sm" :class="tab === 'form' ? 'btn-primary' : ''" @click="tab = 'form'">Form Ketidakhadiran</button>
         <button type="button" class="btn-secondary btn-sm" :class="tab === 'sisa' ? 'btn-primary' : ''" @click="tab = 'sisa'">Sisa Cuti</button>
-        <button type="button" class="btn-secondary btn-sm" :class="tab === 'ajukan' ? 'btn-primary' : ''" @click="tab = 'ajukan'">Pengajuan Cuti</button>
         <template x-if="canApprove">
           <button type="button" class="btn-secondary btn-sm" :class="tab === 'approve' ? 'btn-primary' : ''" @click="tab = 'approve'; loadPendingApprovals()">
             Perlu Disetujui<template x-if="pendingCount > 0"><span style="background:#ef4444;color:#fff;border-radius:9px;padding:0 5px;font-size:11px;margin-left:4px" x-text="pendingCount"></span></template>
@@ -454,8 +452,17 @@
 
           <div class="form-actions">
             <button type="button" class="btn-primary" @click="saveLeave()">Simpan</button>
-            <button type="button" class="btn-secondary" x-show="leaveEditId" @click="resetLeaveForm()">Batal Edit</button>
+            <button type="button" class="btn-secondary" x-show="leaveEditId" @click="resetLeaveForm(); clearLeaveWA()">Batal Edit</button>
           </div>
+
+          <!-- Tombol WA muncul setelah simpan Cuti -->
+          <template x-if="leaveWaPesan">
+            <div style="margin-top:14px;padding:14px;border-radius:10px;border:1px solid color-mix(in srgb,var(--green) 40%,transparent);background:color-mix(in srgb,var(--green) 8%,var(--panel));">
+              <p style="font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:600;">📱 Kirim notifikasi ke atasan via WhatsApp:</p>
+              <pre style="font-size:12px;color:var(--text);white-space:pre-wrap;background:var(--panel-2);border-radius:8px;padding:10px;margin-bottom:10px;border:1px solid var(--border);font-family:inherit;" x-text="leaveWaPesan"></pre>
+              <button type="button" class="btn-primary btn-sm" @click="sendLeaveWA()" style="background:#25d366;">📲 Kirim WA ke Atasan</button>
+            </div>
+          </template>
         </div>
 
         <div class="panel">
@@ -567,107 +574,6 @@
           </div>
         </template>
 
-        <!-- ===== TAB PENGAJUAN CUTI (untuk diri sendiri) ===== -->
-        <template x-if="tab === 'ajukan'">
-          <div>
-            <div class="panel">
-              <p class="panel-title">Pengajuan Cuti / Izin / Sakit</p>
-              <p class="hint" style="margin-bottom:14px;">
-                Form ini untuk mengajukan cuti atas nama diri sendiri. Setelah disimpan, kamu bisa kirim notifikasi ke atasan via WhatsApp.
-              </p>
-
-              <div class="la-section">
-                <p class="la-section-head">Jenis Pengajuan</p>
-                <div class="form-grid">
-                  <div class="field">
-                    <label>Jenis <span class="req">*</span></label>
-                    <select x-model="ajukanForm.jenis">
-                      <option value="">-- Pilih jenis --</option>
-                      <option value="Izin">Izin</option>
-                      <option value="Sakit">Sakit</option>
-                      <option value="Cuti">Cuti</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div class="la-section">
-                <p class="la-section-head">Periode</p>
-                <div class="form-grid">
-                  <div class="field">
-                    <label>Tanggal Mulai <span class="req">*</span></label>
-                    <input type="date" x-model="ajukanForm.tanggal_mulai">
-                  </div>
-                  <div class="field">
-                    <label>Tanggal Selesai <span class="req">*</span></label>
-                    <input type="date" x-model="ajukanForm.tanggal_selesai" :min="ajukanForm.tanggal_mulai">
-                  </div>
-                </div>
-              </div>
-
-              <div class="la-section">
-                <p class="la-section-head">Keterangan</p>
-                <div class="form-grid">
-                  <div class="field" style="grid-column: 1 / -1;">
-                    <label>Alasan / keterangan</label>
-                    <input type="text" x-model="ajukanForm.alasan" placeholder="Isi alasan jika ada">
-                  </div>
-                </div>
-              </div>
-
-              <!-- Info atasan -->
-              <template x-if="atasanInfo">
-                <div style="padding:10px 14px;border-radius:10px;background:color-mix(in srgb,var(--blue) 8%,var(--panel));border:1px solid color-mix(in srgb,var(--blue) 30%,transparent);font-size:13px;margin-bottom:14px;">
-                  📬 Akan dikirim ke atasan: <strong x-text="atasanInfo.full_name"></strong>
-                  <span x-show="!atasanInfo.no_wa" style="color:var(--amber);margin-left:6px;">⚠️ Nomor WA belum diisi</span>
-                </div>
-              </template>
-              <template x-if="!atasanInfo && profile">
-                <div style="padding:10px 14px;border-radius:10px;background:color-mix(in srgb,var(--amber) 8%,var(--panel));border:1px solid color-mix(in srgb,var(--amber) 30%,transparent);font-size:13px;margin-bottom:14px;">
-                  ℹ️ Tidak ada atasan yang perlu menyetujui (jabatan Manager atau Admin).
-                </div>
-              </template>
-
-              <div class="form-actions">
-                <button type="button" class="btn-primary" :disabled="ajukanLoading" @click="simpanAjukan()">
-                  <span x-text="ajukanLoading ? 'Menyimpan...' : 'Simpan Pengajuan'"></span>
-                </button>
-              </div>
-
-              <!-- Tombol WA setelah simpan -->
-              <template x-if="ajukanWaPesan">
-                <div style="margin-top:16px;padding:14px;border-radius:10px;border:1px solid color-mix(in srgb,var(--green) 40%,transparent);background:color-mix(in srgb,var(--green) 8%,var(--panel));">
-                  <p style="font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:600;">📱 Kirim notifikasi ke atasan via WhatsApp:</p>
-                  <pre style="font-size:12px;color:var(--text);white-space:pre-wrap;background:var(--panel-2);border-radius:8px;padding:10px;margin-bottom:10px;border:1px solid var(--border);" x-text="ajukanWaPesan"></pre>
-                  <button type="button" class="btn-primary btn-sm" @click="sendAjukanWA()" style="background:#25d366;">📲 Kirim via WhatsApp</button>
-                </div>
-              </template>
-            </div>
-
-            <!-- Riwayat Pengajuan Saya -->
-            <div class="panel">
-              <p class="panel-title">Riwayat Pengajuan Saya <span class="count" x-text="ajukanRiwayat.length + ' baris'"></span></p>
-              <div class="table-wrap la-table-wrap">
-                <table>
-                  <thead><tr><th>Jenis</th><th>Tanggal</th><th>Hari</th><th>Status</th><th>Catatan Atasan</th></tr></thead>
-                  <tbody>
-                    <template x-for="r in ajukanRiwayat" :key="r.id">
-                      <tr>
-                        <td><span class="la-badge" :style="'--c: var(--' + ajukanJenisWarna(r.jenis) + ')'" x-text="r.jenis"></span></td>
-                        <td class="mono" x-text="ajukanFmtTgl(r.tanggal_mulai, r.tanggal_selesai)"></td>
-                        <td class="mono" x-text="ajukanHari(r.tanggal_mulai, r.tanggal_selesai)"></td>
-                        <td><span class="la-badge" :style="'--c: var(--' + ajukanStatusWarna(r.status) + ')'" x-text="r.status"></span></td>
-                        <td x-text="r.catatan_atasan || '-'"></td>
-                      </tr>
-                    </template>
-                    <tr x-show="ajukanRiwayat.length === 0"><td colspan="5" class="empty-state">Belum ada pengajuan.</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </template>
-
         <!-- ===== TAB PERLU DISETUJUI (Foreman / Supervisor) ===== -->
         <template x-if="tab === 'approve' && canApprove">
           <div>
@@ -758,13 +664,10 @@ function attendancePage() {
     // cuti di tanggal Ganti Hari memotong jatah orang ini atau tidak,
     // PADA MINGGU tanggal cuti itu.
     shift2Periodes: [],   // { tanggal_mulai, tanggal_selesai, nikSet:Set }
-    // ===== STATE: Pengajuan Cuti (untuk diri sendiri) =====
-    ajukanForm: { jenis: '', tanggal_mulai: '', tanggal_selesai: '', alasan: '' },
-    ajukanLoading: false,
-    ajukanWaPesan: null,
-    ajukanWaTarget: null,
-    ajukanWaToken: null,
-    ajukanRiwayat: [],
+    // WA notification setelah simpan Cuti di form ketidakhadiran
+    leaveWaPesan: null,
+    leaveWaTarget: null,
+    // Info atasan (cached, dipakai untuk WA notification)
     atasanInfo: null,
 
     // ===== STATE: Approve panel =====
@@ -782,8 +685,8 @@ function attendancePage() {
       // Tab Sisa Cuti langsung menampilkan milik yang sedang login,
       // tanpa perlu mengetik NIK sendiri.
       await this.muatSisaCutiSendiri();
-      // Pengajuan cuti: init data tambahan
-      await this.initAjukan();
+      // Cek apakah user ini Foreman/Supervisor (bisa approve)
+      await this.initApproveState();
     },
     // ---- Izin/Sakit/Cuti/Mangkir ----
     // Riwayat hanya menampilkan data yang DIINPUT oleh orang yang sedang
@@ -1073,6 +976,13 @@ function attendancePage() {
       this.leaveForm = { tanggal: localDateStr(new Date()), tanggal_selesai: localDateStr(new Date()), jenis: "izin", nik: "", nama: "", jenis_cuti: "", keterangan: "" };
       this.leaveEditId = null;
       this.leaveNikFound = false;
+      // leaveWaPesan & leaveWaTarget TIDAK direset di sini supaya kotak WA
+      // tetap muncul setelah form dikosongkan. Dibersihkan di awal saveLeave()
+      // atau saat user menekan "Batal Edit".
+    },
+    clearLeaveWA() {
+      this.leaveWaPesan = null;
+      this.leaveWaTarget = null;
     },
     editLeave(r) {
       // Data lama bisa berisi Cuti Besar / Cuti Melahirkan / Cuti Lainnya.
@@ -1087,6 +997,8 @@ function attendancePage() {
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
     async saveLeave() {
+      this.leaveWaPesan = null;
+      this.leaveWaTarget = null;
       const f = this.leaveForm;
       const nik = (f.nik || "").trim();
       const nama = (f.nama || "").trim();
@@ -1118,8 +1030,76 @@ function attendancePage() {
       }
       if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
       this.flash("Data tersimpan.");
+
+      // Simpan info yang dibutuhkan WA sebelum form direset
+      const isCutiBaru = f.jenis === "cuti" && !this.leaveEditId;
+      const snapshotF = isCutiBaru ? { ...f } : null;
+      const snapshotNik = nik, snapshotNama = nama, snapshotKet = keterangan;
+
       this.resetLeaveForm();
       await this.fetchLeaveRows();
+
+      // Setelah form direset, munculkan kotak WA kalau tadi jenis=cuti
+      if (isCutiBaru) {
+        await this.generateLeaveWA(snapshotF, snapshotNik, snapshotNama, snapshotKet);
+      }
+    },
+
+    async generateLeaveWA(f, nik, nama, keterangan) {
+      // Cari atasan saat ini (atau pakai cache)
+      if (!this.atasanInfo) {
+        try {
+          const { data: atasanId } = await supabaseClient.rpc('get_atasan_id', { p_user_id: this.session.user.id });
+          if (atasanId) {
+            const { data: ap } = await supabaseClient.from('profiles').select('id,full_name,no_wa').eq('id', atasanId).maybeSingle();
+            this.atasanInfo = ap || null;
+          }
+        } catch(e) { this.atasanInfo = null; }
+      }
+      if (!this.atasanInfo?.no_wa) return; // tidak ada atasan dengan no WA
+
+      const namaKu = nama || this.profile?.full_name || 'Karyawan';
+      const tglMulai = this.fmtTgl(f.tanggal);
+      const tglSelesai = f.tanggal_selesai ? this.fmtTgl(f.tanggal_selesai) : tglMulai;
+      const tglStr = tglMulai === tglSelesai ? tglMulai : tglMulai + ' – ' + tglSelesai;
+      const hari = this.leaveTotalHariDari(f.tanggal, f.tanggal_selesai || f.tanggal);
+      const alasanTeks = keterangan ? '\nAlasan: ' + keterangan : '';
+      this.leaveWaPesan =
+        '📋 *Pemberitahuan Cuti*\n\n' +
+        'Nama: *' + namaKu + '* (NIK ' + nik + ')\n' +
+        'Tanggal: *' + tglStr + '* (' + hari + ' hari)' +
+        (f.jenis_cuti ? '\nJenis: ' + f.jenis_cuti : '') +
+        alasanTeks;
+      this.leaveWaTarget = this.atasanInfo.no_wa;
+    },
+
+    // Hitung hari kerja antara dua tanggal (versi tanpa akses ke this.leaveForm)
+    leaveTotalHariDari(mulai, selesai) {
+      if (!mulai || !selesai) return 0;
+      let d = new Date(mulai + "T00:00:00");
+      const akhir = new Date(selesai + "T00:00:00");
+      if (akhir < d) return 0;
+      let total = 0;
+      while (d <= akhir) {
+        const dow = d.getDay();
+        const dStr = localDateStr(d);
+        const lib = this.hariLibur.find((r) => r.tanggal === dStr);
+        if (dow === 0) {
+          // Minggu: skip
+        } else if (dow === 6) {
+          if (lib && lib.jenis === "ganti_hari") total++;
+        } else {
+          if (!lib || lib.jenis !== "libur") total++;
+        }
+        d.setDate(d.getDate() + 1);
+      }
+      return total;
+    },
+
+    sendLeaveWA() {
+      if (!this.leaveWaTarget || !this.leaveWaPesan) return;
+      const no = this.leaveWaTarget.replace(/\D/g, '');
+      window.open('https://wa.me/' + no + '?text=' + encodeURIComponent(this.leaveWaPesan), '_blank');
     },
     async deleteLeave(r) {
       if (!confirm(`Hapus data ${this.leaveJenisLabel(r.jenis)} atas nama ${r.nama} (${r.tanggal})?`)) return;
@@ -1129,92 +1109,21 @@ function attendancePage() {
       await this.fetchLeaveRows();
     },
 
-    // ===== PENGAJUAN CUTI (mandiri) =====
-    async initAjukan() {
-      // Cari atasan user ini
+    // ===== INIT STATE APPROVE =====
+    async initApproveState() {
       const jabUpper = ((this.profile?.jabatan) || '').toUpperCase();
-      const role = ((this.profile?.role) || '').toLowerCase();
-      // Foreman & Supervisor bisa approve
+      // Foreman & Supervisor bisa melihat tab "Perlu Disetujui"
       this.canApprove = ['FOREMAN','SUPERVISOR'].includes(jabUpper);
       if (this.canApprove) await this.loadPendingCount();
 
-      // Cari atasan lewat RPC
+      // Cache info atasan (dipakai untuk WA notification setelah simpan cuti)
       try {
         const { data: atasanId } = await supabaseClient.rpc('get_atasan_id', { p_user_id: this.session.user.id });
         if (atasanId) {
           const { data: ap } = await supabaseClient.from('profiles').select('id,full_name,no_wa').eq('id', atasanId).maybeSingle();
           this.atasanInfo = ap || null;
-        } else {
-          this.atasanInfo = null;
         }
       } catch(e) { this.atasanInfo = null; }
-
-      // Muat riwayat pengajuan saya
-      await this.fetchAjukanRiwayat();
-    },
-
-    async fetchAjukanRiwayat() {
-      const { data } = await supabaseClient.from('leave_requests')
-        .select('*').eq('user_id', this.session.user.id)
-        .order('created_at', { ascending: false }).limit(50);
-      this.ajukanRiwayat = data || [];
-    },
-
-    async simpanAjukan() {
-      if (!this.ajukanForm.jenis) { this.flash('Pilih jenis pengajuan.', true); return; }
-      if (!this.ajukanForm.tanggal_mulai || !this.ajukanForm.tanggal_selesai) { this.flash('Isi tanggal mulai dan selesai.', true); return; }
-      if (this.ajukanForm.tanggal_selesai < this.ajukanForm.tanggal_mulai) { this.flash('Tanggal selesai tidak boleh sebelum mulai.', true); return; }
-
-      this.ajukanLoading = true;
-      this.ajukanWaPesan = null;
-
-      // Cari atasan_id saat ini
-      let atasanId = null;
-      try {
-        const { data } = await supabaseClient.rpc('get_atasan_id', { p_user_id: this.session.user.id });
-        atasanId = data || null;
-      } catch(e) {}
-
-      const { data, error } = await supabaseClient.from('leave_requests').insert({
-        user_id: this.session.user.id,
-        jenis: this.ajukanForm.jenis,
-        tanggal_mulai: this.ajukanForm.tanggal_mulai,
-        tanggal_selesai: this.ajukanForm.tanggal_selesai,
-        alasan: this.ajukanForm.alasan || null,
-        atasan_id: atasanId,
-      }).select('token').single();
-
-      this.ajukanLoading = false;
-
-      if (error) { this.flash('Gagal simpan: ' + error.message, true); return; }
-
-      this.flash('Pengajuan berhasil disimpan!');
-
-      // Siapkan pesan WA ke atasan
-      if (this.atasanInfo?.no_wa && data?.token) {
-        const namaKu = this.profile?.full_name || 'Karyawan';
-        const jenis = this.ajukanForm.jenis;
-        const tglStr = this.ajukanFmtTgl(this.ajukanForm.tanggal_mulai, this.ajukanForm.tanggal_selesai);
-        const hari = this.ajukanHari(this.ajukanForm.tanggal_mulai, this.ajukanForm.tanggal_selesai);
-        const alasanTeks = this.ajukanForm.alasan ? '\nAlasan: ' + this.ajukanForm.alasan : '';
-        const approvalUrl = window.location.origin + '/approval-cuti.html?token=' + data.token;
-        this.ajukanWaPesan =
-          '📋 *Pengajuan ' + jenis + ' Baru*\n\n' +
-          'Dari: *' + namaKu + '*\n' +
-          'Tanggal: *' + tglStr + '* (' + hari + ' hari)' + alasanTeks + '\n\n' +
-          'Klik link berikut untuk menyetujui atau menolak:\n' + approvalUrl;
-        this.ajukanWaTarget = this.atasanInfo.no_wa;
-      }
-
-      // Reset form & refresh riwayat
-      this.ajukanForm = { jenis: '', tanggal_mulai: '', tanggal_selesai: '', alasan: '' };
-      await this.fetchAjukanRiwayat();
-    },
-
-    sendAjukanWA() {
-      if (!this.ajukanWaTarget || !this.ajukanWaPesan) return;
-      const no = this.ajukanWaTarget.replace(/\D/g,'');
-      window.open('https://wa.me/' + no + '?text=' + encodeURIComponent(this.ajukanWaPesan), '_blank');
     },
 
     ajukanJenisWarna(j) {
