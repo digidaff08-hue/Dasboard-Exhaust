@@ -391,9 +391,12 @@
              Mangkir) atau Tanggal Mulai/Selesai/Total Hari/Jenis Cuti
              (Cuti). Total Hari memakai rumus hitungHariKerja(): Minggu &
              tanggal merah tidak dihitung, Sabtu hanya kalau Ganti Hari cocok shift.
-             CUTI tidak langsung disimpan ke attendance_leave -- masuk dulu ke
-             leave_requests (status Menunggu). Baru tercatat & memotong jatah
-             setelah atasan menyetujui (proses_approval_cuti di database). -->
+             Hanya CUTI TAHUNAN yang perlu approval: tidak langsung disimpan
+             ke attendance_leave -- masuk dulu ke leave_requests (status
+             Menunggu), baru tercatat & memotong jatah setelah atasan
+             menyetujui (proses_approval_cuti di database).
+             Cuti Khusus, Izin, Sakit: langsung tersimpan, atasan cukup
+             diberi pemberitahuan WA (tanpa approval). -->
         <template x-if="tab === 'form'">
           <div>
         <div class="panel">
@@ -465,7 +468,7 @@
                     <option value="Cuti Khusus">Cuti Khusus</option>
                   </select>
                   <span class="la-hint" x-show="leaveForm.jenis_cuti === 'Cuti Tahunan'">Memotong jatah cuti tahunan setelah disetujui atasan</span>
-                  <span class="la-hint" x-show="leaveForm.jenis_cuti === 'Cuti Khusus'">Tidak memotong jatah cuti</span>
+                  <span class="la-hint" x-show="leaveForm.jenis_cuti === 'Cuti Khusus'">Tidak memotong jatah cuti · langsung tercatat, atasan cukup diberi pemberitahuan</span>
                 </div>
               </template>
             </div>
@@ -483,7 +486,7 @@
 
           <div class="form-actions">
             <button type="button" class="btn-primary" :disabled="leaveSaving" @click="saveLeave()"
-                    x-text="leaveSaving ? 'Menyimpan...' : ((leaveForm.jenis === 'cuti' && !leaveEditId) ? 'Ajukan Cuti' : 'Simpan')"></button>
+                    x-text="leaveSaving ? 'Menyimpan...' : ((leaveForm.jenis === 'cuti' && leaveForm.jenis_cuti === 'Cuti Tahunan' && !leaveEditId) ? 'Ajukan Cuti' : 'Simpan')"></button>
             <button type="button" class="btn-secondary" x-show="leaveEditId" @click="resetLeaveForm(); clearLeaveWA()">Batal Edit</button>
           </div>
 
@@ -781,7 +784,7 @@ function attendancePage() {
     leaveWaPesan: null,        // pesan yang ditampilkan ke user (cuti: tanpa link)
     leaveWaPesanAtasan: null,  // pesan yang dikirim ke atasan (cuti: dengan link)
     leaveWaTarget: null,
-    leaveWaJenis: null,   // 'cuti' / 'izin' / 'sakit' — untuk label kotak
+    leaveWaJenis: null,   // 'cuti' / 'cuti_khusus' / 'izin' / 'sakit' — untuk label kotak
     // Info atasan (cached, dipakai untuk WA notification)
     atasanInfo: null,
     // Status cuti saya (tab statuscuti)
@@ -1203,13 +1206,15 @@ function attendancePage() {
       const tanggalSelesai = f.jenis === "cuti" ? f.tanggal_selesai : null;
       if (f.jenis === "cuti" && tanggalSelesai < f.tanggal) { this.flash("Tanggal Selesai tidak boleh sebelum Tanggal Mulai.", true); return; }
 
-      // ---- CUTI BARU: masuk leave_requests dulu, BUKAN attendance_leave ----
+      // ---- CUTI TAHUNAN BARU: masuk leave_requests dulu, BUKAN attendance_leave ----
+      // Hanya Cuti Tahunan yang butuh approval. Cuti Khusus (seperti Izin /
+      // Sakit) langsung tersimpan di bawah + pemberitahuan WA ke atasan.
       // Data cuti baru tercatat (dan jatah terpotong) setelah atasan
       // menyetujui -- proses_approval_cuti() di database yang menyalinnya
       // ke attendance_leave. Ditolak / dibatalkan = tidak pernah tercatat.
       // Edit baris cuti yang SUDAH tercatat (admin) tetap langsung ke
       // attendance_leave seperti sebelumnya.
-      if (f.jenis === "cuti" && !this.leaveEditId) {
+      if (f.jenis === "cuti" && f.jenis_cuti === "Cuti Tahunan" && !this.leaveEditId) {
         const hari = this.leaveTotalHari();
         if (hari <= 0) { this.flash("Tidak ada hari kerja di rentang tanggal ini (Minggu / tanggal merah). Periksa tanggalnya.", true); return; }
 
@@ -1267,8 +1272,9 @@ function attendancePage() {
       this.resetLeaveForm();
       await this.fetchLeaveRows();
 
-      // Izin / Sakit baru: kirim pemberitahuan ke atasan (tanpa approval)
-      if (isBaruBukanEdit && ['izin','sakit'].includes(snapJenis)) {
+      // Izin / Sakit / Cuti Khusus baru: kirim pemberitahuan ke atasan
+      // (tanpa approval). Cuti Tahunan baru tidak sampai ke sini.
+      if (isBaruBukanEdit && ['izin','sakit','cuti'].includes(snapJenis)) {
         await this.generateLeaveWA(snapF, nik, nama, keterangan);
         if (this.leaveWaTarget) this.sendLeaveWA();
       }
@@ -1284,21 +1290,28 @@ function attendancePage() {
 
       const namaKu = nama || this.profile?.full_name || 'Karyawan';
       const tglMulai = this.fmtTgl(f.tanggal);
-      const tglSelesai = f.tanggal_selesai ? this.fmtTgl(f.tanggal_selesai) : tglMulai;
+      // Izin / Sakit hanya 1 tanggal. tanggal_selesai di form hanya berlaku
+      // untuk Cuti (untuk jenis lain isinya sisa default = hari ini, jadi
+      // jangan dipakai -- dulu bikin pesan "28/09 – 25/09 (0 hari)").
+      const selesaiEfektif = jenis === 'cuti' ? (f.tanggal_selesai || f.tanggal) : f.tanggal;
+      const tglSelesai = this.fmtTgl(selesaiEfektif);
       const tglStr = tglMulai === tglSelesai ? tglMulai : tglMulai + ' – ' + tglSelesai;
-      const hari = opts.hari ?? this.leaveTotalHariDari(f.tanggal, f.tanggal_selesai || f.tanggal, nik);
+      const hari = opts.hari ?? this.leaveTotalHariDari(f.tanggal, selesaiEfektif, nik);
       const alasanTeks = keterangan ? '\nAlasan: ' + keterangan : '';
-      const jenisLabel = { cuti:'Cuti', izin:'Izin', sakit:'Sakit' }[jenis] || jenis;
+      const jenisLabel = jenis === 'cuti' ? (f.jenis_cuti || 'Cuti')
+                       : ({ izin:'Izin', sakit:'Sakit' }[jenis] || jenis);
+      // Perlu approval hanya kalau ada token pengajuan (= Cuti Tahunan)
+      const perluApproval = jenis === 'cuti' && !!opts.token;
 
       const pesanDasar =
-        '📋 *' + (jenis === 'cuti' ? 'Pengajuan Cuti' : 'Pemberitahuan ' + jenisLabel) + '*\n\n' +
+        '📋 *' + (perluApproval ? 'Pengajuan Cuti' : 'Pemberitahuan ' + jenisLabel) + '*\n\n' +
         'Nama: *' + namaKu + '* (NIK ' + nik + ')\n' +
         'Tanggal: *' + tglStr + '* (' + hari + ' hari)' +
         (jenis === 'cuti' && f.jenis_cuti ? '\nJenis: ' + f.jenis_cuti : '') +
         alasanTeks;
 
       let pesan;
-      if (jenis === 'cuti') {
+      if (perluApproval) {
         const approvalLink = opts.token
           ? '\n\n👆 *Ketuk link di bawah untuk approve/tolak* (login dengan akun atasan):\n' +
             window.location.origin + '/approval-cuti.html?token=' + opts.token
@@ -1311,7 +1324,9 @@ function attendancePage() {
       }
 
       this.leaveWaPesan  = pesan;
-      this.leaveWaJenis  = jenis;
+      // 'cuti' = Cuti Tahunan menunggu approval; Cuti Khusus ditandai
+      // 'cuti_khusus' supaya kotak WA menampilkan "Data tersimpan".
+      this.leaveWaJenis  = perluApproval ? 'cuti' : (jenis === 'cuti' ? 'cuti_khusus' : jenis);
       this.leaveWaTarget = this.atasanInfo?.no_wa || null;
 
       // Simpan ke localStorage supaya tidak hilang kalau refresh
