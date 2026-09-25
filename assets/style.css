@@ -47,11 +47,15 @@
   --warn-bg: #fef3e2;
   --bad-bg: #fdecec;
   --good-bg: #e9f7ef;
-  --sidebar-bg: #1c2128;
-  --sidebar-border: #2a303a;
-  --sidebar-text: #aeb4bd;
-  --sidebar-text-strong: #f4f5f7;
-  --sidebar-active-bg: #262c35;
+  /* Sidebar terang -- senada dengan dashboard (kartu putih, latar abu
+     muda). Dulu gelap (#1c2128) dan terlihat "lepas" dari halaman. */
+  --sidebar-bg: #ffffff;
+  --sidebar-border: #e2e8f0;
+  --sidebar-text: #475569;
+  --sidebar-text-strong: #0f172a;
+  --sidebar-active-bg: #f1f5f9;       /* hover */
+  --sidebar-current-bg: #fdf1e0;      /* menu halaman yang sedang dibuka */
+  --sidebar-chip-bg: rgba(15, 23, 42, 0.06);
 }
 
 /* ---------- Tema Gelap ---------- */
@@ -211,13 +215,14 @@ a { color: var(--amber); }
 .sidebar-link.active {
   color: var(--amber);
   border-left-color: var(--amber);
-  background: var(--sidebar-active-bg);
+  background: var(--sidebar-current-bg, var(--sidebar-active-bg));
+  font-weight: 600;
 }
 .sidebar-tag {
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--sidebar-text);
-  background: rgba(255,255,255,0.08);
+  background: var(--sidebar-chip-bg, rgba(255,255,255,0.08));
   border-radius: 3px;
   padding: 1px 5px;
   margin-left: auto;
@@ -236,8 +241,8 @@ a { color: var(--amber); }
   width: 100%;
 }
 .sidebar-foot .btn-ghost { color: var(--sidebar-text); border-color: var(--sidebar-border); }
-.sidebar-foot .badge { background: rgba(255,255,255,0.08); color: var(--amber); }
-.sidebar-foot .badge.role-admin { background: rgba(34,197,94,0.15); color: #4ade80; }
+.sidebar-foot .badge { background: var(--sidebar-chip-bg, rgba(255,255,255,0.08)); color: var(--amber); }
+.sidebar-foot .badge.role-admin { background: rgba(34,197,94,0.14); color: #15803d; }
 
 .main {
   --row-gap: 20px;
@@ -1581,7 +1586,7 @@ tr.row-qty-warn td { background: rgba(217,119,6,0.07) !important; }
     z-index: 9500;
     transform: translateX(-100%);
     transition: transform 0.22s ease;
-    box-shadow: 2px 0 24px rgba(0,0,0,0.4);
+    box-shadow: 2px 0 24px rgba(15,23,42,0.18);
   }
   .sidebar.sidebar-open { transform: translateX(0); }
 
