@@ -455,12 +455,17 @@
             <button type="button" class="btn-secondary" x-show="leaveEditId" @click="resetLeaveForm(); clearLeaveWA()">Batal Edit</button>
           </div>
 
-          <!-- Tombol WA muncul setelah simpan Cuti -->
+          <!-- Kotak WA muncul setelah simpan Cuti -->
           <template x-if="leaveWaPesan">
             <div style="margin-top:14px;padding:14px;border-radius:10px;border:1px solid color-mix(in srgb,var(--green) 40%,transparent);background:color-mix(in srgb,var(--green) 8%,var(--panel));">
-              <p style="font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:600;">📱 Kirim notifikasi ke atasan via WhatsApp:</p>
+              <p style="font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:600;">📱 Notifikasi cuti berhasil disimpan:</p>
               <pre style="font-size:12px;color:var(--text);white-space:pre-wrap;background:var(--panel-2);border-radius:8px;padding:10px;margin-bottom:10px;border:1px solid var(--border);font-family:inherit;" x-text="leaveWaPesan"></pre>
-              <button type="button" class="btn-primary btn-sm" @click="sendLeaveWA()" style="background:#25d366;">📲 Kirim WA ke Atasan</button>
+              <template x-if="leaveWaTarget">
+                <button type="button" class="btn-primary btn-sm" @click="sendLeaveWA()" style="background:#25d366;">📲 Kirim WA ke Atasan</button>
+              </template>
+              <template x-if="!leaveWaTarget">
+                <p style="font-size:11px;color:var(--amber);margin:0;">⚠️ Nomor WA atasan belum diisi di tabel profiles — salin pesan di atas dan kirim manual.</p>
+              </template>
             </div>
           </template>
         </div>
@@ -1046,31 +1051,36 @@ function attendancePage() {
     },
 
     async generateLeaveWA(f, nik, nama, keterangan) {
-      // Cari atasan saat ini (atau pakai cache)
+      // Coba cari atasan (pakai cache kalau sudah ada).
+      // Kalau RPC belum ada / gagal, tetap lanjut -- pesan WA tetap dibuat.
       if (!this.atasanInfo) {
         try {
-          const { data: atasanId } = await supabaseClient.rpc('get_atasan_id', { p_user_id: this.session.user.id });
-          if (atasanId) {
+          const { data: atasanId, error: rpcErr } = await supabaseClient.rpc('get_atasan_id', { p_user_id: this.session.user.id });
+          if (!rpcErr && atasanId) {
             const { data: ap } = await supabaseClient.from('profiles').select('id,full_name,no_wa').eq('id', atasanId).maybeSingle();
             this.atasanInfo = ap || null;
           }
-        } catch(e) { this.atasanInfo = null; }
+        } catch(e) { /* RPC belum ada -- abaikan */ }
       }
-      if (!this.atasanInfo?.no_wa) return; // tidak ada atasan dengan no WA
 
+      // Selalu buat pesan WA (tidak tergantung atasanInfo ada atau tidak)
       const namaKu = nama || this.profile?.full_name || 'Karyawan';
       const tglMulai = this.fmtTgl(f.tanggal);
       const tglSelesai = f.tanggal_selesai ? this.fmtTgl(f.tanggal_selesai) : tglMulai;
       const tglStr = tglMulai === tglSelesai ? tglMulai : tglMulai + ' – ' + tglSelesai;
       const hari = this.leaveTotalHariDari(f.tanggal, f.tanggal_selesai || f.tanggal);
       const alasanTeks = keterangan ? '\nAlasan: ' + keterangan : '';
+      const atasanNama = this.atasanInfo?.full_name ? ' (ke ' + this.atasanInfo.full_name + ')' : '';
+
       this.leaveWaPesan =
-        '📋 *Pemberitahuan Cuti*\n\n' +
+        '📋 *Pemberitahuan Cuti*' + atasanNama + '\n\n' +
         'Nama: *' + namaKu + '* (NIK ' + nik + ')\n' +
         'Tanggal: *' + tglStr + '* (' + hari + ' hari)' +
         (f.jenis_cuti ? '\nJenis: ' + f.jenis_cuti : '') +
         alasanTeks;
-      this.leaveWaTarget = this.atasanInfo.no_wa;
+
+      // leaveWaTarget hanya diisi kalau ada nomor WA atasan
+      this.leaveWaTarget = this.atasanInfo?.no_wa || null;
     },
 
     // Hitung hari kerja antara dua tanggal (versi tanpa akses ke this.leaveForm)
