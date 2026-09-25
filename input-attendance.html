@@ -86,6 +86,28 @@
       padding: 0;
       margin-left: auto;
     }
+    /* Tombol tab di topbar HP: lebih kecil & satu baris. Kalau layar
+       sangat sempit dan tetap tidak muat, baris ini bisa digeser ke
+       samping -- tombolnya tidak pernah terpotong di tepi layar. */
+    .mobile-topbar .la-mtabs {
+      display: flex; flex-wrap: nowrap; gap: 5px;
+      min-width: 0; flex: 1 1 auto; justify-content: flex-end;
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .mobile-topbar .la-mtabs::-webkit-scrollbar { display: none; }
+    .mobile-topbar .la-mtabs button {
+      flex: none; white-space: nowrap;
+      padding: 5px 9px !important; font-size: 12px !important;
+      line-height: 1.2; border-radius: 8px;
+    }
+    .mobile-topbar .la-mtabs-badge {
+      background: #ef4444; color: #fff; border-radius: 9px;
+      padding: 0 5px; font-size: 10px; margin-left: 3px;
+    }
+  }
+  @media (max-width: 360px) {
+    .mobile-topbar .la-mtabs button { padding: 4px 7px !important; font-size: 11px !important; }
   }
 
   /* Field yang memakan 2 kolom di layar lebar. TIDAK boleh dipasang
@@ -298,13 +320,15 @@
        jadi tab yang di baris judul ikut hilang. -->
   <div class="mobile-topbar">
     <button class="hamburger" @click="mobileNavOpen = true">☰</button>
-    <div class="mobile-topbar-tabs" x-show="profile">
-      <button type="button" class="btn-secondary btn-sm" :class="tab === 'form' ? 'btn-primary' : ''" @click="tab = 'form'">Form Ketidakhadiran</button>
-      <button type="button" class="btn-secondary btn-sm" :class="tab === 'sisa' ? 'btn-primary' : ''" @click="tab = 'sisa'">Sisa Cuti</button>
-      <button type="button" class="btn-secondary btn-sm" :class="tab === 'statuscuti' ? 'btn-primary' : ''" @click="tab = 'statuscuti'; loadStatusCutiSaya()">Status Cuti</button>
+    <!-- Label dipendekkan khusus layar HP supaya semua tombol muat dalam
+         satu baris. Judul lengkapnya tetap ada di title (tooltip). -->
+    <div class="mobile-topbar-tabs la-mtabs" x-show="profile">
+      <button type="button" class="btn-secondary btn-sm" title="Form Ketidakhadiran" :class="tab === 'form' ? 'btn-primary' : ''" @click="tab = 'form'">Form</button>
+      <button type="button" class="btn-secondary btn-sm" title="Sisa Cuti" :class="tab === 'sisa' ? 'btn-primary' : ''" @click="tab = 'sisa'">Sisa Cuti</button>
+      <button type="button" class="btn-secondary btn-sm" title="Status Cuti" :class="tab === 'statuscuti' ? 'btn-primary' : ''" @click="tab = 'statuscuti'; loadStatusCutiSaya()">Status</button>
       <template x-if="canApprove">
-        <button type="button" class="btn-secondary btn-sm" :class="tab === 'approve' ? 'btn-primary' : ''" @click="tab = 'approve'; loadPendingApprovals()">
-          Perlu Disetujui<template x-if="pendingCount > 0"><span style="background:#ef4444;color:#fff;border-radius:9px;padding:0 5px;font-size:11px;margin-left:4px" x-text="pendingCount"></span></template>
+        <button type="button" class="btn-secondary btn-sm" title="Perlu Disetujui" :class="tab === 'approve' ? 'btn-primary' : ''" @click="tab = 'approve'; loadPendingApprovals()">
+          Approval<template x-if="pendingCount > 0"><span class="la-mtabs-badge" x-text="pendingCount"></span></template>
         </button>
       </template>
     </div>
