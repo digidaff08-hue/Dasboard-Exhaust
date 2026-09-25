@@ -460,14 +460,14 @@
           <!-- Kotak WA muncul setelah simpan — bertahan walau di-refresh -->
           <template x-if="leaveWaPesan">
             <div style="margin-top:14px;padding:14px;border-radius:10px;border:1px solid color-mix(in srgb,var(--green) 40%,transparent);background:color-mix(in srgb,var(--green) 8%,var(--panel));">
-              <p style="font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:600;" x-text="leaveWaJenis === 'cuti' ? '✅ Cuti tersimpan — kirim notifikasi + link approval ke atasan:' : '✅ Data tersimpan — kirim notifikasi ke atasan:'"></p>
-              <pre style="font-size:12px;color:var(--text);white-space:pre-wrap;background:var(--panel-2);border-radius:8px;padding:10px;margin-bottom:10px;border:1px solid var(--border);font-family:inherit;" x-text="leaveWaPesan"></pre>
+              <p style="font-size:13px;font-weight:700;margin-bottom:6px;" x-text="leaveWaJenis === 'cuti' ? '✅ Cuti tersimpan!' : '✅ Data tersimpan!'"></p>
+              <p style="font-size:12px;color:var(--muted);margin-bottom:10px;" x-text="leaveWaJenis === 'cuti' ? 'Kirim notifikasi + link approval ke atasan via WhatsApp.' : 'Kirim notifikasi ke atasan via WhatsApp.'"></p>
               <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                 <template x-if="leaveWaTarget">
-                  <button type="button" class="btn-primary btn-sm" @click="sendLeaveWA()" style="background:#25d366;">📲 Kirim WA ke Atasan</button>
+                  <button type="button" class="btn-primary btn-sm" @click="sendLeaveWA()" style="background:#25d366;font-size:13px;padding:8px 16px;">📲 Kirim WA ke Atasan</button>
                 </template>
                 <template x-if="!leaveWaTarget">
-                  <p style="font-size:11px;color:var(--amber);margin:0;">⚠️ Nomor WA atasan belum diisi — salin pesan di atas dan kirim manual.</p>
+                  <p style="font-size:11px;color:var(--amber);margin:0;">⚠️ Nomor WA atasan belum diisi di profil.</p>
                 </template>
                 <button type="button" class="btn-secondary btn-sm" @click="clearLeaveWA()" style="font-size:11px;">✕ Tutup</button>
               </div>
@@ -620,6 +620,12 @@
                         <span style="color:var(--muted);">Diajukan</span>
                         <span class="mono" x-text="fmtTgl(r.created_at?.slice(0,10))"></span>
                       </div>
+                      <!-- Tombol batalkan — hanya untuk yang masih Menunggu -->
+                      <template x-if="r.status === 'Menunggu'">
+                        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+                          <button type="button" class="btn-secondary btn-sm" style="color:var(--red);border-color:var(--red);font-size:12px;" @click="batalkanCuti(r)">🗑 Batalkan Pengajuan</button>
+                        </div>
+                      </template>
                     </div>
                   </template>
                 </div>
@@ -1200,7 +1206,7 @@ function attendancePage() {
             atasan_id: atasanId2,
           }).select('token').single();
           if (req?.token) {
-            approvalLink = '\n\n🔗 *Link persetujuan:*\n' + window.location.origin + '/approval-cuti.html?token=' + req.token;
+            approvalLink = '\n\n👆 *Ketuk link di bawah untuk approve/tolak:*\n' + window.location.origin + '/approval-cuti.html?token=' + req.token;
           }
         } catch(e) { /* leave_requests belum ada -- tetap buat pesan tanpa link */ }
 
@@ -1286,6 +1292,18 @@ function attendancePage() {
       } finally {
         this.statusCutiLoading = false;
       }
+    },
+    async batalkanCuti(r) {
+      if (!confirm('Batalkan pengajuan cuti tanggal ' + this.ajukanFmtTgl(r.tanggal_mulai, r.tanggal_selesai) + '?')) return;
+      const { error } = await supabaseClient
+        .from('leave_requests')
+        .delete()
+        .eq('id', r.id)
+        .eq('user_id', this.session.user.id)
+        .eq('status', 'Menunggu');  // double-check: hanya boleh hapus yg masih Menunggu
+      if (error) { this.flash('Gagal batalkan: ' + error.message, true); return; }
+      this.flash('Pengajuan dibatalkan.');
+      await this.loadStatusCutiSaya();
     },
 
     // ===== INIT STATE APPROVE =====
