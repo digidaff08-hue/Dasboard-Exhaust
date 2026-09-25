@@ -209,7 +209,7 @@
 
     </div>
 <div class="app-shell"
-     x-data='machinePage("E-05", "E-05", [], 0, ["MACHINE", "MATERIAL", "METHODE", "MAN"], {"mode": "none"})'>
+     x-data='machinePage("E-05", "E-05", [], 0, ["MACHINE", "MATERIAL", "METHODE", "MAN"], {"mode": "none"})' @andon-berubah.window="fetchAndonSelesai()">
   <div class="mobile-topbar machine-topbar">
     <div class="mobile-topbar-top">
       <button class="hamburger" @click="mobileNavOpen = true"><svg class="sb-svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
@@ -1276,6 +1276,31 @@
         <div x-show="tab === 'downtime'" :style="tab !== 'downtime' ? 'content-visibility:hidden' : 'content-visibility:visible'">
           <div class="panel">
             <p class="panel-title" x-text="editingDowntimeId ? 'Edit Data Downtime' : 'Catat Downtime'"></p>
+            <!-- Panggilan Andon selesai -> jadikan downtime (assets/machine-page.js: pakaiAndon) -->
+            <template x-if="andonSelesai.length && !editingDowntimeId && dtState === 'idle'">
+              <div class="adt">
+                <div class="adt-head">
+                  <span class="adt-ic">🔔</span>
+                  <div><b>Panggilan Andon selesai</b><span>Belum dicatat sebagai downtime. Tekan <i>Buat downtime</i> supaya form terisi otomatis.</span></div>
+                </div>
+                <template x-for="c in andonSelesai" :key="c.id">
+                  <div class="adt-row">
+                    <div class="adt-info">
+                      <div class="adt-l1"><span class="adt-tim" x-text="c.tim"></span><b x-text="andonJamStr(c.dipanggil_at) + ' – ' + andonJamStr(c.selesai_at)"></b></div>
+                      <div class="adt-l2" x-text="(c.keterangan || 'Tanpa keterangan') + (c.catatan ? ' → ' + c.catatan : '')"></div>
+                      <div class="adt-l3" x-show="c.ditangani_nama" x-text="'Ditangani ' + c.ditangani_nama"></div>
+                    </div>
+                    <div class="adt-act">
+                      <button type="button" class="adt-btn go" @click="pakaiAndon(c)">Buat downtime</button>
+                      <button type="button" class="adt-btn skip" @click="abaikanAndon(c)" title="Tidak perlu jadi downtime">Abaikan</button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </template>
+            <template x-if="andonSumber && dtState === 'stopped' && !editingDowntimeId">
+              <div class="adt-src">🔔 Dari panggilan Andon <b x-text="andonSumber.tim"></b> · <span x-text="andonJamStr(andonSumber.dipanggil_at) + ' – ' + andonJamStr(andonSumber.selesai_at)"></span></div>
+            </template>
             <div class="timer-row" x-show="!editingDowntimeId">
               <template x-if="dtState === 'idle'">
                 <button type="button" class="btn-primary" @click="startDowntime()">▶ Mulai Downtime</button>

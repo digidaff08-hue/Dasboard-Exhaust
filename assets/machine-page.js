@@ -1439,6 +1439,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       });
     },
     async fetchDowntime() {
+      this.fetchAndonSelesai();
       const { data, error } = await supabaseClient.from("downtime_log").select("*").eq("mesin", machineKey).order("waktu_awal", { ascending: false }).limit(300);
       if (error) { this.flash("Gagal memuat data downtime: " + error.message, true); return; }
       this.downtimeRows = data;
@@ -1902,7 +1903,43 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // ================= DOWNTIME (Start/Stop + validasi tabrakan part) =================
     dtState: "idle", dtStart: null, dtEnd: null,
     startDowntime() { this.dtState = "running"; this.dtStart = new Date().toISOString(); },
-    cancelDowntime() { this.dtState = "idle"; this.dtStart = null; this.editingDowntimeId = null; this.dtForm = {}; },
+    cancelDowntime() { this.dtState = "idle"; this.dtStart = null; this.editingDowntimeId = null; this.dtForm = {}; this.andonSumber = null; },
+
+    // ================= ANDON -> DOWNTIME =================
+    // Panggilan Andon yang sudah Selesai (24 jam terakhir) tapi belum dibuat
+    // jadi data downtime. Operator tinggal tekan "Buat downtime" -> form
+    // Downtime terisi jam mulai/selesai, PIC (= tim) & countermeasure.
+    andonSelesai: [], andonSumber: null,
+    async fetchAndonSelesai() {
+      try {
+        const sejak = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+        const { data, error } = await supabaseClient.from("andon_call").select("*")
+          .eq("mesin", machineKey).eq("status", "selesai").is("downtime_id", null).eq("downtime_skip", false)
+          .gte("dipanggil_at", sejak).order("dipanggil_at", { ascending: false }).limit(10);
+        this.andonSelesai = error ? [] : (data || []);
+      } catch (e) { this.andonSelesai = []; }
+    },
+    pakaiAndon(c) {
+      this.editingDowntimeId = null;
+      this.dtState = "stopped";
+      this.dtStart = c.dipanggil_at;
+      this.dtEnd = c.selesai_at || new Date().toISOString();
+      this.dtForm = {
+        kategori: "", problem: "", penyebab: "", countermeasure: c.catatan || "", stasiun: "",
+        pic: this.picOptions.includes(c.tim) ? c.tim : "", waktu_tunggu: "",
+        ket: c.keterangan ? "Andon: " + c.keterangan : "Andon", area: "", status: "",
+      };
+      this.andonSumber = c;
+      this.flash("Form Downtime terisi dari panggilan Andon " + c.tim + ". Lengkapi Kategori, Problem, Area & Status, lalu Simpan.");
+      this.$nextTick(() => { const f = document.querySelector("form[x-show*='dtState']"); if (f) f.scrollIntoView({ behavior: "smooth", block: "start" }); });
+    },
+    async abaikanAndon(c) {
+      if (!confirm("Panggilan Andon " + c.tim + " (" + new Date(c.dipanggil_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) + ") tidak perlu dijadikan downtime?")) return;
+      const { error } = await supabaseClient.rpc("andon_link_downtime", { p_id: c.id, p_downtime_id: null });
+      if (error) { this.flash("Gagal: " + error.message, true); return; }
+      await this.fetchAndonSelesai();
+    },
+    andonJamStr(iso) { return iso ? new Date(iso).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "-"; },
     stopDowntime() {
       this.dtState = "stopped"; this.dtEnd = new Date().toISOString();
       this.dtForm = {
@@ -1949,7 +1986,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         let error = null;
         try {
           if (!navigator.onLine) throw new Error("offline");
-          ({ error } = await supabaseClient.from("downtime_log").insert(payload));
+          let ins;
+          ({ data: ins, error } = await supabaseClient.from("downtime_log").insert(payload).select("id").single());
+          // Downtime dibuat dari panggilan Andon -> tandai supaya tidak muncul lagi
+          if (!error && this.andonSumber && ins && ins.id) {
+            try { await supabaseClient.rpc("andon_link_downtime", { p_id: this.andonSumber.id, p_downtime_id: ins.id }); } catch (e) {}
+          }
         } catch (err) {
           error = err;
         }

@@ -280,6 +280,8 @@ function andonWidget(mesin) {
         .in("status", ["memanggil", "ditangani"])
         .order("dipanggil_at", { ascending: true });
       if (!error) this.calls = data || [];
+      // beri tahu halaman mesin (tab Downtime) supaya daftar "Andon selesai" ikut segar
+      window.dispatchEvent(new CustomEvent("andon-berubah"));
     },
 
     bukaModal() {
