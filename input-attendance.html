@@ -1,818 +1,1276 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Absensi & Pengajuan Cuti</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js" defer></script>
-  <style>
-    :root {
-      --bg: #0f172a;
-      --surface: #1e293b;
-      --surface2: #263347;
-      --border: #334155;
-      --text: #f1f5f9;
-      --sub: #94a3b8;
-      --orange: #f97316;
-      --orange-dim: #f9731622;
-      --green: #22c55e;
-      --green-dim: #22c55e22;
-      --red: #ef4444;
-      --red-dim: #ef444422;
-      --blue: #3b82f6;
-      --blue-dim: #3b82f622;
-      --yellow: #eab308;
-      --purple: #a855f7;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attendance — Welding Exhaust System</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  /* ---------- Dekorasi latar (sama seperti halaman Mesin) ----------
+     Gambar di belakang konten: gear yang berputar pelan, percikan las,
+     gauge, dan siluet pabrik. Murni hiasan -- aria-hidden, dan tidak
+     bisa diklik (pointer-events: none) supaya tidak mengganggu form.
 
-    /* ---- SIDEBAR ---- */
-    .sidebar {
-      position: fixed; top: 0; left: 0; bottom: 0;
-      width: 220px;
-      background: var(--surface);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      z-index: 100;
-      transition: transform .25s;
-    }
-    .sidebar.hidden { transform: translateX(-220px); }
-    .sb-logo {
-      padding: 18px 16px 14px;
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--orange);
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .sb-nav { flex: 1; padding: 12px 0; overflow-y: auto; }
-    .sb-link {
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 18px;
-      font-size: 0.875rem;
-      color: var(--sub);
-      text-decoration: none;
-      border-radius: 8px;
-      margin: 2px 8px;
-      transition: background .15s, color .15s;
-    }
-    .sb-link:hover { background: var(--surface2); color: var(--text); }
-    .sb-link.active { background: var(--orange-dim); color: var(--orange); }
-    .sb-ico { width: 18px; height: 18px; flex-shrink: 0; }
-    .sb-footer {
-      padding: 12px 8px;
-      border-top: 1px solid var(--border);
-    }
-    .sb-user {
-      padding: 8px 10px;
-      font-size: 0.8rem;
-      color: var(--sub);
-    }
-    .sb-user strong { display: block; color: var(--text); font-size: 0.875rem; }
+     Bedanya dari halaman Mesin: warna latar & border di sini ikut
+     variabel tema, jadi mode gelap tetap benar. Di halaman Mesin
+     warnanya masih dipatok #f6f7fb / #b0b8cc. */
+  .app-shell, .main { background: transparent !important; }
+  .hub-decor {
+    position: fixed; inset: 0; z-index: -1;
+    overflow: hidden; pointer-events: none;
+    background: #f6f7fb;
+  }
+  [data-theme="dark"] .hub-decor { background: var(--bg); }
+  /* Panel dibuat tembus pandang supaya dekorasinya terlihat,
+     bordernya dipertegas sebagai gantinya. */
+  .main .panel {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: 1.5px solid color-mix(in srgb, var(--border) 70%, var(--muted)) !important;
+  }
+  .page-header { background: transparent !important; }
 
-    /* ---- MAIN ---- */
-    .main {
-      margin-left: 220px;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    .topbar {
-      height: 56px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      padding: 0 20px;
-      gap: 12px;
-      position: sticky; top: 0; z-index: 90;
-    }
-    .topbar-title { font-weight: 700; font-size: 1rem; }
-    .content { padding: 20px; max-width: 780px; margin: 0 auto; width: 100%; }
+  .hub-decor .decor-gear     { position: absolute; left: -20px; top: 5%;      width: 160px; opacity: .18; animation: spinGear 24s linear infinite; }
+  .hub-decor .decor-gear-sm  { position: absolute; right: -16px; bottom: 15%; width: 100px; opacity: .15; animation: spinGear 18s linear infinite reverse; }
+  .hub-decor .decor-spark    { position: absolute; right: 6%; top: 6%;        width: 80px;  opacity: .18; animation: floatSpark 8s ease-in-out infinite; }
+  .hub-decor .decor-gauge    { position: absolute; right: 2%; top: 35%;       width: 160px; opacity: .14; animation: floatSpark 10s ease-in-out 2s infinite; }
+  .hub-decor .decor-factory  { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: 480px; opacity: .12; }
+  .hub-decor .decor-bolt     { position: absolute; left: 5%; bottom: 20%;     width: 60px;  opacity: .18; animation: floatSpark 12s ease-in-out 1s infinite; }
 
-    /* ---- TABS ---- */
-    .tab-bar {
-      display: flex;
-      gap: 4px;
-      background: var(--surface);
-      border-radius: 10px;
-      padding: 4px;
-      margin-bottom: 20px;
-      border: 1px solid var(--border);
-    }
-    .tab-btn {
-      flex: 1; padding: 9px 12px;
-      background: transparent;
-      border: none; border-radius: 7px;
-      color: var(--sub);
-      font-size: 0.85rem; font-weight: 600;
-      cursor: pointer;
-      transition: background .15s, color .15s;
-    }
-    .tab-btn.active { background: var(--orange); color: #fff; }
+  @keyframes spinGear { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes floatSpark {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50%      { transform: translateY(-10px) rotate(5deg); }
+  }
+  /* Hormati setelan "kurangi animasi" di sistem operasi pengguna */
+  @media (prefers-reduced-motion: reduce) {
+    .hub-decor * { animation: none !important; }
+  }
 
-    /* ---- CARD ---- */
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 16px;
-    }
-    .card-title {
-      font-size: 0.95rem; font-weight: 700;
-      margin-bottom: 16px;
-      display: flex; align-items: center; gap: 8px;
-    }
 
-    /* ---- FORM ---- */
-    .form-row { margin-bottom: 14px; }
-    .form-label { font-size: 0.8rem; color: var(--sub); margin-bottom: 5px; }
-    .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
-    select, input[type="date"], input[type="text"], textarea {
-      width: 100%;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      padding: 10px 12px;
-      font-size: 0.875rem;
-      outline: none;
-      transition: border-color .2s;
-      appearance: none;
-    }
-    select:focus, input:focus, textarea:focus { border-color: var(--orange); }
-    textarea { resize: vertical; min-height: 72px; }
-    .btn-submit {
-      width: 100%;
-      padding: 12px;
-      background: var(--orange);
-      color: #fff;
-      border: none;
-      border-radius: 9px;
-      font-size: 0.95rem;
-      font-weight: 700;
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-      transition: opacity .15s;
-      margin-top: 4px;
-    }
-    .btn-submit:hover { opacity: 0.9; }
-    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-wa {
-      width: 100%;
-      padding: 12px;
-      background: #25d366;
-      color: #fff;
-      border: none;
-      border-radius: 9px;
-      font-size: 0.92rem;
-      font-weight: 700;
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-      transition: opacity .15s;
-      margin-top: 10px;
-    }
-    .btn-wa:hover { opacity: 0.9; }
+  /* ===== Scoped khusus halaman Ketidakhadiran =====
+     Semua kelas di-prefix .la- (leave attendance) dan tidak ada yang
+     menimpa kelas global, jadi assets/style.css & halaman lain aman.
 
-    /* ---- BADGE ---- */
-    .badge {
-      display: inline-block;
-      padding: 2px 9px;
-      border-radius: 20px;
-      font-size: 0.75rem;
-      font-weight: 700;
-    }
-    .badge-menunggu  { background: #92400e33; color: var(--yellow); }
-    .badge-disetujui { background: var(--green-dim); color: var(--green); }
-    .badge-ditolak   { background: var(--red-dim); color: var(--red); }
-    .badge-izin    { background: var(--blue-dim); color: var(--blue); }
-    .badge-sakit   { background: #7c3aed33; color: #c084fc; }
-    .badge-cuti    { background: var(--green-dim); color: var(--green); }
-    .badge-alfa    { background: var(--red-dim); color: #f87171; }
+     Prinsipnya: Jenis ketidakhadiran jadi PENANDA WARNA yang dipakai
+     konsisten -- di tombol pilihan, di ringkasan, dan di tabel riwayat.
+     Warna di sini membawa arti, bukan hiasan, supaya operator bisa
+     membaca tabel sekilas tanpa mengeja tiap barisnya. */
 
-    /* ---- LIST ITEM ---- */
-    .req-item {
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 14px;
-      margin-bottom: 10px;
-      background: var(--bg);
-    }
-    .req-item-header {
-      display: flex; justify-content: space-between; align-items: flex-start;
-      margin-bottom: 8px;
-      gap: 8px;
-    }
-    .req-item-name { font-weight: 700; font-size: 0.9rem; }
-    .req-item-sub  { font-size: 0.8rem; color: var(--sub); margin-top: 2px; }
-    .req-item-tgl  { font-size: 0.8rem; color: var(--sub); text-align: right; flex-shrink: 0; }
-    .req-catatan   { font-size: 0.8rem; color: var(--sub); font-style: italic; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); }
+  /* ---------- Topbar layar kecil ----------
+     assets/style.css memberi .mobile-topbar latar terang (#f4f5f7).
+     Di sini ditimpa jadi hijau tua seperti topbar halaman Mesin, supaya
+     tidak ada kotak putih di atas. Bedanya dengan halaman Mesin: tetap
+     SATU baris (hamburger + tab), bukan dua baris dengan judul besar.
 
-    /* ---- APPROVE PANEL ---- */
-    .approve-item {
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 14px;
-      margin-bottom: 10px;
-      background: var(--bg);
+     Tombol tabnya sengaja memakai kelas .mobile-topbar-tabs supaya ikut
+     gaya tombol kecil yang sudah ada di assets/style.css -- tidak ada
+     ukuran atau warna tombol yang saya bikin sendiri di sini. */
+  @media (max-width: 800px) {
+    .mobile-topbar {
+      background: #1a3c34 !important;
+      border-bottom: 1px solid #2d6a5a !important;
     }
-    .approve-item-top {
-      display: flex; justify-content: space-between; align-items: flex-start;
-      margin-bottom: 10px;
+    .mobile-topbar button.hamburger {
+      border-color: #2d6a5a !important;
+      color: #e2e8f0 !important;
     }
-    .approve-item-name { font-weight: 700; font-size: 0.9rem; }
-    .approve-item-detail { font-size: 0.82rem; color: var(--sub); margin-top: 3px; }
-    .approve-item-alasan { font-size: 0.82rem; color: var(--sub); font-style: italic; margin-top: 6px; }
-    .approve-btn-row { display: flex; gap: 8px; margin-top: 10px; }
-    .btn-small {
-      flex: 1; padding: 8px;
-      border: none; border-radius: 7px;
-      font-size: 0.82rem; font-weight: 700;
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center; gap: 5px;
-      transition: opacity .15s;
+    /* Aturan bawaan .mobile-topbar-tabs dibuat untuk baris kedua
+       (lebar penuh + padding). Di sini cukup menempel ke kanan. */
+    .mobile-topbar .mobile-topbar-tabs {
+      width: auto;
+      padding: 0;
+      margin-left: auto;
     }
-    .btn-small:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-sm-approve { background: var(--green); color: #fff; }
-    .btn-sm-tolak   { background: var(--red); color: #fff; }
-    .btn-sm-wa      { background: #25d366; color: #fff; }
+  }
 
-    /* ---- EMPTY & LOADING ---- */
-    .empty { text-align: center; padding: 32px 0; color: var(--sub); font-size: 0.875rem; }
-    .loading-bar {
-      width: 100%; height: 4px; background: var(--border); border-radius: 2px;
-      overflow: hidden; margin-bottom: 16px;
-    }
-    .loading-bar-inner {
-      height: 100%; width: 40%; background: var(--orange);
-      border-radius: 2px;
-      animation: slide 1.2s ease-in-out infinite;
-    }
-    @keyframes slide {
-      0% { transform: translateX(-100%); }
-      100% { transform: translateX(350%); }
-    }
+  /* Field yang memakan 2 kolom di layar lebar. TIDAK boleh dipasang
+     lewat inline style "grid-column: span 2", karena di layar sempit
+     .form-grid berubah jadi 1 kolom -- span 2 di grid 1 kolom justru
+     memaksa lahirnya kolom kedua, dan semua field jadi berdesakan. */
+  .la-span2 { grid-column: span 2; }
 
-    /* ---- TOAST ---- */
-    .toast {
-      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-      background: #1e293b; border: 1px solid var(--border);
-      padding: 12px 20px; border-radius: 10px;
-      font-size: 0.875rem; font-weight: 600;
-      z-index: 999;
-      display: flex; align-items: center; gap: 8px;
-      box-shadow: 0 4px 24px #00000055;
-      animation: fadeUp .3s ease;
-    }
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translate(-50%, 12px); }
-      to   { opacity: 1; transform: translate(-50%, 0); }
-    }
-    .toast.green { border-color: var(--green); color: var(--green); }
-    .toast.red   { border-color: var(--red);   color: var(--red); }
+  /* ---------- Layar HP ----------
+     Form dan tabel dibuat lebih ringkas, dan tabel hasil pencarian
+     ditumpuk ke bawah supaya tidak ada kolom yang terpotong. */
+  @media (max-width: 640px) {
+    .la-span2 { grid-column: auto; }
 
-    /* ---- RESPONSIVE ---- */
-    @media (max-width: 680px) {
-      .sidebar { transform: translateX(-220px); }
-      .sidebar.open { transform: translateX(0); }
-      .main { margin-left: 0; }
-      .form-row-2 { grid-template-columns: 1fr; }
+    /* Panel & form lebih rapat */
+    .main .panel { padding: 14px; border-radius: 10px; }
+    .main .panel-title { font-size: 14px; }
+    .form-grid { gap: 10px; margin-bottom: 12px; }
+    .field label { font-size: 11px; }
+    .field input, .field select, .field textarea { padding: 8px 10px; font-size: 13.5px; }
+    .la-hint { font-size: 10.5px; }
+    .la-section { margin-bottom: 14px; }
+    .la-section-head { font-size: 12.5px; margin-bottom: 10px; }
+    .la-emp { min-height: 52px; padding: 10px; gap: 10px; }
+    .la-emp-avatar { width: 32px; height: 32px; font-size: 13px; }
+    .la-emp-nama { font-size: 14px; }
+
+    /* Tabel bertanda .la-stack: tiap baris jadi satu kartu, tiap sel
+       jadi satu baris "Label ....... isi". Tidak ada yang terpotong
+       dan tidak perlu digeser ke samping. */
+    .la-stack thead { display: none; }
+    .la-stack, .la-stack tbody, .la-stack tr, .la-stack td { display: block; width: 100%; }
+    .la-stack tr {
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 4px 10px; margin-bottom: 10px; background: var(--panel);
     }
-    .hamburger {
-      background: none; border: none; color: var(--text);
-      cursor: pointer; padding: 4px; display: none;
+    .la-stack tr:last-child { margin-bottom: 0; }
+    .la-stack td {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; border: 0; padding: 7px 0; text-align: right;
+      border-bottom: 1px dashed var(--border);
     }
-    @media (max-width: 680px) { .hamburger { display: block; } }
-  </style>
+    .la-stack tr td:last-child { border-bottom: 0; }
+    .la-stack td::before {
+      content: attr(data-label);
+      font-size: 11px; color: var(--muted); font-weight: 600;
+      text-align: left; flex: none;
+    }
+    /* Baris "Belum ada data" tidak punya data-label -- tampil biasa */
+    .la-stack td.empty-state { display: block; text-align: center; }
+    .la-stack td.empty-state::before { content: none; }
+    /* Riwayat Cuti SENGAJA tetap tabel biasa, tidak ditumpuk seperti
+       .la-stack -- isinya sering lebih dari 10 baris, dan kalau tiap
+       baris jadi kartu halamannya jadi sangat panjang. Cukup dikecilkan
+       supaya ketiga kolomnya muat tanpa terpotong. */
+    .la-riwayat { table-layout: fixed; width: 100%; }
+    .la-riwayat th, .la-riwayat td {
+      font-size: 11px; padding: 6px 5px;
+      white-space: normal; word-break: break-word; overflow-wrap: anywhere;
+    }
+    .la-riwayat th:nth-child(1), .la-riwayat td:nth-child(1) { width: 21%; }
+    .la-riwayat th:nth-child(3), .la-riwayat td:nth-child(3) { width: 34%; }
+    .la-riwayat td.empty-state { font-size: 12px; }
+
+    .la-table-wrap { max-height: none; overflow: visible; }
+  }
+
+  /* ---------- Bagian form ---------- */
+  .la-section { margin-bottom: 20px; }
+  .la-section:last-of-type { margin-bottom: 0; }
+  .la-section-head {
+    font-size: 13px; font-weight: 600; color: var(--text);
+    margin: 0 0 12px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ---------- Hasil pencarian NIK ----------
+     Menggantikan kotak "Nama" yang dikunci. Nama bukan sesuatu yang
+     diketik, jadi tidak perlu tampil sebagai kolom isian -- lebih jelas
+     ditampilkan sebagai hasil pencarian. */
+  .la-emp {
+    display: flex; align-items: center; gap: 12px;
+    min-height: 62px; padding: 12px 14px;
+    border: 1px dashed var(--border); border-radius: 12px;
+    background: var(--panel-2); color: var(--muted); font-size: 13px;
+  }
+  .la-emp.is-found { border-style: solid; border-color: var(--green); background: color-mix(in srgb, var(--green) 8%, var(--panel)); }
+  .la-emp.is-miss { border-style: solid; border-color: var(--red); background: color-mix(in srgb, var(--red) 8%, var(--panel)); }
+  .la-emp-avatar {
+    width: 38px; height: 38px; flex: none; border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--border); color: var(--muted);
+    font-weight: 700; font-size: 15px;
+  }
+  .la-emp.is-found .la-emp-avatar { background: var(--green); color: #fff; }
+  .la-emp.is-miss .la-emp-avatar { background: var(--red); color: #fff; }
+  .la-emp-nama { font-size: 15px; font-weight: 600; color: var(--text); line-height: 1.25; }
+  .la-emp-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  /* ---------- Kolom hitungan otomatis ---------- */
+  .field input.la-computed {
+    background: var(--amber-dim); color: var(--text);
+    font-weight: 700; cursor: not-allowed;
+  }
+  .la-hint { display: block; margin-top: 5px; font-size: 11px; color: var(--muted); }
+
+  /* ---------- Penanda jenis di tabel riwayat ---------- */
+  .la-badge {
+    display: inline-block; padding: 3px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; white-space: nowrap;
+    color: var(--c); background: color-mix(in srgb, var(--c) 13%, transparent);
+    border: 1px solid color-mix(in srgb, var(--c) 35%, transparent);
+  }
+  .la-table-wrap { max-height: 460px; overflow: auto; }
+  .la-table-wrap thead th { position: sticky; top: 0; z-index: 2; }
+  .la-table-wrap tbody tr:nth-child(even) { background: var(--panel-2); }
+  .la-table-wrap tbody tr:hover { background: color-mix(in srgb, var(--amber) 8%, var(--panel)); }
+
+</style>
+
+<script>
+  (function () {
+    var t = "light";   // mode gelap dinonaktifkan -- tombolnya sudah dihapus
+    try { localStorage.removeItem("theme_v1"); } catch (e) {}
+    document.documentElement.setAttribute("data-theme", t);
+  })();
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/supabaseClient.js"></script>
 </head>
-<body x-data="app()" x-init="init()">
+<body>
+<div class="hub-decor" aria-hidden="true">
 
-  <!-- Toast -->
-  <template x-if="toast.show">
-    <div class="toast" :class="toast.type" x-text="toast.msg"></div>
-  </template>
+      <!-- Gear besar kiri -->
+      <svg class="decor-gear" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="26" stroke="#6366f1" stroke-width="2.5"/>
+        <circle cx="50" cy="50" r="9" stroke="#6366f1" stroke-width="2.5"/>
+        <g stroke="#6366f1" stroke-width="2.5" stroke-linecap="round">
+          <path d="M50 16 L50 4"/><path d="M50 84 L50 96"/>
+          <path d="M16 50 L4 50"/><path d="M84 50 L96 50"/>
+          <path d="M27 27 L19 19"/><path d="M73 73 L81 81"/>
+          <path d="M73 27 L81 19"/><path d="M27 73 L19 81"/>
+        </g>
+      </svg>
 
-  <!-- Sidebar -->
-  <nav class="sidebar" :class="sidebarOpen ? 'open' : ''">
-    <div class="sb-logo">
-      <svg class="sb-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-      Exhaust System
-    </div>
-    <div class="sb-nav">
-      <a href="dashboard-exhaust.html" class="sb-link">
-        <svg class="sb-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
-        Dashboard
-      </a>
-      <a href="input-attendance.html" class="sb-link active">
-        <svg class="sb-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        Absensi
-      </a>
-    </div>
-    <div class="sb-footer">
-      <div class="sb-user">
-        <strong x-text="profile.full_name || 'Memuat...'"></strong>
-        <span x-text="(profile.jabatan || profile.role || '').toUpperCase()"></span>
-      </div>
-      <a href="login.html" class="sb-link" style="margin-top:4px" @click.prevent="logout()">
-        <svg class="sb-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        Keluar
-      </a>
-    </div>
-  </nav>
+      <!-- Gear kecil kanan bawah -->
+      <svg class="decor-gear-sm" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="26" stroke="#6366f1" stroke-width="2.5"/>
+        <circle cx="50" cy="50" r="9" stroke="#6366f1" stroke-width="2.5"/>
+        <g stroke="#6366f1" stroke-width="2.5" stroke-linecap="round">
+          <path d="M50 16 L50 4"/><path d="M50 84 L50 96"/>
+          <path d="M16 50 L4 50"/><path d="M84 50 L96 50"/>
+          <path d="M27 27 L19 19"/><path d="M73 73 L81 81"/>
+          <path d="M73 27 L81 19"/><path d="M27 73 L19 81"/>
+        </g>
+      </svg>
 
-  <!-- Main -->
-  <div class="main">
-    <div class="topbar">
-      <button class="hamburger" @click="sidebarOpen = !sidebarOpen">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-      </button>
-      <span class="topbar-title">Absensi & Pengajuan Cuti</span>
+      <!-- Percikan las kanan atas -->
+      <svg class="decor-spark" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g stroke="#6366f1" stroke-width="2.4" stroke-linecap="round">
+          <path d="M40 40 L40 6"/><path d="M40 40 L64 14"/>
+          <path d="M40 40 L70 40"/><path d="M40 40 L64 66"/>
+          <path d="M40 40 L40 74"/><path d="M40 40 L16 66"/>
+          <path d="M40 40 L10 40"/><path d="M40 40 L16 14"/>
+        </g>
+        <circle cx="40" cy="40" r="7" stroke="#6366f1" stroke-width="2.4"/>
+      </svg>
+
+      <!-- Gauge kanan tengah -->
+      <svg class="decor-gauge" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="60" cy="60" r="46" stroke="#6366f1" stroke-width="2.4"/>
+        <path d="M60 60 L82 38" stroke="#6366f1" stroke-width="2.6" stroke-linecap="round"/>
+        <circle cx="60" cy="60" r="5" stroke="#6366f1" stroke-width="2.4"/>
+        <g stroke="#6366f1" stroke-width="2.2" stroke-linecap="round">
+          <path d="M60 18 L60 26"/><path d="M60 94 L60 102"/>
+          <path d="M18 60 L26 60"/><path d="M94 60 L102 60"/>
+          <path d="M30 30 L36 36"/><path d="M90 30 L84 36"/>
+        </g>
+      </svg>
+
+      <!-- Factory silhouette bawah -->
+      <svg class="decor-factory" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M20 260 L20 160 L70 190 L70 140 L120 170 L120 120 L170 150 L170 100 L230 100 L230 260 Z" stroke="#6366f1" stroke-width="2" stroke-linejoin="round"/>
+        <rect x="90" y="70" width="16" height="50" stroke="#6366f1" stroke-width="2"/>
+        <rect x="150" y="50" width="16" height="70" stroke="#6366f1" stroke-width="2"/>
+        <path d="M98 70 C 94 55, 104 55, 100 40" stroke="#6366f1" stroke-width="2" stroke-linecap="round"/>
+        <path d="M158 50 C 154 35, 164 35, 160 20" stroke="#6366f1" stroke-width="2" stroke-linecap="round"/>
+        <g stroke="#6366f1" stroke-width="2.2" stroke-linecap="round">
+          <path d="M300 150 L300 110"/><path d="M300 150 L332 130"/>
+          <path d="M300 150 L336 158"/><path d="M300 150 L326 186"/>
+          <path d="M300 150 L268 186"/><path d="M300 150 L264 158"/>
+          <path d="M300 150 L268 130"/>
+        </g>
+        <circle cx="300" cy="150" r="6" stroke="#6366f1" stroke-width="2"/>
+      </svg>
+
+      <!-- Bolt kiri bawah -->
+      <svg class="decor-bolt" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M40 4 L70 22 L70 58 L40 76 L10 58 L10 22 Z" stroke="#6366f1" stroke-width="2.4" stroke-linejoin="round"/>
+        <circle cx="40" cy="40" r="15" stroke="#6366f1" stroke-width="2.4"/>
+      </svg>
+
     </div>
 
-    <div class="content">
-      <template x-if="loading">
-        <div class="loading-bar"><div class="loading-bar-inner"></div></div>
+
+<div class="app-shell" x-data="attendancePage()">
+  <!-- Topbar tetap seperti semula (1 baris, terang). Tab ditaruh di sini
+       karena di layar kecil assets/style.css menyembunyikan .page-header,
+       jadi tab yang di baris judul ikut hilang. -->
+  <div class="mobile-topbar">
+    <button class="hamburger" @click="mobileNavOpen = true">☰</button>
+    <div class="mobile-topbar-tabs" x-show="profile">
+      <button type="button" class="btn-secondary btn-sm" :class="tab === 'form' ? 'btn-primary' : ''" @click="tab = 'form'">Form Ketidakhadiran</button>
+      <button type="button" class="btn-secondary btn-sm" :class="tab === 'sisa' ? 'btn-primary' : ''" @click="tab = 'sisa'">Sisa Cuti</button>
+      <button type="button" class="btn-secondary btn-sm" :class="tab === 'ajukan' ? 'btn-primary' : ''" @click="tab = 'ajukan'">Pengajuan Cuti</button>
+      <template x-if="canApprove">
+        <button type="button" class="btn-secondary btn-sm" :class="tab === 'approve' ? 'btn-primary' : ''" @click="tab = 'approve'; loadPendingApprovals()">
+          Perlu Disetujui<template x-if="pendingCount > 0"><span style="background:#ef4444;color:#fff;border-radius:9px;padding:0 5px;font-size:11px;margin-left:4px" x-text="pendingCount"></span></template>
+        </button>
       </template>
+    </div>
+  </div>
 
-      <!-- Tab Bar -->
-      <div class="tab-bar">
-        <button class="tab-btn" :class="tab==='ajukan' && 'active'" @click="tab='ajukan'">📋 Ajukan</button>
-        <button class="tab-btn" :class="tab==='riwayat' && 'active'" @click="tab='riwayat'; loadMyRequests()">📄 Riwayat Saya</button>
+  <div class="sidebar-overlay" x-show="mobileNavOpen" @click="mobileNavOpen = false" x-cloak></div>
+  <aside class="sidebar" :class="[mobileNavOpen ? 'sidebar-open' : '', sidebarCollapsed ? 'sidebar-collapsed' : '']">
+    <button class="sidebar-collapse-btn" @click="sidebarCollapsed = !sidebarCollapsed">
+      <span x-show="!sidebarCollapsed">‹</span><span x-show="sidebarCollapsed">›</span>
+    </button>
+    <div class="sidebar-brand" x-show="!sidebarCollapsed">WELDING EXHAUST<span>·</span>SYSTEM</div>
+    <nav class="sidebar-nav" @click="mobileNavOpen = false">
+      <a href="dashboard-exhaust.html" class="sidebar-link" title="Dashboard Exhaust"><span>📊</span><span x-show="!sidebarCollapsed">Dashboard Exhaust</span></a>
+      <a href="input-produksi.html" class="sidebar-link" title="Input Produksi"><span>⚙️</span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
+      <a href="input-attendance.html" class="sidebar-link active" title="Attendance"><span>👥</span><span x-show="!sidebarCollapsed">Attendance</span></a>
+            <a href="data-mentah.html" class="sidebar-link" title="Data Mentah" x-show="isAdmin()"><span>🗃️</span><span x-show="!sidebarCollapsed">Data Mentah</span></a>
+<a href="master-data.html" class="sidebar-link" title="Master Data" x-show="isAdmin()"><span>🗂️</span><span x-show="!sidebarCollapsed">Master Data</span></a>
+    </nav>
+    <div class="sidebar-foot" x-show="!sidebarCollapsed">
+      <div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
+      <span class="badge" :class="profile?.role === 'admin' ? 'role-admin' : ''" x-text="profile?.jabatan || profile?.role || '...'"></span>
+      <button class="btn-ghost btn-sm" @click="logout()">Keluar</button>
+    </div>
+    <button class="sidebar-logout-collapsed" x-show="sidebarCollapsed" @click="logout()" title="Keluar">⏻</button>
+  </aside>
+
+  <main class="main">
+    <div class="page-header">
+      <h1 class="page-title"><span class="eyebrow">Data</span>Ketidakhadiran</h1>
+      <!-- Tab dipindah ke baris judul, mengikuti pola halaman Mesin.
+           Isi tiap tab tidak berubah -- yang pindah hanya tombolnya. -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;" x-show="profile">
+        <button type="button" class="btn-secondary btn-sm" :class="tab === 'form' ? 'btn-primary' : ''" @click="tab = 'form'">Form Ketidakhadiran</button>
+        <button type="button" class="btn-secondary btn-sm" :class="tab === 'sisa' ? 'btn-primary' : ''" @click="tab = 'sisa'">Sisa Cuti</button>
+        <button type="button" class="btn-secondary btn-sm" :class="tab === 'ajukan' ? 'btn-primary' : ''" @click="tab = 'ajukan'">Pengajuan Cuti</button>
         <template x-if="canApprove">
-          <button class="tab-btn" :class="tab==='approve' && 'active'" @click="tab='approve'; loadPendingApprovals()">
-            ✅ Perlu Disetujui
-            <template x-if="pendingCount > 0">
-              <span style="background:var(--red);color:#fff;border-radius:9px;padding:0 6px;font-size:0.72rem;margin-left:4px" x-text="pendingCount"></span>
-            </template>
+          <button type="button" class="btn-secondary btn-sm" :class="tab === 'approve' ? 'btn-primary' : ''" @click="tab = 'approve'; loadPendingApprovals()">
+            Perlu Disetujui<template x-if="pendingCount > 0"><span style="background:#ef4444;color:#fff;border-radius:9px;padding:0 5px;font-size:11px;margin-left:4px" x-text="pendingCount"></span></template>
           </button>
         </template>
       </div>
+    </div>
+    <template x-if="msg"><div :class="msgError ? 'error-msg' : 'success-msg'" x-text="msg"></div></template>
 
-      <!-- ===== TAB AJUKAN ===== -->
-      <div x-show="tab === 'ajukan'">
-        <div class="card">
-          <div class="card-title">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            Form Pengajuan
+    <!-- Halaman ini terbuka untuk SEMUA user yang sudah login.
+         Batasan siapa yang boleh mengubah apa ditangani oleh RLS di
+         database (lihat perbaikan_rls_attendance_leave.sql), bukan
+         dengan menyembunyikan halamannya. -->
+    <template x-if="profile">
+      <div>
+        <!-- ===== Form Izin / Sakit / Cuti / Mangkir (per-orang) =====
+             Ketik NIK -> Nama otomatis muncul dari master karyawan
+             (tabel karyawan_master). Field Nama DIKUNCI -- tidak bisa
+             diketik manual, supaya nama selalu konsisten dengan data
+             master. Kalau NIK belum terdaftar, muncul peringatan dan
+             tombol Simpan tidak akan jalan -- hubungi admin untuk
+             menambahkan NIK tsb ke karyawan_master dulu.
+             Urutan field: Jenis, NIK, Nama, lalu Tanggal (Izin/Sakit/
+             Mangkir) atau Tanggal Mulai/Selesai/Total Hari/Jenis Cuti
+             (Cuti). Total Hari otomatis TIDAK menghitung Sabtu & Minggu. -->
+        <template x-if="tab === 'form'">
+          <div>
+        <div class="panel">
+          <p class="panel-title">Form Ketidakhadiran</p>
+
+          <div class="la-section">
+            <p class="la-section-head">Siapa yang tidak hadir</p>
+            <div class="form-grid">
+              <div class="field"><label>Jenis <span class="req">*</span></label>
+                <select x-model="leaveForm.jenis" @change="onLeaveJenisChange()">
+                  <template x-for="j in LEAVE_JENIS" :key="'j-'+j.key">
+                    <option :value="j.key" x-text="j.label"></option>
+                  </template>
+                </select>
+              </div>
+              <div class="field">
+                <label>NIK <span class="req">*</span></label>
+                <input type="text" x-model="leaveForm.nik" @input="onLeaveNikInput()" placeholder="Ketik NIK karyawan">
+              </div>
+              <div class="field la-span2">
+                <label>Karyawan <span class="req">*</span></label>
+                <!-- Nama tidak ditampilkan sebagai kolom isian karena memang
+                     tidak diketik -- ini hasil pencarian dari master karyawan. -->
+                <div class="la-emp" :class="leaveNikFound ? 'is-found' : (leaveForm.nik ? 'is-miss' : '')">
+                  <template x-if="leaveNikFound">
+                    <div class="la-emp-avatar" x-text="(leaveForm.nama || '').trim().charAt(0).toUpperCase()"></div>
+                  </template>
+                  <div>
+                    <template x-if="leaveNikFound">
+                      <div>
+                        <div class="la-emp-nama" x-text="leaveForm.nama"></div>
+                        <div class="la-emp-sub" x-text="'NIK ' + leaveForm.nik"></div>
+                      </div>
+                    </template>
+                    <template x-if="!leaveNikFound && leaveForm.nik">
+                      <div>
+                        <div class="la-emp-nama">NIK tidak terdaftar</div>
+                        <div class="la-emp-sub">Minta admin menambahkannya ke master karyawan dulu</div>
+                      </div>
+                    </template>
+                    <template x-if="!leaveForm.nik">
+                      <div>Nama karyawan (nama terisi otomatis setelah ketik NIK)</div>
+                    </template>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <!-- Jenis -->
-          <div class="form-row">
-            <div class="form-label">Jenis Pengajuan *</div>
-            <select x-model="form.jenis">
-              <option value="">-- Pilih jenis --</option>
-              <option value="Izin">Izin</option>
-              <option value="Sakit">Sakit</option>
-              <option value="Cuti">Cuti</option>
-              <template x-if="canInputAlfa">
-                <option value="Alfa">Alfa (input untuk bawahan)</option>
+          <div class="la-section">
+            <p class="la-section-head" x-text="leaveForm.jenis === 'cuti' ? 'Periode cuti' : 'Kapan'"></p>
+            <div class="form-grid">
+              <div class="field"><label><span x-text="leaveForm.jenis === 'cuti' ? 'Tanggal Mulai' : 'Tanggal'"></span> <span class="req">*</span></label><input type="date" x-model="leaveForm.tanggal"></div>
+              <template x-if="leaveForm.jenis === 'cuti'">
+                <div class="field"><label>Tanggal Selesai <span class="req">*</span></label><input type="date" x-model="leaveForm.tanggal_selesai" :min="leaveForm.tanggal"></div>
               </template>
-            </select>
+              <template x-if="leaveForm.jenis === 'cuti'">
+                <div class="field">
+                  <label>Total Hari</label>
+                  <input type="text" class="la-computed" :value="leaveTotalHari() + ' hari'" disabled readonly>
+                  <span class="la-hint">Minggu & tanggal merah tidak dihitung. Sabtu tergantung Ganti Hari &amp; shift kamu</span>
+                </div>
+              </template>
+              <template x-if="leaveForm.jenis === 'cuti'">
+                <div class="field"><label>Jenis Cuti <span class="req">*</span></label>
+                  <select x-model="leaveForm.jenis_cuti">
+                    <option value="">Pilih jenis cuti...</option>
+                    <option value="Cuti Tahunan">Cuti Tahunan</option>
+                    <option value="Cuti Khusus">Cuti Khusus</option>
+                  </select>
+                  <span class="la-hint" x-show="leaveForm.jenis_cuti === 'Cuti Tahunan'">Memotong jatah cuti tahunan</span>
+                  <span class="la-hint" x-show="leaveForm.jenis_cuti === 'Cuti Khusus'">Tidak memotong jatah cuti</span>
+                </div>
+              </template>
+            </div>
           </div>
 
-          <!-- Nama karyawan (hanya untuk Alfa) -->
-          <template x-if="form.jenis === 'Alfa'">
-            <div class="form-row">
-              <div class="form-label">Nama Karyawan *</div>
-              <select x-model="form.target_user_id">
-                <option value="">-- Pilih karyawan --</option>
-                <template x-for="u in bawahanList" :key="u.id">
-                  <option :value="u.id" x-text="u.full_name"></option>
+          <div class="la-section">
+            <p class="la-section-head">Keterangan</p>
+            <div class="form-grid">
+              <div class="field" style="grid-column: 1 / -1;">
+                <label>Alasan / keterangan <span class="req">*</span></label>
+                <input type="text" x-model="leaveForm.keterangan" placeholder="Tulis alasannya">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn-primary" @click="saveLeave()">Simpan</button>
+            <button type="button" class="btn-secondary" x-show="leaveEditId" @click="resetLeaveForm()">Batal Edit</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <p class="panel-title">Riwayat Ketidakhadiran <span class="count" x-text="leaveRows.length + ' baris'"></span></p>
+          <p class="hint" style="margin-bottom:12px;">
+            <span x-show="!(leaveLihatSemua &amp;&amp; isAdmin())">Yang tampil hanya data yang kamu input sendiri.</span>
+            <span x-show="leaveLihatSemua &amp;&amp; isAdmin()">Menampilkan data dari semua orang.</span>
+            <button type="button" class="btn-secondary btn-sm" x-show="isAdmin()" style="margin-left:8px;"
+                    @click="leaveLihatSemua = !leaveLihatSemua; fetchLeaveRows()"
+                    x-text="leaveLihatSemua ? 'Tampilkan punya saya saja' : 'Tampilkan semua'"></button>
+          </p>
+          <div class="table-wrap la-table-wrap">
+            <table>
+              <thead><tr><th>Jenis</th><th>NIK</th><th>Nama</th><th>Tanggal</th><th>Sampai</th><th>Total Hari</th><th>Jenis Cuti</th><th>Keterangan</th><th x-show="isAdmin()">Aksi</th></tr></thead>
+              <tbody>
+                <template x-for="r in leaveRows" :key="r.id">
+                  <tr>
+                    <td><span class="la-badge" :style="'--c: var(--' + leaveJenisWarna(r.jenis) + ')'" x-text="leaveJenisLabel(r.jenis)"></span></td>
+                    <td class="mono" x-text="r.nik"></td>
+                    <td x-text="r.nama"></td>
+                    <td class="mono" x-text="r.tanggal"></td>
+                    <td class="mono" x-text="r.jenis === 'cuti' ? (r.tanggal_selesai || r.tanggal) : '-'"></td>
+                    <td class="mono" x-text="r.jenis === 'cuti' ? (r.jumlah_hari ?? 1) : '-'"></td>
+                    <td x-text="r.jenis_cuti || '-'"></td>
+                    <td x-text="r.keterangan || '-'"></td>
+                    <td x-show="isAdmin()">
+                      <button class="btn-secondary btn-sm" @click="editLeave(r)">Edit</button>
+                      <button class="btn-secondary btn-sm" @click="deleteLeave(r)">Hapus</button>
+                    </td>
+                  </tr>
                 </template>
-              </select>
-            </div>
-          </template>
-
-          <!-- Tanggal -->
-          <div class="form-row-2">
-            <div>
-              <div class="form-label">Tanggal Mulai *</div>
-              <input type="date" x-model="form.tanggal_mulai">
-            </div>
-            <div>
-              <div class="form-label">Tanggal Selesai *</div>
-              <input type="date" x-model="form.tanggal_selesai">
-            </div>
+                <tr x-show="leaveRows.length === 0"><td :colspan="isAdmin() ? 9 : 8" class="empty-state">Belum ada data.</td></tr>
+              </tbody>
+            </table>
           </div>
-
-          <!-- Alasan -->
-          <div class="form-row">
-            <div class="form-label">Alasan / Keterangan</div>
-            <textarea x-model="form.alasan" placeholder="Isi alasan jika ada..."></textarea>
-          </div>
-
-          <!-- Info atasan -->
-          <template x-if="atasanInfo && form.jenis && form.jenis !== 'Alfa'">
-            <div style="background:var(--blue-dim);border:1px solid var(--blue)44;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:0.82rem;color:var(--sub)">
-              📬 Pengajuan akan dikirim ke: <strong x-text="atasanInfo.full_name" style="color:var(--text)"></strong>
-              <template x-if="!atasanInfo.no_wa">
-                <span style="color:var(--yellow)"> ⚠️ Nomor WA belum diisi</span>
-              </template>
-            </div>
-          </template>
-
-          <!-- Submit -->
-          <button class="btn-submit" :disabled="submitting" @click="submitAjukan()">
-            <template x-if="submitting">
-              <svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><circle cx="12" cy="12" r="10" opacity=".25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-opacity="1"/></svg>
-            </template>
-            <span x-text="submitting ? 'Menyimpan...' : 'Kirim Pengajuan'"></span>
-          </button>
-
-          <!-- WA preview setelah submit -->
-          <template x-if="waPesan">
-            <div style="margin-top:14px">
-              <div style="font-size:0.8rem;color:var(--sub);margin-bottom:6px">📱 Tekan tombol di bawah untuk kirim notifikasi ke atasan via WhatsApp:</div>
-              <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:0.82rem;color:var(--sub);white-space:pre-wrap;margin-bottom:8px" x-text="waPesan"></div>
-              <button class="btn-wa" @click="sendWA()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12.004 0C5.373 0 0 5.373 0 12.004c0 2.117.554 4.102 1.524 5.831L.054 23.5l5.818-1.528A11.95 11.95 0 0012.004 24C18.627 24 24 18.627 24 12.004 24 5.373 18.627 0 12.004 0zm0 21.818a9.81 9.81 0 01-5.001-1.366l-.359-.213-3.723.977.993-3.63-.234-.374A9.817 9.817 0 012.18 12.004c0-5.422 4.411-9.832 9.824-9.832 5.414 0 9.823 4.41 9.823 9.832 0 5.422-4.409 9.814-9.823 9.814z"/></svg>
-                Kirim WA ke Atasan
-              </button>
-            </div>
-          </template>
         </div>
-      </div>
-
-      <!-- ===== TAB RIWAYAT ===== -->
-      <div x-show="tab === 'riwayat'">
-        <div class="card">
-          <div class="card-title">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            Riwayat Pengajuan Saya
           </div>
+        </template>
 
-          <template x-if="loadingRequests">
-            <div class="loading-bar"><div class="loading-bar-inner"></div></div>
-          </template>
+        <template x-if="tab === 'sisa'">
+          <div>
+        
+        <div class="panel">
+          <p class="panel-title">Sisa Cuti</p>
+          <!-- Tidak ada kotak pencarian: data yang tampil selalu milik akun
+               yang sedang login, diambil lewat profiles.nik. Admin yang perlu
+               melihat karyawan lain memakai Master Data > Cuti. -->
+          <p class="hint" style="margin-bottom:14px;" x-show="!nikSendiri()">
+            Akunmu belum dipasangkan ke NIK, jadi sisa cutimu belum bisa
+            ditampilkan. Minta admin mengisinya di tabel profiles.
+          </p>
 
-          <template x-if="!loadingRequests && myRequests.length === 0">
-            <div class="empty">Belum ada pengajuan</div>
-          </template>
+          <template x-if="sisaLoading"><p class="empty-state">Memuat sisa cuti...</p></template>
 
-          <template x-for="r in myRequests" :key="r.id">
-            <div class="req-item">
-              <div class="req-item-header">
-                <div>
-                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                    <span class="badge" :class="'badge-'+r.jenis.toLowerCase()" x-text="r.jenis"></span>
-                    <span class="badge" :class="'badge-'+r.status.toLowerCase()" x-text="r.status"></span>
-                  </div>
-                  <div class="req-item-sub" x-text="fmtTgl(r.tanggal_mulai, r.tanggal_selesai) + ' · ' + hitungHari(r.tanggal_mulai, r.tanggal_selesai) + ' hari'"></div>
-                </div>
-                <div class="req-item-tgl" x-text="fmtDatetime(r.created_at)"></div>
+          <p class="hint" x-show="sisaError" style="color:var(--red); font-weight:600;" x-text="sisaError"></p>
+
+          <!-- Hasil pencarian: 1 baris ringkasan per karyawan -->
+          <template x-if="sisaHasil.length">
+            <div>
+              <div class="table-wrap la-table-wrap" style="margin-top:8px;">
+                <table class="la-stack">
+                  <thead><tr><th>NIK</th><th>Nama</th><th>Sisa Cuti</th><th>Cuti Terakhir</th></tr></thead>
+                  <tbody>
+                    <template x-for="r in sisaHasil" :key="'sh-'+r.nik">
+                      <tr>
+                        <td class="mono" data-label="NIK" x-text="r.nik"></td>
+                        <td data-label="Nama" x-text="r.nama"></td>
+                        <td data-label="Sisa Cuti">
+                          <span class="la-badge" :style="'--c: var(--' + (r.sisa < 0 ? 'red' : (r.sisa === 0 ? 'amber' : 'green')) + ')'"
+                                x-text="fmtHari(r.sisa) + ' hari'"></span>
+                        </td>
+                        <td class="mono" data-label="Cuti Terakhir" x-text="r.cutiTerakhir || '-'"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
               </div>
-              <template x-if="r.alasan">
-                <div class="req-catatan" x-text="'Alasan: ' + r.alasan"></div>
-              </template>
-              <template x-if="r.catatan_atasan">
-                <div class="req-catatan" x-text="'Catatan atasan: ' + r.catatan_atasan"></div>
-              </template>
             </div>
           </template>
+
+          <template x-if="sisaSudahCari &amp;&amp; !sisaHasil.length &amp;&amp; !sisaError &amp;&amp; !sisaLoading">
+            <p class="empty-state">NIK <span class="mono" x-text="nikSendiri()"></span> tidak ada di master karyawan. Hubungi admin.</p>
+          </template>
         </div>
-      </div>
 
-      <!-- ===== TAB APPROVE ===== -->
-      <div x-show="tab === 'approve'" x-cloak>
-        <div class="card">
-          <div class="card-title">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            Pengajuan Perlu Disetujui
+        <!-- Riwayat cuti karyawan yang dipilih -->
+        <template x-if="cutiRiwayat.length || cutiPilih">
+          <div class="panel">
+            <p class="panel-title">Riwayat Cuti
+              <span class="count" x-text="cutiRiwayat.length + ' baris'"></span>
+            </p>
+            <div class="table-wrap la-table-wrap">
+              <table class="la-riwayat">
+                <thead><tr><th>NIK</th><th>Nama</th><th>Tanggal Cuti</th></tr></thead>
+                <tbody>
+                  <template x-for="r in cutiRiwayat" :key="'cr-'+r.id">
+                    <tr>
+                      <td class="mono" data-label="NIK" x-text="r.nik"></td>
+                      <td data-label="Nama" x-text="r.nama"></td>
+                      <td class="mono" data-label="Tanggal Cuti" x-text="rentangTanggal(r)"></td>
+                    </tr>
+                  </template>
+                  <tr x-show="cutiRiwayat.length === 0"><td colspan="3" class="empty-state">Belum ada riwayat cuti.</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
+        </template>
+          </div>
+        </template>
 
-          <template x-if="loadingApprovals">
-            <div class="loading-bar"><div class="loading-bar-inner"></div></div>
-          </template>
+        <!-- ===== TAB PENGAJUAN CUTI (untuk diri sendiri) ===== -->
+        <template x-if="tab === 'ajukan'">
+          <div>
+            <div class="panel">
+              <p class="panel-title">Pengajuan Cuti / Izin / Sakit</p>
+              <p class="hint" style="margin-bottom:14px;">
+                Form ini untuk mengajukan cuti atas nama diri sendiri. Setelah disimpan, kamu bisa kirim notifikasi ke atasan via WhatsApp.
+              </p>
 
-          <template x-if="!loadingApprovals && pendingApprovals.length === 0">
-            <div class="empty">Tidak ada pengajuan yang menunggu persetujuan Anda</div>
-          </template>
-
-          <template x-for="r in pendingApprovals" :key="r.id">
-            <div class="approve-item">
-              <div class="approve-item-top">
-                <div>
-                  <div class="approve-item-name" x-text="r.pengaju?.full_name || '—'"></div>
-                  <div class="approve-item-detail">
-                    <span class="badge" :class="'badge-'+r.jenis.toLowerCase()" x-text="r.jenis"></span>
-                    &nbsp;<span x-text="fmtTgl(r.tanggal_mulai, r.tanggal_selesai)"></span>
-                    &nbsp;(<span x-text="hitungHari(r.tanggal_mulai, r.tanggal_selesai)"></span> hari)
+              <div class="la-section">
+                <p class="la-section-head">Jenis Pengajuan</p>
+                <div class="form-grid">
+                  <div class="field">
+                    <label>Jenis <span class="req">*</span></label>
+                    <select x-model="ajukanForm.jenis">
+                      <option value="">-- Pilih jenis --</option>
+                      <option value="Izin">Izin</option>
+                      <option value="Sakit">Sakit</option>
+                      <option value="Cuti">Cuti</option>
+                    </select>
                   </div>
                 </div>
-                <div class="req-item-tgl" x-text="fmtDatetime(r.created_at)"></div>
               </div>
-              <template x-if="r.alasan">
-                <div class="approve-item-alasan" x-text="'Alasan: ' + r.alasan"></div>
+
+              <div class="la-section">
+                <p class="la-section-head">Periode</p>
+                <div class="form-grid">
+                  <div class="field">
+                    <label>Tanggal Mulai <span class="req">*</span></label>
+                    <input type="date" x-model="ajukanForm.tanggal_mulai">
+                  </div>
+                  <div class="field">
+                    <label>Tanggal Selesai <span class="req">*</span></label>
+                    <input type="date" x-model="ajukanForm.tanggal_selesai" :min="ajukanForm.tanggal_mulai">
+                  </div>
+                </div>
+              </div>
+
+              <div class="la-section">
+                <p class="la-section-head">Keterangan</p>
+                <div class="form-grid">
+                  <div class="field" style="grid-column: 1 / -1;">
+                    <label>Alasan / keterangan</label>
+                    <input type="text" x-model="ajukanForm.alasan" placeholder="Isi alasan jika ada">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Info atasan -->
+              <template x-if="atasanInfo">
+                <div style="padding:10px 14px;border-radius:10px;background:color-mix(in srgb,var(--blue) 8%,var(--panel));border:1px solid color-mix(in srgb,var(--blue) 30%,transparent);font-size:13px;margin-bottom:14px;">
+                  📬 Akan dikirim ke atasan: <strong x-text="atasanInfo.full_name"></strong>
+                  <span x-show="!atasanInfo.no_wa" style="color:var(--amber);margin-left:6px;">⚠️ Nomor WA belum diisi</span>
+                </div>
+              </template>
+              <template x-if="!atasanInfo && profile">
+                <div style="padding:10px 14px;border-radius:10px;background:color-mix(in srgb,var(--amber) 8%,var(--panel));border:1px solid color-mix(in srgb,var(--amber) 30%,transparent);font-size:13px;margin-bottom:14px;">
+                  ℹ️ Tidak ada atasan yang perlu menyetujui (jabatan Manager atau Admin).
+                </div>
               </template>
 
-              <!-- Approve via link WA (buka approval-cuti.html) -->
-              <div class="approve-btn-row">
-                <button class="btn-small btn-sm-wa" @click="openApprovalLink(r)">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12.004 0C5.373 0 0 5.373 0 12.004c0 2.117.554 4.102 1.524 5.831L.054 23.5l5.818-1.528A11.95 11.95 0 0012.004 24C18.627 24 24 18.627 24 12.004 24 5.373 18.627 0 12.004 0zm0 21.818a9.81 9.81 0 01-5.001-1.366l-.359-.213-3.723.977.993-3.63-.234-.374A9.817 9.817 0 012.18 12.004c0-5.422 4.411-9.832 9.824-9.832 5.414 0 9.823 4.41 9.823 9.832 0 5.422-4.409 9.814-9.823 9.814z"/></svg>
-                  Buka via WA / Link
-                </button>
-                <button class="btn-small btn-sm-tolak" :disabled="r._loading" @click="quickAction(r, 'tolak')">
-                  ✕ Tolak
-                </button>
-                <button class="btn-small btn-sm-approve" :disabled="r._loading" @click="quickAction(r, 'approve')">
-                  ✓ Setujui
+              <div class="form-actions">
+                <button type="button" class="btn-primary" :disabled="ajukanLoading" @click="simpanAjukan()">
+                  <span x-text="ajukanLoading ? 'Menyimpan...' : 'Simpan Pengajuan'"></span>
                 </button>
               </div>
+
+              <!-- Tombol WA setelah simpan -->
+              <template x-if="ajukanWaPesan">
+                <div style="margin-top:16px;padding:14px;border-radius:10px;border:1px solid color-mix(in srgb,var(--green) 40%,transparent);background:color-mix(in srgb,var(--green) 8%,var(--panel));">
+                  <p style="font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:600;">📱 Kirim notifikasi ke atasan via WhatsApp:</p>
+                  <pre style="font-size:12px;color:var(--text);white-space:pre-wrap;background:var(--panel-2);border-radius:8px;padding:10px;margin-bottom:10px;border:1px solid var(--border);" x-text="ajukanWaPesan"></pre>
+                  <button type="button" class="btn-primary btn-sm" @click="sendAjukanWA()" style="background:#25d366;">📲 Kirim via WhatsApp</button>
+                </div>
+              </template>
             </div>
-          </template>
-        </div>
+
+            <!-- Riwayat Pengajuan Saya -->
+            <div class="panel">
+              <p class="panel-title">Riwayat Pengajuan Saya <span class="count" x-text="ajukanRiwayat.length + ' baris'"></span></p>
+              <div class="table-wrap la-table-wrap">
+                <table>
+                  <thead><tr><th>Jenis</th><th>Tanggal</th><th>Hari</th><th>Status</th><th>Catatan Atasan</th></tr></thead>
+                  <tbody>
+                    <template x-for="r in ajukanRiwayat" :key="r.id">
+                      <tr>
+                        <td><span class="la-badge" :style="'--c: var(--' + ajukanJenisWarna(r.jenis) + ')'" x-text="r.jenis"></span></td>
+                        <td class="mono" x-text="ajukanFmtTgl(r.tanggal_mulai, r.tanggal_selesai)"></td>
+                        <td class="mono" x-text="ajukanHari(r.tanggal_mulai, r.tanggal_selesai)"></td>
+                        <td><span class="la-badge" :style="'--c: var(--' + ajukanStatusWarna(r.status) + ')'" x-text="r.status"></span></td>
+                        <td x-text="r.catatan_atasan || '-'"></td>
+                      </tr>
+                    </template>
+                    <tr x-show="ajukanRiwayat.length === 0"><td colspan="5" class="empty-state">Belum ada pengajuan.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- ===== TAB PERLU DISETUJUI (Foreman / Supervisor) ===== -->
+        <template x-if="tab === 'approve' && canApprove">
+          <div>
+            <div class="panel">
+              <p class="panel-title">Pengajuan yang Perlu Disetujui</p>
+              <template x-if="approveLoading"><p class="empty-state">Memuat data...</p></template>
+              <template x-if="!approveLoading && pendingApprovals.length === 0">
+                <p class="empty-state">Tidak ada pengajuan yang menunggu persetujuan kamu.</p>
+              </template>
+              <template x-for="r in pendingApprovals" :key="r.id">
+                <div style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;background:var(--panel-2);">
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
+                    <div>
+                      <div style="font-weight:700;font-size:15px;" x-text="r.pengaju?.full_name || '—'"></div>
+                      <div style="font-size:12px;color:var(--muted);margin-top:3px;">
+                        <span class="la-badge" :style="'--c: var(--' + ajukanJenisWarna(r.jenis) + ')'" x-text="r.jenis"></span>
+                        &nbsp;<span class="mono" x-text="ajukanFmtTgl(r.tanggal_mulai, r.tanggal_selesai)"></span>
+                        &nbsp;(<span x-text="ajukanHari(r.tanggal_mulai, r.tanggal_selesai)"></span> hari)
+                      </div>
+                      <div x-show="r.alasan" style="font-size:12px;color:var(--muted);margin-top:4px;font-style:italic;" x-text="'Alasan: ' + r.alasan"></div>
+                    </div>
+                    <div style="font-size:11px;color:var(--muted);white-space:nowrap;" x-text="fmtTgl(r.tanggal_mulai)"></div>
+                  </div>
+                  <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+                    <button type="button" class="btn-secondary btn-sm" @click="bukaApprovalLink(r)">🔗 Buka link approval</button>
+                    <button type="button" class="btn-secondary btn-sm" :disabled="r._loading" @click="quickApprove(r,'tolak')" style="color:var(--red)">✕ Tolak</button>
+                    <button type="button" class="btn-primary btn-sm" :disabled="r._loading" @click="quickApprove(r,'approve')">✓ Setujui</button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+
       </div>
-
-    </div><!-- /content -->
-  </div><!-- /main -->
-
+    </template>
+  </main>
+</div>
 <script>
-const SUPABASE_URL = "https://ugrbunhudqhycgjlkwha.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_6TV-ESdlX9EQ5HdrEFPIyg_as3XTP_c";
-// URL hosting approval-cuti.html (sesuaikan dengan URL deploy kamu)
-const APPROVAL_BASE_URL = window.location.origin + '/approval-cuti.html';
 
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-function app() {
+function baseInputPage() {
   return {
-    // --- state ---
-    loading: true,
-    sidebarOpen: false,
-    tab: 'ajukan',
-    profile: {},
-    session: null,
-    canApprove: false,    // foreman atau supervisor (bisa approve)
-    canInputAlfa: false,  // leader, foreman, supervisor
+    session: null, profile: null, mobileNavOpen: false, sidebarCollapsed: true,
+    theme: localStorage.getItem("theme_v1") || "light",
+    msg: "", msgError: false,
+        isAdmin() { return this.profile?.role === "admin"; },
+
+    isLeaderOrAdmin() { if (!this.profile) return false; const r = (this.profile.role||"").toLowerCase(); const j = (this.profile.jabatan||"").toLowerCase(); return ["admin","leader"].includes(r) || ["admin","leader"].includes(j); },
+    flash(m, isErr) {
+      this.msg = m; this.msgError = !!isErr;
+      setTimeout(() => { this.msg = ""; }, 4000);
+    },
+    async initBase() {
+      this.session = await requireAuth();
+      if (!this.session) return false;
+      const { data } = await supabaseClient.from("profiles").select("*").eq("id", this.session.user.id).maybeSingle();
+      this.profile = data;
+      return true;
+    },
+    logout,
+  };
+}
+// toISOString().slice(0,10) mengonversi ke UTC dulu -- WIB = UTC+7, jadi
+// tengah malam lokal bisa terpotong mundur 1 hari. Ambil Y/M/D lokal saja.
+function localDateStr(d) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function attendancePage() {
+  return {
+    ...baseInputPage(),
+    // ---- Form Izin/Sakit/Cuti/Mangkir (per-orang) ----
+    leaveForm: { tanggal: localDateStr(new Date()), tanggal_selesai: localDateStr(new Date()), jenis: "izin", nik: "", nama: "", jenis_cuti: "", keterangan: "" },
+    leaveRows: [],
+    leaveEditId: null,
+    leaveNikFound: false,
+    _leaveNikLookupTimer: null,
+    // Daftar tanggal merah (dari tabel hari_libur) -- dipakai supaya
+    // Total Hari Cuti otomatis skip tanggal itu juga. Tabel hari_libur
+    // sendiri sekarang dikelola dari halaman Master Data > Attendance --
+    // di sini cuma DIBACA (read-only) buat perhitungan preview.
+    hariLibur: [],
+    // Riwayat upload Shift 2 (read-only di sini, dikelola dari Master
+    // Data > Attendance > Riwayat Upload Shift 2). Shift 2 rotasi
+    // mingguan, jadi disimpan per PERIODE (tanggal_mulai-selesai), bukan
+    // satu nilai tetap per NIK -- dipakai supaya Total Hari tahu apakah
+    // cuti di tanggal Ganti Hari memotong jatah orang ini atau tidak,
+    // PADA MINGGU tanggal cuti itu.
+    shift2Periodes: [],   // { tanggal_mulai, tanggal_selesai, nikSet:Set }
+    // ===== STATE: Pengajuan Cuti (untuk diri sendiri) =====
+    ajukanForm: { jenis: '', tanggal_mulai: '', tanggal_selesai: '', alasan: '' },
+    ajukanLoading: false,
+    ajukanWaPesan: null,
+    ajukanWaTarget: null,
+    ajukanWaToken: null,
+    ajukanRiwayat: [],
     atasanInfo: null,
-    bawahanList: [],
 
-    // form
-    form: { jenis: '', tanggal_mulai: '', tanggal_selesai: '', alasan: '', target_user_id: '' },
-    submitting: false,
-    waPesan: null,
-    waTarget: null,
-
-    // riwayat
-    myRequests: [],
-    loadingRequests: false,
-
-    // approve
+    // ===== STATE: Approve panel =====
+    canApprove: false,
     pendingApprovals: [],
     pendingCount: 0,
-    loadingApprovals: false,
+    approveLoading: false,
 
-    // toast
-    toast: { show: false, msg: '', type: '' },
-
-    // --- init ---
     async init() {
-      const { data: { session } } = await sb.auth.getSession();
-      if (!session) { window.location.href = 'login.html'; return; }
-      this.session = session;
+      if (!await this.initBase()) return;
+      await this.fetchLeaveRows();
+      await this.fetchHariLibur();
+      await this.fetchShift2Periodes();
+      this.initRealtime();
+      // Tab Sisa Cuti langsung menampilkan milik yang sedang login,
+      // tanpa perlu mengetik NIK sendiri.
+      await this.muatSisaCutiSendiri();
+      // Pengajuan cuti: init data tambahan
+      await this.initAjukan();
+    },
+    // ---- Izin/Sakit/Cuti/Mangkir ----
+    // Riwayat hanya menampilkan data yang DIINPUT oleh orang yang sedang
+    // login (kolom created_by). Jadi si A tidak melihat catatan si B.
+    // Admin bisa membuka tampilan semua lewat tombol di panel riwayat.
+    leaveLihatSemua: false,
+    async fetchLeaveRows() {
+      let q = supabaseClient.from("attendance_leave").select("*").order("tanggal", { ascending: false }).limit(200);
+      if (!(this.leaveLihatSemua && this.isAdmin())) q = q.eq("created_by", this.session.user.id);
+      const { data, error } = await q;
+      if (!error && data) this.leaveRows = data;
+    },
+    // Daftar jenis ketidakhadiran + warnanya. Satu sumber dipakai
+    // dua tempat: tombol pilihan di form, dan penanda warna di tabel
+    // riwayat -- supaya keduanya tidak pernah beda.
+    // `warna` merujuk ke nama variabel CSS di assets/style.css
+    // (--blue, --amber, --green, --red).
+    LEAVE_JENIS: [
+      { key: "izin",    label: "Izin",    warna: "blue"  },
+      { key: "sakit",   label: "Sakit",   warna: "amber" },
+      { key: "cuti",    label: "Cuti",    warna: "green" },
+      { key: "mangkir", label: "Mangkir", warna: "red"   },
+    ],
+    // ================= REALTIME =================
+    // Begitu ada orang lain menyimpan / mengubah / menghapus data,
+    // halaman ini ikut menyegarkan sendiri tanpa perlu di-reload.
+    // Polanya sama dengan assets/machine-page.js > initRealtime().
+    _rtChannel: null,
+    _rtTimers: {},
+    // Beberapa perubahan bisa datang beruntun (mis. simpan banyak baris
+    // sekaligus). Ditunda sebentar supaya tidak menembak query berkali-kali.
+    _rtDebounce(key, fn, delayMs = 400) {
+      clearTimeout(this._rtTimers[key]);
+      this._rtTimers[key] = setTimeout(fn, delayMs);
+    },
+    initRealtime() {
+      if (this._rtChannel) return;   // sudah jalan, jangan dobel subscribe
+      let channel = supabaseClient.channel("rt_attendance");
 
-      const { data: prof } = await sb
-        .from('profiles')
-        .select('full_name, role, jabatan, no_wa')
-        .eq('id', session.user.id)
-        .maybeSingle();
+      // Data ketidakhadiran berubah -> riwayat disegarkan. Kalau tab
+      // Sisa Cuti sedang terbuka DAN sudah pernah mencari, hasilnya
+      // ikut dihitung ulang supaya sisa cutinya tidak basi.
+      channel = channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "attendance_leave" },
+        () => {
+          this._rtDebounce("leave", () => this.fetchLeaveRows());
+          this._rtDebounce("sisa", () => {
+            if (this.tab === "sisa" && this.sisaSudahCari) this.cariSisaCuti();
+          }, 700);
+        }
+      );
 
-      this.profile = prof || {};
-      this.loading = false;
+      // Jatah cuti diubah di Master Data > Cuti -> sisa cuti ikut berubah.
+      channel = channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "cuti_jatah" },
+        () => {
+          this._rtDebounce("sisa", () => {
+            if (this.tab === "sisa" && this.sisaSudahCari) this.cariSisaCuti();
+          }, 700);
+        }
+      );
 
-      const jabUpper = (prof?.jabatan || '').toUpperCase();
-      const role     = (prof?.role || '').toLowerCase();
+      // Hari libur dipakai untuk menghitung Total Hari cuti.
+      channel = channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "hari_libur" },
+        () => this._rtDebounce("libur", () => this.fetchHariLibur())
+      );
 
-      // Guest tidak boleh di sini
-      if (role === 'guest') { window.location.href = 'dashboard-exhaust.html'; return; }
+      this._rtChannel = channel.subscribe();
+      // Tutup koneksi rapi-rapi kalau tab ditutup / pindah halaman.
+      window.addEventListener("beforeunload", () => {
+        if (this._rtChannel) supabaseClient.removeChannel(this._rtChannel);
+      });
+    },
 
-      // Siapa yang bisa approve (foreman = approve operator/leader, supervisor = approve foreman)
+    // ================= SISA CUTI =================
+    // Tab aktif halaman ini: "form" = Form Ketidakhadiran, "sisa" = Sisa Cuti.
+    // WAJIB ada -- kalau tidak, kedua <template x-if> tidak ada yang cocok
+    // dan halamannya tampil kosong.
+    tab: "form",
+    // Halaman ini hanya untuk MELIHAT. Jatah cutinya diatur di
+    // master-data.html > tab Cuti. Di sini sisa selalu dihitung ulang:
+    //   Sisa = Jatah tahun berjalan - Cuti Tahunan yang sudah terpakai
+    // Tidak ada kolom "sisa" yang disimpan, supaya angkanya tidak basi
+    // kalau ada baris cuti yang diedit atau dihapus.
+    sisaCari: "",
+    sisaLoading: false,
+    sisaError: "",
+    sisaSudahCari: false,
+    sisaHasil: [],        // hasil pencarian karyawan
+    cutiPilih: null,      // karyawan yang riwayatnya sedang ditampilkan
+    cutiRiwayat: [],
+    JATAH_DEFAULT: 12,    // dipakai kalau karyawan belum diatur jatahnya
+
+    // NIK milik akun yang sedang login (kolom profiles.nik, dipakai juga
+    // untuk login pakai NIK). Kosong = akunnya belum dipasangkan ke NIK.
+    nikSendiri() { return (this.profile && this.profile.nik) ? String(this.profile.nik).trim() : ""; },
+    async muatSisaCutiSendiri() {
+      const nik = this.nikSendiri();
+      if (!nik) return;              // belum punya NIK -> biarkan kotak cari kosong
+      this.sisaCari = nik;
+      await this.cariSisaCuti();
+      this.sisaMilikSendiri = true;  // menandai hasil ini punya sendiri
+    },
+    sisaMilikSendiri: false,
+    async cariSisaCuti() {
+      const cari = (this.sisaCari || "").trim();
+      this.sisaError = "";
+      this.sisaMilikSendiri = cari === this.nikSendiri() && cari !== "";
+      if (!cari) { this.sisaError = "Ketik NIK atau nama dulu."; return; }
+      this.sisaLoading = true;
+      this.cutiPilih = null;
+      this.cutiRiwayat = [];
+      try {
+        const tahun = new Date().getFullYear();
+        // Cari di master karyawan: cocok kalau NIK atau namanya mengandung
+        // kata yang diketik (tidak peduli huruf besar/kecil).
+        const { data: kar, error: errKar } = await supabaseClient
+          .from("karyawan_master").select("nik,nama")
+          .or("nik.ilike.%" + cari + "%,nama.ilike.%" + cari + "%")
+          .order("nama").limit(25);
+        if (errKar) { this.sisaError = "Gagal mencari karyawan: " + errKar.message; return; }
+
+        this.sisaSudahCari = true;
+        const list = kar || [];
+        if (!list.length) { this.sisaHasil = []; return; }
+        const niks = list.map((k) => k.nik);
+
+        const [jatahRes, cutiRes] = await Promise.all([
+          supabaseClient.from("cuti_jatah").select("nik,jatah").eq("tahun", tahun).in("nik", niks),
+          supabaseClient.from("attendance_leave").select("id,nik,nama,tanggal,tanggal_selesai,jenis,jenis_cuti,jumlah_hari")
+            .eq("jenis", "cuti").in("nik", niks).order("tanggal", { ascending: false }),
+        ]);
+        if (jatahRes.error) {
+          this.sisaError = "Gagal memuat jatah cuti: " + jatahRes.error.message
+            + (String(jatahRes.error.message).toLowerCase().includes("cuti_jatah")
+                ? " — tabel cuti_jatah belum ada. Jalankan migration_cuti_jatah.sql di Supabase SQL Editor."
+                : "");
+          return;
+        }
+        if (cutiRes.error) { this.sisaError = "Gagal memuat data cuti: " + cutiRes.error.message; return; }
+
+        const jatahMap = {};
+        (jatahRes.data || []).forEach((r) => { jatahMap[r.nik] = Number(r.jatah); });
+        this._cutiSemua = cutiRes.data || [];
+
+        this.sisaHasil = list.map((k) => {
+          const punya = this._cutiSemua.filter((c) => c.nik === k.nik);
+          // Hanya Cuti Tahunan yang memotong jatah, dan hanya tahun berjalan.
+          // Cuti Khusus (dan data lama Besar/Melahirkan/Lainnya) TIDAK memotong.
+          const terpakai = punya
+            .filter((c) => c.jenis_cuti === "Cuti Tahunan" && String(c.tanggal).slice(0, 4) === String(tahun))
+            .reduce((a, c) => a + Number(c.jumlah_hari ?? 1), 0);
+          const jatah = jatahMap[k.nik] !== undefined ? jatahMap[k.nik] : this.JATAH_DEFAULT;
+          const terakhir = punya.length ? punya[0].tanggal : null;
+          return { nik: k.nik, nama: k.nama, jatah, terpakai, sisa: jatah - terpakai, cutiTerakhir: this.fmtTgl(terakhir) };
+        });
+
+        // Kalau hasilnya cuma satu orang, riwayatnya langsung dibuka --
+        // itu yang paling sering dicari, tidak perlu klik lagi.
+        if (this.sisaHasil.length === 1) this.pilihKaryawanCuti(this.sisaHasil[0]);
+      } finally {
+        this.sisaLoading = false;
+      }
+    },
+    pilihKaryawanCuti(r) {
+      this.cutiPilih = r;
+      this.cutiRiwayat = (this._cutiSemua || []).filter((c) => c.nik === r.nik);
+    },
+    // "07/07/2026" -- untuk cuti beberapa hari ditulis rentangnya
+    fmtTgl(t) {
+      if (!t) return "";
+      const [y, m, d] = String(t).slice(0, 10).split("-");
+      return d + "/" + m + "/" + y;
+    },
+    rentangTanggal(r) {
+      const a = this.fmtTgl(r.tanggal);
+      const b = r.tanggal_selesai ? this.fmtTgl(r.tanggal_selesai) : "";
+      return b && b !== a ? a + " — " + b : a;
+    },
+    // Angka hari: tanpa desimal kalau bulat (12), 1 desimal kalau setengah
+    // hari (12,5) -- cuti setengah hari itu hal yang wajar.
+    fmtHari(n) {
+      const v = Number(n);
+      if (!Number.isFinite(v)) return "0";
+      return Number.isInteger(v) ? String(v) : v.toFixed(1).replace(".", ",");
+    },
+
+    leaveJenisWarna(j) {
+      const found = this.LEAVE_JENIS.find((x) => x.key === j);
+      return found ? found.warna : "muted";
+    },
+    leaveJenisLabel(j) {
+      return { izin: "Izin", sakit: "Sakit", cuti: "Cuti", mangkir: "Mangkir" }[j] || j;
+    },
+    // Dipanggil tiap kali user ngetik di field NIK -- di-debounce dikit
+    // (300ms) supaya tidak nembak query ke Supabase tiap 1 huruf.
+    onLeaveNikInput() {
+      this.leaveNikFound = false;
+      clearTimeout(this._leaveNikLookupTimer);
+      const nik = (this.leaveForm.nik || "").trim();
+      if (!nik) { this.leaveForm.nama = ""; return; }
+      this._leaveNikLookupTimer = setTimeout(async () => {
+        const { data } = await supabaseClient.from("karyawan_master").select("nama").eq("nik", nik).maybeSingle();
+        if (data && data.nama) {
+          this.leaveForm.nama = data.nama;
+          this.leaveNikFound = true;
+        }
+      }, 300);
+    },
+    onLeaveJenisChange() {
+      if (this.leaveForm.jenis === "cuti" && (!this.leaveForm.tanggal_selesai || this.leaveForm.tanggal_selesai < this.leaveForm.tanggal)) {
+        this.leaveForm.tanggal_selesai = this.leaveForm.tanggal;
+      }
+    },
+    // Hari yang dihitung antara 2 tanggal (inklusif tanggal mulai & selesai):
+    //  - Minggu: selalu tidak dihitung.
+    //  - Senin-Jumat: dihitung, KECUALI tanggal merah biasa (jenis 'libur').
+    //  - Sabtu: TIDAK dihitung, kecuali ada catatan Ganti Hari (jenis
+    //    'ganti_hari') di tanggal itu DAN shift orang ini cocok (atau
+    //    catatannya 'penuh' -- berarti semua shift masuk). Shift orang
+    //    dicek PER HARI lewat shiftPadaTanggal() (Shift 2 rotasi mingguan,
+    //    NIK yang sedang diisi di form). Kalau shift-nya belum tercatat
+    //    untuk minggu itu, dianggap tidak dihitung (aman, tidak memotong
+    //    jatah secara tidak sengaja).
+    // Ini cuma PREVIEW di layar. Angka final yang tersimpan tetap dihitung
+    // ulang oleh trigger set_jumlah_hari_cuti() di database (lihat
+    // migration_shift2_periode.sql) -- rumusnya harus sama persis dengan
+    // di sini, dan dengan rkHitungHari() di master-data.html.
+    leaveTotalHari() {
+      const mulai = this.leaveForm.tanggal;
+      const selesai = this.leaveForm.tanggal_selesai || this.leaveForm.tanggal;
+      if (!mulai || !selesai) return 0;
+      let d = new Date(mulai + "T00:00:00");
+      const akhir = new Date(selesai + "T00:00:00");
+      if (akhir < d) return 0;
+      let total = 0;
+      while (d <= akhir) {
+        const dow = d.getDay(); // 0 = Minggu, 6 = Sabtu
+        const dStr = localDateStr(d);
+        const lib = this.hariLibur.find((r) => r.tanggal === dStr);
+        if (dow === 0) {
+          // Minggu: tidak dihitung
+        } else if (dow === 6) {
+          if (lib && lib.jenis === "ganti_hari" && (lib.shift === "penuh" || lib.shift === this.shiftPadaTanggal(this.leaveForm.nik, dStr))) total++;
+        } else {
+          if (!lib || lib.jenis !== "libur") total++;
+        }
+        d.setDate(d.getDate() + 1);
+      }
+      return total;
+    },
+    // Baca daftar hari libur & ganti hari (read-only) -- pengelolaan
+    // (tambah/hapus) ada di halaman Master Data > Attendance.
+    async fetchHariLibur() {
+      const { data, error } = await supabaseClient.from("hari_libur").select("*").order("tanggal", { ascending: true });
+      if (!error && data) this.hariLibur = data;
+    },
+    // Baca riwayat upload Shift 2 (read-only) -- pengelolaan (upload/hapus)
+    // ada di halaman Master Data > Attendance > Riwayat Upload Shift 2.
+    async fetchShift2Periodes() {
+      const [pRes, dRes] = await Promise.all([
+        supabaseClient.from("shift2_periode").select("id,tanggal_mulai,tanggal_selesai"),
+        supabaseClient.from("shift2_periode_detail").select("periode_id,nik"),
+      ]);
+      const periode = pRes.data || [];
+      const detail = dRes.data || [];
+      this.shift2Periodes = periode.map((p) => ({
+        tanggal_mulai: p.tanggal_mulai,
+        tanggal_selesai: p.tanggal_selesai,
+        nikSet: new Set(detail.filter((d) => d.periode_id === p.id).map((d) => d.nik)),
+      }));
+    },
+    // Shift NIK X pada tanggal Y ("1"/"2"/null) -- HARUS SAMA PERSIS dengan
+    // public.shift_pada_tanggal() di migration_shift2_periode.sql dan
+    // shiftPadaTanggal() di master-data.html.
+    shiftPadaTanggal(nik, tanggalStr) {
+      const cocok = this.shift2Periodes.filter((p) => tanggalStr >= p.tanggal_mulai && tanggalStr <= p.tanggal_selesai);
+      if (cocok.length === 0) return null;
+      cocok.sort((a, b) => (a.tanggal_mulai < b.tanggal_mulai ? 1 : -1));   // periode terbaru dulu
+      return cocok[0].nikSet.has(nik) ? "2" : "1";
+    },
+    resetLeaveForm() {
+      this.leaveForm = { tanggal: localDateStr(new Date()), tanggal_selesai: localDateStr(new Date()), jenis: "izin", nik: "", nama: "", jenis_cuti: "", keterangan: "" };
+      this.leaveEditId = null;
+      this.leaveNikFound = false;
+    },
+    editLeave(r) {
+      // Data lama bisa berisi Cuti Besar / Cuti Melahirkan / Cuti Lainnya.
+      // Pilihan itu sudah dihapus dari dropdown, jadi kalau dibiarkan
+      // dropdown-nya tampil kosong. Semuanya dulu juga tidak memotong
+      // jatah, jadi dipetakan ke Cuti Khusus (hasil hitungan tidak berubah).
+      let jenisCuti = r.jenis_cuti || "";
+      if (r.jenis === "cuti" && jenisCuti && !["Cuti Tahunan", "Cuti Khusus"].includes(jenisCuti)) jenisCuti = "Cuti Khusus";
+      this.leaveForm = { tanggal: r.tanggal, tanggal_selesai: r.tanggal_selesai || r.tanggal, jenis: r.jenis, nik: r.nik, nama: r.nama, jenis_cuti: jenisCuti, keterangan: r.keterangan || "" };
+      this.leaveEditId = r.id;
+      this.leaveNikFound = true;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    async saveLeave() {
+      const f = this.leaveForm;
+      const nik = (f.nik || "").trim();
+      const nama = (f.nama || "").trim();
+      const keterangan = (f.keterangan || "").trim();
+      // Semua kolom wajib diisi. Dicek satu per satu supaya pesannya
+      // menyebut kolom mana yang kurang, bukan sekadar "ada yang kosong".
+      if (!f.jenis) { this.flash("Jenis wajib dipilih.", true); return; }
+      if (!nik) { this.flash("NIK wajib diisi.", true); return; }
+      if (!this.leaveNikFound || !nama) { this.flash("NIK tidak terdaftar di master karyawan. Hubungi admin untuk menambahkannya.", true); return; }
+      if (!f.tanggal) { this.flash(f.jenis === "cuti" ? "Tanggal Mulai wajib diisi." : "Tanggal wajib diisi.", true); return; }
+      if (f.jenis === "cuti" && !f.tanggal_selesai) { this.flash("Tanggal Selesai wajib diisi.", true); return; }
+      if (f.jenis === "cuti" && !f.jenis_cuti) { this.flash("Jenis Cuti wajib dipilih.", true); return; }
+      if (!keterangan) { this.flash("Keterangan wajib diisi.", true); return; }
+
+      const tanggalSelesai = f.jenis === "cuti" ? f.tanggal_selesai : null;
+      if (f.jenis === "cuti" && tanggalSelesai < f.tanggal) { this.flash("Tanggal Selesai tidak boleh sebelum Tanggal Mulai.", true); return; }
+
+      const payload = {
+        tanggal: f.tanggal, tanggal_selesai: tanggalSelesai, nik, nama, jenis: f.jenis,
+        jenis_cuti: f.jenis === "cuti" ? f.jenis_cuti : null,
+        keterangan,
+        updated_by: this.session.user.id,
+      };
+      let error;
+      if (this.leaveEditId) {
+        ({ error } = await supabaseClient.from("attendance_leave").update(payload).eq("id", this.leaveEditId));
+      } else {
+        ({ error } = await supabaseClient.from("attendance_leave").insert({ ...payload, created_by: this.session.user.id }));
+      }
+      if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
+      this.flash("Data tersimpan.");
+      this.resetLeaveForm();
+      await this.fetchLeaveRows();
+    },
+    async deleteLeave(r) {
+      if (!confirm(`Hapus data ${this.leaveJenisLabel(r.jenis)} atas nama ${r.nama} (${r.tanggal})?`)) return;
+      const { error } = await supabaseClient.from("attendance_leave").delete().eq("id", r.id);
+      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
+      this.flash("Data dihapus.");
+      await this.fetchLeaveRows();
+    },
+
+    // ===== PENGAJUAN CUTI (mandiri) =====
+    async initAjukan() {
+      // Cari atasan user ini
+      const jabUpper = ((this.profile?.jabatan) || '').toUpperCase();
+      const role = ((this.profile?.role) || '').toLowerCase();
+      // Foreman & Supervisor bisa approve
       this.canApprove = ['FOREMAN','SUPERVISOR'].includes(jabUpper);
-
-      // Siapa yang bisa input Alfa
-      this.canInputAlfa = ['FOREMAN','SUPERVISOR','LEADER'].includes(jabUpper);
-
-      // Cari atasan untuk notifikasi WA
-      await this.loadAtasan();
-
-      // Jika bisa approve, hitung pending
       if (this.canApprove) await this.loadPendingCount();
 
-      // Jika input Alfa, load bawahan list
-      if (this.canInputAlfa) await this.loadBawahan();
+      // Cari atasan lewat RPC
+      try {
+        const { data: atasanId } = await supabaseClient.rpc('get_atasan_id', { p_user_id: this.session.user.id });
+        if (atasanId) {
+          const { data: ap } = await supabaseClient.from('profiles').select('id,full_name,no_wa').eq('id', atasanId).maybeSingle();
+          this.atasanInfo = ap || null;
+        } else {
+          this.atasanInfo = null;
+        }
+      } catch(e) { this.atasanInfo = null; }
+
+      // Muat riwayat pengajuan saya
+      await this.fetchAjukanRiwayat();
     },
 
-    async loadAtasan() {
-      const { data } = await sb.rpc('get_atasan_id', { p_user_id: this.session.user.id });
-      if (!data) { this.atasanInfo = null; return; }
-      const { data: prof } = await sb
-        .from('profiles').select('id, full_name, no_wa').eq('id', data).maybeSingle();
-      this.atasanInfo = prof || null;
+    async fetchAjukanRiwayat() {
+      const { data } = await supabaseClient.from('leave_requests')
+        .select('*').eq('user_id', this.session.user.id)
+        .order('created_at', { ascending: false }).limit(50);
+      this.ajukanRiwayat = data || [];
     },
 
-    async loadBawahan() {
-      const jabUpper = (this.profile.jabatan || '').toUpperCase();
-      let targetJab = [];
-      if (jabUpper === 'FOREMAN')    targetJab = ['LEADER','OPERATOR','operator'];
-      if (jabUpper === 'SUPERVISOR') targetJab = ['LEADER','OPERATOR','operator','FOREMAN'];
+    async simpanAjukan() {
+      if (!this.ajukanForm.jenis) { this.flash('Pilih jenis pengajuan.', true); return; }
+      if (!this.ajukanForm.tanggal_mulai || !this.ajukanForm.tanggal_selesai) { this.flash('Isi tanggal mulai dan selesai.', true); return; }
+      if (this.ajukanForm.tanggal_selesai < this.ajukanForm.tanggal_mulai) { this.flash('Tanggal selesai tidak boleh sebelum mulai.', true); return; }
 
-      const { data } = await sb
-        .from('profiles')
-        .select('id, full_name, jabatan')
-        .in('jabatan', targetJab);
-      this.bawahanList = data || [];
-    },
+      this.ajukanLoading = true;
+      this.ajukanWaPesan = null;
 
-    async loadPendingCount() {
-      const { count } = await sb
-        .from('leave_requests')
-        .select('*', { count: 'exact', head: true })
-        .eq('atasan_id', this.session.user.id)
-        .eq('status', 'Menunggu');
-      this.pendingCount = count || 0;
-    },
+      // Cari atasan_id saat ini
+      let atasanId = null;
+      try {
+        const { data } = await supabaseClient.rpc('get_atasan_id', { p_user_id: this.session.user.id });
+        atasanId = data || null;
+      } catch(e) {}
 
-    // --- submit pengajuan ---
-    async submitAjukan() {
-      if (!this.form.jenis) { this.showToast('Pilih jenis pengajuan', 'red'); return; }
-      if (!this.form.tanggal_mulai || !this.form.tanggal_selesai) {
-        this.showToast('Isi tanggal mulai dan selesai', 'red'); return;
-      }
-      if (this.form.tanggal_selesai < this.form.tanggal_mulai) {
-        this.showToast('Tanggal selesai tidak boleh sebelum mulai', 'red'); return;
-      }
-      if (this.form.jenis === 'Alfa' && !this.form.target_user_id) {
-        this.showToast('Pilih nama karyawan untuk Alfa', 'red'); return;
-      }
-
-      this.submitting = true;
-      this.waPesan = null;
-
-      const userId = this.form.jenis === 'Alfa'
-        ? this.form.target_user_id
-        : this.session.user.id;
-
-      // Cari atasan untuk user yang diajukan
-      const { data: atasanId } = await sb.rpc('get_atasan_id', { p_user_id: userId });
-
-      const { data, error } = await sb.from('leave_requests').insert({
-        user_id:        userId,
-        jenis:          this.form.jenis,
-        tanggal_mulai:  this.form.tanggal_mulai,
-        tanggal_selesai:this.form.tanggal_selesai,
-        alasan:         this.form.alasan || null,
-        atasan_id:      atasanId || null
+      const { data, error } = await supabaseClient.from('leave_requests').insert({
+        user_id: this.session.user.id,
+        jenis: this.ajukanForm.jenis,
+        tanggal_mulai: this.ajukanForm.tanggal_mulai,
+        tanggal_selesai: this.ajukanForm.tanggal_selesai,
+        alasan: this.ajukanForm.alasan || null,
+        atasan_id: atasanId,
       }).select('token').single();
 
-      this.submitting = false;
+      this.ajukanLoading = false;
 
-      if (error) {
-        this.showToast('Gagal menyimpan: ' + error.message, 'red');
-        return;
+      if (error) { this.flash('Gagal simpan: ' + error.message, true); return; }
+
+      this.flash('Pengajuan berhasil disimpan!');
+
+      // Siapkan pesan WA ke atasan
+      if (this.atasanInfo?.no_wa && data?.token) {
+        const namaKu = this.profile?.full_name || 'Karyawan';
+        const jenis = this.ajukanForm.jenis;
+        const tglStr = this.ajukanFmtTgl(this.ajukanForm.tanggal_mulai, this.ajukanForm.tanggal_selesai);
+        const hari = this.ajukanHari(this.ajukanForm.tanggal_mulai, this.ajukanForm.tanggal_selesai);
+        const alasanTeks = this.ajukanForm.alasan ? '\nAlasan: ' + this.ajukanForm.alasan : '';
+        const approvalUrl = window.location.origin + '/approval-cuti.html?token=' + data.token;
+        this.ajukanWaPesan =
+          '📋 *Pengajuan ' + jenis + ' Baru*\n\n' +
+          'Dari: *' + namaKu + '*\n' +
+          'Tanggal: *' + tglStr + '* (' + hari + ' hari)' + alasanTeks + '\n\n' +
+          'Klik link berikut untuk menyetujui atau menolak:\n' + approvalUrl;
+        this.ajukanWaTarget = this.atasanInfo.no_wa;
       }
 
-      // Siapkan pesan WA untuk atasan
-      if (atasanId) {
-        const { data: atasanProf } = await sb
-          .from('profiles').select('full_name, no_wa').eq('id', atasanId).maybeSingle();
-
-        if (atasanProf?.no_wa) {
-          const nama = this.profile.full_name || 'Karyawan';
-          const jenis = this.form.jenis;
-          const tglStr = this.form.tanggal_mulai === this.form.tanggal_selesai
-            ? this.fmtDate(this.form.tanggal_mulai)
-            : this.fmtDate(this.form.tanggal_mulai) + ' s/d ' + this.fmtDate(this.form.tanggal_selesai);
-          const hari = this.hitungHari(this.form.tanggal_mulai, this.form.tanggal_selesai);
-          const alasan = this.form.alasan ? '\n📝 Alasan: ' + this.form.alasan : '';
-          const approvalLink = APPROVAL_BASE_URL + '?token=' + data.token;
-
-          this.waPesan =
-            `📋 *Pengajuan ${jenis} Baru*\n\n` +
-            `Dari: *${nama}*\n` +
-            `Tanggal: *${tglStr}* (${hari} hari)` + alasan + '\n\n' +
-            `Klik link berikut untuk menyetujui atau menolak:\n${approvalLink}`;
-          this.waTarget = atasanProf.no_wa;
-        }
-      }
-
-      // Reset form
-      this.form = { jenis: '', tanggal_mulai: '', tanggal_selesai: '', alasan: '', target_user_id: '' };
-      this.showToast('Pengajuan berhasil disimpan!', 'green');
+      // Reset form & refresh riwayat
+      this.ajukanForm = { jenis: '', tanggal_mulai: '', tanggal_selesai: '', alasan: '' };
+      await this.fetchAjukanRiwayat();
     },
 
-    sendWA() {
-      if (!this.waTarget || !this.waPesan) return;
-      const no = this.waTarget.replace(/\D/g, '');
-      window.open('https://wa.me/' + no + '?text=' + encodeURIComponent(this.waPesan), '_blank');
+    sendAjukanWA() {
+      if (!this.ajukanWaTarget || !this.ajukanWaPesan) return;
+      const no = this.ajukanWaTarget.replace(/\D/g,'');
+      window.open('https://wa.me/' + no + '?text=' + encodeURIComponent(this.ajukanWaPesan), '_blank');
     },
 
-    // --- riwayat ---
-    async loadMyRequests() {
-      this.loadingRequests = true;
-      const { data } = await sb
-        .from('leave_requests')
-        .select('*')
-        .eq('user_id', this.session.user.id)
-        .order('created_at', { ascending: false })
-        .limit(50);
-      this.myRequests = data || [];
-      this.loadingRequests = false;
+    ajukanJenisWarna(j) {
+      return { Izin:'blue', Sakit:'amber', Cuti:'green', Alfa:'red' }[j] || 'muted';
+    },
+    ajukanStatusWarna(s) {
+      return { Menunggu:'amber', Disetujui:'green', Ditolak:'red' }[s] || 'muted';
+    },
+    ajukanFmtTgl(mulai, selesai) {
+      if (!mulai) return '—';
+      const f = (t) => { const [y,m,d] = t.split('-'); return d+'/'+m+'/'+y; };
+      return mulai === selesai ? f(mulai) : f(mulai) + ' – ' + f(selesai);
+    },
+    ajukanHari(mulai, selesai) {
+      if (!mulai || !selesai) return 0;
+      return Math.round((new Date(selesai) - new Date(mulai)) / 86400000) + 1;
     },
 
-    // --- approve panel ---
+    // ===== APPROVE PANEL =====
+    async loadPendingCount() {
+      const { count } = await supabaseClient.from('leave_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('atasan_id', this.session.user.id).eq('status', 'Menunggu');
+      this.pendingCount = count || 0;
+    },
     async loadPendingApprovals() {
-      this.loadingApprovals = true;
-      const { data } = await sb
-        .from('leave_requests')
+      this.approveLoading = true;
+      const { data } = await supabaseClient.from('leave_requests')
         .select('*, pengaju:user_id(full_name, no_wa)')
-        .eq('atasan_id', this.session.user.id)
-        .eq('status', 'Menunggu')
+        .eq('atasan_id', this.session.user.id).eq('status', 'Menunggu')
         .order('created_at', { ascending: false });
       this.pendingApprovals = (data || []).map(r => ({ ...r, _loading: false }));
       this.pendingCount = this.pendingApprovals.length;
-      this.loadingApprovals = false;
+      this.approveLoading = false;
     },
-
-    openApprovalLink(r) {
-      window.open(APPROVAL_BASE_URL + '?token=' + r.token, '_blank');
+    bukaApprovalLink(r) {
+      window.open(window.location.origin + '/approval-cuti.html?token=' + r.token, '_blank');
     },
-
-    async quickAction(r, action) {
+    async quickApprove(r, action) {
       r._loading = true;
-      const { data, error } = await sb.rpc('proses_approval_cuti', {
-        p_token:  r.token,
-        p_action: action,
-        p_catatan: null
-      });
+      const { data, error } = await supabaseClient.rpc('proses_approval_cuti', { p_token: r.token, p_action: action, p_catatan: null });
       r._loading = false;
-
-      if (error || !data?.ok) {
-        this.showToast(data?.pesan || error?.message || 'Gagal', 'red');
-        return;
-      }
-
-      this.showToast(data.pesan, 'green');
-
-      // Hapus dari list
+      if (error || !data?.ok) { this.flash(data?.pesan || error?.message || 'Gagal', true); return; }
+      this.flash(data.pesan);
       this.pendingApprovals = this.pendingApprovals.filter(x => x.id !== r.id);
       this.pendingCount = this.pendingApprovals.length;
-
       // Kirim WA balik ke pengaju jika disetujui
       if (action === 'approve' && r.pengaju?.no_wa) {
-        const nama  = r.pengaju.full_name || 'Karyawan';
-        const tglStr = r.tanggal_mulai === r.tanggal_selesai
-          ? this.fmtDate(r.tanggal_mulai)
-          : this.fmtDate(r.tanggal_mulai) + ' s/d ' + this.fmtDate(r.tanggal_selesai);
-        const pesan =
-          `✅ *${r.jenis} Disetujui*\n\nHalo ${nama},\nPermohonan ${r.jenis} Anda untuk tanggal *${tglStr}* telah *DISETUJUI*.\n_(Pesan otomatis)_`;
-        const no = r.pengaju.no_wa.replace(/\D/g, '');
-        window.open('https://wa.me/' + no + '?text=' + encodeURIComponent(pesan), '_blank');
+        const nama = r.pengaju.full_name || 'Karyawan';
+        const tglStr = this.ajukanFmtTgl(r.tanggal_mulai, r.tanggal_selesai);
+        const pesan = '✅ *' + r.jenis + ' Disetujui*\n\nHalo ' + nama + ',\nPermohonan ' + r.jenis + ' untuk *' + tglStr + '* telah *DISETUJUI*.\n_(Pesan otomatis)_';
+        window.open('https://wa.me/' + r.pengaju.no_wa.replace(/\D/g,'') + '?text=' + encodeURIComponent(pesan), '_blank');
       }
     },
-
-    // --- helpers ---
-    fmtDate(d) {
-      if (!d) return '—';
-      return new Date(d + 'T00:00:00').toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
-    },
-    fmtTgl(mulai, selesai) {
-      if (mulai === selesai) return this.fmtDate(mulai);
-      return this.fmtDate(mulai) + ' – ' + this.fmtDate(selesai);
-    },
-    fmtDatetime(ts) {
-      if (!ts) return '—';
-      return new Date(ts).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    },
-    hitungHari(mulai, selesai) {
-      return Math.round((new Date(selesai) - new Date(mulai)) / 86400000) + 1;
-    },
-    showToast(msg, type = 'green') {
-      this.toast = { show: true, msg, type };
-      setTimeout(() => { this.toast.show = false; }, 3000);
-    },
-    async logout() {
-      await sb.auth.signOut();
-      window.location.href = 'login.html';
-    }
   };
 }
 </script>
-
-<style>
-  [x-cloak] { display: none !important; }
-  .spin { animation: spin .7s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-</style>
 </body>
 </html>
