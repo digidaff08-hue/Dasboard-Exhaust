@@ -3074,7 +3074,7 @@ table.plan-shift-table td.balance-bad { color: var(--red); font-weight: 700; }
 /* =========================================================
    ANDON BOARD v2 (andon.html) -- tampilan profesional
    ========================================================= */
-.main.ab { font-family: 'Manrope', var(--font-body); max-width: 1280px; }
+.main.ab { font-family: 'Manrope', var(--font-body); max-width: none; width: 100%; }
 @keyframes abLive { 0% { box-shadow: 0 0 0 0 rgba(74,222,128,.7); } 70% { box-shadow: 0 0 0 8px rgba(74,222,128,0); } 100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); } }
 @keyframes abNyala { 0%,100% { background: rgba(239,68,68,.22); } 50% { background: rgba(239,68,68,.45); } }
 .ab-live { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #4ade80; animation: abLive 1.8s infinite; vertical-align: middle; }
@@ -3198,3 +3198,14 @@ table.plan-shift-table td.balance-bad { color: var(--red); font-weight: 700; }
 @keyframes abDenyut { 0% { box-shadow: 0 6px 18px rgba(15,23,42,.06), 0 0 0 0 rgba(220,38,38,.35); } 70% { box-shadow: 0 6px 18px rgba(15,23,42,.06), 0 0 0 10px rgba(220,38,38,0); } 100% { box-shadow: 0 6px 18px rgba(15,23,42,.06), 0 0 0 0 rgba(220,38,38,0); } }
 .ab-card.memanggil { animation: abDenyut 1.8s infinite; }
 @media (max-width: 800px) { .ab-eyebrow { font-size: 10px; letter-spacing: .1em; } }
+
+/* tombol layar penuh (mode TV) */
+.ab-hero-btns { display: flex; gap: 8px; }
+.ab-full { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+  border: 1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.1); color: #fff; font: inherit; font-size: 12px; font-weight: 700; }
+.ab-full:hover, .ab-sound:hover { background: rgba(255,255,255,.2); }
+@media (min-width: 1500px) {
+  .ab-grid { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+  .ab-card-mesin { font-size: 38px; } .ab-card-timer span { font-size: 42px; }
+}
+@media (max-width: 800px) { .ab-full { display: none; } }

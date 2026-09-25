@@ -256,6 +256,7 @@ function andonBoard() {
       supabaseClient.channel("andon_board")
         .on("postgres_changes", { event: "*", schema: "public", table: "andon_call" }, () => this.muat())
         .subscribe();
+      document.addEventListener("fullscreenchange", () => { this.fullscreen = !!document.fullscreenElement; });
       setInterval(() => { this.now = Date.now(); }, 1000);
       setInterval(() => this.muat(), 30000);
       // Selama masih ada panggilan yang belum direspons, bunyi diulang tiap 15 detik
@@ -311,6 +312,19 @@ function andonBoard() {
     semuaTim() {
       this.filterTim = [];
       try { localStorage.setItem("andonFilterTim", "[]"); } catch (e) {}
+    },
+
+    // Mode TV: layar penuh (Fullscreen API). Sekalian mengaktifkan bunyi.
+    fullscreen: false,
+    async layarPenuh() {
+      try {
+        if (!document.fullscreenElement) {
+          await document.documentElement.requestFullscreen();
+          if (!this.suaraAktif) this.aktifkanPeringatan();
+        } else {
+          await document.exitFullscreen();
+        }
+      } catch (e) { this.flash("Browser ini tidak mendukung layar penuh. Tekan F11.", true); }
     },
 
     async aktifkanPeringatan() {
