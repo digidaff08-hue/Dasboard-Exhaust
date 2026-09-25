@@ -232,6 +232,10 @@ function loginPage() {
       const leader = role === "leader" || jabatan === "leader";
       const staff = admin || leader;
       localStorage.setItem("judulLogin", staff ? "staff" : "operator");
+      // Datang dari link approval cuti -> kembali ke link itu, bukan ke
+      // halaman awal biasa.
+      const balik = this.redirectAman();
+      if (balik) return balik;
       // Halaman pertama disesuaikan pekerjaan masing-masing:
       //   admin    -> Dashboard Exhaust (melihat gambaran menyeluruh)
       //   leader   -> Input Produksi (yang paling sering dikerjakan)
@@ -243,7 +247,24 @@ function loginPage() {
       return "input-attendance.html";
     },
 
+    // Alamat tujuan setelah login dari parameter ?redirect=...
+    // Demi keamanan HANYA boleh ke halaman approval-cuti.html di domain
+    // sendiri -- link login yang diarahkan ke situs lain diabaikan.
+    redirectAman() {
+      const raw = new URLSearchParams(window.location.search).get("redirect");
+      if (!raw) return null;
+      try {
+        const u = new URL(raw, window.location.origin);
+        if (u.origin !== window.location.origin) return null;
+        if (!/\/approval-cuti\.html$/i.test(u.pathname)) return null;
+        return u.pathname + u.search;
+      } catch (e) {
+        return null;
+      }
+    },
+
     async checkExisting() {
+      if (this.redirectAman()) this.infoMsg = "Login dengan akun atasan untuk memproses pengajuan cuti.";
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (session) window.location.href = await this.tujuanSetelahLogin(session.user.id);
     },
