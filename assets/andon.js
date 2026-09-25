@@ -552,6 +552,27 @@ function andonBoard() {
       await this.muat();
     },
 
+    // Edit riwayat: masalah & countermeasure (semua user kecuali guest/viewer)
+    editDlg: { open: false, c: null, keterangan: "", catatan: "", saving: false, error: "" },
+    bukaEdit(c) {
+      this.editDlg = { open: true, c, keterangan: c.keterangan || "", catatan: c.catatan || "", saving: false, error: "" };
+    },
+    tutupEdit() { if (!this.editDlg.saving) this.editDlg.open = false; },
+    async simpanEdit() {
+      const d = this.editDlg;
+      d.saving = true; d.error = "";
+      const { data, error } = await supabaseClient.rpc("andon_edit", { p_id: d.c.id, p_keterangan: d.keterangan, p_catatan: d.catatan });
+      d.saving = false;
+      if (error) {
+        d.error = /andon_edit/.test(error.message) ? "Fitur edit belum aktif. Jalankan migration_andon_setting.sql di Supabase." : "Gagal menyimpan: " + error.message;
+        return;
+      }
+      if (!data || !data.ok) { d.error = (data && data.pesan) || "Gagal menyimpan."; return; }
+      d.open = false;
+      this.flash("Riwayat " + d.c.mesin + " diperbarui.");
+      await this.muat();
+    },
+
     // Hapus 1 riwayat (khusus admin -- dijaga juga oleh RLS andon_delete)
     async hapus(c) {
       if (!this.isAdmin()) return;

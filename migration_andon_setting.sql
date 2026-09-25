@@ -1,5 +1,6 @@
 -- =====================================================================
 -- migration_andon_setting.sql -- Pengaturan suara Andon (khusus admin)
+-- + edit riwayat Andon (masalah & countermeasure).
 -- Jalankan SEKALI di Supabase > SQL Editor (klik Run). Aman diulang.
 -- Butuh migration_andon.sql sudah dijalankan.
 -- =====================================================================
@@ -37,9 +38,7 @@ begin
   loop execute format('drop policy %I on public.andon_setting', p.policyname); end loop;
 end $$;
 
--- semua user login boleh MEMBACA (supaya semua HP/TV pakai suara yang sama)
 create policy andon_setting_select on public.andon_setting for select to authenticated using (true);
--- hanya ADMIN yang boleh mengubah
 create policy andon_setting_insert on public.andon_setting for insert to authenticated with check (
   exists (select 1 from public.profiles where id = auth.uid() and lower(role) = 'admin'));
 create policy andon_setting_update on public.andon_setting for update to authenticated using (
@@ -58,8 +57,34 @@ begin
   end if;
 end $$;
 
+
+alter table public.andon_call add column if not exists diedit_at   timestamptz;
+alter table public.andon_call add column if not exists diedit_nama text;
+
+create or replace function public.andon_edit(p_id uuid, p_keterangan text, p_catatan text)
+returns jsonb language plpgsql volatile security definer set search_path = public as $$
+begin
+  if not public.andon_boleh() then
+    return jsonb_build_object('ok', false, 'pesan', 'Akun ini tidak boleh mengubah Andon.');
+  end if;
+  update public.andon_call
+     set keterangan  = nullif(trim(coalesce(p_keterangan, '')), ''),
+         catatan     = nullif(trim(coalesce(p_catatan, '')), ''),
+         diedit_at   = now(),
+         diedit_nama = public.andon_nama_saya()
+   where id = p_id;
+  if not found then
+    return jsonb_build_object('ok', false, 'pesan', 'Data tidak ditemukan.');
+  end if;
+  return jsonb_build_object('ok', true);
+end $$;
+revoke all on function public.andon_edit(uuid, text, text) from public, anon;
+grant execute on function public.andon_edit(uuid, text, text) to authenticated;
+
 commit;
 notify pgrst, 'reload schema';
 
--- Hasil: 1 baris pengaturan (nada telepon, 30 detik, ulang 60 detik, volume 80)
-select nada, durasi, ulang, volume, layar_panggilan, getar from public.andon_setting;
+-- Hasil: 1 baris pengaturan + fitur edit aktif
+select s.nada, s.durasi, s.ulang, s.volume,
+       to_regprocedure('public.andon_edit(uuid,text,text)') is not null as edit_ok
+  from public.andon_setting s;

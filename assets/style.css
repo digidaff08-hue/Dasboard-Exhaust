@@ -3329,3 +3329,8 @@ table.plan-shift-table td.balance-bad { color: var(--red); font-weight: 700; }
   .aset-row { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { .apm *, .apm { animation: none !important; } }
+
+.ab-hist-edit { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0 !important; min-width: 30px;
+  border-radius: 8px; cursor: pointer; border: 1px solid #c7d2fe; background: #fff; color: #3a2fb8; flex-shrink: 0; }
+.ab-hist-edit:hover { background: #eef2ff; }
+.ab-hist-edited { color: #6366f1; font-style: italic; }

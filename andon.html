@@ -189,6 +189,9 @@
                 <div class="ab-hist-line1">
                   <b x-text="c.mesin"></b><span class="ab-hist-tim" x-text="c.tim"></span>
                   <span class="ab-hist-status" :class="c.status" x-text="c.status === 'selesai' ? 'Selesai' : 'Batal'"></span>
+                  <button type="button" class="ab-hist-edit" x-show="bolehAksi" @click="bukaEdit(c)" title="Edit riwayat ini">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                  </button>
                   <button type="button" class="ab-hist-del" x-show="isAdmin()" @click="hapus(c)" title="Hapus riwayat ini">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
                   </button>
@@ -199,6 +202,7 @@
                   <template x-if="c.status === 'selesai'"><span x-text="'Respons ' + menit(responsMs(c))"></span></template>
                   <template x-if="c.status === 'selesai'"><span x-text="'Perbaikan ' + menit(perbaikanMs(c))"></span></template>
                   <span x-show="c.ditangani_nama" x-text="c.ditangani_nama"></span>
+                  <span x-show="c.diedit_nama" class="ab-hist-edited" x-text="'✎ diedit ' + (c.diedit_nama || '')"></span>
                 </div>
               </div>
             </div>
@@ -299,6 +303,40 @@
             <div class="asd-act">
               <button type="button" class="asd-btn batal" @click="tutupSetting()">Batal</button>
               <button type="button" class="asd-btn ok aset-save" @click="simpanSetting()" :disabled="settingDlg.saving" x-text="settingDlg.saving ? 'Menyimpan...' : 'Simpan pengaturan'"></button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- ===== Edit riwayat ===== -->
+    <div class="modal-overlay asd-overlay" x-show="editDlg.open" x-cloak @click.self="tutupEdit()" @keydown.escape.window="tutupEdit()">
+      <div class="panel asd" :style="editDlg.c ? '--c:' + info(editDlg.c.tim).warna : ''">
+        <template x-if="editDlg.c">
+          <div>
+            <div class="asd-head">
+              <div class="asd-ic aset-ic"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></div>
+              <div><h3>Edit riwayat</h3><p>Perbaiki tulisan masalah atau countermeasure.</p></div>
+            </div>
+            <div class="asd-info">
+              <div class="asd-info-top">
+                <b x-text="editDlg.c.mesin"></b>
+                <span class="asd-tim"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" x-html="info(editDlg.c.tim).ikon"></svg><span x-text="editDlg.c.tim"></span></span>
+              </div>
+              <div class="asd-stats" style="margin-top:10px;">
+                <div><span>Dipanggil</span><b x-text="jam(editDlg.c.dipanggil_at)"></b></div>
+                <div><span>Respons</span><b x-text="menit(responsMs(editDlg.c))"></b></div>
+                <div><span>Perbaikan</span><b x-text="menit(perbaikanMs(editDlg.c))"></b></div>
+              </div>
+            </div>
+            <label class="asd-label">Problem</label>
+            <textarea class="asd-text" style="min-height:64px;" x-model="editDlg.keterangan" maxlength="200" rows="2"></textarea>
+            <label class="asd-label" style="margin-top:12px;">Countermeasure / perbaikan yang dilakukan</label>
+            <textarea class="asd-text" x-model="editDlg.catatan" maxlength="300" rows="3"></textarea>
+            <template x-if="editDlg.error"><div class="andon-modal-error" x-text="editDlg.error"></div></template>
+            <div class="asd-act">
+              <button type="button" class="asd-btn batal" @click="tutupEdit()" :disabled="editDlg.saving">Batal</button>
+              <button type="button" class="asd-btn ok aset-save" @click="simpanEdit()" :disabled="editDlg.saving" x-text="editDlg.saving ? 'Menyimpan...' : 'Simpan perubahan'"></button>
             </div>
           </div>
         </template>
