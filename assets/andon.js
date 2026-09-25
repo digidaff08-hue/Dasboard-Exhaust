@@ -111,11 +111,44 @@ async function andonProfilSaya() {
 }
 
 
+
+// ---------- Dialog "Selesaikan perbaikan" (pengganti prompt() bawaan browser) ----------
+// Dipakai widget mesin & papan Andon. Isi catatan = countermeasure.
+function andonSelesaiMixin() {
+  return {
+    selesaiDlg: { open: false, c: null, catatan: "", saving: false, error: "" },
+    bukaSelesai(c) {
+      this.selesaiDlg = { open: true, c, catatan: "", saving: false, error: "" };
+      this.$nextTick && this.$nextTick(() => { const t = document.querySelector(".asd-open textarea"); if (t) t.focus(); });
+    },
+    tutupSelesai() { if (!this.selesaiDlg.saving) this.selesaiDlg.open = false; },
+    async simpanSelesai() {
+      const d = this.selesaiDlg;
+      if (!d.c || d.saving) return;
+      d.saving = true; d.error = "";
+      const r = await andonAksi(d.c.id, "selesai", d.catatan);
+      d.saving = false;
+      if (!r.ok) { d.error = r.pesan || "Gagal menyimpan."; return; }
+      d.open = false;
+      if (navigator.vibrate) { try { navigator.vibrate(80); } catch (e) {} }
+      this.flash("Perbaikan " + d.c.mesin + " (" + d.c.tim + ") selesai. Terima kasih!");
+      await this.muat();
+    },
+    // lama perbaikan berjalan (dari "ditangani", atau dari panggilan kalau belum diambil)
+    lamaPerbaikan(c) {
+      if (!c) return "-";
+      const dari = new Date(c.ditangani_at || c.dipanggil_at).getTime();
+      return andonDurasi(this.now - dari);
+    },
+  };
+}
+
 // =====================================================================
 // 1) WIDGET DI HALAMAN MESIN
 // =====================================================================
 function andonWidget(mesin) {
   return {
+    ...andonSelesaiMixin(),
     mesin,
     TIM: ANDON_TIM,
     calls: [],            // panggilan aktif mesin ini (memanggil / ditangani)
@@ -198,12 +231,8 @@ function andonWidget(mesin) {
 
     async aksi(c, jenis) {
       if (jenis === "batal" && !confirm("Batalkan panggilan ke " + c.tim + "?")) return;
-      let catatan = null;
-      if (jenis === "selesai") {
-        catatan = prompt("Masalah sudah beres? Catatan singkat perbaikan (boleh kosong):", "");
-        if (catatan === null) return;
-      }
-      const r = await andonAksi(c.id, jenis, catatan);
+      if (jenis === "selesai") { this.bukaSelesai(c); return; }
+      const r = await andonAksi(c.id, jenis, null);
       if (!r.ok) this.flash(r.pesan || "Gagal.", true);
       await this.muat();
     },
@@ -227,6 +256,7 @@ function andonWidget(mesin) {
 // =====================================================================
 function andonBoard() {
   return {
+    ...andonSelesaiMixin(),
     TIM: ANDON_TIM,
     session: null, profile: null,
     aktif: [],             // memanggil + ditangani (semua mesin)
@@ -340,16 +370,24 @@ function andonBoard() {
     get bolehAksi() { return !!this.profile && !["guest", "viewer"].includes((this.profile.role || "").toLowerCase()); },
 
     async aksi(c, jenis) {
-      let catatan = null;
-      if (jenis === "selesai") {
-        catatan = prompt("Perbaikan " + c.mesin + " (" + c.tim + ") selesai. Catatan singkat (boleh kosong):", "");
-        if (catatan === null) return;
-      }
+      if (jenis === "selesai") { this.bukaSelesai(c); return; }
+      const catatan = null;
       if (jenis === "batal" && !confirm("Batalkan panggilan " + c.mesin + " ke " + c.tim + "?")) return;
       const r = await andonAksi(c.id, jenis, catatan);
       if (!r.ok) this.flash(r.pesan || "Gagal.", true);
       else this.flash(jenis === "ambil" ? "Anda tercatat menangani " + c.mesin + "." : "Tersimpan.");
       await this.muat();
+    },
+
+    // Hapus 1 riwayat (khusus admin -- dijaga juga oleh RLS andon_delete)
+    async hapus(c) {
+      if (!this.isAdmin()) return;
+      if (!confirm("Hapus riwayat " + c.mesin + " (" + c.tim + ", " + andonJam(c.dipanggil_at) + ")?\nData yang dihapus tidak bisa dikembalikan.")) return;
+      const { data, error } = await supabaseClient.from("andon_call").delete().eq("id", c.id).select("id");
+      if (error) { this.flash("Gagal menghapus: " + error.message, true); return; }
+      if (!data || !data.length) { this.flash("Tidak terhapus -- hanya admin yang bisa menghapus riwayat.", true); return; }
+      this.riwayat = this.riwayat.filter((r) => r.id !== c.id);
+      this.flash("Riwayat dihapus.");
     },
 
     // ---- angka ----

@@ -182,6 +182,9 @@
                 <div class="ab-hist-line1">
                   <b x-text="c.mesin"></b><span class="ab-hist-tim" x-text="c.tim"></span>
                   <span class="ab-hist-status" :class="c.status" x-text="c.status === 'selesai' ? 'Selesai' : 'Batal'"></span>
+                  <button type="button" class="ab-hist-del" x-show="isAdmin()" @click="hapus(c)" title="Hapus riwayat ini">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                  </button>
                 </div>
                 <div class="ab-hist-line2" x-text="(c.keterangan || 'Tanpa keterangan') + (c.catatan ? ' → ' + c.catatan : '')"></div>
                 <div class="ab-hist-line3">
@@ -196,6 +199,44 @@
         </div>
       </div>
     </template>
+
+    <!-- ===== Dialog Selesaikan perbaikan ===== -->
+    <div class="modal-overlay asd-overlay" x-show="selesaiDlg.open" x-cloak @click.self="tutupSelesai()" @keydown.escape.window="tutupSelesai()">
+      <div class="panel asd" :class="selesaiDlg.open ? 'asd-open' : ''" :style="selesaiDlg.c ? '--c:' + info(selesaiDlg.c.tim).warna : ''">
+        <template x-if="selesaiDlg.c">
+          <div>
+            <div class="asd-head">
+              <div class="asd-ic"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
+              <div>
+                <h3>Selesaikan perbaikan</h3>
+                <p>Pastikan mesin sudah bisa jalan normal.</p>
+              </div>
+            </div>
+            <div class="asd-info">
+              <div class="asd-info-top">
+                <b x-text="selesaiDlg.c.mesin"></b>
+                <span class="asd-tim"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" x-html="info(selesaiDlg.c.tim).ikon"></svg><span x-text="selesaiDlg.c.tim"></span></span>
+              </div>
+              <p class="asd-problem" x-text="selesaiDlg.c.keterangan || 'Tanpa keterangan masalah'"></p>
+              <div class="asd-stats">
+                <div><span>Dipanggil</span><b x-text="jam(selesaiDlg.c.dipanggil_at)"></b></div>
+                <div><span>Ditangani</span><b x-text="selesaiDlg.c.ditangani_nama || '-'"></b></div>
+                <div><span>Lama perbaikan</span><b x-text="lamaPerbaikan(selesaiDlg.c)"></b></div>
+              </div>
+            </div>
+            <label class="asd-label">Countermeasure / perbaikan yang dilakukan</label>
+            <textarea class="asd-text" x-model="selesaiDlg.catatan" maxlength="300" rows="3"
+                      placeholder="Contoh: ganti sensor proximity, setting ulang jig 3"></textarea>
+            <template x-if="selesaiDlg.error"><div class="andon-modal-error" x-text="selesaiDlg.error"></div></template>
+            <div class="asd-act">
+              <button type="button" class="asd-btn batal" @click="tutupSelesai()" :disabled="selesaiDlg.saving">Batal</button>
+              <button type="button" class="asd-btn ok" @click="simpanSelesai()" :disabled="selesaiDlg.saving"
+                      x-text="selesaiDlg.saving ? 'Menyimpan...' : '✔ Simpan & Selesai'"></button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
   </main>
 </div>
 </body>
