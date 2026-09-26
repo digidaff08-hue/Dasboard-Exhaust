@@ -479,7 +479,7 @@ function andonBoard() {
       this.profile = profile;
       try {
         const f = JSON.parse(localStorage.getItem("andonFilterTim") || "[]");
-        if (Array.isArray(f)) this.filterTim = f.filter((k) => ANDON_TIM.some((t) => t.kode === k));
+        if (Array.isArray(f)) this.filterTim = f.filter((k) => ANDON_TIM.some((t) => t.kode === k)).slice(0, 1);
       } catch (e) {}
       // Anggota Tim Supporting (menu Pengaturan > Tim Supporting): filter
       // DIKUNCI ke timnya -- hanya melihat, mendengar & menerima notifikasi
@@ -747,8 +747,8 @@ function andonBoard() {
     timKunci: "",          // terisi = user anggota tim ini, filter tidak bisa diubah
     toggleTim(kode) {
       if (this.timKunci) return;
-      const i = this.filterTim.indexOf(kode);
-      if (i >= 0) this.filterTim.splice(i, 1); else this.filterTim.push(kode);
+      // Pilih SATU tim saja. Tekan tim yang sama lagi = kembali ke "Semua".
+      this.filterTim = (this.filterTim.length === 1 && this.filterTim[0] === kode) ? [] : [kode];
       try { localStorage.setItem("andonFilterTim", JSON.stringify(this.filterTim)); } catch (e) {}
     },
     semuaTim() {
