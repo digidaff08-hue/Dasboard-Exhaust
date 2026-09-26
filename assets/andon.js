@@ -898,6 +898,7 @@ function andonBoard() {
     isAdmin() { return this.role() === "admin"; },
     isLeaderOrAdmin() { return ["admin", "leader"].includes(this.role()); },
     isViewer() { return this.role() === "viewer"; },
+    isSupporting() { return this.role() === "supporting"; },
     async logout() { await supabaseClient.auth.signOut(); window.location.href = getBasePath() + "login.html"; },
 
     flash(t, err) {
