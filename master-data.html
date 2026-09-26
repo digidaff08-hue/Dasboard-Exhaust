@@ -297,6 +297,8 @@
           <button class="btn-secondary btn-sm" :class="activeTab === 'safety' ? 'md-tab-on' : ''" @click="setTab('safety')">Safety</button>
           <button class="btn-secondary btn-sm" :class="activeTab === 'productivity' ? 'md-tab-on' : ''" @click="setTab('productivity')">Productivity</button>
           <button class="btn-secondary btn-sm" :class="activeTab === 'cuti' ? 'md-tab-on' : ''" @click="setTab('cuti')">Cuti</button>
+          <button class="btn-secondary btn-sm" :class="activeTab === 'karyawan' ? 'md-tab-on' : ''" @click="setTab('karyawan')">Data Karyawan</button>
+          <button class="btn-secondary btn-sm" :class="activeTab === 'supporting' ? 'md-tab-on' : ''" @click="setTab('supporting')">Data Supporting</button>
         </div>
 
         <!-- ===== TAB: ATTENDANCE ===== -->
@@ -1377,6 +1379,143 @@
             </template>
           </div>
         </template>
+
+        <!-- ===== TAB: DATA KARYAWAN =====
+             Daftar induk seluruh karyawan (tabel karyawan_master).
+             Sumbernya sama dengan yang dipakai Attendance/Cuti/dll --
+             di sini cuma tempat lihat & kelola nama/status kerjanya. -->
+        <template x-if="activeTab === 'karyawan'">
+          <div class="panel">
+            <p class="panel-title">Data Karyawan
+              <span class="count" x-text="mkRows().length + ' / ' + mkList.length + ' karyawan'"></span>
+            </p>
+            <p class="hint" style="margin-bottom:14px;">
+              Daftar induk semua karyawan (NIK & nama) yang dipakai di seluruh sistem
+              (Attendance, Cuti, Andon, dll). Status Kerja dipakai untuk menandai
+              karyawan yang sudah resign supaya tidak ikut dihitung di Absensi.
+            </p>
+
+            <div class="form-grid" style="margin-bottom:14px;">
+              <div class="field"><label>Cari karyawan</label>
+                <input type="text" x-model="mkCari" placeholder="Ketik NIK atau nama">
+              </div>
+              <div class="field" x-show="isLeaderOrAdmin()"><label>NIK baru</label>
+                <input type="text" x-model="mkForm.nik" placeholder="mis. 130999">
+              </div>
+              <div class="field" x-show="isLeaderOrAdmin()"><label>Nama</label>
+                <input type="text" x-model="mkForm.nama" placeholder="Nama lengkap" @keyup.enter="mkTambah()">
+              </div>
+              <div class="field" x-show="isLeaderOrAdmin()" style="align-self:flex-end;">
+                <button type="button" class="btn-primary" @click="mkTambah()" :disabled="mkSaving">
+                  <span x-text="mkSaving ? 'Menyimpan...' : '+ Tambah Karyawan'"></span>
+                </button>
+              </div>
+            </div>
+
+            <p class="hint" x-show="mkError" style="color:var(--danger, #DC2626); font-weight:600; margin-bottom:10px;" x-text="mkError"></p>
+
+            <template x-if="mkLoading"><p class="empty-state">Memuat data karyawan...</p></template>
+
+            <template x-if="!mkLoading">
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>NIK</th><th>Nama</th><th>Status Kerja</th><th x-show="isLeaderOrAdmin()">Aksi</th></tr></thead>
+                  <tbody>
+                    <template x-for="r in mkRows()" :key="'mk-' + r.nik">
+                      <tr>
+                        <td class="mono" x-text="r.nik"></td>
+                        <td x-text="r.nama"></td>
+                        <td>
+                          <select :value="r.status_kerja || ''" @change="mkSetStatus(r.nik, $event.target.value)" :disabled="!isLeaderOrAdmin()">
+                            <option value="">Aktif</option>
+                            <option value="resign">Resign</option>
+                          </select>
+                        </td>
+                        <td x-show="isLeaderOrAdmin()">
+                          <button type="button" class="btn-danger btn-sm" @click="mkHapus(r.nik)">Hapus</button>
+                        </td>
+                      </tr>
+                    </template>
+                    <tr x-show="mkRows().length === 0"><td colspan="4" class="empty-state" x-text="mkCari ? 'Tidak ada karyawan yang cocok.' : 'Belum ada data karyawan.'"></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <!-- ===== TAB: DATA SUPPORTING =====
+             Daftar anggota Tim Supporting Andon (tabel andon_tim_anggota) --
+             data yang sama dipakai halaman Andon > Pengaturan > Tim
+             Supporting untuk mengunci filter tim di HP masing-masing
+             orang. Dikelola di sini juga supaya lebih gampang diatur
+             bareng data karyawan lainnya. Khusus admin. -->
+        <template x-if="activeTab === 'supporting'">
+          <div class="panel">
+            <p class="panel-title">Data Supporting
+              <span class="count" x-text="spRows().length + ' / ' + spList.length + ' orang'"></span>
+            </p>
+            <p class="hint" style="margin-bottom:14px;">
+              Daftar anggota Tim Supporting yang menerima panggilan Andon (MESIN, DIES,
+              PE, QC, PC-SUPP, PRESS). Sama persis dengan Andon &rsaquo; Pengaturan &rsaquo;
+              Tim Supporting -- ubah di sini otomatis ikut berubah di sana.
+            </p>
+            <template x-if="!isAdmin()">
+              <p class="hint" style="color:var(--danger, #DC2626); font-weight:600;">Hanya admin yang bisa membuka Data Supporting.</p>
+            </template>
+
+            <template x-if="isAdmin()">
+            <div>
+              <div class="form-grid" style="margin-bottom:14px;">
+                <div class="field"><label>Cari</label>
+                  <input type="text" x-model="spCari" placeholder="NIK, nama, atau tim">
+                </div>
+                <div class="field"><label>NIK</label>
+                  <input type="text" x-model="spForm.nik" placeholder="mis. 130999">
+                </div>
+                <div class="field"><label>Nama</label>
+                  <input type="text" x-model="spForm.nama" placeholder="Nama lengkap">
+                </div>
+                <div class="field"><label>Tim</label>
+                  <select x-model="spForm.tim">
+                    <option value="">-- pilih --</option>
+                    <template x-for="t in spTimList" :key="'sp-opt-' + t"><option :value="t" x-text="t"></option></template>
+                  </select>
+                </div>
+                <div class="field" style="align-self:flex-end;">
+                  <button type="button" class="btn-primary" @click="spTambah()" :disabled="spSaving">
+                    <span x-text="spSaving ? 'Menyimpan...' : '+ Tambah / Ubah'"></span>
+                  </button>
+                </div>
+              </div>
+
+              <p class="hint" x-show="spError" style="color:var(--danger, #DC2626); font-weight:600; margin-bottom:10px;" x-text="spError"></p>
+
+              <template x-if="spLoading"><p class="empty-state">Memuat Tim Supporting...</p></template>
+
+              <template x-if="!spLoading">
+                <div class="table-wrap">
+                  <table>
+                    <thead><tr><th>NIK</th><th>Nama</th><th>Tim</th><th>Akun Login</th><th>Aksi</th></tr></thead>
+                    <tbody>
+                      <template x-for="r in spRows()" :key="'sp-' + r.nik">
+                        <tr>
+                          <td class="mono" x-text="r.nik"></td>
+                          <td x-text="r.nama"></td>
+                          <td><span class="badge" x-text="r.tim"></span></td>
+                          <td x-text="r.punya_akun ? ('Sudah (' + (r.nama_akun || '-') + ')') : 'Belum'"></td>
+                          <td><button type="button" class="btn-danger btn-sm" @click="spHapus(r.nik)">Hapus</button></td>
+                        </tr>
+                      </template>
+                      <tr x-show="spRows().length === 0"><td colspan="5" class="empty-state" x-text="spCari ? 'Tidak ada yang cocok.' : 'Belum ada anggota Tim Supporting.'"></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+            </div>
+            </template>
+          </div>
+        </template>
       </div>
     </template>
   </main>
@@ -1441,6 +1580,13 @@ function masterDataPage() {
     // sekarang, tapi ditulis sebagai activeTab supaya gampang nambah
     // kategori Master Data lain nanti tanpa ubah struktur.
     activeTab: "attendance",
+    // ---- Data Karyawan ----
+    mkList: [], mkLoading: false, mkLoaded: false, mkCari: "", mkError: "",
+    mkForm: { nik: "", nama: "" }, mkSaving: false,
+    // ---- Data Supporting (Tim Andon) ----
+    spList: [], spLoading: false, spLoaded: false, spCari: "", spError: "",
+    spForm: { nik: "", nama: "", tim: "" }, spSaving: false,
+    spTimList: ["MESIN", "DIES", "PE", "QC", "PC-SUPP", "PRESS"],
     setTab(tab) {
       this.activeTab = tab;
       // Data Productivity baru ditarik saat tabnya dibuka (bukan di init())
@@ -1448,6 +1594,8 @@ function masterDataPage() {
       if (tab === "productivity" && this.pvLoadedKey !== this.pvYear + "-" + this.pvMonth) this.fetchProductivity();
       if (tab === "productivity" && !this.kwLoaded) { this.kwLoaded = true; this.fetchKoefisien(); this.fetchTarget(); }
       if (tab === "cuti" && !this.ctLoaded) { this.ctLoaded = true; this.fetchCuti(); }
+      if (tab === "karyawan" && !this.mkLoaded) { this.mkLoaded = true; this.fetchMkList(); }
+      if (tab === "supporting" && !this.spLoaded) { this.spLoaded = true; this.fetchSpList(); }
     },
     // Sub-tombol di dalam tab Attendance: "mp" | "overtime" | "shift2" | "libur" | "ganti"
     atSub: "mp",
@@ -2613,6 +2761,85 @@ function masterDataPage() {
     },
     // opts.diam = true -> disegarkan diam-diam (realtime), tanpa tulisan
     // "Memuat..." yang membuat tabel berkedip.
+    // ---- Data Karyawan (tabel karyawan_master) ----
+    async fetchMkList() {
+      this.mkLoading = true; this.mkError = "";
+      const { data, error } = await supabaseClient.from("karyawan_master").select("nik,nama,status_kerja").order("nama");
+      this.mkLoading = false;
+      if (error) { this.mkError = "Gagal memuat data karyawan: " + error.message; return; }
+      this.mkList = data || [];
+    },
+    mkRows() {
+      const cari = (this.mkCari || "").trim().toLowerCase();
+      if (!cari) return this.mkList;
+      return this.mkList.filter((r) => String(r.nik).toLowerCase().includes(cari) || String(r.nama || "").toLowerCase().includes(cari));
+    },
+    async mkTambah() {
+      this.mkError = "";
+      const nik = (this.mkForm.nik || "").trim(), nama = (this.mkForm.nama || "").trim();
+      if (!nik || !nama) { this.mkError = "NIK dan nama wajib diisi."; return; }
+      this.mkSaving = true;
+      const { data, error } = await supabaseClient.rpc("master_karyawan_simpan", { p_nik: nik, p_nama: nama });
+      this.mkSaving = false;
+      if (error) { this.mkError = "Gagal menyimpan: " + error.message; return; }
+      if (!data || !data.ok) { this.mkError = (data && data.pesan) || "Gagal menyimpan."; return; }
+      this.mkForm = { nik: "", nama: "" };
+      this.flash("Karyawan disimpan.");
+      await this.fetchMkList();
+    },
+    async mkSetStatus(nik, val) {
+      const r = this.mkList.find((x) => x.nik === nik);
+      if (r) r.status_kerja = val || null;
+      const { error } = await supabaseClient.from("karyawan_master").update({ status_kerja: val || null }).eq("nik", nik);
+      if (error) this.flash("Gagal simpan status: " + error.message, true);
+    },
+    async mkHapus(nik) {
+      const r = this.mkList.find((x) => x.nik === nik);
+      if (!confirm("Hapus karyawan " + (r ? r.nama : nik) + " (" + nik + ") dari Data Karyawan?")) return;
+      const { data, error } = await supabaseClient.rpc("master_karyawan_hapus", { p_nik: nik });
+      if (error) { this.flash("Gagal menghapus: " + error.message, true); return; }
+      if (!data || !data.ok) { this.flash((data && data.pesan) || "Gagal menghapus.", true); return; }
+      this.mkList = this.mkList.filter((x) => x.nik !== nik);
+      this.flash("Karyawan dihapus.");
+    },
+
+    // ---- Data Supporting (tabel andon_tim_anggota, dipakai bareng Andon) ----
+    async fetchSpList() {
+      this.spLoading = true; this.spError = "";
+      const { data, error } = await supabaseClient.rpc("andon_tim_daftar");
+      this.spLoading = false;
+      if (error) { this.spError = "Gagal memuat Tim Supporting: " + error.message; return; }
+      this.spList = data || [];
+    },
+    spRows() {
+      const cari = (this.spCari || "").trim().toLowerCase();
+      if (!cari) return this.spList;
+      return this.spList.filter((r) =>
+        String(r.nik).toLowerCase().includes(cari) || String(r.nama || "").toLowerCase().includes(cari) || String(r.tim || "").toLowerCase().includes(cari));
+    },
+    async spTambah() {
+      this.spError = "";
+      const nik = (this.spForm.nik || "").trim(), nama = (this.spForm.nama || "").trim(), tim = this.spForm.tim;
+      if (!nik || !nama || !tim) { this.spError = "NIK, nama, dan tim wajib diisi."; return; }
+      this.spSaving = true;
+      const { data, error } = await supabaseClient.rpc("andon_tim_simpan", { p_nik: nik, p_nama: nama, p_tim: tim });
+      this.spSaving = false;
+      if (error) { this.spError = "Gagal menyimpan: " + error.message; return; }
+      if (!data || !data.ok) { this.spError = (data && data.pesan) || "Gagal menyimpan."; return; }
+      this.spForm = { nik: "", nama: "", tim: "" };
+      this.flash("Anggota Tim Supporting disimpan.");
+      await this.fetchSpList();
+    },
+    async spHapus(nik) {
+      const r = this.spList.find((x) => x.nik === nik);
+      if (!confirm("Keluarkan " + (r ? r.nama : nik) + " dari Tim Supporting?")) return;
+      const { data, error } = await supabaseClient.rpc("andon_tim_hapus", { p_nik: nik });
+      if (error) { this.flash("Gagal menghapus: " + error.message, true); return; }
+      if (!data || !data.ok) { this.flash("Gagal menghapus.", true); return; }
+      this.spList = this.spList.filter((x) => x.nik !== nik);
+      this.flash("Anggota dikeluarkan dari Tim Supporting.");
+    },
+
     async fetchCuti(opts = {}) {
       if (!opts.diam) this.ctLoading = true;
       this.ctError = "";
