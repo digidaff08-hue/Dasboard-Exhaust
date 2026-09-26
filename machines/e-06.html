@@ -274,7 +274,7 @@
                   : (c.ditangani_nama || '-') + ' · ' + lamaDitangani(c) + (c.keterangan ? ' · ' + c.keterangan : '')"></span>
               </div>
               <div class="andon-strip-act" x-show="bolehPanggil">
-                <button type="button" class="btn-sm andon-btn-ok" @click="aksi(c, 'selesai')">Selesai</button>
+                <button type="button" class="btn-sm andon-btn-ok" x-show="bolehSelesai(c)" @click="aksi(c, 'selesai')">Selesai</button>
                 <button type="button" class="btn-sm btn-secondary" x-show="c.status === 'memanggil'" @click="aksi(c, 'batal')">Batal</button>
               </div>
             </div>

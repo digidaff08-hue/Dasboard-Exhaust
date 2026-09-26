@@ -226,6 +226,14 @@ function andonSelesaiMixin() {
       this.flash("Perbaikan " + d.c.mesin + " (" + d.c.tim + ") selesai. Terima kasih!");
       await this.muat();
     },
+    // Panggilan yang sudah diterima hanya boleh diselesaikan oleh penerimanya
+    // (atau admin). Aturan yang sama dijaga di database (andon_aksi).
+    bolehSelesai(c) {
+      if (!c || c.status !== "ditangani") return true;
+      const uid = this.myId || this.session?.user?.id;
+      const role = (this.myRole || this.profile?.role || "").toLowerCase();
+      return c.ditangani_oleh === uid || role === "admin";
+    },
     // lama perbaikan berjalan (dari "ditangani", atau dari panggilan kalau belum diambil)
     lamaPerbaikan(c) {
       if (!c) return "-";
@@ -376,19 +384,20 @@ function andonBoard() {
       this.session = session;
       const { profile } = await andonProfilSaya();
       this.profile = profile;
-      let adaFilter = false;
       try {
-        const raw = localStorage.getItem("andonFilterTim");
-        const f = JSON.parse(raw || "[]");
-        adaFilter = raw !== null;
+        const f = JSON.parse(localStorage.getItem("andonFilterTim") || "[]");
         if (Array.isArray(f)) this.filterTim = f.filter((k) => ANDON_TIM.some((t) => t.kode === k));
       } catch (e) {}
-      // Pertama kali dibuka: kalau user ini anggota Tim Supporting, filter
-      // langsung ke timnya (bisa diubah sendiri setelahnya).
-      if (!adaFilter && profile?.nik) {
+      // Anggota Tim Supporting (menu Pengaturan > Tim Supporting): filter
+      // DIKUNCI ke timnya -- hanya melihat, mendengar & menerima notifikasi
+      // panggilan timnya sendiri. Admin/leader & non-anggota melihat semua.
+      if (profile?.nik) {
         try {
           const { data: ang } = await supabaseClient.from("andon_tim_anggota").select("tim").eq("nik", profile.nik).maybeSingle();
-          if (ang && ang.tim) this.filterTim = [ang.tim];
+          if (ang && ang.tim && !["admin", "leader"].includes((profile.role || "").toLowerCase())) {
+            this.timKunci = ang.tim;
+            this.filterTim = [ang.tim];
+          }
         } catch (e) {}
       }
       await this.muatSetting();
@@ -564,12 +573,15 @@ function andonBoard() {
     get jumlahMemanggil() { return this.aktifTampil.filter((c) => c.status === "memanggil").length; },
     get jumlahDitangani() { return this.aktifTampil.filter((c) => c.status === "ditangani").length; },
 
+    timKunci: "",          // terisi = user anggota tim ini, filter tidak bisa diubah
     toggleTim(kode) {
+      if (this.timKunci) return;
       const i = this.filterTim.indexOf(kode);
       if (i >= 0) this.filterTim.splice(i, 1); else this.filterTim.push(kode);
       try { localStorage.setItem("andonFilterTim", JSON.stringify(this.filterTim)); } catch (e) {}
     },
     semuaTim() {
+      if (this.timKunci) return;
       this.filterTim = [];
       try { localStorage.setItem("andonFilterTim", "[]"); } catch (e) {}
     },

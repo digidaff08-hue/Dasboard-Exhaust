@@ -3387,3 +3387,10 @@ table.plan-shift-table td.balance-bad { color: var(--red); font-weight: 700; }
   .atim-add { grid-column: 1 / -1; }
   .atim-row { gap: 8px; padding: 10px; }
 }
+
+.ab-timkunci { display: flex; align-items: center; gap: 10px; padding: 10px 14px; margin-bottom: 12px; border-radius: 12px;
+  background: color-mix(in srgb, var(--c) 8%, #fff); border: 1px solid color-mix(in srgb, var(--c) 30%, #fff); font-size: 13px; color: #334155; }
+.ab-timkunci svg { fill: var(--c); flex-shrink: 0; }
+.ab-timkunci b { color: var(--c); }
+
+.ab-btn-info { flex: 1; padding: 11px 12px; border-radius: 11px; background: #fff7ed; border: 1px dashed #fdba74; color: #9a3412; font-size: 12.5px; font-weight: 600; text-align: center; }

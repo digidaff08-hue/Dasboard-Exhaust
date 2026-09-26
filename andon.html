@@ -103,7 +103,13 @@
     </template>
 
     <!-- ===== Filter tim ===== -->
-    <div class="ab-filter">
+    <template x-if="timKunci">
+      <div class="ab-timkunci" :style="'--c:' + info(timKunci).warna">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" x-html="info(timKunci).ikon"></svg>
+        <span>Anda anggota tim <b x-text="timKunci"></b> — hanya panggilan <b x-text="timKunci"></b> yang tampil &amp; berbunyi di perangkat ini.</span>
+      </div>
+    </template>
+    <div class="ab-filter" x-show="!timKunci">
       <button type="button" class="ab-chip" :class="!filterTim.length ? 'on' : ''" @click="semuaTim()">Semua</button>
       <template x-for="t in TIM" :key="t.kode">
         <button type="button" class="ab-chip" :style="'--c:' + t.warna" :class="filterTim.includes(t.kode) ? 'on' : ''" @click="toggleTim(t.kode)">
@@ -156,8 +162,11 @@
                 <template x-if="c.status === 'memanggil'">
                   <button type="button" class="ab-btn go" @click="aksi(c, 'ambil')">Saya menuju ke sana</button>
                 </template>
-                <template x-if="c.status === 'ditangani'">
+                <template x-if="c.status === 'ditangani' && bolehSelesai(c)">
                   <button type="button" class="ab-btn done" @click="aksi(c, 'selesai')">✔ Selesai</button>
+                </template>
+                <template x-if="c.status === 'ditangani' && !bolehSelesai(c)">
+                  <div class="ab-btn-info">🔒 Hanya <b x-text="c.ditangani_nama || 'penerima'"></b> yang bisa menyelesaikan</div>
                 </template>
                 <template x-if="c.status === 'memanggil'">
                   <button type="button" class="ab-btn ghost" title="Langsung selesai" @click="aksi(c, 'selesai')">✔</button>
