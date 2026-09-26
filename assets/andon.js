@@ -198,7 +198,7 @@ async function andonProfilSaya() {
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (!session) return { session: null, profile: null };
   const { data } = await supabaseClient.from("profiles")
-    .select("id,full_name,role,jabatan").eq("id", session.user.id).maybeSingle();
+    .select("id,full_name,role,jabatan,nik").eq("id", session.user.id).maybeSingle();
   return { session, profile: data || null };
 }
 
@@ -376,10 +376,21 @@ function andonBoard() {
       this.session = session;
       const { profile } = await andonProfilSaya();
       this.profile = profile;
+      let adaFilter = false;
       try {
-        const f = JSON.parse(localStorage.getItem("andonFilterTim") || "[]");
+        const raw = localStorage.getItem("andonFilterTim");
+        const f = JSON.parse(raw || "[]");
+        adaFilter = raw !== null;
         if (Array.isArray(f)) this.filterTim = f.filter((k) => ANDON_TIM.some((t) => t.kode === k));
       } catch (e) {}
+      // Pertama kali dibuka: kalau user ini anggota Tim Supporting, filter
+      // langsung ke timnya (bisa diubah sendiri setelahnya).
+      if (!adaFilter && profile?.nik) {
+        try {
+          const { data: ang } = await supabaseClient.from("andon_tim_anggota").select("tim").eq("nik", profile.nik).maybeSingle();
+          if (ang && ang.tim) this.filterTim = [ang.tim];
+        } catch (e) {}
+      }
       await this.muatSetting();
       await this.muat();
       this.loading = false;
@@ -467,6 +478,7 @@ function andonBoard() {
     bukaSetting() {
       if (!this.isAdmin()) return;
       this.settingDlg = { open: true, form: { ...this.setting }, saving: false, error: "" };
+      this.settingTab = "suara"; this.timPesan = ""; this.timEdit = false;
     },
     tesNada(kode) {
       if (!AndonSuara.siap) { this.suaraAktif = AndonSuara.aktifkan(); }
@@ -499,6 +511,50 @@ function andonBoard() {
       this.tutupSetting();
       this.flash("Pengaturan Andon disimpan. Berlaku di semua HP/TV yang membuka halaman Andon.");
     },
+    // ---- Tim Supporting (admin) ----
+    settingTab: "suara",
+    timAnggota: [], timLoading: false, timSaving: false, timEdit: false,
+    timForm: { nik: "", nama: "", tim: "MESIN" },
+    timPesan: "", timPesanError: false,
+    async muatTim() {
+      this.timLoading = true;
+      const { data, error } = await supabaseClient.rpc("andon_tim_daftar");
+      this.timLoading = false;
+      if (error) {
+        this.timAnggota = [];
+        this.timInfo(/andon_tim_daftar/.test(error.message) ? "Fitur Tim Supporting belum aktif. Jalankan migration_andon_tim.sql di Supabase." : "Gagal memuat: " + error.message, true);
+        return;
+      }
+      this.timAnggota = data || [];
+    },
+    timInfo(t, err) {
+      this.timPesan = t; this.timPesanError = !!err;
+      clearTimeout(this._tt); this._tt = setTimeout(() => { this.timPesan = ""; }, 6000);
+    },
+    editTim(a) { this.timForm = { nik: a.nik, nama: a.nama, tim: a.tim }; this.timEdit = true; },
+    async simpanTim() {
+      const f = this.timForm;
+      if (!f.nik || !f.nama) { this.timInfo("NIK dan nama wajib diisi.", true); return; }
+      this.timSaving = true;
+      const { data, error } = await supabaseClient.rpc("andon_tim_simpan", { p_nik: f.nik, p_nama: f.nama, p_tim: f.tim });
+      this.timSaving = false;
+      if (error) { this.timInfo(/andon_tim_simpan/.test(error.message) ? "Fitur Tim Supporting belum aktif. Jalankan migration_andon_tim.sql di Supabase." : "Gagal: " + error.message, true); return; }
+      if (!data || !data.ok) { this.timInfo((data && data.pesan) || "Gagal menyimpan.", true); return; }
+      this.timInfo(data.nik_baru
+        ? "NIK " + f.nik + " didaftarkan. Sekarang " + f.nama.toUpperCase() + " bisa membuat akun lewat \"Daftar di sini\" di halaman login."
+        : "Anggota " + f.nama.toUpperCase() + " disimpan (" + f.tim + ").");
+      this.timForm = { nik: "", nama: "", tim: f.tim };
+      this.timEdit = false;
+      await this.muatTim();
+    },
+    async hapusTim(a) {
+      if (!confirm("Keluarkan " + a.nama + " dari tim " + a.tim + "?\nAkun login-nya tidak ikut terhapus.")) return;
+      const { data, error } = await supabaseClient.rpc("andon_tim_hapus", { p_nik: a.nik });
+      if (error || !data || !data.ok) { this.timInfo("Gagal menghapus" + (error ? ": " + error.message : "."), true); return; }
+      this.timInfo(a.nama + " dikeluarkan dari tim.");
+      await this.muatTim();
+    },
+
     labelDurasi(d) { d = Number(d) || 0; return d === 0 ? "sampai ada yang merespons" : d + " detik"; },
     namaNada(k) { return (ANDON_NADA.find((n) => n.kode === k) || {}).label || k; },
 

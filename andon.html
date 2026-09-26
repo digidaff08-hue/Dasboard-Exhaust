@@ -257,8 +257,13 @@
           <div>
             <div class="asd-head">
               <div class="asd-ic aset-ic"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05A4.47 4.47 0 0 0 16.5 12zM14 3.23v2.06a7 7 0 0 1 0 13.42v2.06A9 9 0 0 0 14 3.23z"/></svg></div>
-              <div><h3>Pengaturan suara Andon</h3><p>Berlaku di semua HP &amp; TV yang membuka halaman Andon.</p></div>
+              <div><h3>Pengaturan Andon</h3><p>Khusus admin · berlaku di semua HP &amp; TV.</p></div>
             </div>
+            <div class="aset-tabs">
+              <button type="button" :class="settingTab === 'suara' ? 'on' : ''" @click="settingTab = 'suara'">🔊 Suara</button>
+              <button type="button" :class="settingTab === 'tim' ? 'on' : ''" @click="settingTab = 'tim'; muatTim()">👥 Tim Supporting</button>
+            </div>
+            <div x-show="settingTab === 'suara'">
             <template x-if="!settingAda">
               <div class="andon-modal-error">Tabel pengaturan belum dibuat. Jalankan <b>migration_andon_setting.sql</b> di Supabase dulu.</div>
             </template>
@@ -303,6 +308,49 @@
             <div class="asd-act">
               <button type="button" class="asd-btn batal" @click="tutupSetting()">Batal</button>
               <button type="button" class="asd-btn ok aset-save" @click="simpanSetting()" :disabled="settingDlg.saving" x-text="settingDlg.saving ? 'Menyimpan...' : 'Simpan pengaturan'"></button>
+            </div>
+            </div>
+
+            <!-- ===== Tab Tim Supporting ===== -->
+            <div x-show="settingTab === 'tim'">
+              <div class="atim-form">
+                <div class="atim-f"><label>NIK</label><input type="text" inputmode="numeric" x-model.trim="timForm.nik" placeholder="mis. 140001"></div>
+                <div class="atim-f atim-nama"><label>Nama</label><input type="text" x-model="timForm.nama" placeholder="Nama lengkap"></div>
+                <div class="atim-f"><label>Tim</label>
+                  <select x-model="timForm.tim">
+                    <template x-for="t in TIM" :key="t.kode"><option :value="t.kode" x-text="t.kode"></option></template>
+                  </select>
+                </div>
+                <button type="button" class="atim-add" @click="simpanTim()" :disabled="timSaving" x-text="timSaving ? '...' : (timEdit ? 'Simpan' : '+ Tambah')"></button>
+              </div>
+              <template x-if="timPesan"><div :class="timPesanError ? 'andon-modal-error' : 'atim-ok'" x-text="timPesan"></div></template>
+
+              <div class="atim-list">
+                <template x-if="timLoading"><div class="atim-empty">Memuat...</div></template>
+                <template x-if="!timLoading && !timAnggota.length"><div class="atim-empty">Belum ada anggota tim supporting.</div></template>
+                <template x-for="a in timAnggota" :key="a.nik">
+                  <div class="atim-row" :style="'--c:' + info(a.tim).warna">
+                    <div class="atim-ic"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" x-html="info(a.tim).ikon"></svg></div>
+                    <div class="atim-main">
+                      <b x-text="a.nama"></b>
+                      <span x-text="'NIK ' + a.nik + ' · ' + a.tim"></span>
+                    </div>
+                    <span class="atim-status" :class="a.punya_akun ? 'ok' : 'belum'" x-text="a.punya_akun ? 'Sudah punya akun' : 'Belum daftar'"></span>
+                    <button type="button" class="atim-btn" title="Ubah" @click="editTim(a)">✎</button>
+                    <button type="button" class="atim-btn del" title="Hapus dari tim" @click="hapusTim(a)">🗑</button>
+                  </div>
+                </template>
+              </div>
+
+              <div class="atim-help">
+                <b>Cara orang supporting membuat akun:</b>
+                <ol>
+                  <li>Buka halaman login → <b>Daftar di sini</b>.</li>
+                  <li>Isi NIK (yang ditambahkan di atas), nama, email asli &amp; password (min. 8 karakter).</li>
+                  <li>Login lewat tab <b>Karyawan</b>, buka menu <b>🔔 Andon</b>. Filter timnya terpasang otomatis.</li>
+                </ol>
+              </div>
+              <div class="asd-act"><button type="button" class="asd-btn batal" style="flex:1" @click="tutupSetting()">Tutup</button></div>
             </div>
           </div>
         </template>
