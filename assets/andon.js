@@ -810,12 +810,13 @@ function andonBoard() {
       return (this.problemMaster || []).filter((p) => String(p.pic || "").toUpperCase() === t)
         .map((p) => p.value).filter((v) => v && !seen.has(v) && seen.add(v));
     },
-    pilihProblem(v) { this.editDlg.keterangan = v; this.editDlg.lain = false; },
-    pilihLain() {
+    pilihProblemDd(v) {
       const d = this.editDlg;
-      if (this.problemTim(d.c.tim).includes(d.keterangan)) d.keterangan = "";
-      d.lain = true;
-      this.$nextTick(() => { const t = document.querySelector(".apk-lain"); if (t) t.focus(); });
+      if (v === "__lain") {
+        if (this.problemTim(d.c.tim).includes(d.keterangan)) d.keterangan = "";
+        d.lain = true;
+        this.$nextTick(() => { const t = document.querySelector(".apk-lain"); if (t) t.focus(); });
+      } else { d.keterangan = v; d.lain = false; }
     },
     async bukaEdit(c) {
       await this.muatProblemMaster();
