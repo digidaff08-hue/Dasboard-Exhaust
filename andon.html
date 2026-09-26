@@ -103,6 +103,27 @@
     </template>
 
     <!-- ===== Filter tim ===== -->
+    <!-- ===== Notifikasi HP (push) ===== -->
+    <div class="apush" :class="'st-' + push.status" x-show="bolehAksi && push.status !== 'cek'">
+      <div class="apush-ic">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 18H7V5h10v14zm-5 3a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>
+      </div>
+      <div class="apush-txt">
+        <b x-text="{aktif:'Notifikasi HP aktif', mati:'Notifikasi HP belum aktif', blokir:'Notifikasi diblokir browser', tidak:'Browser ini tidak mendukung notifikasi', ios:'iPhone: pasang aplikasi dulu'}[push.status] || ''"></b>
+        <span x-show="push.status === 'aktif'">Panggilan tetap masuk walau layar HP mati/terkunci.</span>
+        <span x-show="push.status === 'mati'">Aktifkan supaya panggilan masuk walau layar HP terkunci.</span>
+        <span x-show="push.status === 'blokir'">Ketuk ikon gembok di alamat situs → Izin → Notifikasi → Izinkan, lalu muat ulang.</span>
+        <span x-show="push.status === 'tidak'">Gunakan Google Chrome (Android) versi terbaru.</span>
+        <span x-show="push.status === 'ios'">Safari → tombol Bagikan → "Tambahkan ke Layar Utama", lalu buka Andon dari ikon itu.</span>
+      </div>
+      <div class="apush-act">
+        <button type="button" class="apush-btn on" x-show="push.status === 'mati'" :disabled="push.sibuk" @click="aktifkanPush()" x-text="push.sibuk ? '...' : 'Aktifkan'"></button>
+        <button type="button" class="apush-btn" x-show="push.status === 'aktif'" :disabled="push.sibuk" @click="tesPush()">Tes</button>
+        <button type="button" class="apush-btn off" x-show="push.status === 'aktif'" :disabled="push.sibuk" @click="matikanPush()">Matikan</button>
+      </div>
+    </div>
+    <template x-if="push.pesan"><div :class="push.error ? 'error-msg' : 'success-msg'" x-text="push.pesan"></div></template>
+
     <template x-if="timKunci">
       <div class="ab-timkunci" :style="'--c:' + info(timKunci).warna">
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" x-html="info(timKunci).ikon"></svg>

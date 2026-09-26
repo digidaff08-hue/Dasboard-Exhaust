@@ -5,7 +5,7 @@
 // ini cuma men-cache HTML/CSS/JS-nya, bukan data produksi.
 // =========================================================
 // Naikkan versi ini tiap ada perubahan besar supaya cache lama dibuang.
-const CACHE_NAME = "produksi-downtime-shell-v24-andon";
+const CACHE_NAME = "produksi-downtime-shell-v25-push";
 
 const SHELL_FILES = [
   "/login.html",
@@ -90,4 +90,22 @@ self.addEventListener("notificationclick", (event) => {
       return self.clients.openWindow ? self.clients.openWindow(url) : null;
     })
   );
+});
+
+// ===== Notifikasi push Andon (dikirim Edge Function andon-push) =====
+// Tetap muncul walau layar HP mati/terkunci & halaman Andon tertutup.
+self.addEventListener("push", (event) => {
+  let d = {};
+  try { d = event.data ? event.data.json() : {}; } catch (e) { d = { title: "Andon", body: event.data ? event.data.text() : "" }; }
+  const judul = d.title || "📞 Panggilan Andon";
+  event.waitUntil(self.registration.showNotification(judul, {
+    body: d.body || "",
+    tag: d.tag || "andon",
+    renotify: true,                 // bunyi & getar lagi walau tag sama
+    requireInteraction: true,       // tidak hilang sendiri sampai disentuh
+    icon: "/assets/icons/icon-192.png",
+    badge: "/assets/icons/icon-192.png",
+    vibrate: [900, 300, 900, 300, 900, 300, 900],
+    data: { url: d.url || "/andon.html" },
+  }));
 });

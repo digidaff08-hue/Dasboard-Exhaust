@@ -186,6 +186,60 @@ async function andonNotifikasi(c, getar) {
   try { const n = new Notification(judul, opsi); n.onclick = () => { window.focus(); n.close(); }; } catch (e) {}
 }
 
+// ---------- Notifikasi push (tahap 2) ----------
+// Kunci PUBLIK VAPID (boleh ada di web). Pasangannya, kunci PRIVAT, hanya
+// disimpan di Supabase > Edge Functions > Secrets (VAPID_PRIVATE_KEY).
+const ANDON_VAPID_PUBLIC = "BLuFvPPGoevnzKaAllbX3LkmJ2AEx1Md-TPcYvHrat3WI_XpgD7g4oCCWc1M1ui_xn8GJ8fHUyOQEvbcO57p_yQ";
+
+function andonB64ToUint8(b64) {
+  const pad = "=".repeat((4 - (b64.length % 4)) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+}
+const AndonPush = {
+  get didukung() { return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; },
+  get iosPerluInstall() {
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+    return ios && !standalone;
+  },
+  async reg() { return navigator.serviceWorker.ready; },
+  async langgananSekarang() {
+    if (!this.didukung) return null;
+    try { return await (await this.reg()).pushManager.getSubscription(); } catch (e) { return null; }
+  },
+  async simpan(sub) {
+    const j = sub.toJSON();
+    const { data, error } = await supabaseClient.rpc("push_simpan", {
+      p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth, p_ua: navigator.userAgent,
+    });
+    if (error) throw new Error(/push_simpan/.test(error.message) ? "Fitur notifikasi HP belum aktif di database. Jalankan migration_andon_push.sql." : error.message);
+    if (!data || !data.ok) throw new Error((data && data.pesan) || "Gagal menyimpan langganan.");
+  },
+  async aktifkan() {
+    const izin = await Notification.requestPermission();
+    if (izin !== "granted") throw new Error(izin === "denied"
+      ? "Notifikasi diblokir. Buka pengaturan situs di Chrome (ikon gembok di alamat) lalu izinkan Notifikasi."
+      : "Izin notifikasi belum diberikan.");
+    const reg = await this.reg();
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: andonB64ToUint8(ANDON_VAPID_PUBLIC) });
+    await this.simpan(sub);
+    return sub;
+  },
+  async matikan() {
+    const sub = await this.langgananSekarang();
+    if (!sub) return;
+    try { await supabaseClient.from("push_subscriptions").delete().eq("endpoint", sub.endpoint); } catch (e) {}
+    await sub.unsubscribe();
+  },
+  async tes() {
+    const { data, error } = await supabaseClient.functions.invoke("andon-push", { body: { test: true } });
+    if (error) throw new Error("Fungsi andon-push belum terpasang / gagal: " + (error.message || error));
+    return data;
+  },
+};
+
 async function andonAksi(id, aksi, catatan) {
   const { data, error } = await supabaseClient.rpc("andon_aksi", {
     p_id: id, p_aksi: aksi, p_catatan: catatan || null,
@@ -370,6 +424,7 @@ function andonBoard() {
     settingAda: true,          // false = tabel andon_setting belum dibuat
     settingDlg: { open: false, form: null, saving: false, error: "" },
     panggilanMasuk: null,      // panggilan yang sedang tampil di layar "panggilan masuk"
+    push: { status: "cek", sibuk: false, pesan: "", error: false },   // cek|tidak|mati|aktif|blokir
     notifIzin: (typeof Notification !== "undefined") ? Notification.permission : "unsupported",
     now: Date.now(),
     loading: true,
@@ -401,6 +456,7 @@ function andonBoard() {
         } catch (e) {}
       }
       await this.muatSetting();
+      this.cekPush();
       await this.muat();
       this.loading = false;
       supabaseClient.channel("andon_board")
@@ -458,6 +514,49 @@ function andonBoard() {
         this._terakhirIngat = Date.now();
       }
       if (this.notifIzin === "granted") relevan.forEach((c) => andonNotifikasi(c, this.setting.getar));
+    },
+
+    // ---- notifikasi push (HP terkunci) ----
+    async cekPush() {
+      if (!AndonPush.didukung) { this.push.status = AndonPush.iosPerluInstall ? "ios" : "tidak"; return; }
+      if (Notification.permission === "denied") { this.push.status = "blokir"; return; }
+      const sub = await AndonPush.langgananSekarang();
+      if (sub && Notification.permission === "granted") {
+        this.push.status = "aktif";
+        try { await AndonPush.simpan(sub); } catch (e) {}   // pastikan tercatat utk akun yang sedang login
+      } else this.push.status = "mati";
+    },
+    pushInfo(t, err) {
+      this.push.pesan = t; this.push.error = !!err;
+      clearTimeout(this._pt); this._pt = setTimeout(() => { this.push.pesan = ""; }, 8000);
+    },
+    async aktifkanPush() {
+      this.push.sibuk = true;
+      try {
+        await AndonPush.aktifkan();
+        this.push.status = "aktif";
+        this.notifIzin = "granted";
+        this.pushInfo("Notifikasi HP aktif. Panggilan akan masuk walau layar terkunci. Tekan \"Tes\" untuk mencoba.");
+      } catch (e) {
+        this.push.status = Notification.permission === "denied" ? "blokir" : "mati";
+        this.pushInfo(e.message || String(e), true);
+      }
+      this.push.sibuk = false;
+    },
+    async tesPush() {
+      this.push.sibuk = true;
+      try {
+        const r = await AndonPush.tes();
+        this.pushInfo(r && r.terkirim ? "Tes terkirim. Kunci layar HP sebentar untuk melihat notifikasinya." : "Tidak ada HP yang terdaftar untuk akun ini. Tekan Aktifkan lagi.", !(r && r.terkirim));
+      } catch (e) { this.pushInfo(e.message || String(e), true); }
+      this.push.sibuk = false;
+    },
+    async matikanPush() {
+      if (!confirm("Matikan notifikasi Andon di HP ini?")) return;
+      this.push.sibuk = true;
+      try { await AndonPush.matikan(); this.push.status = "mati"; this.pushInfo("Notifikasi HP dimatikan."); }
+      catch (e) { this.pushInfo(e.message || String(e), true); }
+      this.push.sibuk = false;
     },
 
     // ---- layar panggilan masuk ----
