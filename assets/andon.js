@@ -464,6 +464,17 @@ function andonBoard() {
         .on("postgres_changes", { event: "*", schema: "public", table: "andon_setting" }, () => this.muatSetting())
         .subscribe();
       document.addEventListener("fullscreenchange", () => { this.fullscreen = !!document.fullscreenElement; });
+      // Aturan browser: bunyi baru boleh menyala setelah layar disentuh.
+      // Jadi sentuhan / klik PERTAMA di mana saja langsung mengaktifkan bunyi.
+      const bukaSuara = () => {
+        if (!this.suaraAktif) {
+          this.suaraAktif = AndonSuara.aktifkan();
+          AndonSuara.setVolume((Number(this.setting.volume) || 0) / 100);
+        }
+        if (this.suaraAktif) { window.removeEventListener("pointerdown", bukaSuara, true); window.removeEventListener("keydown", bukaSuara, true); }
+      };
+      window.addEventListener("pointerdown", bukaSuara, true);
+      window.addEventListener("keydown", bukaSuara, true);
       setInterval(() => { this.now = Date.now(); }, 1000);
       setInterval(() => this.muat(), 30000);
       // Pengingat: selama masih ada panggilan yang belum direspons, bunyi
