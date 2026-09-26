@@ -61,7 +61,11 @@ const ANDON_NADA = [
   { kode: "telepon", label: "Telepon berdering", ket: "Kring-kring seperti telepon masuk" },
   { kode: "sirene",  label: "Sirene",            ket: "Naik-turun, paling terdengar di area bising" },
   { kode: "alarm",   label: "Alarm cepat",       ket: "Bip-bip-bip beruntun" },
-  { kode: "bel",     label: "Bel",               ket: "Ding-dong, paling halus" },
+  { kode: "bel",     label: "Bel",               ket: "Ding-dong klasik" },
+  { kode: "marimba", label: "Marimba",           ket: "Halus · nada kayu yang lembut" },
+  { kode: "lonceng", label: "Lonceng angin",     ket: "Halus · denting lonceng yang bergaung" },
+  { kode: "kristal", label: "Kristal",           ket: "Halus · \"ting\" jernih bernada tinggi" },
+  { kode: "piano",   label: "Piano lembut",      ket: "Halus · arpeggio piano naik perlahan" },
 ];
 const ANDON_SETTING_DEFAULT = { nada: "telepon", durasi: 30, ulang: 60, volume: 80, layar_panggilan: true, getar: true, push_ulang: 60, push_ulang_max: 15, eskalasi_menit: 5 };
 
@@ -116,6 +120,39 @@ const AndonSuara = {
     if (nada === "alarm") {
       [0, 0.25, 0.5, 0.75].forEach((dt) => nada1(1050, dt, 0.16, "square", 0.18));
       return 1.4;
+    }
+    // ---- nada halus: gelombang sinus/segitiga, serangan lembut, gaung panjang ----
+    const lembut = (freq, mulai, lama, vol, tipe) => {
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = tipe || "sine"; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, t0 + mulai);
+      g.gain.exponentialRampToValueAtTime(vol, t0 + mulai + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + mulai + lama);
+      o.connect(g); g.connect(out); o.start(t0 + mulai); o.stop(t0 + mulai + lama + 0.05);
+    };
+    if (nada === "marimba") {
+      [[1046.5, 0], [1318.5, 0.18], [1568, 0.36], [1318.5, 0.54], [1568, 0.9], [2093, 1.08]].forEach(([f, dt]) => {
+        lembut(f, dt, 0.55, 0.22, "sine"); lembut(f * 4, dt, 0.12, 0.03, "sine");   // nada kayu: dasar + dentingan pendek
+      });
+      return 2.6;
+    }
+    if (nada === "lonceng") {
+      [[1318.5, 0], [987.8, 0.35], [830.6, 0.7], [659.3, 1.05]].forEach(([f, dt]) => {
+        lembut(f, dt, 1.6, 0.16); lembut(f * 2.76, dt, 0.8, 0.035); lembut(f * 5.4, dt, 0.35, 0.015);  // parsial lonceng
+      });
+      return 3.4;
+    }
+    if (nada === "kristal") {
+      [[1760, 0], [2349.3, 0.28], [1760, 1.0], [2349.3, 1.28]].forEach(([f, dt]) => {
+        lembut(f, dt, 0.9, 0.18); lembut(f * 2, dt, 0.4, 0.035);
+      });
+      return 2.9;
+    }
+    if (nada === "piano") {
+      [[523.3, 0], [659.3, 0.2], [784, 0.4], [1046.5, 0.6]].forEach(([f, dt]) => {
+        lembut(f, dt, 1.4, 0.2, "triangle"); lembut(f * 2, dt, 0.6, 0.04);
+      });
+      return 3.0;
     }
     if (nada === "bel") {
       nada1(880, 0, 0.9, "sine", 0.4); nada1(1760, 0, 0.5, "sine", 0.08);
