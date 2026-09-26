@@ -3352,7 +3352,7 @@ table.plan-shift-table td.balance-bad { color: var(--red); font-weight: 700; }
 .adt-btn { border: none; border-radius: 8px; padding: 8px 12px !important; font-size: 12.5px !important; font-weight: 800; cursor: pointer; }
 .adt-btn.go { background: #3a2fb8; color: #fff; }
 .adt-btn.skip { background: #f1f5f9; color: #64748b; }
-.adt-src { font-size: 12.5px; color: #3730a3; background: #eef2ff; border: 1px dashed #a5b4fc; border-radius: 10px; padding: 8px 12px; margin: 4px 0 10px; }
+.adt-src { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 14px; font-size: 12.5px; color: #3730a3; background: #eef2ff; border: 1px dashed #a5b4fc; border-radius: 10px; padding: 8px 12px; margin: 4px 0 10px; }
 @media (max-width: 800px) { .adt-row { flex-direction: column; align-items: stretch; } .adt-act { justify-content: flex-end; } }
 
 /* ---------- Pengaturan: tab & Tim Supporting ---------- */
@@ -3465,3 +3465,10 @@ table.plan-shift-table td.balance-bad { color: var(--red); font-weight: 700; }
 .apd-lain { border-top: 1px solid #f1f5f9 !important; border-radius: 0 !important; padding: 11px 14px !important; color: #64748b !important; }
 .apd-none { padding: 10px; font-size: 13px; color: #94a3b8; text-align: center; }
 .apk-kosong { margin: 6px 0 0; font-size: 12px; color: #94a3b8; line-height: 1.4; }
+
+.adt-src-w { display: inline-flex; flex-wrap: wrap; gap: 8px; }
+.adt-w { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; white-space: nowrap; }
+.adt-w b { font-weight: 800; }
+.adt-w small { font-size: 11px; opacity: .75; }
+.adt-w.tunggu { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+.adt-w.down { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }

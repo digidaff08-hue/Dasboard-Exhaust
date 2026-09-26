@@ -1922,17 +1922,19 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     pakaiAndon(c) {
       this.editingDowntimeId = null;
       this.dtState = "stopped";
-      this.dtStart = c.dipanggil_at;
-      this.dtEnd = c.selesai_at || new Date().toISOString();
+      // Waktu tunggu  = panggil supporting -> start perbaikan
+      // Total losstime = start perbaikan    -> selesai
+      const w = this.andonWaktu(c);
+      this.dtStart = w.mulai;
+      this.dtEnd = w.selesai;
       this.dtForm = {
         kategori: "", problem: "", penyebab: "", countermeasure: c.catatan || "", stasiun: "",
-        pic: this.picOptions.includes(c.tim) ? c.tim : "", waktu_tunggu: "",
-        ket: c.keterangan ? "Andon: " + c.keterangan : "Andon", area: "", status: "",
+        pic: this.picOptions.includes(c.tim) ? c.tim : "", waktu_tunggu: w.tunggu,
+        ket: "", area: "", status: "",
       };
       // Problem Andon dipilih dari Problem Kategori tim -> langsung terisi di form downtime
       if (c.keterangan && this.problemsForPic(this.dtForm.pic).some((p) => p.value === c.keterangan)) {
         this.dtForm.problem = c.keterangan;
-        this.dtForm.ket = "Andon";
       }
       this.andonSumber = c;
       this.flash("Form Downtime terisi dari panggilan Andon " + c.tim + ". Lengkapi Kategori, Problem, Area & Status, lalu Simpan.");
@@ -1943,6 +1945,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const { error } = await supabaseClient.rpc("andon_link_downtime", { p_id: c.id, p_downtime_id: null });
       if (error) { this.flash("Gagal: " + error.message, true); return; }
       await this.fetchAndonSelesai();
+    },
+    andonWaktu(c) {
+      // mulai perbaikan: mulai_at; data lama (sebelum ada tombol Start) pakai jam diterima / dipanggil
+      const mulai = c.mulai_at || c.ditangani_at || c.dipanggil_at;
+      const selesai = c.selesai_at || new Date().toISOString();
+      const menit = (a, b) => Math.max(0, Math.round((new Date(b) - new Date(a)) / 6000) / 10);
+      return { mulai, selesai, tunggu: menit(c.dipanggil_at, mulai), downtime: menit(mulai, selesai) };
     },
     andonJamStr(iso) { return iso ? new Date(iso).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "-"; },
     stopDowntime() {

@@ -1300,7 +1300,13 @@
               </div>
             </template>
             <template x-if="andonSumber && dtState === 'stopped' && !editingDowntimeId">
-              <div class="adt-src">🔔 Dari panggilan Andon <b x-text="andonSumber.tim"></b> · <span x-text="andonJamStr(andonSumber.dipanggil_at) + ' – ' + andonJamStr(andonSumber.selesai_at)"></span></div>
+              <div class="adt-src">
+                <span>🔔 Dari panggilan Andon <b x-text="andonSumber.tim"></b> · <span x-text="andonJamStr(andonSumber.dipanggil_at) + ' – ' + andonJamStr(andonSumber.selesai_at)"></span></span>
+                <span class="adt-src-w">
+                  <span class="adt-w tunggu">⏳ Waktu tunggu <b x-text="andonWaktu(andonSumber).tunggu + ' mnt'"></b> <small x-text="'(' + andonJamStr(andonSumber.dipanggil_at) + ' – ' + andonJamStr(andonWaktu(andonSumber).mulai) + ')'"></small></span>
+                  <span class="adt-w down">🔧 Downtime <b x-text="andonWaktu(andonSumber).downtime + ' mnt'"></b> <small x-text="'(' + andonJamStr(andonWaktu(andonSumber).mulai) + ' – ' + andonJamStr(andonSumber.selesai_at) + ')'"></small></span>
+                </span>
+              </div>
             </template>
             <div class="timer-row" x-show="!editingDowntimeId">
               <template x-if="dtState === 'idle'">
