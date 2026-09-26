@@ -268,13 +268,14 @@
             <div class="andon-strip-item" :class="c.status">
               <span class="andon-dot"></span>
               <div class="andon-strip-text">
-                <b x-text="c.status === 'memanggil' ? 'Memanggil ' + c.tim : c.tim + ' sedang menangani'"></b>
+                <b x-text="c.status === 'memanggil' ? 'Memanggil ' + c.tim : (c.status === 'ditangani' ? c.tim + ' menuju lokasi' : c.tim + ' sedang memperbaiki')"></b>
                 <span x-text="c.status === 'memanggil'
                   ? 'sejak ' + jam(c.dipanggil_at) + ' · menunggu ' + lama(c) + (c.keterangan ? ' · ' + c.keterangan : '')
-                  : (c.ditangani_nama || '-') + ' · ' + lamaDitangani(c) + (c.keterangan ? ' · ' + c.keterangan : '')"></span>
+                  : (c.ditangani_nama || '-') + ' · ' + (c.status === 'ditangani' ? 'menuju ' + lamaDitangani(c) : 'perbaikan ' + lamaMulai(c)) + (c.keterangan ? ' · ' + c.keterangan : '')"></span>
               </div>
               <div class="andon-strip-act" x-show="bolehPanggil">
-                <button type="button" class="btn-sm andon-btn-ok" x-show="bolehSelesai(c)" @click="aksi(c, 'selesai')">Selesai</button>
+                <button type="button" class="btn-sm andon-btn-start" x-show="c.status === 'ditangani' && bolehSelesai(c)" @click="aksi(c, 'mulai')">▶ Mulai</button>
+                <button type="button" class="btn-sm andon-btn-ok" x-show="c.status !== 'ditangani' && bolehSelesai(c)" @click="aksi(c, 'selesai')">Selesai</button>
                 <button type="button" class="btn-sm btn-secondary" x-show="c.status === 'memanggil'" @click="aksi(c, 'batal')">Batal</button>
               </div>
             </div>

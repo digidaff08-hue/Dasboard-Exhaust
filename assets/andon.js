@@ -320,7 +320,7 @@ function andonSelesaiMixin() {
     // Panggilan yang sudah diterima hanya boleh diselesaikan oleh penerimanya
     // (atau admin). Aturan yang sama dijaga di database (andon_aksi).
     bolehSelesai(c) {
-      if (!c || c.status !== "ditangani") return true;
+      if (!c || !["ditangani", "diperbaiki"].includes(c.status)) return true;
       const uid = this.myId || this.session?.user?.id;
       const role = (this.myRole || this.profile?.role || "").toLowerCase();
       return c.ditangani_oleh === uid || role === "admin";
@@ -328,7 +328,7 @@ function andonSelesaiMixin() {
     // lama perbaikan berjalan (dari "ditangani", atau dari panggilan kalau belum diambil)
     lamaPerbaikan(c) {
       if (!c) return "-";
-      const dari = new Date(c.ditangani_at || c.dipanggil_at).getTime();
+      const dari = new Date(c.mulai_at || c.ditangani_at || c.dipanggil_at).getTime();
       return andonDurasi(this.now - dari);
     },
   };
@@ -376,7 +376,7 @@ function andonWidget(mesin) {
     async muat() {
       const { data, error } = await supabaseClient.from("andon_call")
         .select("*").eq("mesin", this.mesin)
-        .in("status", ["memanggil", "ditangani"])
+        .in("status", ["memanggil", "ditangani", "diperbaiki"])
         .order("dipanggil_at", { ascending: true });
       if (!error) this.calls = data || [];
       // beri tahu halaman mesin (tab Downtime) supaya daftar "Andon selesai" ikut segar
@@ -432,6 +432,7 @@ function andonWidget(mesin) {
 
     lama(c) { return andonDurasi(this.now - new Date(c.dipanggil_at).getTime()); },
     lamaDitangani(c) { return c.ditangani_at ? andonDurasi(this.now - new Date(c.ditangani_at).getTime()) : "-"; },
+    lamaMulai(c) { return c.mulai_at ? andonDurasi(this.now - new Date(c.mulai_at).getTime()) : "-"; },
     info(kode) { return andonTimInfo(kode); },
     jam: andonJam,
 
@@ -530,7 +531,7 @@ function andonBoard() {
     async muat() {
       const [a, r] = await Promise.all([
         supabaseClient.from("andon_call").select("*")
-          .in("status", ["memanggil", "ditangani"]).order("dipanggil_at", { ascending: true }),
+          .in("status", ["memanggil", "ditangani", "diperbaiki"]).order("dipanggil_at", { ascending: true }),
         supabaseClient.from("andon_call").select("*")
           .gte("dipanggil_at", andonAwalHariIni())
           .in("status", ["selesai", "batal"]).order("dipanggil_at", { ascending: false }).limit(300),
@@ -741,7 +742,7 @@ function andonBoard() {
     get aktifTampil() { return this.aktif.filter((c) => this.cocokFilter(c)); },
     get riwayatTampil() { return this.riwayat.filter((c) => this.cocokFilter(c)); },
     get jumlahMemanggil() { return this.aktifTampil.filter((c) => c.status === "memanggil").length; },
-    get jumlahDitangani() { return this.aktifTampil.filter((c) => c.status === "ditangani").length; },
+    get jumlahDitangani() { return this.aktifTampil.filter((c) => c.status === "ditangani" || c.status === "diperbaiki").length; },
 
     timKunci: "",          // terisi = user anggota tim ini, filter tidak bisa diubah
     toggleTim(kode) {
@@ -788,7 +789,8 @@ function andonBoard() {
       if (jenis === "batal" && !confirm("Batalkan panggilan " + c.mesin + " ke " + c.tim + "?")) return;
       const r = await andonAksi(c.id, jenis, catatan);
       if (!r.ok) this.flash(r.pesan || "Gagal.", true);
-      else this.flash(jenis === "ambil" ? "Anda tercatat menangani " + c.mesin + "." : "Tersimpan.");
+      else this.flash(jenis === "ambil" ? "Diterima. Tekan \"Mulai perbaikan\" setelah sampai di " + c.mesin + "."
+                    : jenis === "mulai" ? "Perbaikan " + c.mesin + " dimulai. Tekan Selesai kalau sudah beres." : "Tersimpan.");
       await this.muat();
     },
 
@@ -826,9 +828,11 @@ function andonBoard() {
 
     // ---- angka ----
     responsMs(c) { return c.ditangani_at ? new Date(c.ditangani_at) - new Date(c.dipanggil_at) : null; },
-    perbaikanMs(c) { return c.ditangani_at && c.selesai_at ? new Date(c.selesai_at) - new Date(c.ditangani_at) : null; },
+    tibaMs(c) { return c.mulai_at ? new Date(c.mulai_at) - new Date(c.dipanggil_at) : null; },
+    perbaikanMs(c) { const m = c.mulai_at || c.ditangani_at; return m && c.selesai_at ? new Date(c.selesai_at) - new Date(m) : null; },
     lama(c) { return andonDurasi(this.now - new Date(c.dipanggil_at).getTime()); },
     lamaDitangani(c) { return c.ditangani_at ? andonDurasi(this.now - new Date(c.ditangani_at).getTime()) : "-"; },
+    lamaMulai(c) { return c.mulai_at ? andonDurasi(this.now - new Date(c.mulai_at).getTime()) : "-"; },
     menit(ms) { const m = andonMenit(ms); return m == null ? "-" : m.toLocaleString("id-ID") + " mnt"; },
     get ringkasan() {
       const selesai = this.riwayatTampil.filter((c) => c.status === "selesai");
@@ -837,6 +841,7 @@ function andonBoard() {
         total: this.riwayatTampil.length + this.aktifTampil.length,
         selesai: selesai.length,
         respons: rata(selesai.map((c) => this.responsMs(c)).filter((x) => x != null)),
+        tiba: rata(selesai.map((c) => this.tibaMs(c)).filter((x) => x != null)),
         perbaikan: rata(selesai.map((c) => this.perbaikanMs(c)).filter((x) => x != null)),
       };
     },

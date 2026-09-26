@@ -3430,3 +3430,10 @@ table.plan-shift-table td.balance-bad { color: var(--red); font-weight: 700; }
 @media (max-width: 800px) {
   .ab-hero-right .ab-hero-btns { flex-direction: column; align-items: flex-end; gap: 6px; }
 }
+
+/* ---------- Tahap "Mulai perbaikan" ---------- */
+.ab-card.diperbaiki { --st: #2563eb; border-color: #bfdbfe; background: linear-gradient(180deg, #eff6ff, #fff 60%); }
+.ab-btn.start { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff; box-shadow: 0 6px 14px rgba(37,99,235,.3); }
+.andon-strip-item.diperbaiki { background: #eff6ff; border-color: #93c5fd; color: #1e3a8a; }
+.andon-strip-item.diperbaiki .andon-dot { background: #2563eb; }
+.andon-btn-start { background: #2563eb; color: #fff; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; }

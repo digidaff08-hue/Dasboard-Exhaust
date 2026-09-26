@@ -170,28 +170,32 @@
               <header class="ab-card-head">
                 <div>
                   <span class="ab-card-mesin" x-text="c.mesin"></span>
-                  <span class="ab-card-state" x-text="c.status === 'memanggil' ? (telat(c) ? '⚠ Belum direspons' : 'Memanggil') : 'Ditangani'"></span>
+                  <span class="ab-card-state" x-text="c.status === 'memanggil' ? (telat(c) ? '⚠ Belum direspons' : 'Memanggil') : (c.status === 'ditangani' ? 'Menuju lokasi' : 'Sedang diperbaiki')"></span>
                 </div>
                 <span class="ab-card-tim"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" x-html="info(c.tim).ikon"></svg><span x-text="c.tim"></span></span>
               </header>
               <div class="ab-card-timer">
-                <span x-text="c.status === 'memanggil' ? lama(c) : lamaDitangani(c)"></span>
-                <small x-text="c.status === 'memanggil' ? 'menunggu' : 'ditangani'"></small>
+                <span x-text="c.status === 'memanggil' ? lama(c) : (c.status === 'ditangani' ? lamaDitangani(c) : lamaMulai(c))"></span>
+                <small x-text="c.status === 'memanggil' ? 'menunggu' : (c.status === 'ditangani' ? 'menuju lokasi' : 'perbaikan')"></small>
               </div>
               <p class="ab-card-ket" x-show="c.keterangan" x-text="c.keterangan"></p>
               <ul class="ab-card-meta">
                 <li><span>Pemanggil</span><b x-text="(c.dipanggil_nama || '-') + ' · ' + jam(c.dipanggil_at)"></b></li>
-                <li x-show="c.ditangani_at"><span>Ditangani</span><b x-text="(c.ditangani_nama || '-') + ' · respons ' + menit(responsMs(c))"></b></li>
+                <li x-show="c.ditangani_at"><span>Diterima</span><b x-text="(c.ditangani_nama || '-') + ' · respons ' + menit(responsMs(c))"></b></li>
+                <li x-show="c.mulai_at"><span>Tiba &amp; mulai</span><b x-text="jam(c.mulai_at) + ' · tiba ' + menit(tibaMs(c))"></b></li>
               </ul>
               <div class="ab-card-act" x-show="bolehAksi">
                 <template x-if="c.status === 'memanggil'">
                   <button type="button" class="ab-btn go" @click="aksi(c, 'ambil')">Saya menuju ke sana</button>
                 </template>
                 <template x-if="c.status === 'ditangani' && bolehSelesai(c)">
+                  <button type="button" class="ab-btn start" @click="aksi(c, 'mulai')">▶ Mulai perbaikan</button>
+                </template>
+                <template x-if="c.status === 'diperbaiki' && bolehSelesai(c)">
                   <button type="button" class="ab-btn done" @click="aksi(c, 'selesai')">✔ Selesai</button>
                 </template>
-                <template x-if="c.status === 'ditangani' && !bolehSelesai(c)">
-                  <div class="ab-btn-info">🔒 Hanya <b x-text="c.ditangani_nama || 'penerima'"></b> yang bisa menyelesaikan</div>
+                <template x-if="(c.status === 'ditangani' || c.status === 'diperbaiki') && !bolehSelesai(c)">
+                  <div class="ab-btn-info">🔒 Ditangani <b x-text="c.ditangani_nama || 'penerima'"></b></div>
                 </template>
                 <template x-if="c.status === 'memanggil'">
                   <button type="button" class="ab-btn ghost" title="Langsung selesai" @click="aksi(c, 'selesai')">✔</button>
@@ -207,8 +211,8 @@
         </div>
         <div class="ab-kpi">
           <div><span>Total panggilan</span><b x-text="ringkasan.total"></b></div>
-          <div><span>Selesai</span><b x-text="ringkasan.selesai"></b></div>
           <div><span>Rata-rata respons</span><b x-text="menit(ringkasan.respons)"></b></div>
+          <div><span>Rata-rata tiba</span><b x-text="menit(ringkasan.tiba)"></b></div>
           <div><span>Rata-rata perbaikan</span><b x-text="menit(ringkasan.perbaikan)"></b></div>
         </div>
 
@@ -234,6 +238,7 @@
                 <div class="ab-hist-line3">
                   <span x-text="jam(c.dipanggil_at)"></span>
                   <template x-if="c.status === 'selesai'"><span x-text="'Respons ' + menit(responsMs(c))"></span></template>
+                  <template x-if="c.status === 'selesai' && c.mulai_at"><span x-text="'Tiba ' + menit(tibaMs(c))"></span></template>
                   <template x-if="c.status === 'selesai'"><span x-text="'Perbaikan ' + menit(perbaikanMs(c))"></span></template>
                   <span x-show="c.ditangani_nama" x-text="c.ditangani_nama"></span>
                   <span x-show="c.diedit_nama" class="ab-hist-edited" x-text="'✎ diedit ' + (c.diedit_nama || '')"></span>
@@ -437,7 +442,7 @@
               </div>
               <div class="asd-stats" style="margin-top:10px;">
                 <div><span>Dipanggil</span><b x-text="jam(editDlg.c.dipanggil_at)"></b></div>
-                <div><span>Respons</span><b x-text="menit(responsMs(editDlg.c))"></b></div>
+                <div><span>Tiba</span><b x-text="menit(tibaMs(editDlg.c))"></b></div>
                 <div><span>Perbaikan</span><b x-text="menit(perbaikanMs(editDlg.c))"></b></div>
               </div>
             </div>
