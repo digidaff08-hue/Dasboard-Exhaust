@@ -285,6 +285,7 @@ function loginPage() {
       //               kalau lewat Dashboard dulu dia cuma akan dipantulkan)
       if (role === "guest") return "dashboard-exhaust.html"; // guest: hanya Dashboard Exhaust
       if (role === "viewer") return "dashboard-exhaust.html"; // viewer: Dashboard Exhaust + Attendance
+      if (role === "supporting") return "andon.html"; // supporting: hanya Andon
       if (admin) return "dashboard-exhaust.html";
       if (leader) return "input-produksi.html";
       return "input-attendance.html";

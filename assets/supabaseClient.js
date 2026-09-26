@@ -18,8 +18,16 @@ async function requireAuth() {
   // Akun GUEST hanya boleh membuka Dashboard Exhaust. Halaman lain
   // (Input Produksi, Attendance, halaman mesin, dst) langsung dipantulkan
   // ke Dashboard Exhaust -- termasuk kalau alamatnya diketik manual.
-  if (!isDashboardExhaustPage() && (await getMyRole(session)) === "guest") {
+  const myRole = await getMyRole(session);
+  if (!isDashboardExhaustPage() && myRole === "guest") {
     window.location.href = getBasePath() + "dashboard-exhaust.html";
+    return null;
+  }
+  // Akun SUPPORTING (tim yang menerima panggilan Andon) hanya boleh
+  // membuka halaman Andon -- halaman lain langsung dipantulkan ke sana,
+  // termasuk kalau alamatnya diketik manual.
+  if (!isAndonPage() && myRole === "supporting") {
+    window.location.href = getBasePath() + "andon.html";
     return null;
   }
   return session;
@@ -40,6 +48,10 @@ async function getMyRole(session) {
 
 function isDashboardExhaustPage() {
   return window.location.pathname.toLowerCase().includes("dashboard-exhaust");
+}
+
+function isAndonPage() {
+  return window.location.pathname.toLowerCase().includes("andon");
 }
 
 // Penjaga halaman: hanya admin & leader yang boleh membuka halaman
@@ -70,6 +82,13 @@ async function requireStaff(session) {
   if (r === "viewer") {
     if (isDashboardExhaustPage()) return true;
     window.location.href = getBasePath() + "input-attendance.html";
+    return false;
+  }
+  // SUPPORTING: tim yang menerima panggilan Andon -- hanya boleh membuka
+  // halaman Andon, halaman lain dipantulkan ke sana.
+  if (r === "supporting") {
+    if (isAndonPage()) return true;
+    window.location.href = getBasePath() + "andon.html";
     return false;
   }
   const boleh = ["admin", "leader"].includes(r) || ["admin", "leader"].includes(j);
