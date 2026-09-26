@@ -310,14 +310,44 @@
             <template x-for="(t, i) in TIM" :key="t.kode">
               <button type="button" class="andon-tim" :style="'--c:' + t.warna + ';--i:' + i"
                       :class="[form.tim === t.kode ? 'on' : '', timSedangAktif(t.kode) ? 'sibuk' : '']"
-                      :disabled="timSedangAktif(t.kode)" @click="form.tim = t.kode; modalError = ''">
+                      :disabled="timSedangAktif(t.kode)" @click="pilihTim(t.kode)">
                 <svg class="andon-tim-ic" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" x-html="t.ikon"></svg><b x-text="t.kode"></b><span x-show="timSedangAktif(t.kode)">sudah dipanggil</span>
               </button>
             </template>
           </div>
           <div class="field andon-ket">
-            <label>Ketik problem di sini</label>
-            <textarea x-model="form.keterangan" maxlength="200" rows="3"></textarea>
+            <label>Problem <span class="apk-hint" x-show="form.tim && problemTim(form.tim).length" x-text="'pilih problem ' + form.tim"></span></label>
+            <template x-if="form.tim && problemTim(form.tim).length">
+              <div class="apd" @click.outside="form.dd = false" @keydown.escape.stop="form.dd = false">
+                <button type="button" class="apd-btn" :class="form.dd ? 'open' : ''" @click="bukaDdPanggil()">
+                  <span class="apd-val" :class="!form.lain && !form.keterangan ? 'kosong' : ''"
+                        x-text="form.lain ? 'Lainnya (ketik manual)' : (form.keterangan || '-- pilih problem --')"></span>
+                  <svg class="apd-car" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg>
+                </button>
+                <div class="apd-menu" :class="form.atas ? 'atas' : ''" x-show="form.dd" x-transition.opacity.duration.120ms x-cloak>
+                  <div class="apd-cari" x-show="problemTim(form.tim).length > 6">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                    <input type="text" class="apd-cari-in" x-model="form.cari" placeholder="Cari problem...">
+                  </div>
+                  <div class="apd-list" :style="'max-height:' + (form.maxList || 216) + 'px'">
+                    <template x-for="v in problemTim(form.tim).filter(x => !form.cari || x.toLowerCase().includes(form.cari.toLowerCase()))" :key="v">
+                      <button type="button" class="apd-item" :class="!form.lain && form.keterangan === v ? 'on' : ''" @click="pilihProblemPanggil(v)">
+                        <span x-text="v"></span>
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                      </button>
+                    </template>
+                    <div class="apd-none" x-show="form.cari && !problemTim(form.tim).some(x => x.toLowerCase().includes(form.cari.toLowerCase()))">Tidak ditemukan</div>
+                  </div>
+                  <button type="button" class="apd-item apd-lain" :class="form.lain ? 'on' : ''" @click="pilihProblemPanggil('__lain')">
+                    <span>&#9998; Lainnya (ketik manual)</span>
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                  </button>
+                </div>
+              </div>
+            </template>
+            <textarea class="apk-lain" x-show="!form.tim || !problemTim(form.tim).length || form.lain"
+                      style="margin-top:8px;" x-model="form.keterangan" maxlength="200" rows="3"
+                      :placeholder="form.tim && problemTim(form.tim).length ? 'Tulis problem lain...' : 'Ketik problem di sini'"></textarea>
           </div>
           <template x-if="modalError"><div class="andon-modal-error" x-text="modalError"></div></template>
           <div class="andon-modal-act">

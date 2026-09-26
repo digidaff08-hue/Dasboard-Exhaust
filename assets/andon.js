@@ -297,6 +297,55 @@ async function andonProfilSaya() {
 
 // ---------- Dialog "Selesaikan perbaikan" (pengganti prompt() bawaan browser) ----------
 // Dipakai widget mesin & papan Andon. Isi catatan = countermeasure.
+// ---------------------------------------------------------------------
+// Daftar Problem per tim (dari Master Data > Problem Kategori) + dropdown
+// ringkas. Dipakai bersama oleh halaman Andon (Edit riwayat) DAN popup
+// "Panggil Supporting" di halaman mesin, supaya pilihannya persis sama.
+// ---------------------------------------------------------------------
+function andonProblemMixin() {
+  return {
+    problemMaster: null,          // dari Master Data > Problem Kategori (downtime_problems)
+    async muatProblemMaster() {
+      if (this.problemMaster) return;
+      try {
+        const { data, error } = await supabaseClient.from("downtime_problems").select("pic, value").order("value");
+        this.problemMaster = error ? [] : (data || []);
+      } catch (e) { this.problemMaster = []; }
+    },
+    problemTim(tim) {
+      const t = String(tim || "").toUpperCase();
+      const seen = new Set();
+      return (this.problemMaster || []).filter((p) => String(p.pic || "").toUpperCase() === t)
+        .map((p) => p.value).filter((v) => v && !seen.has(v) && seen.add(v));
+    },
+    // d = objek state (punya: dd, atas, maxList, cari, keterangan, lain)
+    ddBuka(d, selektorTombol) {
+      d.dd = !d.dd; d.cari = "";
+      if (d.dd) {
+        // Buka ke atas kalau ruang di bawah tombol tidak cukup, dan batasi tinggi list agar tidak keluar layar
+        const btn = document.querySelector(selektorTombol);
+        const r = btn ? btn.getBoundingClientRect() : { top: 0, bottom: 0 };
+        const vh = window.innerHeight;
+        const bawah = vh - r.bottom - 12, atas = r.top - 12;
+        d.atas = bawah < 280 && atas > bawah;
+        const ruang = (d.atas ? atas : bawah) - 100;          // 100 = kotak cari + "Lainnya"
+        d.maxList = Math.max(120, Math.min(216, ruang));
+        this.$nextTick(() => {
+          const on = document.querySelector(".apd-item.on"); if (on && on.scrollIntoView) on.scrollIntoView({ block: "nearest" });
+        });
+      }
+    },
+    ddPilih(d, v, tim, selektorKetik) {
+      d.dd = false; d.cari = "";
+      if (v === "__lain") {
+        if (this.problemTim(tim).includes(d.keterangan)) d.keterangan = "";
+        d.lain = true;
+        this.$nextTick(() => { const t = document.querySelector(selektorKetik); if (t) t.focus(); });
+      } else { d.keterangan = v; d.lain = false; }
+    },
+  };
+}
+
 function andonSelesaiMixin() {
   return {
     selesaiDlg: { open: false, c: null, catatan: "", saving: false, error: "" },
@@ -340,13 +389,14 @@ function andonSelesaiMixin() {
 function andonWidget(mesin) {
   return {
     ...andonSelesaiMixin(),
+    ...andonProblemMixin(),
     mesin,
     TIM: ANDON_TIM,
     calls: [],            // panggilan aktif mesin ini (memanggil / ditangani)
     modalOpen: false,
     modalError: "",
     terkirimTim: "",      // terisi = layar "Terkirim!" sedang tampil
-    form: { tim: "", keterangan: "" },
+    form: { tim: "", keterangan: "", lain: false, dd: false, atas: false, maxList: 216, cari: "" },
     sending: false,
     pesan: "", pesanError: false,
     now: Date.now(),
@@ -384,10 +434,20 @@ function andonWidget(mesin) {
     },
 
     bukaModal() {
-      this.form = { tim: "", keterangan: "" };
+      this.form = { tim: "", keterangan: "", lain: false, dd: false, atas: false, maxList: 216, cari: "" };
       this.pesan = ""; this.modalError = ""; this.terkirimTim = "";
       this.modalOpen = true;
+      this.muatProblemMaster();
     },
+    // Ganti tim -> daftar problemnya ikut ganti, jadi pilihan lama dibuang
+    pilihTim(kode) {
+      if (this.form.tim === kode) return;
+      this.form.tim = kode;
+      this.form.keterangan = ""; this.form.lain = false; this.form.dd = false; this.form.cari = "";
+      this.modalError = "";
+    },
+    bukaDdPanggil() { this.ddBuka(this.form, ".andon-modal .apd-btn"); },
+    pilihProblemPanggil(v) { this.ddPilih(this.form, v, this.form.tim, ".andon-modal .apk-lain"); },
 
     async panggil() {
       this.modalError = "";
@@ -451,6 +511,7 @@ function andonWidget(mesin) {
 function andonBoard() {
   return {
     ...andonSelesaiMixin(),
+    ...andonProblemMixin(),
     TIM: ANDON_TIM,
     session: null, profile: null,
     aktif: [],             // memanggil + ditangani (semua mesin)
@@ -796,46 +857,8 @@ function andonBoard() {
 
     // Edit riwayat: masalah & countermeasure (semua user kecuali guest/viewer)
     editDlg: { open: false, c: null, keterangan: "", catatan: "", lain: false, saving: false, error: "" },
-    problemMaster: null,          // dari Master Data > Problem Kategori (downtime_problems)
-    async muatProblemMaster() {
-      if (this.problemMaster) return;
-      try {
-        const { data, error } = await supabaseClient.from("downtime_problems").select("pic, value").order("value");
-        this.problemMaster = error ? [] : (data || []);
-      } catch (e) { this.problemMaster = []; }
-    },
-    problemTim(tim) {
-      const t = String(tim || "").toUpperCase();
-      const seen = new Set();
-      return (this.problemMaster || []).filter((p) => String(p.pic || "").toUpperCase() === t)
-        .map((p) => p.value).filter((v) => v && !seen.has(v) && seen.add(v));
-    },
-    bukaDd() {
-      const d = this.editDlg;
-      d.dd = !d.dd; d.cari = "";
-      if (d.dd) {
-        // Buka ke atas kalau ruang di bawah tombol tidak cukup, dan batasi tinggi list agar tidak keluar layar
-        const btn = document.querySelector(".apd-btn");
-        const r = btn ? btn.getBoundingClientRect() : { top: 0, bottom: 0 };
-        const vh = window.innerHeight;
-        const bawah = vh - r.bottom - 12, atas = r.top - 12;
-        d.atas = bawah < 280 && atas > bawah;
-        const ruang = (d.atas ? atas : bawah) - 100;          // 100 = kotak cari + "Lainnya"
-        d.maxList = Math.max(120, Math.min(216, ruang));
-      }
-      if (d.dd) this.$nextTick(() => {
-        const on = document.querySelector(".apd-item.on"); if (on && on.scrollIntoView) on.scrollIntoView({ block: "nearest" });
-      });
-    },
-    pilihProblemDd(v) {
-      const d = this.editDlg;
-      d.dd = false; d.cari = "";
-      if (v === "__lain") {
-        if (this.problemTim(d.c.tim).includes(d.keterangan)) d.keterangan = "";
-        d.lain = true;
-        this.$nextTick(() => { const t = document.querySelector(".apk-lain"); if (t) t.focus(); });
-      } else { d.keterangan = v; d.lain = false; }
-    },
+    bukaDd() { this.ddBuka(this.editDlg, ".apd-btn"); },
+    pilihProblemDd(v) { this.ddPilih(this.editDlg, v, this.editDlg.c ? this.editDlg.c.tim : "", ".apk-lain"); },
     async bukaEdit(c) {
       await this.muatProblemMaster();
       const ket = c.keterangan || "";
