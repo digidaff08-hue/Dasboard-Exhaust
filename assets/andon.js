@@ -810,8 +810,26 @@ function andonBoard() {
       return (this.problemMaster || []).filter((p) => String(p.pic || "").toUpperCase() === t)
         .map((p) => p.value).filter((v) => v && !seen.has(v) && seen.add(v));
     },
+    bukaDd() {
+      const d = this.editDlg;
+      d.dd = !d.dd; d.cari = "";
+      if (d.dd) {
+        // Buka ke atas kalau ruang di bawah tombol tidak cukup, dan batasi tinggi list agar tidak keluar layar
+        const btn = document.querySelector(".apd-btn");
+        const r = btn ? btn.getBoundingClientRect() : { top: 0, bottom: 0 };
+        const vh = window.innerHeight;
+        const bawah = vh - r.bottom - 12, atas = r.top - 12;
+        d.atas = bawah < 280 && atas > bawah;
+        const ruang = (d.atas ? atas : bawah) - 100;          // 100 = kotak cari + "Lainnya"
+        d.maxList = Math.max(120, Math.min(216, ruang));
+      }
+      if (d.dd) this.$nextTick(() => {
+        const on = document.querySelector(".apd-item.on"); if (on && on.scrollIntoView) on.scrollIntoView({ block: "nearest" });
+      });
+    },
     pilihProblemDd(v) {
       const d = this.editDlg;
+      d.dd = false; d.cari = "";
       if (v === "__lain") {
         if (this.problemTim(d.c.tim).includes(d.keterangan)) d.keterangan = "";
         d.lain = true;
@@ -823,7 +841,7 @@ function andonBoard() {
       const ket = c.keterangan || "";
       const daftar = this.problemTim(c.tim);
       this.editDlg = { open: true, c, keterangan: ket, catatan: c.catatan || "",
-        lain: !daftar.length || (ket !== "" && !daftar.includes(ket)), saving: false, error: "" };
+        lain: !daftar.length || (ket !== "" && !daftar.includes(ket)), dd: false, atas: false, maxList: 216, cari: "", saving: false, error: "" };
     },
     tutupEdit() { if (!this.editDlg.saving) this.editDlg.open = false; },
     async simpanEdit() {

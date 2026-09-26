@@ -448,13 +448,32 @@
             </div>
             <label class="asd-label">Problem <span class="apk-hint" x-show="problemTim(editDlg.c.tim).length" x-text="'problem kategori ' + editDlg.c.tim"></span></label>
             <template x-if="problemTim(editDlg.c.tim).length">
-              <select class="asd-text apk-sel" @change="pilihProblemDd($event.target.value)">
-                <option value="" :selected="!editDlg.lain && !editDlg.keterangan">-- pilih problem --</option>
-                <template x-for="v in problemTim(editDlg.c.tim)" :key="v">
-                  <option :value="v" x-text="v" :selected="!editDlg.lain && editDlg.keterangan === v"></option>
-                </template>
-                <option value="__lain" :selected="editDlg.lain">Lainnya (ketik manual)...</option>
-              </select>
+              <div class="apd" @click.outside="editDlg.dd = false" @keydown.escape.stop="editDlg.dd = false">
+                <button type="button" class="apd-btn" :class="editDlg.dd ? 'open' : ''" @click="bukaDd()">
+                  <span class="apd-val" :class="!editDlg.lain && !editDlg.keterangan ? 'kosong' : ''"
+                        x-text="editDlg.lain ? 'Lainnya (ketik manual)' : (editDlg.keterangan || '-- pilih problem --')"></span>
+                  <svg class="apd-car" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg>
+                </button>
+                <div class="apd-menu" :class="editDlg.atas ? 'atas' : ''" x-show="editDlg.dd" x-transition.opacity.duration.120ms x-cloak>
+                  <div class="apd-cari" x-show="problemTim(editDlg.c.tim).length > 6">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                    <input type="text" class="apd-cari-in" x-model="editDlg.cari" placeholder="Cari problem...">
+                  </div>
+                  <div class="apd-list" :style="'max-height:' + (editDlg.maxList || 216) + 'px'">
+                    <template x-for="v in problemTim(editDlg.c.tim).filter(x => !editDlg.cari || x.toLowerCase().includes(editDlg.cari.toLowerCase()))" :key="v">
+                      <button type="button" class="apd-item" :class="!editDlg.lain && editDlg.keterangan === v ? 'on' : ''" @click="pilihProblemDd(v)">
+                        <span x-text="v"></span>
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                      </button>
+                    </template>
+                    <div class="apd-none" x-show="editDlg.cari && !problemTim(editDlg.c.tim).some(x => x.toLowerCase().includes(editDlg.cari.toLowerCase()))">Tidak ditemukan</div>
+                  </div>
+                  <button type="button" class="apd-item apd-lain" :class="editDlg.lain ? 'on' : ''" @click="pilihProblemDd('__lain')">
+                    <span>&#9998; Lainnya (ketik manual)</span>
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                  </button>
+                </div>
+              </div>
             </template>
             <textarea class="asd-text apk-lain" x-show="editDlg.lain" style="min-height:64px;margin-top:8px;" x-model="editDlg.keterangan" maxlength="200" rows="2" :placeholder="problemTim(editDlg.c.tim).length ? 'Tulis problem lain...' : 'Ketik problem di sini'"></textarea>
             <p class="apk-kosong" x-show="!problemTim(editDlg.c.tim).length">Belum ada daftar problem untuk tim <b x-text="editDlg.c.tim"></b>. Tambahkan di Master Data &rsaquo; Problem Kategori (PIC <span x-text="editDlg.c.tim"></span>).</p>
