@@ -795,9 +795,34 @@ function andonBoard() {
     },
 
     // Edit riwayat: masalah & countermeasure (semua user kecuali guest/viewer)
-    editDlg: { open: false, c: null, keterangan: "", catatan: "", saving: false, error: "" },
-    bukaEdit(c) {
-      this.editDlg = { open: true, c, keterangan: c.keterangan || "", catatan: c.catatan || "", saving: false, error: "" };
+    editDlg: { open: false, c: null, keterangan: "", catatan: "", lain: false, saving: false, error: "" },
+    problemMaster: null,          // dari Master Data > Problem Kategori (downtime_problems)
+    async muatProblemMaster() {
+      if (this.problemMaster) return;
+      try {
+        const { data, error } = await supabaseClient.from("downtime_problems").select("pic, value").order("value");
+        this.problemMaster = error ? [] : (data || []);
+      } catch (e) { this.problemMaster = []; }
+    },
+    problemTim(tim) {
+      const t = String(tim || "").toUpperCase();
+      const seen = new Set();
+      return (this.problemMaster || []).filter((p) => String(p.pic || "").toUpperCase() === t)
+        .map((p) => p.value).filter((v) => v && !seen.has(v) && seen.add(v));
+    },
+    pilihProblem(v) { this.editDlg.keterangan = v; this.editDlg.lain = false; },
+    pilihLain() {
+      const d = this.editDlg;
+      if (this.problemTim(d.c.tim).includes(d.keterangan)) d.keterangan = "";
+      d.lain = true;
+      this.$nextTick(() => { const t = document.querySelector(".apk-lain"); if (t) t.focus(); });
+    },
+    async bukaEdit(c) {
+      await this.muatProblemMaster();
+      const ket = c.keterangan || "";
+      const daftar = this.problemTim(c.tim);
+      this.editDlg = { open: true, c, keterangan: ket, catatan: c.catatan || "",
+        lain: !daftar.length || (ket !== "" && !daftar.includes(ket)), saving: false, error: "" };
     },
     tutupEdit() { if (!this.editDlg.saving) this.editDlg.open = false; },
     async simpanEdit() {

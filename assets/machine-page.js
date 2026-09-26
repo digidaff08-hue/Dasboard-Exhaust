@@ -1929,6 +1929,11 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         pic: this.picOptions.includes(c.tim) ? c.tim : "", waktu_tunggu: "",
         ket: c.keterangan ? "Andon: " + c.keterangan : "Andon", area: "", status: "",
       };
+      // Problem Andon dipilih dari Problem Kategori tim -> langsung terisi di form downtime
+      if (c.keterangan && this.problemsForPic(this.dtForm.pic).some((p) => p.value === c.keterangan)) {
+        this.dtForm.problem = c.keterangan;
+        this.dtForm.ket = "Andon";
+      }
       this.andonSumber = c;
       this.flash("Form Downtime terisi dari panggilan Andon " + c.tim + ". Lengkapi Kategori, Problem, Area & Status, lalu Simpan.");
       this.$nextTick(() => { const f = document.querySelector("form[x-show*='dtState']"); if (f) f.scrollIntoView({ behavior: "smooth", block: "start" }); });

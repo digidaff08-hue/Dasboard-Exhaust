@@ -446,8 +446,23 @@
                 <div><span>Perbaikan</span><b x-text="menit(perbaikanMs(editDlg.c))"></b></div>
               </div>
             </div>
-            <label class="asd-label">Problem</label>
-            <textarea class="asd-text" style="min-height:64px;" x-model="editDlg.keterangan" maxlength="200" rows="2"></textarea>
+            <label class="asd-label">Problem <span class="apk-hint" x-show="problemTim(editDlg.c.tim).length" x-text="'pilih problem ' + editDlg.c.tim"></span></label>
+            <template x-if="problemTim(editDlg.c.tim).length">
+              <div class="apk">
+                <template x-for="v in problemTim(editDlg.c.tim)" :key="v">
+                  <button type="button" class="apk-chip" :class="!editDlg.lain && editDlg.keterangan === v ? 'on' : ''" @click="pilihProblem(v)">
+                    <svg class="apk-cek" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                    <span x-text="v"></span>
+                  </button>
+                </template>
+                <button type="button" class="apk-chip apk-chip-lain" :class="editDlg.lain ? 'on' : ''" @click="pilihLain()">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/></svg>
+                  <span>Lainnya</span>
+                </button>
+              </div>
+            </template>
+            <textarea class="asd-text apk-lain" x-show="editDlg.lain" style="min-height:64px;" x-model="editDlg.keterangan" maxlength="200" rows="2" :placeholder="problemTim(editDlg.c.tim).length ? 'Tulis problem lain...' : 'Ketik problem di sini'"></textarea>
+            <p class="apk-kosong" x-show="!problemTim(editDlg.c.tim).length">Belum ada daftar problem untuk tim <b x-text="editDlg.c.tim"></b>. Tambahkan di Master Data &rsaquo; Problem Kategori (PIC <span x-text="editDlg.c.tim"></span>).</p>
             <label class="asd-label" style="margin-top:12px;">Countermeasure / perbaikan yang dilakukan</label>
             <textarea class="asd-text" x-model="editDlg.catatan" maxlength="300" rows="3"></textarea>
             <template x-if="editDlg.error"><div class="andon-modal-error" x-text="editDlg.error"></div></template>
