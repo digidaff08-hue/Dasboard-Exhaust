@@ -63,7 +63,7 @@ const ANDON_NADA = [
   { kode: "alarm",   label: "Alarm cepat",       ket: "Bip-bip-bip beruntun" },
   { kode: "bel",     label: "Bel",               ket: "Ding-dong, paling halus" },
 ];
-const ANDON_SETTING_DEFAULT = { nada: "telepon", durasi: 30, ulang: 60, volume: 80, layar_panggilan: true, getar: true };
+const ANDON_SETTING_DEFAULT = { nada: "telepon", durasi: 30, ulang: 60, volume: 80, layar_panggilan: true, getar: true, push_ulang: 60, push_ulang_max: 15, eskalasi_menit: 5 };
 
 const AndonSuara = {
   ctx: null, master: null, volume: 0.8,
@@ -524,7 +524,27 @@ function andonBoard() {
       if (sub && Notification.permission === "granted") {
         this.push.status = "aktif";
         try { await AndonPush.simpan(sub); } catch (e) {}   // pastikan tercatat utk akun yang sedang login
-      } else this.push.status = "mati";
+        return;
+      }
+      // Izin sudah pernah diberikan di HP ini -> aktifkan otomatis tanpa tombol
+      if (Notification.permission === "granted" && this.bolehAksi) {
+        try { await AndonPush.aktifkan(); this.push.status = "aktif"; return; } catch (e) {}
+      }
+      this.push.status = "mati";
+      // Belum pernah ditanya -> tampilkan layar aktivasi sekali ketuk
+      let ditunda = false;
+      try { ditunda = sessionStorage.getItem("andonAktivasiNanti") === "1"; } catch (e) {}
+      if (this.bolehAksi && Notification.permission === "default" && !ditunda) this.aktivasiOpen = true;
+    },
+    aktivasiOpen: false,
+    async aktivasiSekarang() {
+      await this.aktifkanPeringatan();            // bunyi (butuh ketukan ini)
+      await this.aktifkanPush();                  // notifikasi HP
+      this.aktivasiOpen = false;
+    },
+    aktivasiNanti() {
+      this.aktivasiOpen = false;
+      try { sessionStorage.setItem("andonAktivasiNanti", "1"); } catch (e) {}
     },
     pushInfo(t, err) {
       this.push.pesan = t; this.push.error = !!err;
@@ -606,12 +626,15 @@ function andonBoard() {
         id: 1, nada: f.nada, durasi: Number(f.durasi) || 0, ulang: Number(f.ulang) || 0,
         volume: Math.max(0, Math.min(100, Number(f.volume) || 0)),
         layar_panggilan: !!f.layar_panggilan, getar: !!f.getar,
+        push_ulang: Number(f.push_ulang) || 0, push_ulang_max: Number(f.push_ulang_max) || 15,
+        eskalasi_menit: Number(f.eskalasi_menit) || 0,
       };
       const { error } = await supabaseClient.from("andon_setting").upsert(row).select("id");
       d.saving = false;
       if (error) {
         d.error = /andon_setting/.test(error.message) && /(exist|schema cache|not find)/i.test(error.message)
           ? "Tabel pengaturan belum dibuat. Jalankan migration_andon_setting.sql di Supabase."
+          : /push_ulang|eskalasi_menit/.test(error.message) ? "Pengaturan ulang/eskalasi belum aktif. Jalankan migration_andon_ulang.sql di Supabase."
           : /row-level security|permission/i.test(error.message) ? "Hanya admin yang bisa mengubah pengaturan." : "Gagal menyimpan: " + error.message;
         return;
       }

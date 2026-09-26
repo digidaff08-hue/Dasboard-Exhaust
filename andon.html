@@ -242,6 +242,18 @@
     </template>
 
 
+    <!-- ===== Aktivasi sekali ketuk (notifikasi HP + bunyi) ===== -->
+    <div class="modal-overlay aakt-overlay" x-show="aktivasiOpen" x-cloak>
+      <div class="panel aakt">
+        <div class="aakt-ic">🔔</div>
+        <h3>Aktifkan notifikasi Andon</h3>
+        <p>Supaya panggilan <b x-text="timKunci || 'supporting'"></b> tetap masuk ke HP ini walau layar mati / terkunci.</p>
+        <p class="aakt-kecil">Cukup sekali. Setelah menekan tombol, pilih <b>Izinkan</b>.</p>
+        <button type="button" class="aakt-btn" :disabled="push.sibuk" @click="aktivasiSekarang()" x-text="push.sibuk ? 'Mengaktifkan...' : 'Aktifkan sekarang'"></button>
+        <button type="button" class="aakt-nanti" @click="aktivasiNanti()">Nanti saja</button>
+      </div>
+    </div>
+
     <!-- ===== Layar PANGGILAN MASUK (seperti telepon masuk) ===== -->
     <template x-if="panggilanMasuk">
       <div class="apm" :style="'--c:' + info(panggilanMasuk.tim).warna">
@@ -328,6 +340,24 @@
 
             <p class="aset-label">Volume <b x-text="settingDlg.form.volume + '%'"></b></p>
             <input type="range" min="10" max="100" step="5" class="aset-range" x-model.number="settingDlg.form.volume" @change="tesNada(settingDlg.form.nada)">
+
+            <p class="aset-label" style="margin-top:16px;">Notifikasi HP (saat layar terkunci)</p>
+            <div class="aset-row">
+              <div>
+                <p class="aset-sub">Kirim ulang kalau belum diterima</p>
+                <select x-model.number="settingDlg.form.push_ulang">
+                  <option value="0">Tidak dikirim ulang</option><option value="30">Tiap 30 detik</option>
+                  <option value="60">Tiap 1 menit</option><option value="120">Tiap 2 menit</option>
+                </select>
+              </div>
+              <div>
+                <p class="aset-sub">Eskalasi ke leader / foreman</p>
+                <select x-model.number="settingDlg.form.eskalasi_menit">
+                  <option value="0">Tanpa eskalasi</option><option value="3">Setelah 3 menit</option>
+                  <option value="5">Setelah 5 menit</option><option value="10">Setelah 10 menit</option><option value="15">Setelah 15 menit</option>
+                </select>
+              </div>
+            </div>
 
             <label class="aset-toggle"><input type="checkbox" x-model="settingDlg.form.layar_panggilan"><span></span>
               <div><b>Layar panggilan masuk</b><small>Tampil penuh seperti telepon masuk, dengan tombol Terima.</small></div></label>

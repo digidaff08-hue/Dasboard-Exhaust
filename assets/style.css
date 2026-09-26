@@ -3410,3 +3410,17 @@ table.plan-shift-table td.balance-bad { color: var(--red); font-weight: 700; }
 .apush-btn.on { background: #dc2626; border-color: #dc2626; color: #fff; box-shadow: 0 6px 14px rgba(220,38,38,.25); }
 .apush-btn.off { border-color: #e2e8f0; color: #64748b; }
 @media (max-width: 800px) { .apush { flex-wrap: wrap; } .apush-act { width: 100%; justify-content: flex-end; } }
+
+/* ---------- Aktivasi sekali ketuk ---------- */
+.aakt-overlay { z-index: 9700; animation: andonLatarMasuk .2s ease-out; }
+.aakt-overlay > .panel.aakt { width: min(420px, calc(100vw - 32px)); padding: 28px 22px 20px; border-radius: 22px; text-align: center;
+  font-family: 'Manrope', var(--font-body); animation: andonNaik .32s cubic-bezier(.2,.9,.3,1.15); }
+.aakt-ic { width: 76px; height: 76px; margin: 0 auto 12px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 36px;
+  background: linear-gradient(135deg, #fee2e2, #fecaca); box-shadow: 0 0 0 10px #fff1f2; animation: andonGoyang 1.2s ease-in-out .3s 2; }
+.aakt h3 { margin: 6px 0 6px; font-size: 20px; font-weight: 800; color: #0f172a; }
+.aakt p { margin: 0 0 6px; font-size: 14px; color: #475569; }
+.aakt-kecil { font-size: 12.5px !important; color: #94a3b8 !important; }
+.aakt-btn { display: block; width: 100%; margin-top: 16px; padding: 15px !important; border-radius: 14px; border: none; cursor: pointer;
+  background: linear-gradient(135deg, #ef4444, #b91c1c); color: #fff; font: inherit; font-size: 16px !important; font-weight: 800; box-shadow: 0 10px 22px rgba(220,38,38,.3); }
+.aakt-nanti { display: block; width: 100%; margin-top: 8px; padding: 10px !important; border: none; background: none; color: #94a3b8; font: inherit; font-size: 13px !important; cursor: pointer; }
+.aset-sub { margin: 0 0 4px; font-size: 11.5px; color: #64748b; font-weight: 600; }
