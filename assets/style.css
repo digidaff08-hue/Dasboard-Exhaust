@@ -3424,3 +3424,9 @@ table.plan-shift-table td.balance-bad { color: var(--red); font-weight: 700; }
   background: linear-gradient(135deg, #ef4444, #b91c1c); color: #fff; font: inherit; font-size: 16px !important; font-weight: 800; box-shadow: 0 10px 22px rgba(220,38,38,.3); }
 .aakt-nanti { display: block; width: 100%; margin-top: 8px; padding: 10px !important; border: none; background: none; color: #94a3b8; font: inherit; font-size: 13px !important; cursor: pointer; }
 .aset-sub { margin: 0 0 4px; font-size: 11.5px; color: #64748b; font-weight: 600; }
+
+/* chip "Notif aktif" di header (pengganti kotak status saat sudah aktif) */
+.ab-hero-btns { flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 800px) {
+  .ab-hero-right .ab-hero-btns { flex-direction: column; align-items: flex-end; gap: 6px; }
+}
