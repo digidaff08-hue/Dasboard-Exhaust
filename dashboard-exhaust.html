@@ -2652,12 +2652,11 @@ function dashboardExhaust() {
     },
     // Dipanggil saat dropdown Bulan/Tahun di tab Kontrol Kualitas berubah.
     onQcPeriodChange() {
-      // Tab Tahunan memakai tahun AWAL fiskal -- bukan tahun kalender.
-      const qcFy = fyStartOf(this.qcYear, this.qcMonth);
-      if (qcFy !== this.tahunanYear) {
-        this.tahunanYear = qcFy;
-        this.tahunanLoaded = false;
-      }
+      // Tab Kontrol Kualitas BERDIRI SENDIRI: ganti Bulan/Tahun di sini
+      // TIDAK ikut mengubah tahun di tab Tahunan. Dulu keduanya disamakan
+      // otomatis (tahunanYear diikutkan ke tahun fiskal pilihan QC), tapi
+      // itu bikin bingung karena tab lain ikut berpindah tanpa diminta.
+      // Tiap tab sekarang punya pilihan periodenya masing-masing.
       // Balik ke mode "sebulan" (ikut bulan+tahun yang baru dipilih), dan
       // isi ulang field tanggal ke tanggal 1 bulan baru itu -- diam-diam,
       // cuma supaya kalender kebuka di bulan yang benar kalau nanti diklik.
