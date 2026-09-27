@@ -1621,10 +1621,23 @@
               </div>
 
               <div class="panel">
-                <p class="panel-title">Downtime Supporting <span class="count">per PIC, per bulan</span></p>
+                <p class="panel-title">Downtime Supporting
+                  <span class="count" x-text="'per PIC, per bulan &middot; ' + (fySuppLine === 'ALL' ? 'Semua Line' : fySuppLine)"></span>
+                </p>
                 <p class="hint" style="margin-bottom:10px;">
                   Isi per bulan. Angka di chart tab Tahunan = <b>jumlah 12 bulan</b> (dihitung otomatis).
+                  <b>Semua Line</b> = angka total pabrik. Rincian per Line hanya perlu diisi kalau ingin
+                  chart Downtime Supporting ikut berubah saat filter Line dipilih di dashboard &mdash;
+                  Line yang dibiarkan kosong akan tampil 0 di chart.
                 </p>
+                <div class="form-grid" style="margin-bottom:10px;">
+                  <div class="field"><label>Rincian untuk</label>
+                    <select x-model="fySuppLine">
+                      <option value="ALL">Semua Line (total pabrik)</option>
+                      <template x-for="m in FY_LINE" :key="'fysl-' + m"><option :value="m" x-text="m"></option></template>
+                    </select>
+                  </div>
+                </div>
                 <div class="md-subtab-nav" style="position:static; margin-bottom:10px;">
                   <button class="btn-secondary btn-sm" :class="fySuppMode === 'act' ? 'md-tab-on' : ''" @click="fySuppMode = 'act'">Actual</button>
                   <button class="btn-secondary btn-sm" :class="fySuppMode === 'plan' ? 'md-tab-on' : ''" @click="fySuppMode = 'plan'">Plan</button>
@@ -1639,7 +1652,7 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <template x-for="r in fySupp" :key="'fys-' + r.bulan">
+                      <template x-for="r in fySuppRows()" :key="'fys-' + fySuppLine + '-' + r.bulan">
                         <tr>
                           <td class="fy-bln" x-text="fyBulanLabel(r.bulan)"></td>
                           <template x-for="k in FY_PIC" :key="'fys-' + r.bulan + '-' + k">
@@ -1653,9 +1666,9 @@
                       <tr class="fy-total-row">
                         <td class="fy-bln">TOTAL</td>
                         <template x-for="k in FY_PIC" :key="'fyst-' + k">
-                          <td x-text="fmtNum(fyKolomTotal(fySupp, k, fySuppMode))"></td>
+                          <td x-text="fmtNum(fyKolomTotal(fySuppRows(), k, fySuppMode))"></td>
                         </template>
-                        <td class="fy-total-col" x-text="fmtNum(fySemuaTotal(fySupp, FY_PIC, fySuppMode))"></td>
+                        <td class="fy-total-col" x-text="fmtNum(fySemuaTotal(fySuppRows(), FY_PIC, fySuppMode))"></td>
                       </tr>
                     </tfoot>
                   </table>
@@ -1790,7 +1803,7 @@ function masterDataPage() {
     fyYear: 2025, fyAktif: true, fyPrev: "",
     fyBulan: [], fySupp: [], fyLine: [],
     fyLoading: false, fyLoaded: false, fySaving: false, fyError: "",
-    fySuppMode: "act", fyLineMode: "act",
+    fySuppMode: "act", fyLineMode: "act", fySuppLine: "ALL",
     FY_PIC: ["PE", "MESIN", "QC", "PC-SUPP", "PROD", "PRESS"],
     FY_LINE: ["E-02", "E-03", "E-04", "E-05", "E-06", "E-07"],
     setTab(tab) {
@@ -3006,20 +3019,26 @@ function masterDataPage() {
         return row;
       });
       // Supporting & Line: 12 baris bulan, tiap baris berisi semua PIC / Line
-      const katMap = new Map((katRes.data || []).map((r) => [r.jenis + "|" + r.kode + "|" + Number(r.bulan), r]));
+      const katMap = new Map((katRes.data || []).map(
+        (r) => [r.jenis + "|" + r.kode + "|" + Number(r.bulan) + "|" + (r.mesin || "ALL"), r]));
       const isi = (v) => (v === null || v === undefined ? "" : v);
-      const buatKat = (jenis, daftar) => Array.from({ length: 12 }, (_, i) => {
+      const buatKat = (jenis, daftar, mesin) => Array.from({ length: 12 }, (_, i) => {
         const bulan = i + 1;
         const nilai = {};
         for (const kode of daftar) {
-          const src = katMap.get(jenis + "|" + kode + "|" + bulan) || {};
+          const src = katMap.get(jenis + "|" + kode + "|" + bulan + "|" + mesin) || {};
           nilai[kode] = { plan: isi(src.plan_menit), act: isi(src.act_menit) };
         }
         return { bulan, nilai };
       });
-      this.fySupp = buatKat("supporting", this.FY_PIC);
-      this.fyLine = buatKat("line", this.FY_LINE);
+      // Supporting punya rincian per Line: "ALL" = total pabrik, sisanya per Line
+      const supp = { ALL: buatKat("supporting", this.FY_PIC, "ALL") };
+      for (const m of this.FY_LINE) supp[m] = buatKat("supporting", this.FY_PIC, m);
+      this.fySupp = supp;
+      this.fyLine = buatKat("line", this.FY_LINE, "ALL");
     },
+    // Baris Supporting untuk Line yang sedang dipilih di dropdown
+    fySuppRows() { return (this.fySupp && this.fySupp[this.fySuppLine]) || []; },
     // Total 1 baris (1 bulan, semua PIC/Line) dan 1 kolom (1 PIC/Line, 12 bulan)
     fyBarisTotal(r, daftar, mode) {
       return daftar.reduce((a, k) => a + (Number(r.nilai[k][mode]) || 0), 0);
@@ -3042,22 +3061,22 @@ function masterDataPage() {
         for (const k of KOLOM) out[k] = angka(r[k]);
         return out;
       });
-      const ratakan = (rows, jenis, daftar) => rows.flatMap((r) =>
+      const ratakan = (rows, jenis, daftar, mesin) => rows.flatMap((r) =>
         daftar.map((kode) => ({
-          fy, jenis, kode, bulan: r.bulan,
+          fy, jenis, kode, bulan: r.bulan, mesin,
           plan_menit: angka(r.nilai[kode].plan),
           act_menit: angka(r.nilai[kode].act),
         })));
       const barisKat = [
-        ...ratakan(this.fySupp, "supporting", this.FY_PIC),
-        ...ratakan(this.fyLine, "line", this.FY_LINE),
+        ...Object.keys(this.fySupp).flatMap((m) => ratakan(this.fySupp[m], "supporting", this.FY_PIC, m)),
+        ...ratakan(this.fyLine, "line", this.FY_LINE, "ALL"),
       ];
       const [h, b, k] = await Promise.all([
         supabaseClient.from("fy_override").upsert(
           { fy, aktif: this.fyAktif === true || this.fyAktif === "true", downtime_fy_prev_menit: angka(this.fyPrev) },
           { onConflict: "fy" }),
         supabaseClient.from("fy_override_bulan").upsert(barisBulan, { onConflict: "fy,bulan" }),
-        supabaseClient.from("fy_override_kategori").upsert(barisKat, { onConflict: "fy,jenis,kode,bulan" }),
+        supabaseClient.from("fy_override_kategori").upsert(barisKat, { onConflict: "fy,jenis,kode,bulan,mesin" }),
       ]);
       this.fySaving = false;
       const err = h.error || b.error || k.error;

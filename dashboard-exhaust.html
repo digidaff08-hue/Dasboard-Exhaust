@@ -3987,12 +3987,17 @@ function dashboardExhaust() {
         const terakhir = (arr) => [...arr].reverse().find((v) => v !== null) ?? 0;
         // Supporting & Line diisi PER BULAN -> angka di chart Tahunan
         // adalah JUMLAH 12 bulan.
-        const katVal = (jenis, kode, field) => {
+        // Supporting juga punya rincian per Line: kalau filter Line aktif,
+        // yang dipakai baris Line itu; kalau "Semua Line", yang dipakai
+        // baris 'ALL' (total pabrik). Downtime Line selalu 'ALL'.
+        const katVal = (jenis, kode, field, mesin) => {
+          const m = mesin || "ALL";
           const total = (raw.ovKategori || [])
-            .filter((x) => x.jenis === jenis && x.kode === kode)
+            .filter((x) => x.jenis === jenis && x.kode === kode && (x.mesin || "ALL") === m)
             .reduce((a, x) => a + (Number(x[field]) || 0), 0);
           return Math.round(total);
         };
+        const mesinSupp = lineFilter === "ALL" ? "ALL" : lineFilter;
 
         const pAct = kolom("productivity_actual");
         const pTgt = kolom("productivity_target").map((v) => (v === null ? 100 : v));
@@ -4022,13 +4027,16 @@ function dashboardExhaust() {
         };
         hasil.downtimeSupporting = {
           labels: PIC_ORDER,
-          plan: PIC_ORDER.map((p) => katVal("supporting", p, "plan_menit")),
-          act: PIC_ORDER.map((p) => katVal("supporting", p, "act_menit")),
+          plan: PIC_ORDER.map((p) => katVal("supporting", p, "plan_menit", mesinSupp)),
+          act: PIC_ORDER.map((p) => katVal("supporting", p, "act_menit", mesinSupp)),
         };
+        // Downtime Line SENGAJA tidak ikut filter -- semua Line tetap
+        // tampil, Line yang dipilih cuma di-highlight (sama seperti
+        // perilaku FY yang memakai data sistem).
         hasil.downtimeLine = {
           labels: lineKeys,
-          plan: lineKeys.map((k) => katVal("line", k, "plan_menit")),
-          act: lineKeys.map((k) => katVal("line", k, "act_menit")),
+          plan: lineKeys.map((k) => katVal("line", k, "plan_menit", "ALL")),
+          act: lineKeys.map((k) => katVal("line", k, "act_menit", "ALL")),
         };
       }
 
