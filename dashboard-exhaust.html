@@ -3443,6 +3443,23 @@ function dashboardExhaust() {
           supabaseClient.from("koefisien_kawat").select("tahun,nilai"),
           supabaseClient.from("productivity_target").select("tahun,bulan,target"),
         ]);
+        // Data manual tab Tahunan (Master Data > Dashboard FY). Kalau FY ini
+        // diaktifkan di sana, SEMUA chart Tahunan memakai angka itu -- bukan
+        // hasil hitungan RPC di atas. Dibungkus try/catch supaya dashboard
+        // tetap jalan normal kalau migration_fy_override.sql belum dijalankan.
+        let ovHead = null, ovBulan = [], ovKategori = [];
+        try {
+          const [hRes, bRes, kRes] = await Promise.all([
+            supabaseClient.from("fy_override").select("*").eq("fy", fyStartYear).maybeSingle(),
+            supabaseClient.from("fy_override_bulan").select("*").eq("fy", fyStartYear).order("bulan"),
+            supabaseClient.from("fy_override_kategori").select("*").eq("fy", fyStartYear),
+          ]);
+          if (!hRes.error && hRes.data && hRes.data.aktif) {
+            ovHead = hRes.data;
+            ovBulan = bRes.data || [];
+            ovKategori = kRes.data || [];
+          }
+        } catch (e) { /* tabel belum ada -> pakai hitungan sistem seperti biasa */ }
         const pvManualRows = pvManualRes.data || [];
         const koefTahun = ((koefRes.data || []).find((r) => Number(r.tahun) === Number(year)) || {}).nilai;
         const PV_EARN = ["earned_massprod", "earned_semi_massprod", "earned_non_massprod"];
@@ -3667,6 +3684,23 @@ function dashboardExhaust() {
           supabaseClient.from("koefisien_kawat").select("tahun,nilai"),
           supabaseClient.from("productivity_target").select("tahun,bulan,target"),
         ]);
+        // Data manual tab Tahunan (Master Data > Dashboard FY). Kalau FY ini
+        // diaktifkan di sana, SEMUA chart Tahunan memakai angka itu -- bukan
+        // hasil hitungan RPC di atas. Dibungkus try/catch supaya dashboard
+        // tetap jalan normal kalau migration_fy_override.sql belum dijalankan.
+        let ovHead = null, ovBulan = [], ovKategori = [];
+        try {
+          const [hRes, bRes, kRes] = await Promise.all([
+            supabaseClient.from("fy_override").select("*").eq("fy", fyStartYear).maybeSingle(),
+            supabaseClient.from("fy_override_bulan").select("*").eq("fy", fyStartYear).order("bulan"),
+            supabaseClient.from("fy_override_kategori").select("*").eq("fy", fyStartYear),
+          ]);
+          if (!hRes.error && hRes.data && hRes.data.aktif) {
+            ovHead = hRes.data;
+            ovBulan = bRes.data || [];
+            ovKategori = kRes.data || [];
+          }
+        } catch (e) { /* tabel belum ada -> pakai hitungan sistem seperti biasa */ }
         // Downtime Terbesar: ikut 1 tahun fiskal yang dipilih (bukan bulan berjalan)
         const topRes = await Promise.all(MACHINES.map((m) =>
           supabaseClient.rpc("dashboard_bulanan_top_problems", { p_mesin: m.key, p_start: fyStart.toISOString(), p_end: fyEnd.toISOString(), p_limit: 5 })
@@ -3706,6 +3740,7 @@ function dashboardExhaust() {
           koefRows: koefRes.data || [],
           targetRows: tgRes.data || [],
           fyStartYear, fyStart, fyEnd, prevFyStart,
+          ovHead, ovBulan, ovKategori,
         };
 
         // Downtime Terbesar per line -- selalu tampilkan 5 baris ke bawah,
@@ -3917,7 +3952,7 @@ function dashboardExhaust() {
         act: lineKeys.map((k) => { const r = raw.lineRows.find((x) => x.mesin === k); return r ? Math.round(Number(r.act_menit)) : 0; }),
       };
 
-      this.tahunan = {
+      const hasil = {
         ...this.tahunan,
         monthLabels: dtExhaustLabels,
         productivity: { value: productivityValue, actual: [null, null, ...productivityActual], target: [null, null, ...productivityTarget] },
@@ -3934,6 +3969,70 @@ function dashboardExhaust() {
         downtimeSupporting,
         downtimeLine,
       };
+
+      // ===== Data manual dari Master Data > Dashboard FY =====
+      // Kalau FY ini diaktifkan di sana, SEMUA chart Tahunan memakai angka
+      // yang diketik manual -- semua hitungan di atas diabaikan. Dipakai
+      // untuk FY lama yang angka sistemnya tidak sama dengan laporan.
+      // Angka manual = total pabrik, jadi tidak ikut filter Line.
+      const ov = raw.ovHead;
+      if (ov) {
+        const angka = (v) => (v === null || v === undefined || v === "" ? null : Number(v));
+        const byBulan = new Map((raw.ovBulan || []).map((r) => [Number(r.bulan), r]));
+        // bulan 1 = April ... 12 = Maret, urutannya sama dengan fyMonths
+        const kolom = (nama) => Array.from({ length: 12 }, (_, i) => {
+          const r = byBulan.get(i + 1);
+          return r ? angka(r[nama]) : null;
+        });
+        const terakhir = (arr) => [...arr].reverse().find((v) => v !== null) ?? 0;
+        // Supporting & Line diisi PER BULAN -> angka di chart Tahunan
+        // adalah JUMLAH 12 bulan.
+        const katVal = (jenis, kode, field) => {
+          const total = (raw.ovKategori || [])
+            .filter((x) => x.jenis === jenis && x.kode === kode)
+            .reduce((a, x) => a + (Number(x[field]) || 0), 0);
+          return Math.round(total);
+        };
+
+        const pAct = kolom("productivity_actual");
+        const pTgt = kolom("productivity_target").map((v) => (v === null ? 100 : v));
+        const aAct = kolom("availability_actual");
+        const ngQ = kolom("ng_qty"), ngV = kolom("ng_value");
+        const spA = kolom("sp_actual"), spQ = kolom("sp_qty"), spR = kolom("sp_repair_qty");
+        const dtE = kolom("downtime_exhaust_menit");
+        const fyTotal = dtE.reduce((a, v) => a + (v || 0), 0);
+
+        hasil.productivity = { value: terakhir(pAct), actual: [null, null, ...pAct], target: [null, null, ...pTgt] };
+        hasil.availability = { value: terakhir(aAct), actual: [null, null, ...aAct], target: null };
+        hasil.ngInline = {
+          qty: terakhir(ngQ), value: terakhir(ngV),
+          qtyByMonth: [null, null, ...ngQ], valueByMonth: [null, null, ...ngV],
+        };
+        hasil.straightpass = {
+          value: terakhir(spA), actual: [null, null, ...spA],
+          qty: [null, null, ...spQ], repairQty: [null, null, ...spR], target: 95,
+        };
+        hasil.downtimeExhaust = {
+          labels: dtExhaustLabels,
+          values: [
+            Math.round(Number(ov.downtime_fy_prev_menit) || 0),
+            Math.round(fyTotal),
+            ...dtE.map((v) => (v === null ? 0 : Math.round(v))),
+          ],
+        };
+        hasil.downtimeSupporting = {
+          labels: PIC_ORDER,
+          plan: PIC_ORDER.map((p) => katVal("supporting", p, "plan_menit")),
+          act: PIC_ORDER.map((p) => katVal("supporting", p, "act_menit")),
+        };
+        hasil.downtimeLine = {
+          labels: lineKeys,
+          plan: lineKeys.map((k) => katVal("line", k, "plan_menit")),
+          act: lineKeys.map((k) => katVal("line", k, "act_menit")),
+        };
+      }
+
+      this.tahunan = hasil;
     },
     // ---- Helper baru khusus redesign Tahunan (Smart Narrative) ----
     // Semua fungsi di bawah ini murni presentasi: membaca this.tahunan yang

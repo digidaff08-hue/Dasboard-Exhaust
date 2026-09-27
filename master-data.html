@@ -231,6 +231,25 @@
     padding-top: 14px; margin-top: 16px;
     display: flex; gap: 8px; flex-wrap: wrap;
   }
+
+  /* ---------- Tab Dashboard FY: tabel input angka manual ---------- */
+  .fy-tbl { width: 100%; border-collapse: collapse; }
+  .fy-tbl th { font-size: 11px; letter-spacing: .02em; text-transform: uppercase;
+    white-space: nowrap; padding: 8px 6px; text-align: center; }
+  .fy-tbl td { padding: 4px 5px; text-align: center; }
+  .fy-tbl td.fy-bln { text-align: left; font-weight: 700; white-space: nowrap;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+  .fy-tbl input { width: 100%; min-width: 78px; max-width: 120px; text-align: right;
+    padding: 7px 8px !important; font-size: 13px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .fy-tbl tfoot .fy-total-row td { font-weight: 800; border-top: 2px solid var(--border, #E2E8F0);
+    padding: 9px 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+  .fy-tbl .fy-total-col { font-weight: 700; background: rgba(148,163,184,.10);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+  .fy-wrap { max-height: none !important; overflow-y: visible !important; }
+  .dxy-fy-dua { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .dxy-fy-dua { grid-template-columns: 1fr; } }
+
 </style>
 
 <script>
@@ -299,6 +318,7 @@
           <button class="btn-secondary btn-sm" :class="activeTab === 'cuti' ? 'md-tab-on' : ''" @click="setTab('cuti')">Cuti</button>
           <button class="btn-secondary btn-sm" :class="activeTab === 'karyawan' ? 'md-tab-on' : ''" @click="setTab('karyawan')">Data Karyawan</button>
           <button class="btn-secondary btn-sm" :class="activeTab === 'supporting' ? 'md-tab-on' : ''" @click="setTab('supporting')">Data Supporting</button>
+          <button class="btn-secondary btn-sm" :class="activeTab === 'fy' ? 'md-tab-on' : ''" @click="setTab('fy')">Dashboard FY</button>
         </div>
 
         <!-- ===== TAB: ATTENDANCE ===== -->
@@ -1516,6 +1536,185 @@
             </template>
           </div>
         </template>
+
+        <!-- ===== TAB: DASHBOARD FY =====
+             Angka manual untuk tab Tahunan di Dashboard Exhaust. Kalau
+             saklar "Pakai data manual" menyala, SEMUA chart tab Tahunan
+             untuk FY itu memakai angka di sini -- bukan hasil hitungan
+             sistem (RPC) lagi. Dipakai kalau angka sistem tidak sama
+             dengan angka actual di laporan. -->
+        <template x-if="activeTab === 'fy'">
+          <div>
+            <div class="panel">
+              <p class="panel-title">Dashboard FY &mdash; Data Manual Tab Tahunan</p>
+              <p class="hint" style="margin-bottom:14px;">
+                Isi angka <b>actual</b> versi laporan di sini. Kalau saklar di bawah menyala,
+                tab <b>Tahunan</b> di Dashboard Exhaust memakai angka ini apa adanya untuk FY
+                yang dipilih &mdash; tidak dihitung ulang dari data harian.
+                <b>FY 2025</b> = April 2025 sampai Maret 2026.
+                Kolom yang dikosongkan akan tampil kosong di chart (bukan nol).
+                Angka ini total pabrik, tidak ikut filter Line di dashboard.
+              </p>
+
+              <div class="form-grid" style="margin-bottom:6px;">
+                <div class="field"><label>Tahun Fiskal</label>
+                  <select x-model.number="fyYear" @change="fetchFy()">
+                    <template x-for="y in kwYearOptions" :key="'fy-th-'+y"><option :value="y" x-text="'FY ' + y"></option></template>
+                  </select>
+                </div>
+                <div class="field"><label>Pakai data manual?</label>
+                  <select x-model="fyAktif">
+                    <option :value="true">Ya &mdash; pakai angka di halaman ini</option>
+                    <option :value="false">Tidak &mdash; pakai hitungan sistem</option>
+                  </select>
+                </div>
+                <div class="field"><label>Downtime Exhaust FY sebelumnya (menit)</label>
+                  <input type="number" step="any" x-model="fyPrev" placeholder="mis. 124500">
+                </div>
+              </div>
+
+              <p class="hint" x-show="fyError" style="color:var(--danger, #DC2626); font-weight:600; margin-bottom:10px;" x-text="fyError"></p>
+              <template x-if="fyLoading"><p class="empty-state">Memuat data FY...</p></template>
+            </div>
+
+            <template x-if="!fyLoading">
+            <div>
+              <div class="panel">
+                <p class="panel-title">Angka per Bulan <span class="count" x-text="'FY ' + fyYear"></span></p>
+                <p class="hint" style="margin-bottom:12px;">
+                  Urutan bulan mengikuti tahun fiskal: April di paling atas, Maret di paling bawah.
+                </p>
+                <div class="table-wrap fy-wrap">
+                  <table class="fy-tbl">
+                    <thead>
+                      <tr>
+                        <th style="min-width:104px">Bulan</th>
+                        <th>Productivity&nbsp;%</th>
+                        <th>Target Prod.&nbsp;%</th>
+                        <th>Availability&nbsp;%</th>
+                        <th>NG Qty</th>
+                        <th>NG Value&nbsp;(Rp)</th>
+                        <th>Straight Pass&nbsp;%</th>
+                        <th>Stroke</th>
+                        <th>Qty Repair</th>
+                        <th>Downtime&nbsp;(mnt)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="r in fyBulan" :key="'fyb-' + r.bulan">
+                        <tr>
+                          <td class="fy-bln" x-text="fyBulanLabel(r.bulan)"></td>
+                          <td><input type="number" step="any" x-model="r.productivity_actual"></td>
+                          <td><input type="number" step="any" x-model="r.productivity_target"></td>
+                          <td><input type="number" step="any" x-model="r.availability_actual"></td>
+                          <td><input type="number" step="any" x-model="r.ng_qty"></td>
+                          <td><input type="number" step="any" x-model="r.ng_value"></td>
+                          <td><input type="number" step="any" x-model="r.sp_actual"></td>
+                          <td><input type="number" step="any" x-model="r.sp_qty"></td>
+                          <td><input type="number" step="any" x-model="r.sp_repair_qty"></td>
+                          <td><input type="number" step="any" x-model="r.downtime_exhaust_menit"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="panel">
+                <p class="panel-title">Downtime Supporting <span class="count">per PIC, per bulan</span></p>
+                <p class="hint" style="margin-bottom:10px;">
+                  Isi per bulan. Angka di chart tab Tahunan = <b>jumlah 12 bulan</b> (dihitung otomatis).
+                </p>
+                <div class="md-subtab-nav" style="position:static; margin-bottom:10px;">
+                  <button class="btn-secondary btn-sm" :class="fySuppMode === 'act' ? 'md-tab-on' : ''" @click="fySuppMode = 'act'">Actual</button>
+                  <button class="btn-secondary btn-sm" :class="fySuppMode === 'plan' ? 'md-tab-on' : ''" @click="fySuppMode = 'plan'">Plan</button>
+                </div>
+                <div class="table-wrap fy-wrap">
+                  <table class="fy-tbl">
+                    <thead>
+                      <tr>
+                        <th style="min-width:104px">Bulan</th>
+                        <template x-for="k in FY_PIC" :key="'fysh-' + k"><th x-text="k"></th></template>
+                        <th class="fy-total-col">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="r in fySupp" :key="'fys-' + r.bulan">
+                        <tr>
+                          <td class="fy-bln" x-text="fyBulanLabel(r.bulan)"></td>
+                          <template x-for="k in FY_PIC" :key="'fys-' + r.bulan + '-' + k">
+                            <td><input type="number" step="any" x-model="r.nilai[k][fySuppMode]"></td>
+                          </template>
+                          <td class="fy-total-col" x-text="fmtNum(fyBarisTotal(r, FY_PIC, fySuppMode))"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                    <tfoot>
+                      <tr class="fy-total-row">
+                        <td class="fy-bln">TOTAL</td>
+                        <template x-for="k in FY_PIC" :key="'fyst-' + k">
+                          <td x-text="fmtNum(fyKolomTotal(fySupp, k, fySuppMode))"></td>
+                        </template>
+                        <td class="fy-total-col" x-text="fmtNum(fySemuaTotal(fySupp, FY_PIC, fySuppMode))"></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+
+              <div class="panel">
+                <p class="panel-title">Downtime Line <span class="count">per Line, per bulan</span></p>
+                <p class="hint" style="margin-bottom:10px;">
+                  Isi per bulan. Angka di chart tab Tahunan = <b>jumlah 12 bulan</b> (dihitung otomatis).
+                </p>
+                <div class="md-subtab-nav" style="position:static; margin-bottom:10px;">
+                  <button class="btn-secondary btn-sm" :class="fyLineMode === 'act' ? 'md-tab-on' : ''" @click="fyLineMode = 'act'">Actual</button>
+                  <button class="btn-secondary btn-sm" :class="fyLineMode === 'plan' ? 'md-tab-on' : ''" @click="fyLineMode = 'plan'">Plan</button>
+                </div>
+                <div class="table-wrap fy-wrap">
+                  <table class="fy-tbl">
+                    <thead>
+                      <tr>
+                        <th style="min-width:104px">Bulan</th>
+                        <template x-for="k in FY_LINE" :key="'fylh-' + k"><th x-text="k"></th></template>
+                        <th class="fy-total-col">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="r in fyLine" :key="'fyl-' + r.bulan">
+                        <tr>
+                          <td class="fy-bln" x-text="fyBulanLabel(r.bulan)"></td>
+                          <template x-for="k in FY_LINE" :key="'fyl-' + r.bulan + '-' + k">
+                            <td><input type="number" step="any" x-model="r.nilai[k][fyLineMode]"></td>
+                          </template>
+                          <td class="fy-total-col" x-text="fmtNum(fyBarisTotal(r, FY_LINE, fyLineMode))"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                    <tfoot>
+                      <tr class="fy-total-row">
+                        <td class="fy-bln">TOTAL</td>
+                        <template x-for="k in FY_LINE" :key="'fylt-' + k">
+                          <td x-text="fmtNum(fyKolomTotal(fyLine, k, fyLineMode))"></td>
+                        </template>
+                        <td class="fy-total-col" x-text="fmtNum(fySemuaTotal(fyLine, FY_LINE, fyLineMode))"></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+
+              <div class="panel">
+                <div class="form-actions">
+                  <button type="button" class="btn-primary" @click="saveFy()" :disabled="fySaving"
+                          x-text="fySaving ? 'Menyimpan...' : 'Simpan Data FY'"></button>
+                  <button type="button" class="btn-secondary" @click="fetchFy()" :disabled="fySaving">Muat Ulang</button>
+                </div>
+              </div>
+            </div>
+            </template>
+          </div>
+        </template>
       </div>
     </template>
   </main>
@@ -1587,6 +1786,13 @@ function masterDataPage() {
     spList: [], spLoading: false, spLoaded: false, spCari: "", spError: "",
     spForm: { nik: "", nama: "", tim: "" }, spSaving: false,
     spTimList: ["MESIN", "DIES", "PE", "QC", "PC-SUPP", "PRESS"],
+    // ---- Dashboard FY (data manual tab Tahunan) ----
+    fyYear: 2025, fyAktif: true, fyPrev: "",
+    fyBulan: [], fySupp: [], fyLine: [],
+    fyLoading: false, fyLoaded: false, fySaving: false, fyError: "",
+    fySuppMode: "act", fyLineMode: "act",
+    FY_PIC: ["PE", "MESIN", "QC", "PC-SUPP", "PROD", "PRESS"],
+    FY_LINE: ["E-02", "E-03", "E-04", "E-05", "E-06", "E-07"],
     setTab(tab) {
       this.activeTab = tab;
       // Data Productivity baru ditarik saat tabnya dibuka (bukan di init())
@@ -1596,6 +1802,7 @@ function masterDataPage() {
       if (tab === "cuti" && !this.ctLoaded) { this.ctLoaded = true; this.fetchCuti(); }
       if (tab === "karyawan" && !this.mkLoaded) { this.mkLoaded = true; this.fetchMkList(); }
       if (tab === "supporting" && !this.spLoaded) { this.spLoaded = true; this.fetchSpList(); }
+      if (tab === "fy" && !this.fyLoaded) { this.fyLoaded = true; this.fetchFy(); }
     },
     // Sub-tombol di dalam tab Attendance: "mp" | "overtime" | "shift2" | "libur" | "ganti"
     atSub: "mp",
@@ -2761,6 +2968,103 @@ function masterDataPage() {
     },
     // opts.diam = true -> disegarkan diam-diam (realtime), tanpa tulisan
     // "Memuat..." yang membuat tabel berkedip.
+    // ---- Dashboard FY: angka manual untuk tab Tahunan ----
+    // bulan 1 = April (tahun FY), ... , bulan 12 = Maret (tahun FY + 1)
+    fyBulanLabel(bulan) {
+      const idx = (3 + (Number(bulan) - 1)) % 12;              // 3 = April
+      const th = this.fyYear + (3 + Number(bulan) - 1 >= 12 ? 1 : 0);
+      return this.BULAN_LABELS[idx].slice(0, 3) + " " + th;
+    },
+    async fetchFy() {
+      this.fyLoading = true; this.fyError = "";
+      const fy = this.fyYear;
+      const [headRes, blnRes, katRes] = await Promise.all([
+        supabaseClient.from("fy_override").select("*").eq("fy", fy).maybeSingle(),
+        supabaseClient.from("fy_override_bulan").select("*").eq("fy", fy).order("bulan"),
+        supabaseClient.from("fy_override_kategori").select("*").eq("fy", fy),
+      ]);
+      this.fyLoading = false;
+      const err = headRes.error || blnRes.error || katRes.error;
+      if (err) {
+        this.fyError = /fy_override/.test(err.message)
+          ? "Tabel data FY belum ada. Jalankan migration_fy_override.sql di Supabase SQL Editor."
+          : "Gagal memuat: " + err.message;
+        return;
+      }
+      const head = headRes.data;
+      this.fyAktif = head ? !!head.aktif : true;
+      this.fyPrev = head && head.downtime_fy_prev_menit !== null && head.downtime_fy_prev_menit !== undefined
+        ? head.downtime_fy_prev_menit : "";
+      // 12 bulan selalu ditampilkan, walau barisnya belum ada di database
+      const KOLOM = ["productivity_actual", "productivity_target", "availability_actual",
+        "ng_qty", "ng_value", "sp_actual", "sp_qty", "sp_repair_qty", "downtime_exhaust_menit"];
+      const blnMap = new Map((blnRes.data || []).map((r) => [Number(r.bulan), r]));
+      this.fyBulan = Array.from({ length: 12 }, (_, i) => {
+        const src = blnMap.get(i + 1) || {};
+        const row = { bulan: i + 1 };
+        for (const k of KOLOM) row[k] = src[k] === null || src[k] === undefined ? "" : src[k];
+        return row;
+      });
+      // Supporting & Line: 12 baris bulan, tiap baris berisi semua PIC / Line
+      const katMap = new Map((katRes.data || []).map((r) => [r.jenis + "|" + r.kode + "|" + Number(r.bulan), r]));
+      const isi = (v) => (v === null || v === undefined ? "" : v);
+      const buatKat = (jenis, daftar) => Array.from({ length: 12 }, (_, i) => {
+        const bulan = i + 1;
+        const nilai = {};
+        for (const kode of daftar) {
+          const src = katMap.get(jenis + "|" + kode + "|" + bulan) || {};
+          nilai[kode] = { plan: isi(src.plan_menit), act: isi(src.act_menit) };
+        }
+        return { bulan, nilai };
+      });
+      this.fySupp = buatKat("supporting", this.FY_PIC);
+      this.fyLine = buatKat("line", this.FY_LINE);
+    },
+    // Total 1 baris (1 bulan, semua PIC/Line) dan 1 kolom (1 PIC/Line, 12 bulan)
+    fyBarisTotal(r, daftar, mode) {
+      return daftar.reduce((a, k) => a + (Number(r.nilai[k][mode]) || 0), 0);
+    },
+    fyKolomTotal(rows, kode, mode) {
+      return rows.reduce((a, r) => a + (Number(r.nilai[kode][mode]) || 0), 0);
+    },
+    fySemuaTotal(rows, daftar, mode) {
+      return rows.reduce((a, r) => a + this.fyBarisTotal(r, daftar, mode), 0);
+    },
+    async saveFy() {
+      this.fySaving = true; this.fyError = "";
+      const fy = this.fyYear;
+      // "" -> null supaya chart bisa membedakan "kosong" dengan "nol"
+      const angka = (v) => (v === "" || v === null || v === undefined || Number.isNaN(Number(v)) ? null : Number(v));
+      const KOLOM = ["productivity_actual", "productivity_target", "availability_actual",
+        "ng_qty", "ng_value", "sp_actual", "sp_qty", "sp_repair_qty", "downtime_exhaust_menit"];
+      const barisBulan = this.fyBulan.map((r) => {
+        const out = { fy, bulan: r.bulan };
+        for (const k of KOLOM) out[k] = angka(r[k]);
+        return out;
+      });
+      const ratakan = (rows, jenis, daftar) => rows.flatMap((r) =>
+        daftar.map((kode) => ({
+          fy, jenis, kode, bulan: r.bulan,
+          plan_menit: angka(r.nilai[kode].plan),
+          act_menit: angka(r.nilai[kode].act),
+        })));
+      const barisKat = [
+        ...ratakan(this.fySupp, "supporting", this.FY_PIC),
+        ...ratakan(this.fyLine, "line", this.FY_LINE),
+      ];
+      const [h, b, k] = await Promise.all([
+        supabaseClient.from("fy_override").upsert(
+          { fy, aktif: this.fyAktif === true || this.fyAktif === "true", downtime_fy_prev_menit: angka(this.fyPrev) },
+          { onConflict: "fy" }),
+        supabaseClient.from("fy_override_bulan").upsert(barisBulan, { onConflict: "fy,bulan" }),
+        supabaseClient.from("fy_override_kategori").upsert(barisKat, { onConflict: "fy,jenis,kode,bulan" }),
+      ]);
+      this.fySaving = false;
+      const err = h.error || b.error || k.error;
+      if (err) { this.fyError = "Gagal menyimpan: " + err.message; return; }
+      this.flash("Data FY " + fy + " tersimpan. Buka Dashboard Exhaust > Tahunan untuk melihat hasilnya.");
+    },
+
     // ---- Data Karyawan (tabel karyawan_master) ----
     async fetchMkList() {
       this.mkLoading = true; this.mkError = "";
