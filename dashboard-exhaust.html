@@ -832,6 +832,14 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
   .dxy-attn-card { max-width: 100%; }
   .dxy-attn-stat-row { grid-template-columns: repeat(3, 1fr); }
 }
+/* ---- Pesan saat rincian per Line Downtime Supporting belum diisi ---- */
+.dxy-supp-kosong { position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 6px; text-align: center; padding: 14px;
+  background: var(--panel, #fff); border-radius: 10px; }
+.dxy-supp-kosong b { color: var(--text, #0F172A); }
+.dxy-supp-kosong > b:first-child { font-size: 13.5px; }
+.dxy-supp-kosong span { font-size: 11.5px; line-height: 1.5; color: var(--muted, #64748B); max-width: 280px; }
+
 /* ---- Chart "Rekap Tahunan" (tab Kontrol Attendance -> Tahunan): lebih
    sempit (tidak full-width) & lebih tinggi dari box chart standar. Rule
    ini sengaja ditaruh PALING AKHIR supaya menang dari override
@@ -1007,8 +1015,8 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
               <div class="dxy-field">
                 <label>Bulan</label>
                 <select class="dxy-select" x-model.number="bulananMonth" @change="onBulananPeriodChange()">
-                  <template x-for="(nm, i) in BULAN_LABELS" :key="'bm-'+i">
-                    <option :value="i+1" x-text="nm"></option>
+                  <template x-for="b in BULAN_FY" :key="'bm-'+b.n">
+                    <option :value="b.n" x-text="b.nm"></option>
                   </template>
                 </select>
               </div>
@@ -1237,7 +1245,17 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
               </div>
               <div class="dxy-panel dxy-span-3">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">🧑‍🔧 Downtime Supporting</span></div>
-                <div class="dxy-chart-box tall"><canvas id="dxyDowntimeSupporting"></canvas></div>
+                <div class="dxy-chart-box tall" style="position:relative;">
+                  <canvas id="dxyDowntimeSupporting"></canvas>
+                  <div class="dxy-supp-kosong" x-show="dxySuppKosong()" x-cloak>
+                    <b>Rincian per Line belum diisi</b>
+                    <span>FY <span x-text="tahunanYear"></span> memakai data manual, dan rincian
+                      <b x-text="dxyLineFilter"></b> belum ada isinya.</span>
+                    <span>Isi di <b>Master Data &rsaquo; Dashboard FY &rsaquo; Downtime Supporting</b>,
+                      pilih <b>Rincian untuk: <span x-text="dxyLineFilter"></span></b>.</span>
+                    <span>Pilih <b>Semua Line</b> untuk melihat angka total pabrik.</span>
+                  </div>
+                </div>
               </div>
               <div class="dxy-panel dxy-span-3">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">🏭 Downtime Line</span></div>
@@ -1391,8 +1409,8 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
             <div class="dxy-field">
               <label>Bulan</label>
               <select class="dxy-select" x-model.number="qcMonth" @change="onQcPeriodChange()">
-                <template x-for="(nm, i) in BULAN_LABELS" :key="'qm-'+i">
-                  <option :value="i+1" x-text="nm"></option>
+                <template x-for="b in BULAN_FY" :key="'qm-'+b.n">
+                  <option :value="b.n" x-text="b.nm"></option>
                 </template>
               </select>
             </div>
@@ -1623,8 +1641,8 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
             <div class="dxy-field" x-show="attendanceViewMode === 'bulanan'">
               <label>Bulan</label>
               <select class="dxy-select" x-model.number="attendanceMonth" @change="onAttendancePeriodChange()">
-                <template x-for="(nm, i) in BULAN_LABELS" :key="'atm-'+i">
-                  <option :value="i+1" x-text="nm"></option>
+                <template x-for="b in BULAN_FY" :key="'atm-'+b.n">
+                  <option :value="b.n" x-text="b.nm"></option>
                 </template>
               </select>
             </div>
@@ -2080,6 +2098,10 @@ const MACHINES = [
 ];
 
 const BULAN_LABELS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+// Urutan tahun fiskal: April di paling atas, Maret di paling bawah.
+// Isinya tetap nomor bulan kalender 1-12 -- cuma URUTAN TAMPILnya yang
+// berubah, jadi arti tiap pilihan sama sekali tidak berubah.
+const BULAN_FY = [4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3].map((n) => ({ n, nm: BULAN_LABELS[n - 1] }));
 // Daftar tetap Line & Model untuk chart Perline/Model di tab Kontrol Kualitas
 const QC_LINES = ["E-02", "E-03", "E-04", "E-05", "E-06", "E-07"];
 const QC_MODELS = ["YR9", "YHA", "K15B", "K15C", "D98E", "889F", "D13", "D73F", "D40"];
@@ -3627,6 +3649,33 @@ function dashboardExhaust() {
             return Math.round(sum);
           }),
         };
+        // Kalau FY ini memakai data manual (Master Data > Dashboard FY),
+        // chart Downtime Exhaust di sini ikut memakai angka manual itu juga
+        // -- supaya sama persis dengan tab Tahunan.
+        //   Semua Line -> angka bulanan di fy_override_bulan
+        //   1 Line     -> dijumlah dari fy_override_kategori (jenis 'line')
+        try {
+          const { data: ovH } = await supabaseClient
+            .from("fy_override").select("*").eq("fy", fyStartYear).maybeSingle();
+          if (ovH && ovH.aktif) {
+            if (!mesinFilter) {
+              const { data: ovB } = await supabaseClient
+                .from("fy_override_bulan").select("bulan,downtime_exhaust_menit").eq("fy", fyStartYear);
+              const peta = new Map((ovB || []).map((r) => [Number(r.bulan), r.downtime_exhaust_menit]));
+              downtimeExhaust.values = fyMonths.map((_, i) => {
+                const v = peta.get(i + 1);
+                return v === null || v === undefined ? 0 : Math.round(Number(v));
+              });
+            } else {
+              const { data: ovK } = await supabaseClient
+                .from("fy_override_kategori").select("bulan,act_menit")
+                .eq("fy", fyStartYear).eq("jenis", "line").eq("kode", mesinFilter);
+              const peta = new Map();
+              for (const r of ovK || []) peta.set(Number(r.bulan), (peta.get(Number(r.bulan)) || 0) + (Number(r.act_menit) || 0));
+              downtimeExhaust.values = fyMonths.map((_, i) => Math.round(peta.get(i + 1) || 0));
+            }
+          }
+        } catch (e) { /* tabel belum ada -> pakai angka sistem seperti biasa */ }
 
         this.bulanan = {
           dayLabels,
@@ -3722,6 +3771,18 @@ function dashboardExhaust() {
         const downtimeActPerLineRes = await Promise.all(MACHINES.map((m) =>
           supabaseClient.rpc("dashboard_tahunan_downtime_act_by_pic_perline", { p_mesin: m.key, p_start: fyStart.toISOString(), p_end: fyEnd.toISOString() })
         ));
+        // Downtime Exhaust: SENGAJA memakai RPC HARIAN (dashboard_harian_produksi),
+        // sumber yang PERSIS SAMA dengan chart Downtime Exhaust di tab Kontrol
+        // Downtime -- supaya angkanya tidak beda antara dua tab. Diambil 1 RPC
+        // per Line supaya bisa ikut filter Line tanpa refetch.
+        // Panggilan pertama p_mesin = null: PERSIS seperti yang dilakukan tab
+        // Kontrol Downtime waktu filter Line = "Semua Line", supaya angkanya
+        // dijamin identik (bukan hasil menjumlah 6 Line sendiri).
+        const dtExhaustAllRes = await supabaseClient.rpc("dashboard_harian_produksi",
+          { p_start: fyStart.toISOString(), p_end: fyEnd.toISOString(), p_mesin: null });
+        const dtExhaustPerLineRes = await Promise.all(MACHINES.map((m) =>
+          supabaseClient.rpc("dashboard_harian_produksi", { p_start: fyStart.toISOString(), p_end: fyEnd.toISOString(), p_mesin: m.key })
+        ));
 
         // Simpan semua data MENTAH (per bulan+mesin, atau per-line) supaya
         // bisa dihitung ulang tiap kali dxyLineFilter berubah TANPA refetch
@@ -3732,6 +3793,8 @@ function dashboardExhaust() {
           repairMonthRows: repairMonthRes.data || [],
           planByPic: planByPicRes.data || [],
           actByPicPerLine: MACHINES.map((m, idx) => ({ mesin: m.key, rows: (downtimeActPerLineRes[idx] && downtimeActPerLineRes[idx].data) || [] })),
+          dtExhaustAll: (dtExhaustAllRes && dtExhaustAllRes.data) || [],
+          dtExhaustPerLine: MACHINES.map((m, idx) => ({ mesin: m.key, rows: (dtExhaustPerLineRes[idx] && dtExhaustPerLineRes[idx].data) || [] })),
           lineRows: lineRes.data || [],
           // Productivity manual (Master Data > tab Productivity) + koefisien
           // per tahun. Dipakai chart Productivity di tab Tahunan: tiap bulan
@@ -3918,10 +3981,22 @@ function dashboardExhaust() {
 
       // Downtime Exhaust: FY-1, FY, lalu 12 bulan Apr..Mar
       const dtExhaustLabels = ["FY " + fyStartYear, "FY " + (fyStartYear + 1), ...fyMonths.map((d) => monthLabelId[d.getMonth()])];
+      // Dijumlah dari baris HARIAN (dashboard_harian_produksi) -- sumber yang
+      // sama dengan tab Kontrol Downtime, supaya angkanya tidak beda.
+      const dtRowsFilter = lineFilter === "ALL"
+        ? (raw.dtExhaustAll || [])
+        : (((raw.dtExhaustPerLine || []).find((x) => x.mesin === lineFilter) || { rows: [] }).rows);
+      const dtExhaustBulan = fyMonths.map((d) => {
+        const y = d.getFullYear(), m = d.getMonth();
+        const sum = dtRowsFilter
+          .filter((r) => { const rd = new Date(r.tanggal + "T00:00:00"); return rd.getFullYear() === y && rd.getMonth() === m; })
+          .reduce((a, r) => a + (Number(r.downtime_menit) || 0), 0);
+        return Math.round(sum);
+      });
       const dtExhaustValues = [
         Math.round(sumInRange(prodRows, prevFyStart, fyStart, "downtime_menit")),
-        Math.round(sumInRange(prodRows, fyStart, fyEnd, "downtime_menit")),
-        ...fyMonths.map((d) => { const r = findRow(prodRows, d); return r ? Math.round(Number(r.downtime_menit)) : 0; }),
+        dtExhaustBulan.reduce((a, v) => a + v, 0),
+        ...dtExhaustBulan,
       ];
 
       // Downtime Supporting (by PIC): Plan/Target TETAP total pabrik (tidak
@@ -4017,12 +4092,23 @@ function dashboardExhaust() {
           value: terakhir(spA), actual: [null, null, ...spA],
           qty: [null, null, ...spQ], repairQty: [null, null, ...spR], target: 95,
         };
+        // Filter Line aktif -> pakai angka per Line (fy_override_kategori,
+        // jenis 'line'), sama seperti tab Kontrol Downtime. "Semua Line" ->
+        // pakai angka bulanan total pabrik.
+        const dtBulanOv = lineFilter === "ALL"
+          ? dtE.map((v) => (v === null ? 0 : Math.round(v)))
+          : Array.from({ length: 12 }, (_, i) => {
+              const r = (raw.ovKategori || []).find((x) =>
+                x.jenis === "line" && x.kode === lineFilter &&
+                Number(x.bulan) === i + 1 && (x.mesin || "ALL") === "ALL");
+              return r && r.act_menit !== null && r.act_menit !== undefined ? Math.round(Number(r.act_menit)) : 0;
+            });
         hasil.downtimeExhaust = {
           labels: dtExhaustLabels,
           values: [
             Math.round(Number(ov.downtime_fy_prev_menit) || 0),
-            Math.round(fyTotal),
-            ...dtE.map((v) => (v === null ? 0 : Math.round(v))),
+            dtBulanOv.reduce((a, v) => a + v, 0),
+            ...dtBulanOv,
           ],
         };
         hasil.downtimeSupporting = {
@@ -4045,6 +4131,16 @@ function dashboardExhaust() {
     // ---- Helper baru khusus redesign Tahunan (Smart Narrative) ----
     // Semua fungsi di bawah ini murni presentasi: membaca this.tahunan yang
     // sudah di-fetch, tidak melakukan query/RPC baru sama sekali.
+    // true = chart Downtime Supporting kosong KARENA rincian per Line
+    // pada FY yang memakai data manual belum diisi (bukan karena error).
+    dxySuppKosong() {
+      const t = this.tahunan || {};
+      const s = t.downtimeSupporting;
+      if (!s || !Array.isArray(s.act)) return false;
+      if (this.dxyLineFilter === "ALL") return false;
+      if (!(this.tahunanRaw && this.tahunanRaw.ovHead)) return false;   // FY data sistem -> bukan urusan ini
+      return !s.act.some((v) => Number(v) > 0);
+    },
     dxyPicColor(pic) {
       const map = { PE: "#2563EB", MESIN: "#F97316", QC: "#8B5CF6", PROD: "#10B981", PRESS: "#EF4444", "PC-SUPP": "#14B8A6" };
       return map[pic] || "#6B7280";
@@ -5608,6 +5704,9 @@ function dashboardExhaust() {
         destroy("dxyDowntimeSupporting");
         const canvas = document.getElementById("dxyDowntimeSupporting");
         if (!canvas) return;
+        // Semua nol (mis. rincian per Line belum diisi) -> jangan gambar
+        // donat kosong, biarkan pesan penjelasan yang tampil.
+        if (!b.downtimeSupporting.act.some((v) => Number(v) > 0)) return;
         const colors = b.downtimeSupporting.labels.map((pic) => this.dxyPicColor(pic));
         this.tahunanCharts.dxyDowntimeSupporting = new Chart(canvas, {
           type: "doughnut",
