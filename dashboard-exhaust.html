@@ -3591,7 +3591,7 @@ function dashboardExhaust() {
         // Downtime Supporting (per PIC) & Downtime Line (per mesin) -- total sebulan
         const picRows = picRes.data || [];
         const lineRows = lineRes.data || [];
-        const PIC_ORDER = ["PE", "MESIN", "QC", "PC-SUPP", "PROD", "PRESS"];
+        const PIC_ORDER = ["PE", "MESIN", "DIES", "QC", "PC-SUPP", "PROD", "PRESS"];
         const downtimeSupporting = {
           labels: PIC_ORDER,
           act: PIC_ORDER.map((p) => { const r = picRows.find((x) => x.pic === p); return r ? Math.round(Number(r.act_menit)) : 0; }),
@@ -4071,7 +4071,7 @@ function dashboardExhaust() {
       // ikut filter Line, karena tidak ada target per-Line di database).
       // Actual dijumlah dari Line yang lagi dipilih saja (atau semua Line
       // kalau dxyLineFilter === "ALL").
-      const PIC_ORDER = ["PE", "MESIN", "QC", "PC-SUPP", "PROD", "PRESS"];
+      const PIC_ORDER = ["PE", "MESIN", "DIES", "QC", "PC-SUPP", "PROD", "PRESS"];
       const actRowsForFilter = lineFilter === "ALL"
         ? raw.actByPicPerLine.flatMap((x) => x.rows)
         : ((raw.actByPicPerLine.find((x) => x.mesin === lineFilter) || { rows: [] }).rows);
@@ -4210,7 +4210,10 @@ function dashboardExhaust() {
       return !s.act.some((v) => Number(v) > 0);
     },
     dxyPicColor(pic) {
-      const map = { PE: "#2563EB", MESIN: "#F97316", QC: "#8B5CF6", PROD: "#10B981", PRESS: "#EF4444", "PC-SUPP": "#14B8A6" };
+      // DIES = #0891B2 (cyan). Dipilih lewat validator warna: jarak
+      // terdekatnya ke 6 warna lain 12,1 (buta warna) & 12,4 (mata normal)
+      // -- kandidat pink/amber gagal karena terlalu dekat ke PC-SUPP/PRESS.
+      const map = { PE: "#2563EB", MESIN: "#F97316", DIES: "#0891B2", QC: "#8B5CF6", PROD: "#10B981", PRESS: "#EF4444", "PC-SUPP": "#14B8A6" };
       return map[pic] || "#6B7280";
     },
     // Status downtime terbesar: OPEN (merah) / PROGRESS (kuning) / CLOSE (hijau)
@@ -5020,12 +5023,13 @@ function dashboardExhaust() {
       const CALM = {
         blue: "#2563EB", sage: "#10B981", sand: "#F97316",
         lavender: "#8B5CF6", rose: "#EF4444", teal: "#14B8A6",
+        cyan: "#0891B2",       // DIES
         productivity: "#0EA5E9",
         blueLine: "#2563EB",   // garis & area Week 1-5
         sandLine: "#F97316",   // garis & area Downtime Harian
         accent: "#F97316",     // sorotan titik line terpilih di Weekly
       };
-      const CALM_PIC = { PE: CALM.blue, MESIN: CALM.sand, QC: CALM.lavender, PROD: CALM.sage, PRESS: CALM.rose, "PC-SUPP": CALM.teal };
+      const CALM_PIC = { PE: CALM.blue, MESIN: CALM.sand, DIES: CALM.cyan, QC: CALM.lavender, PROD: CALM.sage, PRESS: CALM.rose, "PC-SUPP": CALM.teal };
       if (typeof Chart === "undefined") return;
       const b = this.bulanan;
       const destroy = (id) => { if (this.bulananCharts[id]) { this.bulananCharts[id].destroy(); delete this.bulananCharts[id]; } };
