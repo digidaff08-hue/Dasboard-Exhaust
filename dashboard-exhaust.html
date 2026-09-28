@@ -2722,8 +2722,33 @@ function dashboardExhaust() {
         const fyMonths = [];
         for (let i = 0; i < 12; i++) fyMonths.push(new Date(fyStartYear, 3 + i, 1));
         const findMonthRow = (d) => monthRows.find((r) => r.bulan === localDateStr(d));
-        const qtyByMonth = fyMonths.map((d) => { const r = findMonthRow(d); return r ? Number(r.qty) || 0 : null; });
-        const valueByMonth = fyMonths.map((d) => { const r = findMonthRow(d); return r ? Number(r.value) || 0 : null; });
+        let qtyByMonth = fyMonths.map((d) => { const r = findMonthRow(d); return r ? Number(r.qty) || 0 : null; });
+        let valueByMonth = fyMonths.map((d) => { const r = findMonthRow(d); return r ? Number(r.value) || 0 : null; });
+
+        // Kalau FY ini dipasang data manual (Master Data > Dashboard FY),
+        // angka Month NG Inline ikut manual juga -- supaya SAMA dengan tab
+        // Tahunan (yang sudah menerapkan override ini di
+        // dxyRebuildTahunanSeries). Sebelum ini, chart NG Inline di tab
+        // Kualitas TIDAK PERNAH ikut override, jadi beda angka dengan tab
+        // Tahunan tiap kali sebuah FY diaktifkan datanya manual. Dibungkus
+        // try/catch supaya tetap jalan normal kalau migration_fy_override.sql
+        // belum dijalankan.
+        try {
+          const { data: ovHeadData, error: ovHeadErr } = await supabaseClient
+            .from("fy_override").select("*").eq("fy", fyStartYear).maybeSingle();
+          if (!ovHeadErr && ovHeadData && ovHeadData.aktif) {
+            const { data: ovBulanData } = await supabaseClient
+              .from("fy_override_bulan").select("bulan,ng_qty,ng_value").eq("fy", fyStartYear);
+            const byBulan = new Map((ovBulanData || []).map((r) => [Number(r.bulan), r]));
+            const ambil = (nama) => Array.from({ length: 12 }, (_, i) => {
+              const r = byBulan.get(i + 1);
+              const v = r ? r[nama] : null;
+              return v === null || v === undefined ? null : Number(v);
+            });
+            qtyByMonth = ambil("ng_qty");
+            valueByMonth = ambil("ng_value");
+          }
+        } catch (e) { /* tabel belum ada -> pakai hitungan sistem seperti biasa */ }
 
         const perlineQty = QC_LINES.map((line) => { const r = perlineRows.find((x) => x.mesin === line); return r ? Number(r.qty) || 0 : 0; });
         const perlineValue = QC_LINES.map((line) => { const r = perlineRows.find((x) => x.mesin === line); return r ? Number(r.value) || 0 : 0; });
@@ -2993,8 +3018,27 @@ function dashboardExhaust() {
           supabaseClient.rpc("dashboard_bulanan_produksi", { p_start: fyStart.toISOString(), p_end: fyEnd.toISOString() }),
           supabaseClient.rpc("dashboard_qc_repair_month", { p_start: fyStart.toISOString(), p_end: fyEnd.toISOString() }),
         ]);
-        const prodRows = prodRes.data || [];
-        const repairRows = repairRes.data || [];
+        // dashboard_bulanan_produksi & dashboard_qc_repair_month mengembalikan
+        // SATU BARIS PER (bulan, mesin) -- persis seperti di tab Tahunan --
+        // jadi harus dijumlah dulu per bulan (semua Line) sebelum dipakai.
+        // Sebelum ini kode langsung .find() baris pertama yang cocok per
+        // bulan (cuma 1 Line kebagian), sehingga stroke & qty repair yang
+        // dipakai untuk %Straightpass jadi kekecilan/salah dan beda dengan
+        // angka di tab Tahunan (yang sudah menjumlahkan lewat collapseByLine).
+        const collapseByLine = (rows) => {
+          const map = new Map();
+          for (const r of rows) {
+            if (!map.has(r.bulan)) map.set(r.bulan, { bulan: r.bulan });
+            const acc = map.get(r.bulan);
+            for (const k of Object.keys(r)) {
+              if (k === "bulan" || k === "mesin") continue;
+              acc[k] = (acc[k] || 0) + (Number(r[k]) || 0);
+            }
+          }
+          return Array.from(map.values());
+        };
+        const prodRows = collapseByLine(prodRes.data || []);
+        const repairRows = collapseByLine(repairRes.data || []);
 
         const monthLabelId = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
         const fyMonths = [];
