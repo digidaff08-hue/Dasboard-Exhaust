@@ -1130,9 +1130,9 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                       <tr>
                         <td style="font-weight:700;" x-text="row.mesin"></td>
                         <td><span x-show="row.pic" x-text="row.pic"></span></td>
-                        <td><span x-show="row.problem" x-text="row.problem"></span></td>
-                        <td><span x-show="row.area" x-text="row.area"></span></td>
-                        <td><span x-show="row.countermeasure" x-text="row.countermeasure"></span></td>
+                        <td :title="row.problem"><span x-show="row.problem" x-text="row.problem"></span></td>
+                        <td :title="row.area"><span x-show="row.area" x-text="row.area"></span></td>
+                        <td :title="row.countermeasure"><span x-show="row.countermeasure" x-text="row.countermeasure"></span></td>
                         <td>
                           <span x-show="row.status" class="dxy-status-chip" :class="dxyStatusClass(row.status)" x-text="row.status"></span>
                         </td>
@@ -1169,7 +1169,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                   <tbody>
                     <template x-for="(row, i) in bulananDowntimeTerbesarBulanRows()" :key="'bdt-summary-'+i">
                       <tr :class="{ 'dxy-row-clickable': row.problem }" @dblclick="row.problem && openProblemDetail(row.problem)">
-                        <td><span x-show="row.problem" x-text="row.problem"></span></td>
+                        <td :title="row.problem"><span x-show="row.problem" x-text="row.problem"></span></td>
                         <td style="text-align:right">
                           <span x-show="row.menit !== ''" class="dxy-minute-badge" x-text="row.menit"></span>
                         </td>
