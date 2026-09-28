@@ -5068,29 +5068,111 @@ function dashboardExhaust() {
       const barBevelInset = () => ({ id: "dxNoopBevel_" + Math.random() });
 
       // Label angka di dalam tiap segmen doughnut (dipakai Supporting & Line)
+      // Label angka pada donat. ANTI-TUMPUK:
+      //   - potongan yang cukup lebar -> angka ditaruh DI DALAM potongan
+      //   - potongan tipis            -> angka ditaruh DI LUAR lingkaran,
+      //     dihubungkan garis penunjuk berwarna potongannya, lalu posisi
+      //     vertikalnya digeser otomatis supaya tidak ada yang bertumpuk.
       const donutLeaderLabels = (formatter) => ({
         id: "dxbDonutInsideLabels",
         afterDraw(chart) {
-          const { ctx } = chart;
+          const { ctx, chartArea } = chart;
           const meta = chart.getDatasetMeta(0);
           const dataset = chart.data.datasets[0];
           if (!meta || !meta.data.length) return;
-          ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          const warnaArc = (i) => {
+            const bg = dataset.backgroundColor;
+            return Array.isArray(bg) ? bg[i] : bg;
+          };
+
+          const diDalam = [], diLuar = [];
           meta.data.forEach((arc, i) => {
             const val = Number(dataset.data[i]) || 0;
             if (!val) return;
-            const { x: cx, y: cy, innerRadius, outerRadius, startAngle, endAngle } = arc.getProps(["x", "y", "innerRadius", "outerRadius", "startAngle", "endAngle"], true);
-            const angle = (startAngle + endAngle) / 2;
-            const r = (innerRadius + outerRadius) / 2;
-            const x = cx + Math.cos(angle) * r, y = cy + Math.sin(angle) * r;
+            const { x: cx, y: cy, innerRadius, outerRadius, startAngle, endAngle } =
+              arc.getProps(["x", "y", "innerRadius", "outerRadius", "startAngle", "endAngle"], true);
+            const sudut = (startAngle + endAngle) / 2;
             const sweep = endAngle - startAngle;
-            const fontSize = sweep < 0.12 ? 8 : sweep < 0.22 ? 9.5 : 11;
+            const rTengah = (innerRadius + outerRadius) / 2;
+            const teks = formatter(val);
+            const fontDalam = sweep < 0.22 ? 9.5 : 11;
             ctx.save();
-            ctx.font = `700 ${fontSize}px Inter, sans-serif`;
+            ctx.font = `700 ${fontDalam}px Inter, sans-serif`;
+            const lebar = ctx.measureText(teks).width;
+            ctx.restore();
+            // Muat di dalam kalau panjang busur & tebal cincin mencukupi
+            const panjangBusur = sweep * rTengah;
+            const tebalCincin = outerRadius - innerRadius;
+            const muat = panjangBusur >= lebar + 8 && tebalCincin >= fontDalam + 6;
+            const dasar = { i, teks, cx, cy, outerRadius, sudut, warna: warnaArc(i) };
+            if (muat) {
+              diDalam.push({ ...dasar, font: fontDalam,
+                x: cx + Math.cos(sudut) * rTengah, y: cy + Math.sin(sudut) * rTengah });
+            } else {
+              diLuar.push({ ...dasar, font: 9.5,
+                xAnchor: cx + Math.cos(sudut) * (outerRadius + 2),
+                yAnchor: cy + Math.sin(sudut) * (outerRadius + 2),
+                kanan: Math.cos(sudut) >= 0 });
+            }
+          });
+
+          // Angka di dalam potongan -- putih + outline gelap
+          ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          diDalam.forEach((d) => {
+            ctx.save();
+            ctx.font = `700 ${d.font}px Inter, sans-serif`;
             ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0,0,0,.45)";
-            ctx.strokeText(formatter(val), x, y);
+            ctx.strokeText(d.teks, d.x, d.y);
             ctx.fillStyle = "#fff";
-            ctx.fillText(formatter(val), x, y);
+            ctx.fillText(d.teks, d.x, d.y);
+            ctx.restore();
+          });
+
+          if (!diLuar.length) return;
+
+          // Angka di luar -- dipisah kiri/kanan lalu digeser supaya tidak tumpuk
+          const TINGGI = 12;
+          const atas = (chartArea ? chartArea.top : 0) + 6;
+          const bawah = (chartArea ? chartArea.bottom : chart.height) - 6;
+          ["kanan", "kiri"].forEach((sisi) => {
+            const daftar = diLuar.filter((d) => (sisi === "kanan" ? d.kanan : !d.kanan))
+                                 .sort((a, b) => a.yAnchor - b.yAnchor);
+            if (!daftar.length) return;
+            daftar.forEach((d) => { d.y = d.yAnchor; });
+            // dorong ke bawah kalau terlalu rapat
+            for (let k = 1; k < daftar.length; k++) {
+              if (daftar[k].y - daftar[k - 1].y < TINGGI) daftar[k].y = daftar[k - 1].y + TINGGI;
+            }
+            // kalau lewat batas bawah, dorong balik semuanya ke atas
+            const lebihBawah = daftar[daftar.length - 1].y - bawah;
+            if (lebihBawah > 0) daftar.forEach((d) => { d.y -= lebihBawah; });
+            for (let k = daftar.length - 2; k >= 0; k--) {
+              if (daftar[k + 1].y - daftar[k].y < TINGGI) daftar[k].y = daftar[k + 1].y - TINGGI;
+            }
+            if (daftar[0].y < atas) daftar.forEach((d) => { d.y += atas - daftar[0].y; });
+          });
+
+          diLuar.forEach((d) => {
+            const arahX = d.kanan ? 1 : -1;
+            const xSiku = d.cx + arahX * (d.outerRadius + 10);
+            const xTeks = xSiku + arahX * 4;
+            ctx.save();
+            // garis penunjuk, warnanya ikut potongannya
+            ctx.strokeStyle = d.warna || "#94A3B8";
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.moveTo(d.xAnchor, d.yAnchor);
+            ctx.lineTo(xSiku, d.y);
+            ctx.lineTo(xTeks, d.y);
+            ctx.stroke();
+            // angka -- tinta gelap di atas latar panel, bukan warna seri
+            ctx.font = `700 ${d.font}px Inter, sans-serif`;
+            ctx.textAlign = d.kanan ? "left" : "right";
+            ctx.textBaseline = "middle";
+            ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255,255,255,.85)";
+            ctx.strokeText(d.teks, xTeks + arahX * 2, d.y);
+            ctx.fillStyle = "#0F172A";
+            ctx.fillText(d.teks, xTeks + arahX * 2, d.y);
             ctx.restore();
           });
         },
@@ -5464,39 +5546,111 @@ function dashboardExhaust() {
 
       // --- Plugin: label angka DI DALAM tiap segmen donut (tanpa leader line) ---
       // (untuk Downtime Supporting & Line)
+      // Label angka pada donat. ANTI-TUMPUK:
+      //   - potongan yang cukup lebar -> angka ditaruh DI DALAM potongan
+      //   - potongan tipis            -> angka ditaruh DI LUAR lingkaran,
+      //     dihubungkan garis penunjuk berwarna potongannya, lalu posisi
+      //     vertikalnya digeser otomatis supaya tidak ada yang bertumpuk.
       const donutLeaderLabels = (formatter) => ({
         id: "dxyDonutInsideLabels",
         afterDraw(chart) {
-          const { ctx } = chart;
+          const { ctx, chartArea } = chart;
           const meta = chart.getDatasetMeta(0);
           const dataset = chart.data.datasets[0];
           if (!meta || !meta.data.length) return;
+          const warnaArc = (i) => {
+            const bg = dataset.backgroundColor;
+            return Array.isArray(bg) ? bg[i] : bg;
+          };
 
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
+          const diDalam = [], diLuar = [];
           meta.data.forEach((arc, i) => {
             const val = Number(dataset.data[i]) || 0;
             if (!val) return;
-            const { x: cx, y: cy, innerRadius, outerRadius, startAngle, endAngle } = arc.getProps(
-              ["x", "y", "innerRadius", "outerRadius", "startAngle", "endAngle"],
-              true
-            );
-            const angle = (startAngle + endAngle) / 2;
-            const r = (innerRadius + outerRadius) / 2;
-            const x = cx + Math.cos(angle) * r;
-            const y = cy + Math.sin(angle) * r;
+            const { x: cx, y: cy, innerRadius, outerRadius, startAngle, endAngle } =
+              arc.getProps(["x", "y", "innerRadius", "outerRadius", "startAngle", "endAngle"], true);
+            const sudut = (startAngle + endAngle) / 2;
             const sweep = endAngle - startAngle;
-            // Irisan sempit -> font lebih kecil supaya tetap muat, tapi angka tetap ditampilkan
-            const fontSize = sweep < 0.12 ? 8 : sweep < 0.22 ? 9.5 : 11;
-
+            const rTengah = (innerRadius + outerRadius) / 2;
+            const teks = formatter(val);
+            const fontDalam = sweep < 0.22 ? 9.5 : 11;
             ctx.save();
-            ctx.font = `700 ${fontSize}px Inter, sans-serif`;
-            // Kontras teks: putih + outline gelap tipis, supaya terbaca di warna apa pun
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = "rgba(0,0,0,.45)";
-            ctx.strokeText(formatter(val), x, y);
+            ctx.font = `700 ${fontDalam}px Inter, sans-serif`;
+            const lebar = ctx.measureText(teks).width;
+            ctx.restore();
+            // Muat di dalam kalau panjang busur & tebal cincin mencukupi
+            const panjangBusur = sweep * rTengah;
+            const tebalCincin = outerRadius - innerRadius;
+            const muat = panjangBusur >= lebar + 8 && tebalCincin >= fontDalam + 6;
+            const dasar = { i, teks, cx, cy, outerRadius, sudut, warna: warnaArc(i) };
+            if (muat) {
+              diDalam.push({ ...dasar, font: fontDalam,
+                x: cx + Math.cos(sudut) * rTengah, y: cy + Math.sin(sudut) * rTengah });
+            } else {
+              diLuar.push({ ...dasar, font: 9.5,
+                xAnchor: cx + Math.cos(sudut) * (outerRadius + 2),
+                yAnchor: cy + Math.sin(sudut) * (outerRadius + 2),
+                kanan: Math.cos(sudut) >= 0 });
+            }
+          });
+
+          // Angka di dalam potongan -- putih + outline gelap
+          ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          diDalam.forEach((d) => {
+            ctx.save();
+            ctx.font = `700 ${d.font}px Inter, sans-serif`;
+            ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0,0,0,.45)";
+            ctx.strokeText(d.teks, d.x, d.y);
             ctx.fillStyle = "#fff";
-            ctx.fillText(formatter(val), x, y);
+            ctx.fillText(d.teks, d.x, d.y);
+            ctx.restore();
+          });
+
+          if (!diLuar.length) return;
+
+          // Angka di luar -- dipisah kiri/kanan lalu digeser supaya tidak tumpuk
+          const TINGGI = 12;
+          const atas = (chartArea ? chartArea.top : 0) + 6;
+          const bawah = (chartArea ? chartArea.bottom : chart.height) - 6;
+          ["kanan", "kiri"].forEach((sisi) => {
+            const daftar = diLuar.filter((d) => (sisi === "kanan" ? d.kanan : !d.kanan))
+                                 .sort((a, b) => a.yAnchor - b.yAnchor);
+            if (!daftar.length) return;
+            daftar.forEach((d) => { d.y = d.yAnchor; });
+            // dorong ke bawah kalau terlalu rapat
+            for (let k = 1; k < daftar.length; k++) {
+              if (daftar[k].y - daftar[k - 1].y < TINGGI) daftar[k].y = daftar[k - 1].y + TINGGI;
+            }
+            // kalau lewat batas bawah, dorong balik semuanya ke atas
+            const lebihBawah = daftar[daftar.length - 1].y - bawah;
+            if (lebihBawah > 0) daftar.forEach((d) => { d.y -= lebihBawah; });
+            for (let k = daftar.length - 2; k >= 0; k--) {
+              if (daftar[k + 1].y - daftar[k].y < TINGGI) daftar[k].y = daftar[k + 1].y - TINGGI;
+            }
+            if (daftar[0].y < atas) daftar.forEach((d) => { d.y += atas - daftar[0].y; });
+          });
+
+          diLuar.forEach((d) => {
+            const arahX = d.kanan ? 1 : -1;
+            const xSiku = d.cx + arahX * (d.outerRadius + 10);
+            const xTeks = xSiku + arahX * 4;
+            ctx.save();
+            // garis penunjuk, warnanya ikut potongannya
+            ctx.strokeStyle = d.warna || "#94A3B8";
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.moveTo(d.xAnchor, d.yAnchor);
+            ctx.lineTo(xSiku, d.y);
+            ctx.lineTo(xTeks, d.y);
+            ctx.stroke();
+            // angka -- tinta gelap di atas latar panel, bukan warna seri
+            ctx.font = `700 ${d.font}px Inter, sans-serif`;
+            ctx.textAlign = d.kanan ? "left" : "right";
+            ctx.textBaseline = "middle";
+            ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255,255,255,.85)";
+            ctx.strokeText(d.teks, xTeks + arahX * 2, d.y);
+            ctx.fillStyle = "#0F172A";
+            ctx.fillText(d.teks, xTeks + arahX * 2, d.y);
             ctx.restore();
           });
         },
