@@ -1293,7 +1293,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                             <span class="dxy-pic-chip"><span x-text="row.pic"></span></span>
                           </template>
                         </td>
-                        <td>
+                        <td :title="row.problem">
                           <span x-show="row.problem" x-text="row.problem"></span>
                         </td>
                         <td style="text-align:right">
@@ -1333,7 +1333,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                   <tbody>
                     <template x-for="(row, i) in dxyFilteredNgTerbesar()" :key="row.kategori + '-' + i">
                       <tr>
-                        <td>
+                        <td :title="row.kategori">
                           <template x-if="row.kategori">
                             <span class="dxy-pic-chip"><span x-text="row.kategori"></span></span>
                           </template>
@@ -1377,7 +1377,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                   <tbody>
                     <template x-for="(row, i) in dxyFilteredRepairTerbesar()" :key="row.kategori + '-' + i">
                       <tr>
-                        <td>
+                        <td :title="row.kategori">
                           <template x-if="row.kategori">
                             <span class="dxy-pic-chip"><span x-text="row.kategori"></span></span>
                           </template>
