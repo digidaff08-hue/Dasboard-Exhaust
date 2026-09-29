@@ -684,6 +684,26 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
    kanan/kiri. Desktop/tablet lebar tetap pakai layout lama, tidak disentuh. ---- */
 @media (max-width: 800px) {
   .dxy-table-scroll { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+  /* Panel "Rekap NG Inline/Trial/Repair" (tab Kontrol Kualitas) pakai kelas
+     tambahan .qc-rekap-scroll yang di baris ~219 sengaja mengunci
+     overflow-x:hidden (biar rapi di desktop) -- selector-nya sama persis
+     di sini supaya SPESIFISITASNYA SAMA, dan karena aturan ini nempatnya
+     lebih belakang di file, dia yang menang pas layar sempit. */
+  .qc-rekap-scroll,
+  .dxy-table-panel-sm .qc-rekap-scroll,
+  .dxy-panel .qc-rekap-scroll,
+  .dxy-qc-col .dxy-table-panel-sm .qc-rekap-scroll,
+  .dxy-qc-grid .dxy-qc-col .dxy-panel .qc-rekap-scroll {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Sama, buat panel "Downtime/NG Inline/Straightpass Terbesar" di tab
+     Tahunan -- kelas 3-tingkat itu juga sengaja overflow-x:hidden, dibuat
+     kalah di sini pakai selector yang sama persis. */
+  .dxy-panel.dxy-table-panel-sm.dxy-tahunan-terbesar-panel .dxy-table-scroll {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
   .dxy-table-panel-sm table.dxy-table,
   table.qc-detail-table {
     table-layout: auto !important;
@@ -813,12 +833,13 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
   .dxy-clock-date { font-size: 9px; }
 }
 /* ---- HP/iPad (sama breakpoint dgn mobile-topbar di style.css): judul
-   "DASHBOARD EXHAUST" rata tengah, jam dipindah naik ke baris hamburger
-   (posisi fixed, sejajar ikon ≡) -- desktop/tablet lebar tidak kena. ---- */
+   "DASHBOARD EXHAUST" besar dipindah jadi tulisan kecil di baris atas,
+   nempel sebelah ikon ≡ hamburger (dxy-clock-time & .dash-mobile-title
+   sama-sama position:fixed sejajar baris itu) -- heading besar lama +
+   jarak kosong di bawahnya dihilangkan. Desktop/tablet lebar tidak kena. ---- */
 @media (max-width: 800px) {
-  .dash-topbar { justify-content: center !important; }
-  .dash-title-block { width: 100%; }
-  .dash-title-block h1 { text-align: center; width: 100%; }
+  .dash-topbar { padding: 0 !important; min-height: 0; }
+  .dash-title-block { display: none !important; }
   .dash-controls {
     position: fixed !important;
     top: 12px;
@@ -829,6 +850,34 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
   }
   .dxy-clock-time { font-size: 13px; -webkit-text-stroke: 1px #1B2A4A; text-stroke: 1px #1B2A4A; }
   .dxy-clock-date { font-size: 7.5px; margin-top: 0; }
+
+  .dash-mobile-title {
+    display: inline-block;
+    font-family: 'Luckiest Guy', cursive;
+    font-weight: 400;
+    letter-spacing: 0.3px;
+    color: #4FD3EF;
+    -webkit-text-stroke: 1px #1B2A4A;
+    text-stroke: 1px #1B2A4A;
+    paint-order: stroke fill;
+    text-shadow: 1px 1px 0 #1B2A4A;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+    margin-right: 88px;
+    font-size: 14px;
+  }
+}
+@media (min-width: 801px) {
+  /* Elemen ini cuma buat baris hamburger mobile -- di desktop gak dipakai. */
+  .dash-mobile-title { display: none !important; }
+}
+@media (max-width: 340px) {
+  .dash-mobile-title { font-size: 10.5px; margin-right: 74px; }
+  .dash-controls { right: 10px !important; }
+  .dxy-clock-time { font-size: 11px !important; }
 }
 .main { padding-top: 0 !important; padding-left: 14px !important; padding-right: 14px !important; gap: 4px !important; }
 .dash-subtab-nav { margin: 0 !important; padding: 0 !important; }
@@ -1050,6 +1099,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
 <div class="app-shell" x-data="dashboardExhaust()">
   <div class="mobile-topbar">
     <button class="hamburger" @click="mobileNavOpen = true"><svg class="sb-svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
+    <span class="dash-mobile-title">DASHBOARD EXHAUST</span>
   </div>
 
   <div class="sidebar-overlay" x-show="mobileNavOpen" @click="mobileNavOpen = false" x-cloak></div>
