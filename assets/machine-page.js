@@ -663,6 +663,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         nonProdForm: { nama: "" },
         nonProdActiveStart: null,
         routingType: null, routingNumbers: [],
+        _productionLogId: null,
+        _qtyDebounce: null,
       };
     },
     ensureLines() {
@@ -768,6 +770,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       line.entryStart = startIso; line.entryEnd = null;
       line.form = { part_number: "", qty: "", manpower: "", repair: "" };
       line.routingType = null; line.routingNumbers = [];
+      line._productionLogId = null;
+      clearTimeout(line._qtyDebounce);
       line.state = "awaiting_actual_start";
     },
 
@@ -796,57 +800,111 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       return !entry || entry.std_mp === null || entry.std_mp === undefined || entry.std_mp === "";
     },
 
-    confirmActualStart(stationId) {
+    async confirmActualStart(stationId) {
       const line = this.lines[stationId];
       if (!line.form.part_number) { this.flash("Pilih Part Number dulu.", true); return; }
       line.actualStartConfirmedAt = new Date().toISOString();
       line.state = "running";
+      // Buat baris production_log begitu produksi mulai berjalan, supaya
+      // Qty/Repair yang diketik operator selama produksi bisa langsung
+      // ditimpa (update) ke baris yang sama, bukan cuma tersimpan di akhir.
+      await this.createLiveProductionRow(stationId);
     },
 
-    stopProduksi(stationId) {
+    // Dipanggil tiap kali input Qty/Repair berubah selagi state === running.
+    // Di-debounce supaya tidak spam request tiap ketikan.
+    onLiveQtyRepairChange(stationId) {
       const line = this.lines[stationId];
+      clearTimeout(line._qtyDebounce);
+      line._qtyDebounce = setTimeout(() => this.syncLiveProduction(stationId), 500);
+    },
+
+    // Baris awal production_log begitu produksi mulai berjalan (Qty/Repair
+    // masih kosong, diisi belakangan lewat syncLiveProduction).
+    async createLiveProductionRow(stationId) {
+      const line = this.lines[stationId];
+      const dandoriMenit = line.actualStartConfirmedAt && line.entryStart
+        ? Math.round((new Date(line.actualStartConfirmedAt) - new Date(line.entryStart)) / 60000)
+        : 0;
+      const payload = {
+        mesin: machineKey, stasiun: this.dbStasiun(stationId),
+        waktu_awal: line.entryStart, waktu_akhir: line.actualStartConfirmedAt || line.entryStart,
+        part_number: line.form.part_number,
+        qty: line.form.qty === "" ? null : Number(line.form.qty),
+        manpower: line.form.manpower === "" ? null : Number(line.form.manpower),
+        repair: line.form.repair === "" ? null : Number(line.form.repair),
+        dandori_menit: dandoriMenit, downtime_menit: 0, break_menit: 0,
+        ng: null, extra: {},
+      };
+      try {
+        if (!navigator.onLine) throw new Error("offline");
+        const { data, error } = await supabaseClient.from("production_log").insert(payload).select("id").single();
+        if (error) throw error;
+        line._productionLogId = data.id;
+      } catch (err) {
+        line._productionLogId = null;
+        if (!isNetworkError(err)) {
+          this.flash("Gagal membuat baris produksi: " + (err.message || err), true);
+        }
+      }
+    },
+
+    // Timpa (update) Qty/Repair ke baris production_log yang sama tiap kali
+    // operator mengubah angkanya selagi produksi berjalan.
+    async syncLiveProduction(stationId) {
+      const line = this.lines[stationId];
+      if (line.state !== "running") return;
+      if (!line._productionLogId) {
+        await this.createLiveProductionRow(stationId);
+        return;
+      }
+      const payload = {
+        qty: line.form.qty === "" ? null : Number(line.form.qty),
+        repair: line.form.repair === "" ? null : Number(line.form.repair),
+      };
+      try {
+        if (!navigator.onLine) throw new Error("offline");
+        const { error } = await supabaseClient.from("production_log").update(payload).eq("id", line._productionLogId);
+        if (error) throw error;
+      } catch (err) {
+        if (!isNetworkError(err)) {
+          this.flash("Gagal update Qty/Repair: " + (err.message || err), true);
+        }
+      }
+    },
+
+    async stopProduksi(stationId) {
+      const line = this.lines[stationId];
+      if (line.form.qty === "" || line.form.qty === null || Number(line.form.qty) < 0) {
+        this.flash("Qty wajib diisi sebelum Selesai Produksi.", true);
+        return;
+      }
+      clearTimeout(line._qtyDebounce);
       line.entryEnd = new Date().toISOString();
       line.state = "finished";
       line.afterFinishChoice = true;
+      await this.finalizeLiveProductionRow(stationId);
     },
 
     cancelLine(stationId) { this.lines[stationId] = this.freshLine(); },
 
     async chooseSetupNext(stationId) {
       const line = this.lines[stationId];
-      if (line.form.qty === "" || line.form.qty === null || Number(line.form.qty) < 0) {
-        this.flash("Qty Aktual wajib diisi sebelum lanjut.", true);
-        return;
-      }
-      // Simpan snapshot data produksi sebelum state direset
-      const snapshot = {
-        entryStart: line.entryStart,
-        entryEnd: line.entryEnd || new Date().toISOString(),
-        actualStartConfirmedAt: line.actualStartConfirmedAt,
-        form: { ...line.form },
-        _planningId: line._planningId,
-        routingType: line.routingType,
-        routingNumbers: [...(line.routingNumbers || [])],
-      };
-      const endTime = snapshot.entryEnd;
+      const endTime = line.entryEnd || new Date().toISOString();
+      const planningId = line._planningId;
       line.afterFinishChoice = false;
       this.openPartSelection(stationId, endTime);
-      // Commit pakai snapshot bukan line (karena line sudah direset oleh openPartSelection)
-      await this.commitProductionRowFromSnapshot(stationId, snapshot);
+      if (planningId) {
+        await supabaseClient.from("production_planning").update({ status: "selesai" }).eq("id", planningId);
+      }
     },
     async chooseNonProduksiNext(stationId) {
       const line = this.lines[stationId];
-      if (line.form.qty === "" || line.form.qty === null || Number(line.form.qty) < 0) {
-        this.flash("Qty Aktual wajib diisi sebelum lanjut.", true);
-        return;
-      }
       const endTime = line.entryEnd || new Date().toISOString();
-      // Pindah state dulu supaya UI tidak stuck, commit jalan di background
       line.afterFinishChoice = false;
       line.state = "nonproduksi_running";
       line.nonProdActiveStart = endTime;
       line.nonProdForm = { nama: "" };
-      await this.commitProductionRow(stationId);
     },
 
     async finalizeNonProduksi(stationId, now) {
@@ -877,6 +935,55 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       await this.saveNonProduksiRow(payload);
       this.lines[stationId] = this.freshLine();
       this.flash("Shift ditutup — mesin dianggap tidak beroperasi sampai Mulai Produksi ditekan lagi.");
+    },
+
+    // Finalisasi baris production_log yang sudah dibuat live (createLiveProductionRow)
+    // saat "Selesai Produksi" ditekan: isi waktu_akhir, dandori, break, dan
+    // Qty/Repair terakhir. Kalau baris live-nya gagal dibuat sebelumnya
+    // (mis. sempat offline), fallback ke insert baru supaya data tidak hilang.
+    async finalizeLiveProductionRow(stationId) {
+      const line = this.lines[stationId];
+      const dandoriMenit = line.actualStartConfirmedAt && line.entryStart
+        ? Math.round((new Date(line.actualStartConfirmedAt) - new Date(line.entryStart)) / 60000)
+        : 0;
+      const breakMenit = computeBreakMinutes(line.entryStart, line.entryEnd);
+      const extra = {};
+      this.extraFields.forEach((f) => { if (line.form[f.key]) extra[f.key] = line.form[f.key]; });
+      if (this.routingMax > 0) { extra.routing_type = line.routingType; extra.routing_numbers = line.routingNumbers; }
+
+      const payload = {
+        mesin: machineKey, stasiun: this.dbStasiun(stationId),
+        waktu_awal: line.entryStart, waktu_akhir: line.entryEnd,
+        part_number: line.form.part_number, qty: line.form.qty === "" ? null : Number(line.form.qty),
+        manpower: line.form.manpower === "" ? null : Number(line.form.manpower),
+        repair: line.form.repair === "" ? null : Number(line.form.repair),
+        dandori_menit: dandoriMenit, downtime_menit: 0, break_menit: breakMenit,
+        ng: null, extra: extra,
+      };
+      if (line.form.part_number) this.learnPartNumber(line.form.part_number);
+
+      try {
+        if (!navigator.onLine) throw new Error("offline");
+        if (line._productionLogId) {
+          const { error } = await supabaseClient.from("production_log").update(payload).eq("id", line._productionLogId);
+          if (error) throw error;
+        } else {
+          const { error } = await supabaseClient.from("production_log").insert(payload);
+          if (error) throw error;
+        }
+        this.flash("Data produksi tersimpan.");
+        await Promise.all([this.fetchProduction(), this.fetchPlanning()]);
+        this.refreshLoadedPerf();
+      } catch (err) {
+        if (isNetworkError(err)) {
+          enqueueOffline("production_log", payload);
+          this.refreshPendingCount();
+          this.productionRows.unshift({ ...payload, id: "pending_" + Date.now(), _pending: true });
+          this.flash("Tidak ada jaringan — data disimpan di HP, disinkron otomatis nanti.");
+        } else {
+          this.flash("Gagal menyimpan produksi: " + (err.message || err), true);
+        }
+      }
     },
 
     async commitProductionRowFromSnapshot(stationId, snap) {

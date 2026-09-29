@@ -505,7 +505,6 @@
                       </template>
                     </select>
                   </div>
-                  <div class="field"><label>Qty</label><input type="number" x-model="lines[st.id].form.qty"></div>
                   <!-- Jumlah MP SELALU disembunyikan dari form input, data auto-terisi dari Std MP Master Data Part Number lewat autofillManpower() -->
                   <div class="field" x-show="mpAutofillMissing(st.id)"><label>Jumlah MP</label><input type="number" x-model="lines[st.id].form.manpower"></div>
 
@@ -529,25 +528,27 @@
 
               <!-- RUNNING -->
               <div x-show="lines[st.id].state === 'running'" x-cloak>
-                <div class="timer-badge">
+                <div class="timer-badge" style="margin-bottom:14px;">
                   <span class="timer-dot timer-dot-live"></span>
                   <span>Produksi <b x-text="lines[st.id].form.part_number"></b> — mulai aktual <b x-text="fmtClock(lines[st.id].actualStartConfirmedAt)"></b></span>
                   <button type="button" class="btn-danger btn-finish" @click="stopProduksi(st.id)">⏹ Selesai Produksi</button>
                 </div>
+                <div class="form-grid">
+                  <div class="field">
+                    <label>Qty</label>
+                    <input type="number" x-model="lines[st.id].form.qty" @input="onLiveQtyRepairChange(st.id)">
+                  </div>
+                  <div class="field">
+                    <label>Repair</label>
+                    <input type="number" x-model="lines[st.id].form.repair" @input="onLiveQtyRepairChange(st.id)">
+                  </div>
+                </div>
+                <p class="hint" style="margin-top:-8px;">Qty dan Repair bisa diisi/diubah kapan saja selama produksi berjalan — otomatis tersimpan.</p>
               </div>
 
-              <!-- FINISHED: konfirmasi Qty Aktual, baru pilih Setup atau Non-Produksi -->
+              <!-- FINISHED: pilih Setup atau Non-Produksi -->
               <div class="classification-box" x-show="lines[st.id].afterFinishChoice && lines[st.id].state !== 'nonproduksi_running'" x-cloak>
                 <p class="classification-title">Selesai jam <span x-text="fmtClock(lines[st.id].entryEnd)"></span> — <span x-text="lines[st.id].form.part_number"></span></p>
-                <div class="field" style="max-width:240px;margin-bottom:6px;">
-                  <label>Qty Aktual <span class="req">*</span></label>
-                  <input type="number" x-model="lines[st.id].form.qty">
-                </div>
-                <div class="field" style="max-width:240px;margin-bottom:6px;">
-                  <label>Repair</label>
-                  <input type="number" x-model="lines[st.id].form.repair">
-                </div>
-                <p class="hint" style="margin-bottom:14px;">Qty ini terisi dari yang diketik sebelum mulai produksi. Kalau selama produksi tadi ada problem mesin / downtime yang bikin hasil aktualnya beda, sesuaikan dulu angkanya di sini sebelum lanjut. Isi Repair kalau ada hasil yang perlu diperbaiki ulang.</p>
                 <div class="form-actions" style="justify-content:flex-start;">
                   <button type="button" class="btn-primary" @click="chooseSetupNext(st.id)">🔧 Setup (ganti part)</button>
                   <button type="button" class="btn-secondary" @click="chooseNonProduksiNext(st.id)">Non-Produksi</button>
