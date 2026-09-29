@@ -747,9 +747,17 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
    Ini di luar namespace .dxy karena topbar/tab-nav dipakai bersama oleh
    semua tab, tapi hanya memangkas whitespace kosong -- tidak mengubah
    logika atau tampilan konten tab lain. ---- */
-.dash-topbar { margin: 0 !important; padding: 0 !important; }
+.dash-topbar { margin: 0 !important; padding: 0 !important; display: flex !important; align-items: flex-start !important; justify-content: space-between !important; gap: 12px; }
 .dash-title-block { margin: 0 !important; padding: 0 !important; }
 .dash-title-block h1 { margin: 0 !important; padding: 0 !important; line-height: 1.1 !important; }
+.dash-controls { margin-left: auto !important; }
+.dxy-live-clock { text-align: right; font-family: 'IBM Plex Mono', monospace; line-height: 1.15; user-select: none; }
+.dxy-clock-time { font-size: 22px; font-weight: 600; color: #111827; letter-spacing: 0.5px; }
+.dxy-clock-date { font-size: 12px; color: #6b7280; margin-top: 2px; }
+@media (max-width: 640px) {
+  .dxy-clock-time { font-size: 18px; }
+  .dxy-clock-date { font-size: 11px; }
+}
 .main { padding-top: 0 !important; padding-left: 14px !important; padding-right: 14px !important; gap: 4px !important; }
 .dash-subtab-nav { margin: 0 !important; padding: 0 !important; }
 .dash-subtab-nav button { margin: 0 !important; }
@@ -983,6 +991,24 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
         <h1>DASHBOARD EXHAUST</h1>
       </div>
       <div class="dash-controls">
+        <div class="dxy-live-clock" x-data="{
+          now: new Date(),
+          init() { setInterval(() => { this.now = new Date() }, 1000) },
+          timeStr() {
+            const d = this.now;
+            const p = (n) => String(n).padStart(2, '0');
+            return p(d.getHours()) + '.' + p(d.getMinutes()) + '.' + p(d.getSeconds());
+          },
+          dateStr() {
+            const hari = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+            const bulan = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+            const d = this.now;
+            return hari[d.getDay()] + ', ' + String(d.getDate()).padStart(2, '0') + ' ' + bulan[d.getMonth()] + ' ' + d.getFullYear();
+          }
+        }">
+          <div class="dxy-clock-time" x-text="timeStr()"></div>
+          <div class="dxy-clock-date" x-text="dateStr()"></div>
+        </div>
       </div>
     </div>
 
