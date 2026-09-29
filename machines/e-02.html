@@ -224,7 +224,7 @@
       <button class="btn-secondary btn-sm" :class="tab==='downtime' ? 'btn-primary' : ''" @click="tab='downtime'">Downtime</button>
       <button class="btn-secondary btn-sm" :class="tab==='ng_inline' ? 'btn-primary' : ''" @click="tab='ng_inline'; syncNgPartFromProduction()">NG Inline</button>
       <button class="btn-secondary btn-sm" :class="tab==='repair' ? 'btn-primary' : ''" @click="tab='repair'">Repair</button>
-      <button class="btn-secondary btn-sm" :class="tab==='produksi' ? 'btn-primary' : ''" @click="tab='produksi'">Input Produksi</button>
+      <template x-if="isAdmin()"><button class="btn-secondary btn-sm" :class="tab==='produksi' ? 'btn-primary' : ''" @click="tab='produksi'">Input Produksi</button></template>
       <button class="btn-secondary btn-sm" :class="tab==='riwayat' ? 'btn-primary' : ''" @click="tab='riwayat'">Riwayat Produksi</button>
       <button class="btn-secondary btn-sm" :class="tab==='performance' ? 'btn-primary' : ''" @click="openPerformanceTab()">Performance</button>
       <template x-if="isLeaderOrAdmin()">
@@ -404,7 +404,7 @@
         <button class="btn-secondary btn-sm" :class="tab==='downtime' ? 'btn-primary' : ''" @click="tab='downtime'">Downtime</button>
         <button class="btn-secondary btn-sm" :class="tab==='ng_inline' ? 'btn-primary' : ''" @click="tab='ng_inline'; syncNgPartFromProduction()">NG Inline</button>
         <button class="btn-secondary btn-sm" :class="tab==='repair' ? 'btn-primary' : ''" @click="tab='repair'">Repair</button>
-        <button class="btn-secondary btn-sm" :class="tab==='produksi' ? 'btn-primary' : ''" @click="tab='produksi'">Input Produksi</button>
+        <template x-if="isAdmin()"><button class="btn-secondary btn-sm" :class="tab==='produksi' ? 'btn-primary' : ''" @click="tab='produksi'">Input Produksi</button></template>
         <button class="btn-secondary btn-sm" :class="tab==='riwayat' ? 'btn-primary' : ''" @click="tab='riwayat'">Riwayat Produksi</button>
         <button class="btn-secondary btn-sm" :class="tab==='performance' ? 'btn-primary' : ''" @click="openPerformanceTab()">Performance</button>
         <template x-if="isLeaderOrAdmin()">
@@ -724,7 +724,7 @@
         </div>
 
         <!-- ===================== TAB INPUT PRODUKSI (BARU) ===================== -->
-        <div x-show="tab === 'produksi'" :style="tab !== 'produksi' ? 'content-visibility:hidden' : 'content-visibility:visible'">
+        <div x-show="tab === 'produksi' && isAdmin()" :style="tab !== 'produksi' ? 'content-visibility:hidden' : 'content-visibility:visible'">
           <div class="panel">
             <p class="panel-title" x-text="produksiNewEditingId ? 'Edit Input Produksi' : 'Input Produksi'"></p>
             <form @submit.prevent="saveProduksiNew">
