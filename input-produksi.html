@@ -410,6 +410,28 @@
     .line-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   }
 
+  /* ── PHONE: kartu dibikin 1 kolom & lebih ringkas biar teks gak numpuk ── */
+  @media (max-width: 560px) {
+    .hub-shell { padding: 16px 14px 28px; }
+    .hub-header { align-items: center; gap: 14px; margin-bottom: 22px; }
+    .hub-header-right { align-items: center; width: 100%; flex-direction: row; justify-content: space-between; gap: 10px; }
+    .hub-clock-box { text-align: left; padding: 8px 14px; }
+    .hub-title { font-size: 24px; }
+    .hub-sub { font-size: 12.5px; }
+
+    .line-grid { grid-template-columns: 1fr; gap: 10px; }
+
+    .line-card { padding: 14px 16px; gap: 14px; border-radius: 14px; }
+    .lc-badge { width: 46px; height: 46px; border-radius: 11px; }
+    .lc-num { font-size: 14px; }
+    .lc-body { min-width: 0; }
+    .lc-name { font-size: 16px; margin-bottom: 1px; }
+    .lc-desc { font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lc-arrow { width: 28px; height: 28px; }
+    .lc-arrow svg { width: 14px; height: 14px; }
+    .lc-ghost { display: none; }
+  }
+
   @keyframes dotSeq {
     0%,80%,100% { background: rgba(255,255,255,0.2); transform: scale(1); }
     40%          { background: #818cf8; transform: scale(1.3); }
