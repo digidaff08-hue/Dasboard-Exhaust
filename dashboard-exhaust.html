@@ -761,7 +761,12 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
   -webkit-text-stroke: 2px #1B2A4A;
   text-stroke: 2px #1B2A4A;
   paint-order: stroke fill;
-  text-shadow: 2px 2px 0 #1B2A4A;
+  text-shadow: 2px 2px 0 #1B2A4A, 0 0 0px rgba(79, 211, 239, 0);
+  animation: dxyTitleGlow 2.6s ease-in-out infinite;
+}
+@keyframes dxyTitleGlow {
+  0%, 100% { text-shadow: 2px 2px 0 #1B2A4A, 0 0 6px rgba(79, 211, 239, 0.15); }
+  50%      { text-shadow: 2px 2px 0 #1B2A4A, 0 0 16px rgba(79, 211, 239, 0.65); }
 }
 @media (max-width: 640px) {
   .dash-title-block h1 { font-size: 28px !important; }
