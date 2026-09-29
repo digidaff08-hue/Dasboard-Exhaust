@@ -677,6 +677,29 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
 @media (max-width: 1366px) { .dxy-qc-grid { grid-template-columns: 1fr; } }
 @media (max-width: 1366px) { .dxy-qc-subgrid { grid-template-columns: 1fr; } }
 
+/* ---- HP/iPad: tabel ringkas (Downtime Line, Downtime Terbesar, QC detail,
+   dst) selama ini kolomnya diremes rata (table-layout:fixed + overflow-x
+   dikunci hidden) sampai isinya kepotong dan gak bisa digeser samping sama
+   sekali. Ganti jadi kolom lebar natural + wrapper-nya bisa discroll ke
+   kanan/kiri. Desktop/tablet lebar tetap pakai layout lama, tidak disentuh. ---- */
+@media (max-width: 800px) {
+  .dxy-table-scroll { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+  .dxy-table-panel-sm table.dxy-table,
+  table.qc-detail-table {
+    table-layout: auto !important;
+    width: auto !important;
+    min-width: 100%;
+  }
+  .dxy-table-panel-sm table.dxy-table thead th,
+  .dxy-table-panel-sm table.dxy-table tbody td,
+  table.qc-detail-table thead th,
+  table.qc-detail-table tbody td {
+    white-space: nowrap !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+}
+
 /* ---- Khusus tab Tahunan: tinggikan chart Productivity/Availability/NG Inline/
    Straight Pass & Downtime Exhaust/Supporting/Line. Discope pakai class
    .dxy-tahunan-main-grid supaya tidak ikut mengubah tab Bulanan. ---- */
@@ -788,6 +811,24 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
 @media (max-width: 640px) {
   .dxy-clock-time { font-size: 18px; }
   .dxy-clock-date { font-size: 9px; }
+}
+/* ---- HP/iPad (sama breakpoint dgn mobile-topbar di style.css): judul
+   "DASHBOARD EXHAUST" rata tengah, jam dipindah naik ke baris hamburger
+   (posisi fixed, sejajar ikon ≡) -- desktop/tablet lebar tidak kena. ---- */
+@media (max-width: 800px) {
+  .dash-topbar { justify-content: center !important; }
+  .dash-title-block { width: 100%; }
+  .dash-title-block h1 { text-align: center; width: 100%; }
+  .dash-controls {
+    position: fixed !important;
+    top: 12px;
+    right: 14px;
+    left: auto !important;
+    margin-left: 0 !important;
+    z-index: 250;
+  }
+  .dxy-clock-time { font-size: 13px; -webkit-text-stroke: 1px #1B2A4A; text-stroke: 1px #1B2A4A; }
+  .dxy-clock-date { font-size: 7.5px; margin-top: 0; }
 }
 .main { padding-top: 0 !important; padding-left: 14px !important; padding-right: 14px !important; gap: 4px !important; }
 .dash-subtab-nav { margin: 0 !important; padding: 0 !important; }
@@ -5308,7 +5349,10 @@ function dashboardExhaust() {
           const textColor = "#000000";
           const n = meta.data.length;
           const slotWidth = chartArea && n ? chartArea.width / n : 30;
-          const fontSize = (slotWidth < 18 ? 6.5 : slotWidth < 26 ? 7.5 : slotWidth < 40 ? 8.5 : 9.5) * sizeScale;
+          // Slot super sempit (30+ kolom di layar HP) tetap dikecilkan terus
+          // sampai batas kebaca (5px) -- semua angka tetap ditampilkan, cuma
+          // ukurannya nyesuaiin, bukan sebagian disembunyikan.
+          const fontSize = (slotWidth < 10 ? 5 : slotWidth < 14 ? 5.5 : slotWidth < 18 ? 6.5 : slotWidth < 26 ? 7.5 : slotWidth < 40 ? 8.5 : 9.5) * sizeScale;
           ctx.save();
           ctx.font = `700 ${fontSize}px Inter, sans-serif`;
           ctx.textAlign = "center"; ctx.fillStyle = textColor;
@@ -5322,15 +5366,7 @@ function dashboardExhaust() {
             terlebar = Math.max(terlebar, ctx.measureText(formatter(v)).width);
           });
           const putar = terlebar > slotWidth - 2;
-          // Kalau slot-nya SUPER sempit (banyak kolom, layar HP), rotasi
-          // teks aja gak cukup -- antar label tetap ketiban krn tinggi teks
-          // lebih besar dari jatah slotnya. Skip sebagian label (tampilkan
-          // tiap ke-2/ke-3) supaya yang tersisa punya jarak cukup buat
-          // kebaca jelas; angka yang di-skip tetap kelihatan lewat tooltip
-          // pas batangnya ditekan/disentuh.
-          const skip = slotWidth < 10 ? 3 : slotWidth < 15 ? 2 : 1;
           meta.data.forEach((bar, i) => {
-            if (skip > 1 && i % skip !== 0) return;
             const val = Number(dataset.data[i]);
             if (val === null || val === undefined || Number.isNaN(val) || val === 0) return;
             const { x, y } = bar.getProps(["x", "y"], true);
@@ -6176,33 +6212,53 @@ function dashboardExhaust() {
           const textColor = "#000000";
           const n = meta.data.length;
           const slotWidth = chartArea && n ? chartArea.width / n : 30;
-          const fontSize = slotWidth < 24 ? 7.5 : slotWidth < 34 ? 8.5 : slotWidth < 46 ? 9.5 : 10.5;
+          // Slot sempit (kategori banyak di layar HP) dikecilkan terus sampai
+          // batas kebaca -- semua angka tetap ditampilkan, ukurannya aja yang
+          // menyesuaikan (bukan sebagian disembunyikan).
+          const fontSize = slotWidth < 10 ? 5 : slotWidth < 14 ? 5.5 : slotWidth < 18 ? 6.5 : slotWidth < 24 ? 7.5 : slotWidth < 34 ? 8.5 : slotWidth < 46 ? 9.5 : 10.5;
           ctx.save();
           ctx.font = `700 ${fontSize}px Inter, sans-serif`;
           ctx.textAlign = "center";
           ctx.fillStyle = textColor;
-          // Layar HP dengan kategori banyak (harian/per-item) bikin slot per
-          // batang sempit banget -- kalau semua label dipaksa tampil, angka-
-          // nya numpuk/nimpa satu sama lain. Skip sebagian biar sisanya
-          // masih kebaca; nilai yang di-skip tetap muncul lewat tooltip.
-          const skip = slotWidth < 20 ? 3 : slotWidth < 30 ? 2 : 1;
+          // Kalau teksnya lebih lebar dari jatah 1 kolom walau udah dikecilkan,
+          // putar tegak biar antar label gak saling timpa.
+          let terlebar = 0;
           meta.data.forEach((bar, i) => {
-            if (skip > 1 && i % skip !== 0) return;
+            const raw = dataset.data[i];
+            if (raw === null || raw === undefined) return;
+            const val = Number(raw);
+            if (Number.isNaN(val) || val === 0) return;
+            terlebar = Math.max(terlebar, ctx.measureText(formatter(val)).width);
+          });
+          const putar = terlebar > slotWidth - 2;
+          meta.data.forEach((bar, i) => {
             const raw = dataset.data[i];
             if (raw === null || raw === undefined) return;
             const val = Number(raw);
             if (Number.isNaN(val) || val === 0) return; // angka 0 (bulan/hari yg belum ada data) tidak dilabeli
             const { x, y, base } = bar.getProps(["x", "y", "base"], true);
+            const txt = formatter(val);
+            if (putar) {
+              const anchorY = pos === "base" ? base - 4 : (y <= base ? y - 4 : y + 4);
+              ctx.save();
+              ctx.translate(x, anchorY);
+              ctx.rotate(-Math.PI / 2);
+              ctx.textAlign = pos === "base" || y <= base ? "left" : "right";
+              ctx.textBaseline = "middle";
+              ctx.fillText(txt, 0, 0);
+              ctx.restore();
+              return;
+            }
             if (pos === "base") {
               // Label di DASAR batang (dekat garis sumbu-x), supaya tidak
               // tabrakan sama label garis Value di atas chart.
               ctx.textBaseline = "bottom";
-              ctx.fillText(formatter(val), x, base - 4);
+              ctx.fillText(txt, x, base - 4);
               return;
             }
             const isUp = y <= base;
             ctx.textBaseline = isUp ? "bottom" : "top";
-            ctx.fillText(formatter(val), x, isUp ? y - 6 : y + 14);
+            ctx.fillText(txt, x, isUp ? y - 6 : y + 14);
           });
           ctx.restore();
         },
