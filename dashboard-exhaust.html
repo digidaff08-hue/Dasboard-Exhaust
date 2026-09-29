@@ -5322,7 +5322,15 @@ function dashboardExhaust() {
             terlebar = Math.max(terlebar, ctx.measureText(formatter(v)).width);
           });
           const putar = terlebar > slotWidth - 2;
+          // Kalau slot-nya SUPER sempit (banyak kolom, layar HP), rotasi
+          // teks aja gak cukup -- antar label tetap ketiban krn tinggi teks
+          // lebih besar dari jatah slotnya. Skip sebagian label (tampilkan
+          // tiap ke-2/ke-3) supaya yang tersisa punya jarak cukup buat
+          // kebaca jelas; angka yang di-skip tetap kelihatan lewat tooltip
+          // pas batangnya ditekan/disentuh.
+          const skip = slotWidth < 10 ? 3 : slotWidth < 15 ? 2 : 1;
           meta.data.forEach((bar, i) => {
+            if (skip > 1 && i % skip !== 0) return;
             const val = Number(dataset.data[i]);
             if (val === null || val === undefined || Number.isNaN(val) || val === 0) return;
             const { x, y } = bar.getProps(["x", "y"], true);
@@ -6173,7 +6181,13 @@ function dashboardExhaust() {
           ctx.font = `700 ${fontSize}px Inter, sans-serif`;
           ctx.textAlign = "center";
           ctx.fillStyle = textColor;
+          // Layar HP dengan kategori banyak (harian/per-item) bikin slot per
+          // batang sempit banget -- kalau semua label dipaksa tampil, angka-
+          // nya numpuk/nimpa satu sama lain. Skip sebagian biar sisanya
+          // masih kebaca; nilai yang di-skip tetap muncul lewat tooltip.
+          const skip = slotWidth < 20 ? 3 : slotWidth < 30 ? 2 : 1;
           meta.data.forEach((bar, i) => {
+            if (skip > 1 && i % skip !== 0) return;
             const raw = dataset.data[i];
             if (raw === null || raw === undefined) return;
             const val = Number(raw);
