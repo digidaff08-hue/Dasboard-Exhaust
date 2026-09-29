@@ -779,14 +779,17 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
   paint-order: stroke fill;
   text-shadow: 1.5px 1.5px 0 #1B2A4A;
 }
-.dxy-clock-date { font-size: 10px; color: #6b7280; margin-top: 2px; white-space: nowrap; letter-spacing: -0.1px; }
+.dxy-clock-date { font-family: 'Luckiest Guy', cursive !important; font-weight: 400 !important; font-size: 10px; color: #6b7280; margin-top: 2px; white-space: nowrap; letter-spacing: 0px !important; }
 @media (max-width: 640px) {
   .dxy-clock-time { font-size: 18px; }
   .dxy-clock-date { font-size: 9px; }
 }
 .main { padding-top: 0 !important; padding-left: 14px !important; padding-right: 14px !important; gap: 4px !important; }
 .dash-subtab-nav { margin: 0 !important; padding: 0 !important; }
-.dash-subtab-nav button {
+.dash-subtab-nav button,
+.dash-subtab-nav button.btn-secondary,
+.dash-subtab-nav button.btn-primary,
+.dash-subtab-nav button.btn-sm {
   font-family: 'Luckiest Guy', cursive !important;
   font-weight: 400 !important;
   letter-spacing: 0.5px !important;
