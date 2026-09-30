@@ -2180,6 +2180,24 @@ const BULAN_FY = [4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3].map((n) => ({ n, nm: BU
 // Daftar tetap Line & Model untuk chart Perline/Model di tab Kontrol Kualitas
 const QC_LINES = ["E-02", "E-03", "E-04", "E-05", "E-06", "E-07"];
 const QC_MODELS = ["YR9", "YHA", "K15B", "K15C", "D98E", "889F", "D13", "D73F", "D40"];
+// Kelompok tabel realtime -- dipakai supaya begitu ada perubahan, cache yang
+// ditandai "basi" (perlu ditarik ulang) cuma yang BENERAN dipengaruhi tabel
+// itu, bukan SEMUA cache 3 tab sekaligus (perilaku lama). Ini penting
+// terutama buat peta Line-Model tab Kualitas (qcLineModelMap) yang isinya
+// tarikan detail 1 TAHUN PENUH data NG Inline/Trial/Repair (ribuan baris) --
+// dulu peta berat ini ikut ditarik ulang tiap kali production_log berubah
+// (misal autosave Qty/Repair di halaman mesin, yang paling SERING terjadi),
+// padahal peta itu sama sekali tidak berisi data production_log. Lihat
+// handleRealtimeChange() untuk pemetaan lengkap grup -> cache yang di-reset.
+const RT_TABLE_GROUP = {
+  production_log: "produksi",
+  production_log_new: "produksi",
+  downtime_log: "downtime",
+  dandori_log: "downtime",
+  ng_inline_log: "kualitas",
+  repair_log: "kualitas",
+  repair_views: "kualitas",
+};
 // Jumlah hari dalam bulan tertentu (menangani tahun kabisat)
 function daysInMonth(year, month1to12) {
   return new Date(year, month1to12, 0).getDate();
@@ -3481,48 +3499,99 @@ function dashboardExhaust() {
     _rtChannel: null,
     _rtDebounceTimers: {},
     // Kumpulkan beberapa event yang datang beruntun (mis. sync offline
-    // banyak baris sekaligus dari beberapa line) jadi 1 kali refresh
-    // saja, biar tidak spam request RPC ke Supabase.
-    debouncedRealtimeFetch(key, fn, delayMs = 600) {
+    // banyak baris sekaligus dari beberapa line, atau autosave Qty/Repair
+    // yang nulis beberapa kali berturut-turut) jadi 1 kali refresh saja,
+    // biar tidak spam request RPC ke Supabase. Delay dinaikkan dari 600ms
+    // -> 3000ms: bedanya di layar cuma "nunggu 2-3 detik lebih" (tetap
+    // kerasa live), tapi kalau lagi ramai input bareng di beberapa line,
+    // jumlah refresh yang beneran jalan jauh lebih sedikit -- ini salah
+    // satu penyumbang boros Egress (lihat catatan RT_TABLE_GROUP juga).
+    debouncedRealtimeFetch(key, fn, delayMs = 3000) {
       clearTimeout(this._rtDebounceTimers[key]);
       this._rtDebounceTimers[key] = setTimeout(fn, delayMs);
     },
     initRealtime() {
       if (this._rtChannel) return; // sudah jalan, jangan dobel subscribe
-      const REALTIME_TABLES = [
-        "production_log", "production_log_new", "downtime_log",
-        "dandori_log", "ng_inline_log", "repair_log", "repair_views",
-      ];
-      let channel = supabaseClient.channel("rt_dashboard_exhaust");
-      REALTIME_TABLES.forEach((table) => {
-        channel = channel.on(
-          "postgres_changes",
-          { event: "*", schema: "public", table },
-          () => {
-            // 1 timer bersama ("refresh") supaya perubahan di beberapa
-            // tabel sekaligus (mis. Produksi + Downtime hampir bareng)
-            // tetap cuma memicu SATU kali refresh, bukan berkali-kali.
-            this.debouncedRealtimeFetch("refresh", () => this.handleRealtimeChange());
+      this._rtSubscribe();
+      // Dashboard ini biasa dibiarkan terbuka BERJAM-JAM di banyak device
+      // (PC/HP line), termasuk saat tab-nya di-minimize atau user pindah
+      // ke tab/app lain. Selama koneksi realtime masih tersambung, tab
+      // yang "nganggur" begitu tetap ikut kehitung kuota Realtime Messages
+      // walau tidak ada satu pun orang yang sedang melihatnya. Supaya
+      // tidak boros percuma: begitu tab disembunyikan (visibilitychange),
+      // koneksi realtime DILEPAS; begitu dibuka lagi, disambung ulang DAN
+      // data tab yang lagi aktif ditarik sekali (jaga-jaga ada perubahan
+      // yang lewat selama tidak terpantau).
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+          if (this._rtChannel) {
+            supabaseClient.removeChannel(this._rtChannel);
+            this._rtChannel = null;
           }
-        );
+        } else if (!this._rtChannel) {
+          this._rtSubscribe();
+          this.handleRealtimeChange("semua");
+        }
       });
-      this._rtChannel = channel.subscribe();
       // Tutup koneksi realtime rapi-rapi kalau tab ditutup/pindah halaman.
       window.addEventListener("beforeunload", () => {
         if (this._rtChannel) supabaseClient.removeChannel(this._rtChannel);
       });
     },
-    // Tandai semua cache tab sebagai basi, lalu refetch tab yang lagi dibuka.
-    handleRealtimeChange() {
-      this.bulananLoaded = false;
-      this.tahunanLoaded = false;
-      this.qcNgInlineLoaded = false;
-      this.qcNgTrialLoaded = false;
-      this.qcRepairDetailLoaded = false;
-      this.qcRepairPerlineModelLoaded = false;
-      this.qcStraightpassLoaded = false;
-      this.qcFyLoadedKey = "";          // FY tab Kualitas ikut dimuat ulang
-      this.qcLineModelMapLoaded = false;
+    // Buka/sambungkan channel realtime -- dipisah dari initRealtime() supaya
+    // bisa dipanggil lagi begitu tab aktif kembali (lihat visibilitychange
+    // di atas), tanpa daftar event listener beforeunload/visibilitychange
+    // dobel.
+    _rtSubscribe() {
+      let channel = supabaseClient.channel("rt_dashboard_exhaust");
+      Object.keys(RT_TABLE_GROUP).forEach((table) => {
+        const group = RT_TABLE_GROUP[table];
+        channel = channel.on(
+          "postgres_changes",
+          { event: "*", schema: "public", table },
+          () => {
+            // Timer TERPISAH per kelompok tabel (bukan 1 timer bersama utk
+            // semua tabel seperti dulu) -- supaya perubahan production_log
+            // yang sering (autosave Qty/Repair) tidak ikut memicu tarik-
+            // ulang cache Kualitas (ng_inline/repair, termasuk peta 1 tahun
+            // yang berat) yang sama sekali tidak terpengaruh, dan
+            // sebaliknya.
+            this.debouncedRealtimeFetch("refresh_" + group, () => this.handleRealtimeChange(group));
+          }
+        );
+      });
+      this._rtChannel = channel.subscribe();
+    },
+    // Tandai cache yang BENERAN dipengaruhi kelompok tabel yang berubah
+    // sebagai basi, lalu refetch tab yang lagi dibuka (tab lain dibiarkan,
+    // otomatis fetch fresh nanti begitu user pindah ke tab itu). group:
+    // "produksi" (production_log*) | "downtime" (downtime_log/dandori_log)
+    // | "kualitas" (ng_inline_log/repair_log/repair_views) | "semua"
+    // (dipakai saat reconnect setelah tab sempat disembunyikan -- lihat
+    // initRealtime() -- karena tidak tahu tabel mana saja yang berubah
+    // selama koneksi lepas, jadi aman-nya invalidasi semua).
+    handleRealtimeChange(group) {
+      const produksi = group === "produksi" || group === "semua";
+      const downtime = group === "downtime" || group === "semua";
+      const kualitas = group === "kualitas" || group === "semua";
+      if (produksi || downtime) {
+        this.bulananLoaded = false;
+        this.tahunanLoaded = false;
+      }
+      if (kualitas) {
+        this.tahunanLoaded = false; // tab Tahunan juga tampilkan NG Inline & Straightpass
+        this.qcNgInlineLoaded = false;
+        this.qcNgTrialLoaded = false;
+        this.qcRepairDetailLoaded = false;
+        this.qcRepairPerlineModelLoaded = false;
+        this.qcLineModelMapLoaded = false;
+      }
+      if (produksi || kualitas) {
+        // % Straightpass = (stroke - qty repair) / stroke -- butuh
+        // production_log (stroke) MAUPUN repair_log (qty repair).
+        this.qcStraightpassLoaded = false;
+        this.qcFyLoadedKey = "";
+      }
       this.refetchActiveTab();
     },
     async refetchActiveTab() {
