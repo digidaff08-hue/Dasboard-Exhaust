@@ -2741,6 +2741,13 @@ function dashboardExhaust() {
     // berubah kalau Line picker diganti. Struktur:
     // { ngInline: { "E-02": { qtyByMonth: [12], valueByMonth: [12] }, ... }, ngTrial: {...}, repair: {...} }
     qcLineMonthMap: { ngInline: {}, ngTrial: {}, repair: {} },
+    // Peta Line -> harian (qty/value per tanggal 1-31 bulan yang lagi
+    // dipilih, per line) -- dipakai chart "*Daily" (NG Inline/NG Trial/
+    // Straightpass) supaya ikut berubah kalau Line picker diganti. Sama
+    // seperti qcLineModelMap, cuma "repair" yang punya keterbatasan (lihat
+    // catatan di fetchQcLineModelMap()). Struktur:
+    // { ngInline: { "E-02": { qtyByDay: [31], valueByDay: [31] }, ... }, ngTrial: {...}, repair: {...} }
+    qcLineDayMap: { ngInline: {}, ngTrial: {}, repair: {} },
     qcLineModelMapLoaded: false,
     // Nama bulan singkat (tanpa tahun) -- dipakai sebagai overlay teks di
     // field tanggal panel Rekap selama mode "sebulan" masih aktif, biar
@@ -3317,13 +3324,14 @@ function dashboardExhaust() {
         const curMonthStr = String(this.qcMonth).padStart(2, "0");
         const isCurrentMonth = (tgl) => (tgl || "").slice(0, 4) === curYearStr && (tgl || "").slice(5, 7) === curMonthStr;
 
-        // Dari baris mentah 1-tahun-fiskal, turunkan 2 peta sekaligus:
-        // modelMap = { line: { model: {qty,value} } } TAPI cuma baris bulan
-        // yang lagi dipilih (qcMonth/qcYear); monthMap = { line: { qtyByMonth:[12], valueByMonth:[12] } }
-        // dari SEMUA 12 bulan.
+        // Dari baris mentah 1-tahun-fiskal, turunkan 3 peta sekaligus:
+        // modelMap = { line: { model: {qty,value} } } & dayMap = { line: { qtyByDay:[31], valueByDay:[31] } }
+        // TAPI keduanya cuma baris bulan yang lagi dipilih (qcMonth/qcYear);
+        // monthMap = { line: { qtyByMonth:[12], valueByMonth:[12] } } dari SEMUA 12 bulan.
         const build = (rows, hasValue) => {
           const modelMap = {};
           const monthMap = {};
+          const dayMap = {};
           (rows || []).forEach((r) => {
             const line = r.mesin || "";
             if (!line) return;
@@ -3342,8 +3350,16 @@ function dashboardExhaust() {
               modelMap[line][model].qty += qty;
               if (hasValue) modelMap[line][model].value += value;
             }
+            if (isCurrentMonth(r.tanggal)) {
+              const day = parseInt((r.tanggal || "").slice(8, 10), 10);
+              if (day >= 1 && day <= 31) {
+                if (!dayMap[line]) dayMap[line] = { qtyByDay: Array(31).fill(0), valueByDay: Array(31).fill(0) };
+                dayMap[line].qtyByDay[day - 1] += qty;
+                if (hasValue) dayMap[line].valueByDay[day - 1] += value;
+              }
+            }
           });
-          return { modelMap, monthMap };
+          return { modelMap, monthMap, dayMap };
         };
         const ngiBuilt = build(ngInlineRes.data, true);
         const ngtBuilt = build(ngTrialRes.data, true);
@@ -3351,6 +3367,12 @@ function dashboardExhaust() {
 
         this.qcLineModelMap = { ngInline: ngiBuilt.modelMap, ngTrial: ngtBuilt.modelMap, repair: repBuilt.modelMap };
         this.qcLineMonthMap = { ngInline: ngiBuilt.monthMap, ngTrial: ngtBuilt.monthMap, repair: repBuilt.monthMap };
+        // dayMap dipakai buat chart *Daily per-Line (NG Inline/NG Trial akurat
+        // penuh Qty+Value; Straightpass cuma bar "Qty Repair" yang akurat
+        // per-line, garis "% Straightpass" TETAP gabungan semua line --
+        // sama seperti keterbatasan Month/Model, lihat catatan di atas --
+        // karena dashboard belum punya data stroke harian per-line.
+        this.qcLineDayMap = { ngInline: ngiBuilt.dayMap, ngTrial: ngtBuilt.dayMap, repair: repBuilt.dayMap };
         this.qcLineModelMapLoaded = true;
       } catch (e) {
         console.error("Gagal memuat peta Line-Model (Kontrol Kualitas):", e);
@@ -6593,9 +6615,22 @@ function dashboardExhaust() {
           });
         }, canvasId);
       };
-      qcDualAxisDaily("qcNgInlineDaily", QC_BAR.ngInline, "#8B5CF6", "Qty", "Value", false, ngi.dailyQty, ngi.dailyValue, { isMoney: true });
-      qcDualAxisDaily("qcNgTrialDaily", QC_BAR.ngTrial, "#8B5CF6", "Qty", "Value", false, ngt.dailyQty, ngt.dailyValue, { isMoney: true });
-      qcDualAxisDaily("qcStraightpassDaily", QC_BAR.straightpass, SP_LINE, "Qty Repair", "% Straightpass", true, this.qcStraightpass.dailyRepairQty, this.qcStraightpass.dailyPercent, { barLabelPos: "base" });
+      // Daily per-Line: NG Inline & NG Trial akurat penuh (Qty+Value) dari
+      // this.qcLineDayMap, karena baris mentahnya memang punya kolom mesin.
+      // Straightpass cuma bar "Qty Repair" yang akurat per-line -- garis
+      // "% Straightpass" TETAP data gabungan semua line (keterbatasan sama
+      // seperti Month/Model, dashboard belum punya stroke harian per-line).
+      const ngiDayForLine = lineFilter === "ALL" ? null : this.qcLineDayMap.ngInline[lineFilter];
+      const ngtDayForLine = lineFilter === "ALL" ? null : this.qcLineDayMap.ngTrial[lineFilter];
+      const repDayForLine = lineFilter === "ALL" ? null : this.qcLineDayMap.repair[lineFilter];
+      const ngiDailyQty = ngiDayForLine ? ngiDayForLine.qtyByDay : ngi.dailyQty;
+      const ngiDailyValue = ngiDayForLine ? ngiDayForLine.valueByDay : ngi.dailyValue;
+      const ngtDailyQty = ngtDayForLine ? ngtDayForLine.qtyByDay : ngt.dailyQty;
+      const ngtDailyValue = ngtDayForLine ? ngtDayForLine.valueByDay : ngt.dailyValue;
+      const spDailyRepairQty = repDayForLine ? repDayForLine.qtyByDay : this.qcStraightpass.dailyRepairQty;
+      qcDualAxisDaily("qcNgInlineDaily", QC_BAR.ngInline, "#8B5CF6", "Qty", "Value", false, ngiDailyQty, ngiDailyValue, { isMoney: true });
+      qcDualAxisDaily("qcNgTrialDaily", QC_BAR.ngTrial, "#8B5CF6", "Qty", "Value", false, ngtDailyQty, ngtDailyValue, { isMoney: true });
+      qcDualAxisDaily("qcStraightpassDaily", QC_BAR.straightpass, SP_LINE, "Qty Repair", "% Straightpass", true, spDailyRepairQty, this.qcStraightpass.dailyPercent, { barLabelPos: "base" });
     },
     // Chart Trend Kehadiran Harian (tanggal 1-31) di tab Kontrol Attendance.
     // Batang BERTUMPUK (stacked): Hadir + Izin + Sakit + Cuti + Mangkir,

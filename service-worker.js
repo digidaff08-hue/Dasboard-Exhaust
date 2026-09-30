@@ -5,7 +5,7 @@
 // ini cuma men-cache HTML/CSS/JS-nya, bukan data produksi.
 // =========================================================
 // Naikkan versi ini tiap ada perubahan besar supaya cache lama dibuang.
-const CACHE_NAME = "produksi-downtime-shell-v41-fix-straightpass-line";
+const CACHE_NAME = "produksi-downtime-shell-v42-daily-per-line";
 
 const SHELL_FILES = [
   "/login.html",
