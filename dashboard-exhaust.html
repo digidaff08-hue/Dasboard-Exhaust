@@ -2214,6 +2214,33 @@ function localDateStr(d) {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
+// Supabase/PostgREST SECARA DEFAULT cuma balikin maksimal 1000 baris per
+// request (biar tidak dipakai literal, batas ini konfigurasinya di sisi
+// API project, BUKAN sesuatu yang bisa dilewati cuma dengan .limit() lebih
+// besar). RPC detail per-baris yang di-query rentang 1 TAHUN PENUH (mis.
+// dashboard_qc_repair_detail_range/dashboard_qc_ng_detail_range dipakai di
+// fetchQcLineModelMap) gampang punya lebih dari 1000 baris kalau volume
+// datanya besar (repair bisa ribuan baris/bulan) -- akibatnya baris-baris
+// bulan belakangan (mis. Jun-Sep) diam-diam KEPOTONG, sehingga chart
+// "Straightpass Month" per-Line cuma keisi 1-2 bulan pertama walau data
+// aslinya (tabel Rekap Repair, yang query-nya cuma 1 bulan sekali jalan)
+// lengkap. Helper ini menambal itu dengan menarik SEMUA baris lewat
+// paginasi .range() berulang sampai halaman yang balik lebih pendek dari
+// ukuran halaman (tandanya sudah baris terakhir).
+async function fetchAllRpcRows(rpcName, params, pageSize = 1000) {
+  let allRows = [];
+  let from = 0;
+  let lastError = null;
+  while (true) {
+    const { data, error } = await supabaseClient.rpc(rpcName, params).range(from, from + pageSize - 1);
+    if (error) { lastError = error; break; }
+    const rows = data || [];
+    allRows = allRows.concat(rows);
+    if (rows.length < pageSize) break; // halaman terakhir
+    from += pageSize;
+  }
+  return { data: allRows, error: lastError };
+}
 // Warna batang chart Kapasitas Harian -- disamakan persis dengan
 // plan-produksi.html supaya part yang sama berwarna sama di dua halaman.
 const PLAN_LINE_COLORS = ["#5b8def", "#f2a541", "#e05a5a", "#31b06a", "#8f6bd6", "#2fb8c6"];
@@ -3262,10 +3289,14 @@ function dashboardExhaust() {
         const fyStartYear = fyStartOf(this.qcYear, this.qcMonth);
         const fyStart = new Date(fyStartYear, 3, 1);
         const fyEnd = new Date(fyStartYear + 1, 3, 1);
+        // PENTING: pakai fetchAllRpcRows (paginasi), BUKAN supabaseClient.rpc()
+        // langsung -- rentangnya 1 tahun fiskal penuh, dan khususnya data
+        // Repair volumenya bisa jauh di atas batas 1000-baris/request bawaan
+        // Supabase. Lihat catatan lengkap di definisi fetchAllRpcRows().
         const [ngInlineRes, ngTrialRes, repairRes] = await Promise.all([
-          supabaseClient.rpc("dashboard_qc_ng_detail_range", { p_type_ng: "NG PRODUKSI", p_start: localDateStr(fyStart), p_end: localDateStr(fyEnd) }),
-          supabaseClient.rpc("dashboard_qc_ng_detail_range", { p_type_ng: "NG TRIAL", p_start: localDateStr(fyStart), p_end: localDateStr(fyEnd) }),
-          supabaseClient.rpc("dashboard_qc_repair_detail_range", { p_start: localDateStr(fyStart), p_end: localDateStr(fyEnd) }),
+          fetchAllRpcRows("dashboard_qc_ng_detail_range", { p_type_ng: "NG PRODUKSI", p_start: localDateStr(fyStart), p_end: localDateStr(fyEnd) }),
+          fetchAllRpcRows("dashboard_qc_ng_detail_range", { p_type_ng: "NG TRIAL", p_start: localDateStr(fyStart), p_end: localDateStr(fyEnd) }),
+          fetchAllRpcRows("dashboard_qc_repair_detail_range", { p_start: localDateStr(fyStart), p_end: localDateStr(fyEnd) }),
         ]);
         if (ngInlineRes.error) console.error("dashboard_qc_ng_detail_range (NG PRODUKSI, line-model map):", ngInlineRes.error);
         if (ngTrialRes.error) console.error("dashboard_qc_ng_detail_range (NG TRIAL, line-model map):", ngTrialRes.error);
