@@ -135,6 +135,30 @@ a { color: var(--amber); }
   display: none;
 }
 
+/* =========================================================
+   Mode "embed": dipakai saat halaman mesin ini dibuka di dalam
+   <iframe> oleh Dashboard Exhaust (tab "Performance"), lewat
+   ?tab=performance. Class "embed-mode" ditempel ke .app-shell
+   oleh Alpine (:class) berdasarkan embedMode di machine-page.js.
+   Tujuannya: tampilkan HANYA panel Performance -- sembunyikan
+   sidebar, topbar mobile + tab-switcher-nya, header "MESIN E-0X"
+   + tab-switcher desktop-nya, dan widget andon "Panggil Supporting"
+   yang tidak relevan di tampilan dashboard ini.
+   ========================================================= */
+.app-shell.embed-mode .sidebar,
+.app-shell.embed-mode .sidebar-overlay,
+.app-shell.embed-mode .mobile-topbar,
+.app-shell.embed-mode .page-header,
+.app-shell.embed-mode .andon-w {
+  display: none !important;
+}
+.app-shell.embed-mode > .main {
+  padding: 8px !important;
+  padding-top: 8px !important;
+  max-width: none !important;
+  width: 100% !important;
+}
+
 .sidebar {
   width: 220px;
   flex-shrink: 0;
@@ -930,6 +954,171 @@ td.mono, .mono { font-family: var(--font-mono); }
   min-width: 160px;
   text-align: center;
 }
+
+/* =========================================================
+   Papan Dekidaka (dipakai modal "Lihat Dekidaka" di card Performance
+   Harian) -- CSS ini SENGAJA disalin persis dari dashboard-exhaust.html
+   (tab Dekidaka aslinya), supaya tampilan board identik di kedua tempat.
+   ========================================================= */
+.dkd-wrap{ width:100%; display:flex; flex-direction:column; }
+.dkd-nav{ display:flex; align-items:center; justify-content:center; gap:14px; margin:4px 0 10px; }
+.dkd-indicator{ font-size:13px; font-weight:bold; color:var(--accent-color, #1f4e79); min-width:110px; text-align:center; }
+.dkd-nav-btn{ width:26px; height:26px; border-radius:50%; border:none; background:var(--accent-color, #1f4e79); color:#fff; font-size:12px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(0,0,0,0.3); }
+.dkd-nav-btn:hover{ background:#163a5c; }
+.dkd-nav-btn:disabled{ opacity:0.3; cursor:default; }
+.dkd-track-wrap{ position:relative; width:100%; height:520px; min-height:420px; }
+.dkd-track{ height:100%; display:flex; flex-direction:row; flex-wrap:nowrap; gap:1vh; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; scroll-behavior:smooth; padding-bottom:10px; }
+.dkd-track::-webkit-scrollbar{ height:10px; }
+.dkd-track::-webkit-scrollbar-thumb{ background:#bfbfbf; border-radius:5px; }
+.dkd-cell{ background:#fff; border:1px solid #222; overflow:hidden; position:relative; flex:0 0 auto; scroll-snap-align:start; }
+.dkd-cell .dkd-scale{ position:absolute; top:0; left:0; transform-origin:top left; }
+/* border-left aksen warna per line (lihat DKD_LINE_COLORS / dkdBuildBoardHTML)
+   -- biar pas digeser ke samping gampang kebaca lagi board line yang mana. */
+.dkd-board{ width:1720px; background:#fff; padding:14px 14px 14px 18px; font-size:12px; color:#111; font-family: Arial, Helvetica, sans-serif; border-left:8px solid var(--dkd-accent, #1f4e79); }
+/* Tombol kecil Print/Export PDF per board (muncul di dkd-info-bar, lihat
+   dkdBuildBoardHTML) -- dipakai baik di tab Dekidaka ini maupun di modal
+   "Lihat Dekidaka" (halaman line, assets/machine-page.js + assets/style.css
+   -- CSS-nya SENGAJA disamakan persis di kedua tempat). */
+.dkd-actions{ display:flex; align-items:center; gap:6px; }
+.dkd-btn{ width:28px; height:28px; border-radius:6px; border:1px solid #bfbfbf; background:#fff; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; }
+.dkd-btn:hover{ background:#f0f0f0; }
+/* Area tersembunyi khusus utk print 1 board (dekidakaPrintBoard) -- saat
+   mencetak, SEMUA elemen lain di-sembunyikan via body.dkd-printing, cuma
+   #dkdPrintArea yang ditampilkan. Lebih simpel & aman drpd window baru
+   (tidak perlu urus base URL/stylesheet terpisah). */
+#dkdPrintArea{ display:none; }
+/* Ukuran halaman cetak ditulis EKSPLISIT dalam mm (A4 mendatar), bukan
+   cuma kata kunci "landscape" -- browser lebih patuh ke ukuran eksplisit,
+   jadi hasil cetak tetap mendatar walau radio "Potret/Lanskap" di dialog
+   tidak diubah. @page sengaja di luar @media print (memang cuma berlaku
+   saat mencetak). */
+@page { size: 297mm 210mm; margin: 8mm; }
+@media print {
+  body.dkd-printing > *:not(#dkdPrintArea){ display:none !important; }
+  body.dkd-printing #dkdPrintArea{ display:block !important; margin:0 !important; padding:0 !important; }
+  /* Margin/padding body dinolkan saat mencetak -- kalau tidak, tinggi
+     konten + padding body bisa lewat beberapa px dari area cetak dan
+     browser menambah 1 halaman kosong/potongan tipis. */
+  body.dkd-printing{ margin:0 !important; padding:0 !important; background:#fff !important; }
+  /* Yang dicetak adalah SATU GAMBAR hasil render board (lihat
+     dekidakaPrintBoard). Ini disengaja: dulu board dicetak sebagai elemen
+     HTML biasa, dan browser memecah halaman sendiri -- hasilnya kepotong
+     di tengah baris / judul sendirian di halaman 1 & tabel di halaman 2,
+     beda-beda pula antar browser & ukuran kertas. Satu gambar dgn
+     width:100% tidak bisa dipecah: dia selalu selebar halaman, tingginya
+     ikut rasio, dan rasio board sudah dibuat lebih lebar dari rasio kertas
+     (lihat .dkd-print-compact) supaya dijamin muat 1 halaman. */
+  #dkdPrintArea img{ display:block; width:100%; height:auto; max-height:100vh; break-inside: avoid; page-break-inside: avoid; }
+  /* Jalur cadangan kalau html2canvas belum termuat & board dicetak sbg
+     HTML biasa (lihat fallback di dekidakaPrintBoard). */
+  #dkdPrintArea .dkd-board{ break-inside: avoid; page-break-inside: avoid; }
+  #dkdPrintArea table.dkd-main tr{ break-inside: avoid; page-break-inside: avoid; }
+  #dkdPrintArea table.dkd-main thead{ display: table-header-group; }
+}
+/* ---- Versi "rapat" board, khusus dipakai salinan yang dicetak ----
+   SENGAJA class biasa, BUKAN di dalam @media print: dekidakaPrintBoard()
+   mengukur tinggi board dari layar dulu buat menghitung zoom. Kalau
+   rule-rule ini cuma hidup saat media print, yang terukur versi longgar
+   -> zoom-nya kekecilan -> board cuma mengisi ~65% lebar kertas dan
+   kanannya kosong melompong. Dengan dirapatkan di sini, tingginya turun,
+   jadi yang membatasi skala adalah LEBAR kertas -> board mengisi penuh
+   dan tulisannya ikut lebih besar. */
+.dkd-board.dkd-print-compact .dkd-ref-placeholder{ display:none; }
+.dkd-board.dkd-print-compact .dkd-actions{ display:none; }
+.dkd-board.dkd-print-compact .dkd-big-line{ font-size:38px; letter-spacing:-1px; }
+.dkd-board.dkd-print-compact .dkd-top-row{ margin-bottom:4px; }
+.dkd-board.dkd-print-compact .dkd-info-bar{ margin-bottom:5px; }
+/* padding vertikal 1.5px -- hasil ukur: board jadi ~1760x1137, rasio
+   lebar:tinggi ~1.55. Itu SENGAJA dibuat lebih "lebar" dari rasio area
+   cetak A4 mendatar (1062x733 = ~1.45): karena gambar hasil cetak dipasang
+   width:100%, tingginya otomatis = lebar/1.55 yang dijamin masih muat di
+   tinggi halaman (berapa pun ukuran kertasnya). */
+.dkd-board.dkd-print-compact table.dkd-main th,
+.dkd-board.dkd-print-compact table.dkd-main td{ padding:1.5px 3px; }
+.dkd-board.dkd-print-compact table.dkd-main thead th{ padding:3px; }
+.dkd-board.dkd-print-compact .dkd-static{ min-height:0; }
+.dkd-board.dkd-print-compact .dkd-static.dkd-static-text{ min-height:0; }
+.dkd-board.dkd-print-compact .dkd-waktu-box{ gap:0; }
+.dkd-board.dkd-print-compact .dkd-summary{ gap:5px; }
+.dkd-board.dkd-print-compact .dkd-summary .dkd-card{ height:58px; padding:4px; }
+.dkd-top-row{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
+.dkd-big-line{ font-size:90px; font-weight:900; line-height:1; color:var(--dkd-accent, #111); letter-spacing:-2px; white-space:nowrap; }
+.dkd-tables-wrap{ display:flex; align-items:flex-start; gap:28px; margin-left:auto; }
+/* Placeholder "menyusul" -- dulu di sini ada tabel referensi (Cleaning
+   Nozzle dkk) & Cycle Time Target kosong melompong penuh garis kotak;
+   sementara belum ada master data-nya, satu kotak abu-abu putus-putus
+   lebih enak dipandang drpd grid kosong. */
+.dkd-ref-placeholder{ width:680px; height:150px; border:2px dashed #ccc; border-radius:8px; background:#fafafa; display:flex; align-items:center; justify-content:center; text-align:center; color:#999; font-size:12px; font-style:italic; }
+.dkd-info-bar{ display:flex; justify-content:space-between; align-items:center; border:1px solid #222; padding:6px 10px; margin-bottom:10px; font-weight:bold; color:#111; background:#f7f8fa; }
+.dkd-info-bar .dkd-field{ display:flex; align-items:center; gap:6px; }
+.dkd-info-bar .dkd-field-group{ display:flex; align-items:center; gap:20px; }
+.dkd-info-bar input, .dkd-info-bar select{ font-weight:bold; font-size:13px; border:1px solid #bfbfbf; padding:2px 6px; }
+.dkd-table-with-summary{ display:flex; align-items:stretch; gap:10px; }
+table.dkd-main{ flex:1; min-width:0; border-collapse:collapse; table-layout:fixed; }
+table.dkd-main th, table.dkd-main td{ border:1px solid #d8dbe0; padding:3px 4px; vertical-align:middle; text-align:center; overflow:hidden; color:#111; }
+table.dkd-main thead th{ background:var(--accent-color, #1f4e79); color:#fff; font-size:11px; padding:6px 3px; border-color:#222; }
+/* Garis pemisah antar-blok (tiap 6 baris = 1 blok waktu) dipertegas --
+   biar mata gampang ngelompokin per-blok tanpa harus hitung baris. */
+.dkd-tbody tr:nth-child(6n) td{ border-bottom:2px solid #222; }
+.dkd-c-no{width:34px;} .dkd-c-part{width:85px;} .dkd-c-waktu{width:110px;} .dkd-c-desc{width:160px;}
+.dkd-c-d73f{width:40px;} .dkd-c-889f{width:40px;} .dkd-c-maint{width:85px;} .dkd-c-ket{width:40px;}
+.dkd-c-masalah{width:410px;} .dkd-c-penanganan{width:330px;} .dkd-c-pic{width:80px;} .dkd-c-deadline{width:100px;}
+.dkd-no-label{ font-weight:bold; font-size:13px; color:#555; }
+.dkd-desc-row{ display:flex; flex-direction:column; align-items:center; justify-content:center; align-content:center; gap:2px; text-align:center; }
+.dkd-desc-row .dkd-lbl{ font-weight:600; font-size:9.5px; white-space:normal; line-height:1.15; color:#888; }
+td.dkd-gray{ background:transparent; }
+/* Kolom referensi (dulu "D73F"/"889F" dkk) belum ada datanya -- dikasih
+   fill abu-abu sangat muda, biar area yang masih kosong keliatan beda
+   dari area yang memang berisi data (Masalah/Penanganan/Pic/MP). */
+td.dkd-refcol{ background:#fbfbfc; }
+.dkd-static{ width:100%; min-height:14px; font-size:11px; }
+.dkd-static.dkd-static-text{ min-height:32px; font-size:10.5px; text-align:left; padding:2px; white-space:pre-wrap; }
+.dkd-waktu-box{ display:flex; flex-direction:column; align-items:center; gap:3px; }
+.dkd-waktu-box .dkd-jam{ font-size:11px; font-weight:bold; }
+.dkd-waktu-box .dkd-durasi{ font-weight:bold; font-size:10.5px; margin-top:2px; color:var(--accent-color, #1f4e79); }
+/* MP dibikin lebih menonjol -- salah satu angka yg paling sering dicari
+   cepat di lantai produksi. */
+.dkd-mp-value{ font-weight:900; font-size:14px; color:#0b5d1e; background:#eafbee; border-radius:4px; }
+/* Baris blok yang Abnormality-nya >0 (ada downtime beneran) -- ditandai
+   tipis warna merah, biar masalah langsung kelihatan dari jauh tanpa
+   perlu baca satu-satu (lihat dekidakaApplyDowntime). */
+tr.dkd-row-alert td{ background:#fff1f0; }
+tr.dkd-row-alert .dkd-ket-abnormality{ font-weight:900; color:#b3261e; background:#ffd9d6; border-radius:4px; }
+.dkd-summary{ width:150px; flex:0 0 auto; align-self:flex-start; display:flex; flex-direction:column; gap:8px; }
+.dkd-summary .dkd-card{ height:95px; border:2px solid var(--accent-color, #1f4e79); border-radius:6px; padding:8px 4px; display:flex; flex-direction:column; align-items:center; }
+.dkd-summary .dkd-card .dkd-card-lbl{ font-size:10.5px; font-weight:bold; text-transform:uppercase; color:#111; }
+.dkd-summary .dkd-card .dkd-card-val{ flex:1; width:100%; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:bold; color:var(--accent-color, #1f4e79); }
+.dkd-note{ font-size:10px; color:#666; margin:6px 2px 0; text-align:center; }
+/* Modal "Lihat Dekidaka" (tombol di card Performance Harian, sebelum field
+   tanggal -- lihat perf-header di bawah) -- 1 board saja, overlay di atas
+   halaman, TIDAK mempengaruhi tab Dekidaka di dashboard-exhaust.html. */
+.dkd-modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px; }
+/* width:auto -- kotak modal MENGIKUTI ukuran board yang sudah diskalakan
+   (lihat scaleDekidakaModalBoard yg men-set lebar/tinggi #dkdModalBoardWrap
+   sebagai px pasti), jadi tidak ada area putih nganggur di kanan. */
+.dkd-modal-box{ background:#fff; border-radius:10px; width:auto; min-width:440px; max-width:96vw; max-height:96vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 10px 40px rgba(0,0,0,0.35); }
+.dkd-modal-head{ display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid var(--border); flex:0 0 auto; }
+.dkd-modal-title{ font-weight:700; font-size:1rem; color:#111; }
+/* Tombol Print/Export PDF dipindah ke sini (sebelah "Tutup"), BUKAN lagi
+   nempel di dkd-info-bar board di dalam modal -- lihat
+   .dkd-modal-board-wrap .dkd-actions di bawah yg sengaja disembunyikan
+   khusus di dalam modal supaya tombolnya tidak dobel. */
+.dkd-modal-head-actions{ display:flex; align-items:center; gap:8px; }
+.dkd-modal-body{ padding:10px; overflow:auto; flex:1 1 auto; background:#f0f1f3; }
+/* Lebar & tinggi wrap di-set px pasti oleh scaleDekidakaModalBoard() =
+   ukuran board SETELAH diskalakan, supaya SELURUH board kelihatan tanpa
+   scroll. Skalanya dihitung dari window.innerWidth/innerHeight (bukan dari
+   ukuran elemen ini sendiri) -- kalau diukur dari elemen yang justru
+   di-set ukurannya oleh fungsi yang sama, hasilnya saling kejar-kejaran
+   (lihat catatan panjang di .dkd-track-wrap / dekidakaComputeScale). */
+.dkd-modal-board-wrap{ position:relative; margin:0 auto; overflow:hidden; }
+.dkd-modal-board-wrap .dkd-scale{ transform-origin:top left; }
+/* Tombol print/export bawaan board disembunyikan KHUSUS di dalam modal --
+   gantinya ada di header modal (.dkd-modal-head-actions, di atas). Tab
+   Dekidaka asli (dashboard-exhaust.html) tidak kena rule ini, tombolnya
+   tetap tampil di dkd-info-bar seperti biasa. */
+.dkd-modal-board-wrap .dkd-actions{ display:none; }
+
 .perf-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -2290,18 +2479,27 @@ tr.row-qty-warn td { background: rgba(217,119,6,0.07) !important; }
 .cost-fill-ng { background: var(--red); }
 .cost-fill-scrap { background: var(--sky); }
 
-/* ---------- Performance: layout harian 2 kolom ---------- */
+/* ---------- Performance: layout harian ---------- */
+/* Dulu 2 kolom (chart "Perjam Target vs Aktual" + tabel "Produksi Hari
+   Itu"). Chart-nya sudah dihapus (lihat machines/e-0X.html), jadi
+   sekarang 1 kolom penuh -- tabelnya "geser kekiri" mengisi semua
+   lebar yang tadinya dipakai chart. */
 .perf-daily-split {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: 1fr;
   gap: 18px;
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px dashed var(--border);
 }
-.perf-daily-chart, .perf-daily-list { min-width: 0; }
-@media (max-width: 900px) {
-  .perf-daily-split { grid-template-columns: 1fr; }
+.perf-daily-list { min-width: 0; }
+/* "Rekap Downtime" -- sekarang DI BAWAH tabel "Produksi Hari Itu"
+   (1 kolom yang sama), bukan lagi di samping pie "Downtime per
+   Kategori". Lihat machines/e-0X.html, panel Performance Harian. */
+.perf-downtime-rekap {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--border);
 }
 
 /* ---------- Chip aktif: hijau + teks putih (estetika) ---------- */
