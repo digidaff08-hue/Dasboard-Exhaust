@@ -1347,18 +1347,36 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const { data, error } = await q.order("waktu_awal", { ascending: true });
       if (error) { this.perfDayRows = []; return; }
 
-      const ids = (data || []).map((r) => r.id);
-      // NG Inline dicocokkan ke baris produksi lewat production_log_id
-      // (auto-link berdasar jam kejadian -- lihat migration_ng_repair_link_produksi.sql).
-      // Baris lama (sebelum migrasi ini) belum punya link, jadi tampil 0 di sini.
-      // Repair diambil LANGSUNG dari kolom production_log.repair (diisi di form
-      // Input Produksi NEW) -- BUKAN dari tabel repair_log (menu Repair 3D terpisah).
-      const ngInlineRes = ids.length
-        ? await supabaseClient.from("ng_inline_log").select("production_log_id, qty").in("production_log_id", ids)
-        : { data: [] };
+      // NG Inline per baris (kolom "NG INLINE") DIHITUNG dari waktu_kejadian
+      // vs jendela waktu tiap baris produksi -- BUKAN dari kolom
+      // production_log_id yang tersimpan di ng_inline_log.
+      // Alasannya: production_log_id itu diisi SEKALI oleh trigger saat
+      // data NG Inline disimpan (lihat migration_ng_repair_link_produksi.sql),
+      // sedangkan tabel ini mengambil baris produksi dengan jendela
+      // "hari produksi mulai 07:00 WIB" (shiftedStart/shiftedEnd di atas).
+      // Kalau NG Inline terjadi dekat tengah malam, baris produksi yang
+      // ditautkan trigger bisa saja berada di "hari produksi" SEBELUMNYA
+      // (tidak ikut termuat di ids), sehingga semua baris di tabel hari
+      // ini tampil NG INLINE = 0 walau kartu ringkasan (yang menjumlah
+      // berdasar kolom tanggal, bukan link) sudah benar menampilkan total
+      // NG hari itu. Dihitung ulang dari waktu_kejadian di sini supaya
+      // tabel & kartu selalu pakai "hari" yang sama.
+      const ngDateStr = st.anchor; // kolom ng_inline_log.tanggal = tanggal yg dipilih (tidak digeser +7 jam)
+      const ngRes = await supabaseClient.from("ng_inline_log")
+        .select("waktu_kejadian, qty")
+        .eq("mesin", machineKey)
+        .eq("tanggal", ngDateStr);
       const ngInlineByRow = {};
-      (ngInlineRes.data || []).forEach((r) => {
-        ngInlineByRow[r.production_log_id] = (ngInlineByRow[r.production_log_id] || 0) + (Number(r.qty) || 0);
+      (ngRes.data || []).forEach((n) => {
+        const qty = Number(n.qty) || 0;
+        if (!qty || !n.waktu_kejadian) return;
+        const t = new Date(n.waktu_kejadian).getTime();
+        const row = (data || []).find((r) => {
+          const mulai = new Date(r.waktu_awal).getTime();
+          const selesai = new Date(r.waktu_akhir).getTime();
+          return t >= mulai && t < selesai;
+        });
+        if (row) ngInlineByRow[row.id] = (ngInlineByRow[row.id] || 0) + qty;
       });
 
       // Downtime per baris (kolom "DT") DIHITUNG dari downtime_log, bukan
