@@ -21,6 +21,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="assets/supabaseClient.js"></script>
+<script src="assets/produksi-join.js"></script>
 <style>
 /* ═══════════════════════════════════════════
    DATA MENTAH — Local styles
@@ -675,7 +676,15 @@ input[type="month"]:focus {
         <!-- Page header -->
         <div class="dm-page-header">
           <div class="dm-page-icon">🗃️</div>
-          <h1 class="dm-page-title">Data Mentah</h1>
+          <h1 class="dm-page-title">Data Mentah
+            <!-- Penanda versi file assets/produksi-join.js yang sedang
+                 dipakai. Kalau tulisannya "versi lama", berarti halaman
+                 ini atau file assets/produksi-join.js belum ter-update,
+                 dan kolom NG Inline / Downtime belum tentu benar. -->
+            <span style="font-size:.6rem;font-weight:600;vertical-align:middle;margin-left:8px;padding:2px 7px;border-radius:999px;"
+                  :style="window.PRODUKSI_JOIN_VERSI ? 'background:#e7f5ec;color:#1a7f44;' : 'background:#fdecea;color:#b3261e;'"
+                  x-text="window.PRODUKSI_JOIN_VERSI || 'versi lama'"></span>
+          </h1>
         </div>
 
         <!-- ── Tab bar ── -->
@@ -1489,46 +1498,39 @@ function dataMentah() {
 
         // 4. Untuk tiap baris produksi, cari downtime yang overlap waktu di mesin yang sama
         //    lalu ambil downtime_menit dari production_log dan kelompokkan per kolom PIC
+        // Kolom downtime Nippo (Stockout / Forklift-Crane / Die-Jig /
+        // Machine Late / 5S) DULU SELALU KOSONG karena baris pertamanya
+        // menyaring pakai production_log.downtime_menit:
+        //
+        //   if (!prodRow.downtime_menit || Number(...) === 0) return cols;
+        //
+        // Kolom itu kolom mati -- praktis selalu 0 (lihat penjelasan di
+        // assets/produksi-join.js), jadi fungsi ini langsung berhenti dan
+        // mengembalikan kolom kosong untuk SEMUA baris, padahal downtime
+        // aslinya ada di downtime_log dan sudah ikut diambil di atas.
+        //
+        // Sekarang menitnya diambil dari durasi downtime_log itu sendiri,
+        // jadi tidak perlu lagi dibagi proporsional dari angka lain:
+        // tiap downtime menyumbang menitnya sendiri ke kolom PIC-nya.
+        // Penempelan ke baris produksi memakai aturan yang sama dengan
+        // seluruh aplikasi (jam MULAI downtime berada di dalam jendela
+        // waktu baris produksi) -- lihat cocokkanDowntimeKeBaris.
+        if (typeof cocokkanDowntimeKeBaris !== 'function') {
+          this.flash('File assets/produksi-join.js belum ada atau belum ter-update, jadi kolom downtime Nippo (Stockout/Forklift/Die-Jig/Machine Late/5S) tidak bisa dihitung.', true);
+        }
+        const dtPerBaris = (typeof cocokkanDowntimeKeBaris === 'function')
+          ? cocokkanDowntimeKeBaris(prodAll, dtAll) : {};
         function getDowntimeCols(prodRow) {
           const cols = { stockout:'', forklift_crane:'', die_jig:'', machine_late:'', lima_s:'' };
-          if (!prodRow.downtime_menit || Number(prodRow.downtime_menit) === 0) return cols;
+          const matched = dtPerBaris[prodRow.id] || [];
+          if (!matched.length) return cols;
 
-          const pStart = new Date(prodRow.waktu_awal).getTime();
-          const pEnd   = new Date(prodRow.waktu_akhir).getTime();
-
-          // Cari semua downtime yang overlap dengan baris produksi ini
-          // Toleransi 60 detik untuk menangani batas waktu yang persis sama
-          const TOLERANSI_MS = 60 * 1000;
-          const matched = dtAll.filter(dt => {
-            if (dt.mesin !== prodRow.mesin) return false;
-            const dStart = new Date(dt.waktu_awal).getTime();
-            const dEnd   = new Date(dt.waktu_akhir).getTime();
-            // Overlap: downtime mulai sebelum produksi selesai DAN downtime selesai setelah produksi mulai
-            // Dengan toleransi: perluas sedikit window produksi
-            return dStart < (pEnd + TOLERANSI_MS) && dEnd > (pStart - TOLERANSI_MS);
-          });
-
-          if (matched.length === 0) {
-            // Tidak ada downtime match → kosongkan semua (jangan fallback ke machine_late)
-            return cols;
-          }
-
-          const totMenit = Number(prodRow.downtime_menit) || 0;
-
-          // Hitung total durasi downtime yang match (pakai kalkulasi waktu)
-          const totalDurasi = matched.reduce((sum, dt) => {
-            const durs = (new Date(dt.waktu_akhir) - new Date(dt.waktu_awal)) / 60000;
-            return sum + (durs > 0 ? durs : 0);
-          }, 0);
-
-          // Akumulasi per kolom PIC, proporsional terhadap durasi masing-masing
           const kolAcc = { stockout:0, forklift_crane:0, die_jig:0, machine_late:0, lima_s:0 };
           for (const dt of matched) {
             const kol = picToKolom(dt.pic);
             if (!kol) continue;
             const durasi = (new Date(dt.waktu_akhir) - new Date(dt.waktu_awal)) / 60000;
-            const prop   = totalDurasi > 0 ? durasi / totalDurasi : 1 / matched.length;
-            kolAcc[kol] += totMenit * prop;
+            if (durasi > 0) kolAcc[kol] += durasi;
           }
 
           // Bulatkan 1 desimal, kosongkan kalau 0
@@ -1617,7 +1619,10 @@ function dataMentah() {
         const LINE_ORDER = {'E-02':0,'E-03':1,'E-04':2,'E-05':3,'E-06':4,'E-07':5};
         const all = [...prodRows, ...npRows];
         all.sort((a,b) => {
-          const dayA = a.waktu_awal.slice(0,10), dayB = b.waktu_awal.slice(0,10);
+          // Tanggal LOKAL (WIB). waktu_awal dari Supabase berformat UTC, jadi
+          // .slice(0,10) memberi tanggal UTC -- baris jam 00:00-06:59 WIB
+          // jatuh ke hari sebelumnya dan urutannya jadi kacau.
+          const dayA = pjLocalDateStr(new Date(a.waktu_awal)), dayB = pjLocalDateStr(new Date(b.waktu_awal));
           if (dayA !== dayB) return dayB.localeCompare(dayA);
           const la = LINE_ORDER[a.mesin]??99, lb = LINE_ORDER[b.mesin]??99;
           if (la !== lb) return la - lb;
@@ -1658,14 +1663,35 @@ function dataMentah() {
         let prodAll=[];
         for(const{data,error}of prodResults){ if(error){this.flash('Error Produksi: '+error.message,true);continue;} prodAll=prodAll.concat(data||[]); }
 
-        // Join NG Inline qty ke production_log
-        const ids=prodAll.map(r=>r.id).filter(Boolean);
-        let ngByRow={};
-        if(ids.length>0){
-          const{data:ngData}=await supabaseClient.from('ng_inline_log').select('production_log_id,qty').in('production_log_id',ids);
-          (ngData||[]).forEach(r=>{ ngByRow[r.production_log_id]=(ngByRow[r.production_log_id]||0)+(Number(r.qty)||0); });
+        // NG Inline & Downtime per baris -- aturannya dipusatkan di
+        // assets/produksi-join.js supaya SAMA PERSIS dengan halaman line
+        // (tab Performance & Riwayat Produksi).
+        //  * NG: dulu pakai .select('production_log_id,qty').in('production_log_id',ids).
+        //    Kalau kolom production_log_id belum ada di database, PostgREST
+        //    menolak seluruh query -> kolom NG Inline diam-diam 0 semua.
+        //  * Downtime: dulu dibaca dari production_log.downtime_menit,
+        //    kolom mati yang selalu 0 -> kolom Downtime selalu "-".
+        let ngByRow={}, dtByRow={};
+        if(typeof ambilNgInlineHariProduksi !== 'function'){
+          // Jangan gagal diam-diam seperti dulu: bilang apa adanya.
+          this.flash('File assets/produksi-join.js belum ada atau belum ter-update, jadi kolom NG Inline & Downtime tidak bisa dihitung. Salin ulang file itu ke folder assets/.', true);
+        } else if(prodAll.length>0){
+          const waktuList=prodAll.map(r=>new Date(r.waktu_awal).getTime()).filter(t=>!Number.isNaN(t));
+          if(waktuList.length){
+            const hp=(ms)=>{const d=new Date(ms-7*60*60*1000);const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;};
+            const [ngRows, dtRows] = await Promise.all([
+              ambilNgInlineHariProduksi(supabaseClient, lines, hp(Math.min(...waktuList)), hp(Math.max(...waktuList))),
+              ambilDowntimeUntukBaris(supabaseClient, lines, prodAll),
+            ]);
+            ngByRow = cocokkanNgKeBarisProduksi(ngRows, prodAll).byRow;
+            dtByRow = cocokkanDowntimeKeBaris(prodAll, dtRows);
+          }
         }
-        prodAll=prodAll.map(r=>({...r,_tipe:'produksi',ng_inline_qty:ngByRow[r.id]||0}));
+        prodAll=prodAll.map(r=>({
+          ...r,_tipe:'produksi',
+          ng_inline_qty:ngByRow[r.id]||0,
+          downtime_menit:Math.round(totalMenitDowntime(dtByRow[r.id])),
+        }));
 
         let npAll=[];
         for(const{data,error}of npResults){ if(error){this.flash('Error Non-Produksi: '+error.message,true);continue;} npAll=npAll.concat(data||[]); }
@@ -1675,7 +1701,10 @@ function dataMentah() {
         const LINE_ORDER = {'E-02':0,'E-03':1,'E-04':2,'E-05':3,'E-06':4,'E-07':5};
         let all=[...prodAll,...npAll];
         all.sort((a,b)=>{
-          const dayA=a.waktu_awal.slice(0,10), dayB=b.waktu_awal.slice(0,10);
+          // Tanggal LOKAL (WIB). waktu_awal dari Supabase berformat UTC, jadi
+          // .slice(0,10) memberi tanggal UTC -- baris jam 00:00-06:59 WIB
+          // jatuh ke hari sebelumnya dan urutannya jadi kacau.
+          const dayA = pjLocalDateStr(new Date(a.waktu_awal)), dayB = pjLocalDateStr(new Date(b.waktu_awal));
           if(dayA!==dayB) return dayB.localeCompare(dayA);          // hari terbaru dulu
           const la=(LINE_ORDER[a.mesin]??99), lb=(LINE_ORDER[b.mesin]??99);
           if(la!==lb) return la-lb;                                  // E-02 sebelum E-03 dst

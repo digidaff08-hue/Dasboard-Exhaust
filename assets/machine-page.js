@@ -210,6 +210,14 @@ function tanggalJamToIso(tanggal, jam) {
   return d.toISOString();
 }
 
+// CATATAN: fungsi bantu NG Inline & Downtime (ngHariProduksi,
+// cocokkanNgKeBarisProduksi, ambilNgInlineHariProduksi,
+// cocokkanDowntimeKeBaris, ambilDowntimeUntukBaris) SEKARANG ADA DI
+// assets/produksi-join.js -- dimuat lewat <script> sebelum file ini.
+// Dipindah ke sana supaya halaman Data Mentah memakai aturan yang SAMA
+// PERSIS; dulu tiap halaman punya caranya sendiri dan satu perbaikan
+// tidak pernah ikut ke halaman lain.
+
 // =========================================================
 // Export Excel -- dipakai bareng oleh semua tab (Riwayat Produksi,
 // Downtime, NG Inline, Repair). `rows` adalah array object biasa, key-nya
@@ -1291,18 +1299,36 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     async fetchProduction() {
       const { data, error } = await supabaseClient.from("production_log").select("*").eq("mesin", machineKey).order("waktu_awal", { ascending: false }).limit(500);
       if (error) { this.flash("Gagal memuat data produksi: " + error.message, true); return; }
-      const ids = (data || []).map((r) => r.id);
-      // NG Inline dicocokkan ke baris produksi lewat production_log_id
-      // (auto-link berdasar jam kejadian -- lihat migration_ng_repair_link_produksi.sql).
-      // Baris lama (sebelum migrasi ini) belum punya link, jadi tampil 0 di sini.
-      const ngInlineRes = ids.length
-        ? await supabaseClient.from("ng_inline_log").select("production_log_id, qty").in("production_log_id", ids)
-        : { data: [] };
-      const ngInlineByRow = {};
-      (ngInlineRes.data || []).forEach((r) => {
-        ngInlineByRow[r.production_log_id] = (ngInlineByRow[r.production_log_id] || 0) + (Number(r.qty) || 0);
-      });
-      this.productionRows = (data || []).map((r) => ({ ...r, ngInlineQty: ngInlineByRow[r.id] || 0 }));
+      // NG Inline & Downtime per baris: aturan yang sama dengan tab
+      // Performance (lihat assets/produksi-join.js).
+      // DULU di sini NG pakai .select("production_log_id, qty").in("production_log_id", ids):
+      // kalau kolom production_log_id belum ada di database, SELURUH query
+      // ditolak dan kolom NG Inline diam-diam jadi 0 semua.
+      // Kolom "Downtime" di tabel Riwayat DULU dibaca langsung dari
+      // production_log.downtime_menit -- kolom mati yang selalu 0, jadi
+      // Riwayat selalu menampilkan 0 mnt walau Rekap Downtime ada isinya.
+      const rows = data || [];
+      let ngInlineByRow = {};
+      let downtimeByRow = {};
+      if (rows.length) {
+        const waktuList = rows.map((r) => new Date(r.waktu_awal).getTime()).filter((t) => !Number.isNaN(t));
+        if (waktuList.length) {
+          // Rentang hari produksi yang tercakup 500 baris terakhir.
+          const dari = localDateStr(new Date(Math.min(...waktuList) - 7 * 60 * 60 * 1000));
+          const sampai = localDateStr(new Date(Math.max(...waktuList) - 7 * 60 * 60 * 1000));
+          const [ngRows, dtRows] = await Promise.all([
+            ambilNgInlineHariProduksi(supabaseClient, machineKey, dari, sampai),
+            ambilDowntimeUntukBaris(supabaseClient, machineKey, rows),
+          ]);
+          ngInlineByRow = cocokkanNgKeBarisProduksi(ngRows, rows).byRow;
+          downtimeByRow = cocokkanDowntimeKeBaris(rows, dtRows);
+        }
+      }
+      this.productionRows = rows.map((r) => ({
+        ...r,
+        ngInlineQty: ngInlineByRow[r.id] || 0,
+        downtime_menit: Math.round(totalMenitDowntime(downtimeByRow[r.id])),
+      }));
     },
     // Diklik dari angka Downtime di tabel Riwayat — loncat ke tab Downtime,
     // difilter cuma nampilin downtime yang nempel di baris produksi itu.
@@ -1348,76 +1374,16 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (error) { this.perfDayRows = []; return; }
 
       // ===== NG Inline per baris (kolom "NG INLINE") =====
-      //
-      // PENTING -- kenapa dulu SELALU 0: query-nya menyebut nama kolom satu
-      // per satu (dulu .select("production_log_id, qty")). Kalau SALAH SATU
-      // kolom itu belum ada di database (migration_ng_repair_link_produksi.sql
-      // yang menambah kolom jam / waktu_kejadian / production_log_id belum
-      // dijalankan), PostgREST menolak SELURUH query -> data balik null ->
-      // semua baris tampil 0, TANPA pesan error apa pun di layar. Kartu NG
-      // tetap benar karena dia dihitung di database (performance_aggregate)
-      // yang cuma pakai kolom tanggal & qty.
-      // Makanya di sini pakai select("*"): tidak pernah gagal gara-gara ada
-      // kolom yang belum dibuat -- kolom yang tidak ada cuma jadi undefined.
-      //
-      // Pencocokan ke baris produksi dibuat BERTINGKAT, pakai apa pun yang
-      // tersedia, supaya tetap ketemu walau sebagian kolom kosong/hilang:
-      //   1) production_log_id (link otomatis dari trigger) -- dipakai HANYA
-      //      kalau menunjuk ke salah satu baris yang memang tampil hari ini.
-      //   2) waktu_kejadian (atau tanggal+jam) jatuh di dalam jendela waktu
-      //      salah satu baris produksi.
-      //   3) part_number yang sama -- data NG Inline lama tidak punya jam
-      //      sama sekali, tapi part number-nya selalu terisi (di form NG
-      //      Inline part number memang diambil otomatis dari Input Produksi).
-      //      Kalau part number itu dipakai di beberapa baris, NG ditempelkan
-      //      ke baris dengan Qty terbesar (run utamanya).
-      const ngDateStr = st.anchor; // kolom ng_inline_log.tanggal = tanggal yg dipilih (tidak digeser +7 jam)
-      const rowIdSet = new Set((data || []).map((r) => r.id));
-      const normPart = (v) => String(v || "").trim().toUpperCase();
-      const ngRes = await supabaseClient.from("ng_inline_log")
-        .select("*")
-        .eq("mesin", machineKey)
-        .eq("tanggal", ngDateStr);
-      if (ngRes.error) console.error("Gagal memuat NG Inline buat tabel Produksi Hari Itu:", ngRes.error);
-      const ngInlineByRow = {};
-      let ngTakTerpasang = 0;
-      (ngRes.data || []).forEach((n) => {
-        const qty = Number(n.qty) || 0;
-        if (!qty) return;
-
-        // (1) link langsung
-        if (n.production_log_id && rowIdSet.has(n.production_log_id)) {
-          ngInlineByRow[n.production_log_id] = (ngInlineByRow[n.production_log_id] || 0) + qty;
-          return;
-        }
-
-        // (2) jam kejadian vs jendela waktu baris produksi
-        const waktu = n.waktu_kejadian || (n.tanggal && n.jam ? tanggalJamToIso(n.tanggal, n.jam) : null);
-        if (waktu) {
-          const t = new Date(waktu).getTime();
-          const row = (data || []).find((r) => {
-            const mulai = new Date(r.waktu_awal).getTime();
-            const selesai = new Date(r.waktu_akhir).getTime();
-            return t >= mulai && t < selesai;
-          });
-          if (row) { ngInlineByRow[row.id] = (ngInlineByRow[row.id] || 0) + qty; return; }
-        }
-
-        // (3) part number yang sama
-        const part = normPart(n.part_number);
-        if (part) {
-          const kandidat = (data || []).filter((r) => normPart(r.part_number) === part);
-          if (kandidat.length) {
-            const row = kandidat.reduce((a, b) => ((Number(b.qty) || 0) > (Number(a.qty) || 0) ? b : a));
-            ngInlineByRow[row.id] = (ngInlineByRow[row.id] || 0) + qty;
-            return;
-          }
-        }
-
-        ngTakTerpasang += qty;
-      });
+      // Dipotong per HARI PRODUKSI (07:00-07:00 WIB), sama persis dengan
+      // kartu NG di kiri (lihat migration_ng_hari_produksi.sql) -- supaya
+      // NG shift 2 / NG yang diinput pagi hari tidak nyasar ke hari lain.
+      // Pencocokan ke barisnya: link -> jam kejadian -> part number
+      // (lihat cocokkanNgKeBarisProduksi di atas).
+      const ngRows = await ambilNgInlineHariProduksi(supabaseClient, machineKey, st.anchor, st.anchor);
+      const { byRow: ngInlineByRow, takTerpasang: ngTakTerpasang } =
+        cocokkanNgKeBarisProduksi(ngRows, data || []);
       if (ngTakTerpasang) {
-        console.warn(`${ngTakTerpasang} pcs NG Inline tanggal ${ngDateStr} tidak bisa ditempelkan ke baris produksi mana pun (jam & part number-nya tidak cocok dengan baris hari ini).`);
+        console.warn(`${ngTakTerpasang} pcs NG Inline hari produksi ${st.anchor} tidak bisa ditempelkan ke baris produksi mana pun (jam & part number-nya tidak cocok dengan baris hari itu).`);
       }
 
       // Downtime per baris (kolom "DT") DIHITUNG dari downtime_log, bukan
@@ -1430,24 +1396,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // selalu 0 walau Rekap Downtime jelas ada isinya.
       // Dengan dihitung dari downtime_log, kolom DT, kartu Downtime, dan
       // tabel Rekap Downtime jadi satu sumber yang sama.
-      const dtRes = await supabaseClient.from("downtime_log")
-        .select("stasiun, waktu_awal, waktu_akhir")
-        .eq("mesin", machineKey)
-        .gte("waktu_awal", shiftedStart.toISOString())
-        .lt("waktu_awal", shiftedEnd.toISOString());
-      const dtRows = (dtRes.data || []).filter(
-        (d) => !stasiunList || stasiunList.includes(d.stasiun));
-      const downtimeFor = (row) => {
-        const mulai = new Date(row.waktu_awal).getTime();
-        const selesai = new Date(row.waktu_akhir).getTime();
-        return dtRows.reduce((sum, d) => {
-          if (row.stasiun && d.stasiun && d.stasiun !== row.stasiun) return sum;
-          const t = new Date(d.waktu_awal).getTime();
-          if (!(t >= mulai && t < selesai)) return sum;
-          const menit = (new Date(d.waktu_akhir).getTime() - t) / 60000;
-          return sum + (menit > 0 ? menit : 0);
-        }, 0);
-      };
+      const dtSemua = await ambilDowntimeUntukBaris(supabaseClient, machineKey, data || []);
+      const dtRows = dtSemua.filter((d) => !stasiunList || stasiunList.includes(d.stasiun));
+      const downtimeByRow = cocokkanDowntimeKeBaris(data || [], dtRows);
+      const downtimeFor = (row) => totalMenitDowntime(downtimeByRow[row.id]);
 
       this.perfDayRows = (data || [])
         .map((r) => ({
@@ -2407,9 +2359,27 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       return combined;
     },
     // Cuma buat tab Input Produksi — riwayat hari ini saja, tanpa filter.
+    // ===== "HARI INI" = HARI PRODUKSI, bukan tanggal kalender =====
+    // Hari produksi mulai jam 07:00 WIB (lihat migration_fix_hari_produksi_shift.sql
+    // dan assets/produksi-join.js). Jadi baris shift 2 yang jalan lewat
+    // tengah malam -- misalnya 00:45 atau 03:20 -- MASIH MILIK HARI
+    // SEBELUMNYA, bukan hari kalender yang baru.
+    //
+    // Dulu di sini dibandingkan tanggal kalendernya:
+    //   localDateStr(new Date(r.waktu_awal)) === localDateStr(new Date())
+    // sehingga begitu lewat tengah malam, baris-baris shift 2 kemarin
+    // langsung "pindah" ke daftar Riwayat Hari Ini milik hari baru --
+    // padahal shift-nya belum selesai dan harinya belum berganti.
+    // Keduanya sekarang memakai fungsi yang sama dengan seluruh aplikasi.
+    hariProduksiSekarang() {
+      return pjHariProduksiDariWaktu(new Date());
+    },
+    hariProduksiBaris(row) {
+      return row ? pjHariProduksiDariWaktu(row.waktu_awal) : null;
+    },
     riwayatHariIni() {
-      const today = localDateStr(new Date());
-      return this.combinedAll().filter((r) => localDateStr(new Date(r.waktu_awal)) === today);
+      const hari = this.hariProduksiSekarang();
+      return this.combinedAll().filter((r) => this.hariProduksiBaris(r) === hari);
     },
     resetRiwayatFilter() { this.riwayatFilter = { dari: "", sampai: "", part_number: "" }; },
 
@@ -2517,14 +2487,32 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         return;
       }
       const prodRows = prodRes.data || [];
-      const ids = prodRows.map((r) => r.id);
-      const ngRes = ids.length
-        ? await supabaseClient.from("ng_inline_log").select("production_log_id, qty").in("production_log_id", ids)
-        : { data: [] };
-      const ngByRow = {};
-      (ngRes.data || []).forEach((r) => { ngByRow[r.production_log_id] = (ngByRow[r.production_log_id] || 0) + (Number(r.qty) || 0); });
+      // NG Inline di file Excel: aturan pencocokannya sama dengan yang di
+      // layar (link -> jam kejadian -> part number), dan rentangnya pakai
+      // hari produksi, bukan tanggal kalender -- supaya isi file Excel
+      // tidak pernah beda dari yang dilihat operator di dashboard.
+      // Downtime-nya juga -- kolom production_log.downtime_menit itu kolom
+      // mati (selalu 0), jadi kalau dipakai apa adanya file Excel-nya
+      // menulis 0 terus walau Rekap Downtime ada isinya.
+      let ngByRow = {};
+      let dtByRow = {};
+      if (prodRows.length) {
+        const dari = localDateStr(new Date(bounds.start.getTime() - 7 * 60 * 60 * 1000));
+        const sampai = localDateStr(new Date(bounds.end.getTime() - 7 * 60 * 60 * 1000));
+        const [ngRows, dtRows] = await Promise.all([
+          ambilNgInlineHariProduksi(supabaseClient, machineKey, dari, sampai),
+          ambilDowntimeUntukBaris(supabaseClient, machineKey, prodRows),
+        ]);
+        ngByRow = cocokkanNgKeBarisProduksi(ngRows, prodRows).byRow;
+        dtByRow = cocokkanDowntimeKeBaris(prodRows, dtRows);
+      }
 
-      const prod = prodRows.map((r) => ({ ...r, ngInlineQty: ngByRow[r.id] || 0, _tipe: "produksi" }));
+      const prod = prodRows.map((r) => ({
+        ...r,
+        ngInlineQty: ngByRow[r.id] || 0,
+        downtime_menit: Math.round(totalMenitDowntime(dtByRow[r.id])),
+        _tipe: "produksi",
+      }));
       const nonProd = (nonProdRes.data || []).map((r) => ({ ...r, _tipe: "nonproduksi" }));
       let combined = [...prod, ...nonProd];
       if (this.stationConfig.mode === "variant" && this.tandemVariant) {

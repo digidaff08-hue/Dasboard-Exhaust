@@ -27,6 +27,7 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="../assets/supabaseClient.js"></script>
+<script src="../assets/produksi-join.js"></script>
 <script src="../assets/machine-page.js"></script>
 <script src="../assets/andon.js"></script>
 <style>
@@ -644,7 +645,7 @@
                         <span class="hint" x-text="(lines[st.id].state === 'running' ? 'sedang produksi' : 'sedang dandori') + ' · mulai ' + fmtClock(lines[st.id].entryStart)"></span>
                       </div>
                     </template>
-                    <template x-for="r in productionRows.filter(r => (r.stasiun||null) === dbStasiun(st.id) && localDateStr(new Date(r.waktu_awal)) === localDateStr(new Date()))" :key="r.id">
+                    <template x-for="r in productionRows.filter(r => (r.stasiun||null) === dbStasiun(st.id) && hariProduksiBaris(r) === hariProduksiSekarang())" :key="r.id">
                       <div class="planning-item">
                         <span x-text="r.part_number"></span>
                         <span class="hint" x-text="(r.qty ?? '-') + 'pcs · ' + fmtClock(r.waktu_awal) + '-' + fmtClock(r.waktu_akhir)"></span>
