@@ -5,7 +5,7 @@
 // ini cuma men-cache HTML/CSS/JS-nya, bukan data produksi.
 // =========================================================
 // Naikkan versi ini tiap ada perubahan besar supaya cache lama dibuang.
-const CACHE_NAME = "produksi-downtime-shell-v74-fix-ng-inline-harian-2";
+const CACHE_NAME = "produksi-downtime-shell-v75-fix-ng-inline-select-all";
 
 const SHELL_FILES = [
   "/login.html",
