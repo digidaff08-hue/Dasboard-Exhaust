@@ -1347,30 +1347,39 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const { data, error } = await q.order("waktu_awal", { ascending: true });
       if (error) { this.perfDayRows = []; return; }
 
-      // NG Inline per baris (kolom "NG INLINE") DIHITUNG dari waktu_kejadian
-      // vs jendela waktu tiap baris produksi -- BUKAN dari kolom
-      // production_log_id yang tersimpan di ng_inline_log.
-      // Alasannya: production_log_id itu diisi SEKALI oleh trigger saat
-      // data NG Inline disimpan (lihat migration_ng_repair_link_produksi.sql),
-      // sedangkan tabel ini mengambil baris produksi dengan jendela
-      // "hari produksi mulai 07:00 WIB" (shiftedStart/shiftedEnd di atas).
-      // Kalau NG Inline terjadi dekat tengah malam, baris produksi yang
-      // ditautkan trigger bisa saja berada di "hari produksi" SEBELUMNYA
-      // (tidak ikut termuat di ids), sehingga semua baris di tabel hari
-      // ini tampil NG INLINE = 0 walau kartu ringkasan (yang menjumlah
-      // berdasar kolom tanggal, bukan link) sudah benar menampilkan total
-      // NG hari itu. Dihitung ulang dari waktu_kejadian di sini supaya
-      // tabel & kartu selalu pakai "hari" yang sama.
+      // NG Inline per baris (kolom "NG INLINE") -- dicocokkan ke baris
+      // produksi 2 lapis supaya tetap kebaca walau salah satu caranya gagal:
+      //   1) kalau production_log_id (link otomatis dari trigger, lihat
+      //      migration_ng_repair_link_produksi.sql) menunjuk ke salah satu
+      //      baris yang memang tampil di tabel hari ini -> pakai itu.
+      //   2) kalau tidak (link kosong -- data lama sebelum ada field Jam --
+      //      ATAU link menunjuk ke baris di "hari produksi" lain, mis. NG
+      //      dekat tengah malam ter-link ke baris sebelum jam 07:00 WIB
+      //      yang tidak ikut termuat di sini) -> dicocokkan ulang dari
+      //      waktu_kejadian (atau tanggal+jam kalau waktu_kejadian kosong)
+      //      terhadap jendela waktu tiap baris produksi.
+      // Kartu ringkasan NG tetap menjumlah dari kolom tanggal saja (lihat
+      // migration_fix_performance_selaras.sql), jadi totalnya tidak
+      // bergantung pada link ini -- karena itu kartu & tabel bisa beda
+      // kalau link/waktu_kejadian-nya bermasalah.
       const ngDateStr = st.anchor; // kolom ng_inline_log.tanggal = tanggal yg dipilih (tidak digeser +7 jam)
+      const rowIdSet = new Set((data || []).map((r) => r.id));
       const ngRes = await supabaseClient.from("ng_inline_log")
-        .select("waktu_kejadian, qty")
+        .select("production_log_id, waktu_kejadian, tanggal, jam, qty")
         .eq("mesin", machineKey)
         .eq("tanggal", ngDateStr);
+      if (ngRes.error) console.error("Gagal memuat NG Inline buat tabel Produksi Hari Itu:", ngRes.error);
       const ngInlineByRow = {};
       (ngRes.data || []).forEach((n) => {
         const qty = Number(n.qty) || 0;
-        if (!qty || !n.waktu_kejadian) return;
-        const t = new Date(n.waktu_kejadian).getTime();
+        if (!qty) return;
+        if (n.production_log_id && rowIdSet.has(n.production_log_id)) {
+          ngInlineByRow[n.production_log_id] = (ngInlineByRow[n.production_log_id] || 0) + qty;
+          return;
+        }
+        const waktu = n.waktu_kejadian || (n.tanggal && n.jam ? tanggalJamToIso(n.tanggal, n.jam) : null);
+        if (!waktu) return;
+        const t = new Date(waktu).getTime();
         const row = (data || []).find((r) => {
           const mulai = new Date(r.waktu_awal).getTime();
           const selesai = new Date(r.waktu_akhir).getTime();
