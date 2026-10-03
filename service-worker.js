@@ -5,7 +5,7 @@
 // ini cuma men-cache HTML/CSS/JS-nya, bukan data produksi.
 // =========================================================
 // Naikkan versi ini tiap ada perubahan besar supaya cache lama dibuang.
-const CACHE_NAME = "produksi-downtime-shell-v76-ng-hari-produksi";
+const CACHE_NAME = "produksi-downtime-shell-v79-riwayat-hari-produksi";
 
 const SHELL_FILES = [
   "/login.html",
@@ -21,6 +21,7 @@ const SHELL_FILES = [
   "/manifest.json",
   "/assets/style.css",
   "/assets/supabaseClient.js",
+  "/assets/produksi-join.js",
   "/assets/machine-page.js",
   "/assets/andon.js",
   "/machines/e-02.html",
