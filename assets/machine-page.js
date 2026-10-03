@@ -1361,8 +1361,42 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         ngInlineByRow[r.production_log_id] = (ngInlineByRow[r.production_log_id] || 0) + (Number(r.qty) || 0);
       });
 
+      // Downtime per baris (kolom "DT") DIHITUNG dari downtime_log, bukan
+      // dari kolom production_log.downtime_menit. Kolom itu cuma terisi
+      // kalau downtime-nya ter-link ke baris produksi LAMA (trigger
+      // sync_production_downtime_menit di schema_welding.sql); sejak
+      // patch_fix_downtime_validation_trigger.sql, downtime di-link ke
+      // Input Produksi BARU dulu (production_log_new_id), jadi kolom di
+      // tabel lama tidak pernah ikut terisi -> kolom DT & kartu Downtime
+      // selalu 0 walau Rekap Downtime jelas ada isinya.
+      // Dengan dihitung dari downtime_log, kolom DT, kartu Downtime, dan
+      // tabel Rekap Downtime jadi satu sumber yang sama.
+      const dtRes = await supabaseClient.from("downtime_log")
+        .select("stasiun, waktu_awal, waktu_akhir")
+        .eq("mesin", machineKey)
+        .gte("waktu_awal", shiftedStart.toISOString())
+        .lt("waktu_awal", shiftedEnd.toISOString());
+      const dtRows = (dtRes.data || []).filter(
+        (d) => !stasiunList || stasiunList.includes(d.stasiun));
+      const downtimeFor = (row) => {
+        const mulai = new Date(row.waktu_awal).getTime();
+        const selesai = new Date(row.waktu_akhir).getTime();
+        return dtRows.reduce((sum, d) => {
+          if (row.stasiun && d.stasiun && d.stasiun !== row.stasiun) return sum;
+          const t = new Date(d.waktu_awal).getTime();
+          if (!(t >= mulai && t < selesai)) return sum;
+          const menit = (new Date(d.waktu_akhir).getTime() - t) / 60000;
+          return sum + (menit > 0 ? menit : 0);
+        }, 0);
+      };
+
       this.perfDayRows = (data || [])
-        .map((r) => ({ ...r, ngInlineQty: ngInlineByRow[r.id] || 0, repairQty: Number(r.repair) || 0 }))
+        .map((r) => ({
+          ...r,
+          downtime_menit: Math.round(downtimeFor(r)),
+          ngInlineQty: ngInlineByRow[r.id] || 0,
+          repairQty: Number(r.repair) || 0,
+        }))
         .sort((a, b) => {
           const s = String(a.stasiun || "").localeCompare(String(b.stasiun || ""));
           if (s !== 0) return s;
@@ -1631,6 +1665,29 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       }
       return -1;
     },
+    // Tampilkan catatan merah tipis di bawah baris LINE/TANGGAL kalau data
+    // gagal diambil. Tanpa ini, kegagalan RPC cuma terlihat sebagai papan
+    // kosong -- tidak bisa dibedakan dari "memang tidak ada produksi di
+    // shift itu", yang bikin bingung.
+    dekidakaShowNote(container, text) {
+      let note = container.querySelector(".dkd-note-error");
+      if (!text) { if (note) note.remove(); return; }
+      if (!note) {
+        note = document.createElement("div");
+        note.className = "dkd-note-error";
+        const bar = container.querySelector(".dkd-info-bar");
+        if (bar && bar.parentNode) bar.parentNode.insertBefore(note, bar.nextSibling);
+        else container.appendChild(note);
+      }
+      note.textContent = text;
+    },
+    dekidakaErrorText(error) {
+      const msg = String((error && error.message) || "");
+      if ((error && error.code === "PGRST202") || /Could not find the function/i.test(msg)) {
+        return "Fungsi data Dekidaka belum ada di database — jalankan migration_dekidaka_data.sql dulu di Supabase SQL Editor.";
+      }
+      return "Gagal memuat data Dekidaka: " + (msg || "kesalahan tidak diketahui");
+    },
     async dekidakaLoadProduction(container, line) {
       const range = this.dekidakaDayRange(container);
       if (!range) return;
@@ -1638,7 +1695,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const { data, error } = await supabaseClient.rpc("dashboard_dekidaka_production_rows", {
         p_mesin: line, p_start: range.start.toISOString(), p_end: range.end.toISOString(), p_shift: shiftVal,
       });
-      if (error) { console.error(`Gagal ambil produksi Dekidaka ${line}:`, error); return; }
+      if (error) {
+        console.error(`Gagal ambil produksi Dekidaka ${line}:`, error);
+        this.dekidakaShowNote(container, this.dekidakaErrorText(error));
+        return;
+      }
+      this.dekidakaShowNote(container, "");
       container._dkdProdRows = (data || []).map((r) => ({
         jam: r.jam, jamAkhir: r.jam_akhir, stasiun: r.stasiun,
         partNumber: r.part_number, model: r.model,

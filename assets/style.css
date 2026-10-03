@@ -1089,6 +1089,11 @@ tr.dkd-row-alert .dkd-ket-abnormality{ font-weight:900; color:#b3261e; backgroun
 .dkd-summary .dkd-card .dkd-card-lbl{ font-size:10.5px; font-weight:bold; text-transform:uppercase; color:#111; }
 .dkd-summary .dkd-card .dkd-card-val{ flex:1; width:100%; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:bold; color:var(--accent-color, #1f4e79); }
 .dkd-note{ font-size:10px; color:#666; margin:6px 2px 0; text-align:center; }
+/* Catatan merah kalau data Dekidaka gagal diambil (mis. fungsi RPC-nya
+   belum dibuat di Supabase) -- lihat dekidakaShowNote(). Tanpa ini,
+   papan yang kosong tidak bisa dibedakan dari "memang tidak ada
+   produksi di shift itu". */
+.dkd-note-error{ margin:-4px 0 8px; padding:4px 8px; border:1px solid #f0b4ae; background:#fff1f0; color:#b3261e; font-size:11px; font-weight:bold; border-radius:4px; }
 /* Modal "Lihat Dekidaka" (tombol di card Performance Harian, sebelum field
    tanggal -- lihat perf-header di bawah) -- 1 board saja, overlay di atas
    halaman, TIDAK mempengaruhi tab Dekidaka di dashboard-exhaust.html. */

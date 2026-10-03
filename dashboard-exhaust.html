@@ -1052,6 +1052,11 @@ tr.dkd-row-alert .dkd-ket-abnormality{ font-weight:900; color:#b3261e; backgroun
 .dkd-summary .dkd-card .dkd-card-lbl{ font-size:10.5px; font-weight:bold; text-transform:uppercase; color:#111; }
 .dkd-summary .dkd-card .dkd-card-val{ flex:1; width:100%; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:bold; color:var(--accent-color, #1f4e79); }
 .dkd-note{ font-size:10px; color:#666; margin:6px 2px 0; text-align:center; }
+/* Catatan merah kalau data Dekidaka gagal diambil (mis. fungsi RPC-nya
+   belum dibuat di Supabase) -- lihat dekidakaShowNote(). Tanpa ini,
+   papan yang kosong tidak bisa dibedakan dari "memang tidak ada
+   produksi di shift itu". */
+.dkd-note-error{ margin:-4px 0 8px; padding:4px 8px; border:1px solid #f0b4ae; background:#fff1f0; color:#b3261e; font-size:11px; font-weight:bold; border-radius:4px; }
 </style>
 <script>
   (function () {
@@ -2847,6 +2852,29 @@ function dashboardExhaust() {
       }
       return -1;
     },
+    // Tampilkan catatan merah tipis di bawah baris LINE/TANGGAL kalau data
+    // gagal diambil. Tanpa ini, kegagalan RPC cuma terlihat sebagai papan
+    // kosong -- tidak bisa dibedakan dari "memang tidak ada produksi di
+    // shift itu", yang bikin bingung.
+    dekidakaShowNote(container, text) {
+      let note = container.querySelector(".dkd-note-error");
+      if (!text) { if (note) note.remove(); return; }
+      if (!note) {
+        note = document.createElement("div");
+        note.className = "dkd-note-error";
+        const bar = container.querySelector(".dkd-info-bar");
+        if (bar && bar.parentNode) bar.parentNode.insertBefore(note, bar.nextSibling);
+        else container.appendChild(note);
+      }
+      note.textContent = text;
+    },
+    dekidakaErrorText(error) {
+      const msg = String((error && error.message) || "");
+      if ((error && error.code === "PGRST202") || /Could not find the function/i.test(msg)) {
+        return "Fungsi data Dekidaka belum ada di database — jalankan migration_dekidaka_data.sql dulu di Supabase SQL Editor.";
+      }
+      return "Gagal memuat data Dekidaka: " + (msg || "kesalahan tidak diketahui");
+    },
     async dekidakaLoadProduction(container, line) {
       const range = this.dekidakaDayRange(container);
       if (!range) return;
@@ -2854,7 +2882,12 @@ function dashboardExhaust() {
       const { data, error } = await supabaseClient.rpc("dashboard_dekidaka_production_rows", {
         p_mesin: line, p_start: range.start.toISOString(), p_end: range.end.toISOString(), p_shift: shiftVal,
       });
-      if (error) { console.error(`Gagal ambil produksi Dekidaka ${line}:`, error); return; }
+      if (error) {
+        console.error(`Gagal ambil produksi Dekidaka ${line}:`, error);
+        this.dekidakaShowNote(container, this.dekidakaErrorText(error));
+        return;
+      }
+      this.dekidakaShowNote(container, "");
       container._dkdProdRows = (data || []).map((r) => ({
         jam: r.jam, jamAkhir: r.jam_akhir, stasiun: r.stasiun,
         partNumber: r.part_number, model: r.model,
