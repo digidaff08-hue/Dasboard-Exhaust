@@ -5,7 +5,7 @@
 // ini cuma men-cache HTML/CSS/JS-nya, bukan data produksi.
 // =========================================================
 // Naikkan versi ini tiap ada perubahan besar supaya cache lama dibuang.
-const CACHE_NAME = "produksi-downtime-shell-v84-fix-guest-performance";
+const CACHE_NAME = "produksi-downtime-shell-v85-fix-datepicker";
 
 const SHELL_FILES = [
   "/login.html",
