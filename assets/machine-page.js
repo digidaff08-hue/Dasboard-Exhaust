@@ -51,7 +51,7 @@ async function runOfflineQueueSync() {
   for (const items of phases) {
     if (!items.length) continue;
     const results = await Promise.allSettled(
-      items.map((item) => supabaseClient.from(item.table).insert(item.payload))
+      items.map((item) => insertIdempotent(item.table, item.payload))
     );
     results.forEach((res, i) => {
       const item = items[i];
@@ -95,6 +95,42 @@ async function trySyncOfflineQueue() {
 function isNetworkError(err) {
   if (!navigator.onLine) return true;
   return /fetch|network|failed to fetch/i.test((err && err.message) || String(err));
+}
+
+// ---------- Insert anti-dobel (client_ref) ----------
+// Kenapa perlu ini: kalau request INSERT yang pertama sebenarnya SUKSES
+// di server, tapi balasannya hilang di tengah jalan (sinyal wifi pabrik
+// putus-putus pas lagi nunggu respons -- sering terjadi operator shift
+// pagi), kode di atas menyangka gagal (isNetworkError = true) lalu
+// mengantrekan payload yang SAMA utk dikirim ulang lewat offline queue.
+// Hasilnya: 2 baris identik di database (production_log/downtime_log/
+// dandori_log/production_log_new), walau sumber aslinya cuma 1 kejadian.
+// Itu sebabnya "Rekap Downtime" bisa tampil dobel padahal spreadsheet
+// cuma 1 baris -- bug-nya ada di SINI, bukan di query tampilannya.
+//
+// Perbaikan: tiap insert BARU (bukan update) dibekali client_ref (UUID
+// dibuat sekali di HP, ikut nebeng kalau payload-nya diantrekan & dikirim
+// ulang). Kolom client_ref diberi UNIQUE constraint di database (lihat
+// migration_fix_insert_duplikat.sql). Kalau pengiriman ulang kena
+// constraint itu, artinya baris itu MEMANG sudah pernah berhasil
+// tersimpan dari percobaan sebelumnya -- dianggap sukses (ambil baris
+// yang sudah ada), BUKAN bikin baris baru lagi.
+function genClientRef() {
+  if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+  // Fallback kalau browser sangat lama tidak punya crypto.randomUUID.
+  return "cr-" + Date.now() + "-" + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+}
+function isUniqueViolation(err) {
+  return !!(err && (err.code === "23505" || /duplicate key value|already exists/i.test((err && err.message) || String(err))));
+}
+async function insertIdempotent(table, payload) {
+  const res = await supabaseClient.from(table).insert(payload).select().single();
+  if (!res.error) return { data: res.data, error: null, duplicate: false };
+  if (payload && payload.client_ref && isUniqueViolation(res.error)) {
+    const existing = await supabaseClient.from(table).select().eq("client_ref", payload.client_ref).maybeSingle();
+    if (!existing.error && existing.data) return { data: existing.data, error: null, duplicate: true };
+  }
+  return { data: null, error: res.error, duplicate: false };
 }
 
 const MACHINE_OPTIONS = [
@@ -1163,7 +1199,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           const { error } = await supabaseClient.from("production_log").update(payload).eq("id", line._productionLogId);
           if (error) throw error;
         } else {
-          const { error } = await supabaseClient.from("production_log").insert(payload);
+          payload.client_ref = genClientRef();
+          const { error } = await insertIdempotent("production_log", payload);
           if (error) throw error;
         }
         this.flash("Data produksi tersimpan.");
@@ -1203,7 +1240,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
 
       try {
         if (!navigator.onLine) throw new Error("offline");
-        const { error } = await supabaseClient.from("production_log").insert(payload);
+        payload.client_ref = genClientRef();
+        const { error } = await insertIdempotent("production_log", payload);
         if (error) throw error;
         if (snap._planningId) {
           await supabaseClient.from("production_planning").update({ status: "selesai" }).eq("id", snap._planningId);
@@ -1257,7 +1295,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
 
       try {
         if (!navigator.onLine) throw new Error("offline");
-        const { error } = await supabaseClient.from("production_log").insert(payload);
+        payload.client_ref = genClientRef();
+        const { error } = await insertIdempotent("production_log", payload);
         if (error) throw error;
         if (line._planningId) {
           await supabaseClient.from("production_planning").update({ status: "selesai" }).eq("id", line._planningId);
@@ -1281,7 +1320,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       try {
         if (!navigator.onLine) throw new Error("offline");
         payload.created_by = this.session.user.id;
-        const { error } = await supabaseClient.from("dandori_log").insert(payload);
+        payload.client_ref = genClientRef();
+        const { error } = await insertIdempotent("dandori_log", payload);
         if (error) throw error;
         await this.fetchNonProduksi();
       } catch (err) {
@@ -1451,17 +1491,40 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     _dkdModalContainer: null,
     openDekidakaModal() {
       this.dekidakaModalOpen = true;
+      this.dkdModalZoom = 1; // tiap buka selalu mulai dari "pas layar"
+      this._dkdHeadHTerpakai = null; // paksa hitung ulang 2-tahap (lihat scaleDekidakaModalBoard)
       this.$nextTick(() => {
         this.buildDekidakaModalBoard();
         if (!this._dkdModalResizeHandler) {
           this._dkdModalResizeHandler = () => { if (this.dekidakaModalOpen) this.scaleDekidakaModalBoard(); };
         }
         window.addEventListener("resize", this._dkdModalResizeHandler);
+
+        // Ctrl + scroll = zoom (scroll biasa tetap untuk menggeser papan),
+        // klik 2x = bolak-balik pas layar <-> 100%.
+        const body = document.querySelector(".dkd-modal-body");
+        if (body) {
+          this._dkdWheelHandler = (e) => {
+            if (!e.ctrlKey) return;
+            e.preventDefault();
+            if (e.deltaY < 0) this.dekidakaModalZoomIn();
+            else this.dekidakaModalZoomOut();
+          };
+          this._dkdDblHandler = () => this.dekidakaModalZoomToggle();
+          body.addEventListener("wheel", this._dkdWheelHandler, { passive: false });
+          body.addEventListener("dblclick", this._dkdDblHandler);
+          this._dkdModalBodyEl = body;
+        }
       });
     },
     closeDekidakaModal() {
       this.dekidakaModalOpen = false;
       if (this._dkdModalResizeHandler) window.removeEventListener("resize", this._dkdModalResizeHandler);
+      if (this._dkdModalBodyEl) {
+        if (this._dkdWheelHandler) this._dkdModalBodyEl.removeEventListener("wheel", this._dkdWheelHandler);
+        if (this._dkdDblHandler) this._dkdModalBodyEl.removeEventListener("dblclick", this._dkdDblHandler);
+        this._dkdModalBodyEl = null;
+      }
       const wrap = document.getElementById("dkdModalBoardWrap");
       if (wrap) wrap.innerHTML = "";
       this._dkdModalContainer = null;
@@ -1518,6 +1581,40 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // lebar, jadi tingginya kelebihan & board harus di-scroll (bagian bawah
     // tidak kelihatan). Skalanya SAMA utk X & Y (uniform) supaya tulisan
     // tidak gepeng.
+    // ===== ZOOM papan Dekidaka di dalam modal =====
+    // Papan ini lebarnya ~1760px, jadi supaya SELURUHNYA kelihatan dia
+    // dikecilkan otomatis ("fit") -- akibatnya tulisannya jadi kecil.
+    // Zoom browser (Ctrl + scroll) tidak menolong, karena fungsi fit di
+    // bawah ikut menghitung ulang dan mengecilkan papannya lagi.
+    // Jadi zoom-nya harus di dalam modal: dkdModalZoom adalah pengali di
+    // ATAS skala fit, dan kalau hasilnya lebih besar dari ruang yang ada,
+    // isi modal tinggal digeser (scroll) seperti peta.
+    dkdModalZoom: 1,        // 1 = pas layar (fit)
+    dkdModalFit: 1,         // skala fit hasil hitungan terakhir
+    DKD_ZOOM_MAKS: 3,       // 300% dari ukuran asli papan
+    dekidakaModalSkalaEfektif() {
+      return (this.dkdModalFit || 1) * (this.dkdModalZoom || 1);
+    },
+    dekidakaModalZoomLabel() {
+      return Math.round(this.dekidakaModalSkalaEfektif() * 100) + "%";
+    },
+    // Set zoom dari skala efektif yang diinginkan, dijaga antara "pas
+    // layar" dan DKD_ZOOM_MAKS.
+    dekidakaModalSetSkala(efektif) {
+      const fit = this.dkdModalFit || 1;
+      const batas = Math.min(Math.max(efektif, fit), this.DKD_ZOOM_MAKS);
+      this.dkdModalZoom = batas / fit;
+      this.scaleDekidakaModalBoard();
+    },
+    dekidakaModalZoomIn() { this.dekidakaModalSetSkala(this.dekidakaModalSkalaEfektif() * 1.25); },
+    dekidakaModalZoomOut() { this.dekidakaModalSetSkala(this.dekidakaModalSkalaEfektif() / 1.25); },
+    dekidakaModalZoomFit() { this.dkdModalZoom = 1; this.scaleDekidakaModalBoard(); },
+    // Klik 2x: bolak-balik antara "pas layar" dan ukuran asli 100%.
+    dekidakaModalZoomToggle() {
+      const fit = this.dkdModalFit || 1;
+      if (Math.abs(this.dkdModalZoom - 1) < 0.01) this.dekidakaModalSetSkala(1);
+      else this.dekidakaModalZoomFit();
+    },
     scaleDekidakaModalBoard() {
       const wrap = document.getElementById("dkdModalBoardWrap");
       if (!wrap) return;
@@ -1537,10 +1634,35 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const PAD_OVERLAY = 40, PAD_BODY = 20;
       const availW = Math.max(320, Math.min(window.innerWidth * 0.96, window.innerWidth - PAD_OVERLAY) - PAD_BODY);
       const availH = Math.max(240, Math.min(window.innerHeight * 0.96, window.innerHeight - PAD_OVERLAY) - headH - PAD_BODY - 4);
-      const scale = Math.min(1, availW / boardW, availH / boardH);
+
+      // Skala "pas layar". Disimpan supaya tombol zoom bisa menghitung
+      // kelipatannya, dan supaya saat jendela diubah ukurannya zoom
+      // pilihan user TIDAK hilang (dia pengali di atas fit).
+      const fit = Math.min(1, availW / boardW, availH / boardH);
+      this.dkdModalFit = fit;
+      const scale = Math.min(Math.max(fit * (this.dkdModalZoom || 1), fit), this.DKD_ZOOM_MAKS);
+      this.dkdModalZoom = scale / fit; // dirapikan kalau kena batas
+
       scaleBox.style.transform = `scale(${scale})`;
-      wrap.style.width = Math.floor(boardW * scale) + "px";
-      wrap.style.height = Math.floor(boardH * scale) + "px";
+      const lebar = Math.floor(boardW * scale), tinggi = Math.floor(boardH * scale);
+      wrap.style.width = lebar + "px";
+      wrap.style.height = tinggi + "px";
+
+      // Tinggi header (headH) baru pasti SETELAH modal selesai di-layout.
+      // Saat modal baru dibuka, pengukuran pertama bisa meleset beberapa
+      // belas px -- dan karena tinggi papan dihitung dari situ, papannya
+      // jadi sedikit lebih tinggi dari ruang yang ada. Jadi kalau tinggi
+      // header yang terpakai berbeda dari hitungan sebelumnya, hitung
+      // ulang SEKALI di frame berikutnya. Pasti berhenti: pada hitungan
+      // kedua headH-nya sudah sama, jadi tidak menjadwalkan ulang.
+      if (this._dkdHeadHTerpakai !== headH) {
+        this._dkdHeadHTerpakai = headH;
+        requestAnimationFrame(() => { if (this.dekidakaModalOpen) this.scaleDekidakaModalBoard(); });
+      }
+      // Saat masih pas layar papannya ditengahkan. Begitu di-zoom melebihi
+      // ruang yang ada, perataan tengah DILEPAS -- kalau tidak, sisi kiri
+      // papan terpotong dan tidak bisa dicapai walau di-scroll.
+      wrap.style.margin = lebar <= availW ? "0 auto" : "0";
     },
     dekidakaGetTimesForBlock(container, blockNo) {
       const schedule = DKD_TIME_TABLE[blockNo];
@@ -2886,11 +3008,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         this.flash("Data downtime diperbarui, ter-link ke produksi otomatis. Cek lagi Qty di Input Produksi terkait, siapa tahu perlu disesuaikan.");
       } else {
         payload.created_by = this.session.user.id;
+        payload.client_ref = genClientRef();
         let error = null;
         try {
           if (!navigator.onLine) throw new Error("offline");
           let ins;
-          ({ data: ins, error } = await supabaseClient.from("downtime_log").insert(payload).select("id").single());
+          ({ data: ins, error } = await insertIdempotent("downtime_log", payload));
           // Downtime dibuat dari panggilan Andon -> tandai supaya tidak muncul lagi
           if (!error && this.andonSumber && ins && ins.id) {
             try { await supabaseClient.rpc("andon_link_downtime", { p_id: this.andonSumber.id, p_downtime_id: ins.id }); } catch (e) {}
@@ -3456,9 +3579,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           this.flash("Data Input Produksi diperbarui.");
         } else {
           payload.created_by = this.session.user.id;
+          payload.client_ref = genClientRef();
           try {
             if (!navigator.onLine) throw new Error("offline");
-            const { error } = await supabaseClient.from("production_log_new").insert(payload);
+            const { error } = await insertIdempotent("production_log_new", payload);
             if (error) throw error;
           } catch (insertErr) {
             // Sinyal putus -> simpan di antrean offline HP, disinkron

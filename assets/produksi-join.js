@@ -18,7 +18,7 @@
 // Penanda versi. Dipakai halaman untuk menampilkan "build" yang sedang
 // jalan, supaya kalau ada angka yang terasa aneh kita bisa langsung tahu
 // file-nya sudah ter-update atau belum -- tanpa perlu buka DevTools.
-const PRODUKSI_JOIN_VERSI = "v79";
+const PRODUKSI_JOIN_VERSI = "v80";
 if (typeof window !== "undefined") window.PRODUKSI_JOIN_VERSI = PRODUKSI_JOIN_VERSI;
 
 // ---------- dasar ----------

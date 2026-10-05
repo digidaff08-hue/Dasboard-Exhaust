@@ -1204,6 +1204,15 @@
                   <div class="dkd-modal-head">
                     <span class="dkd-modal-title">Dekidaka</span>
                     <div class="dkd-modal-head-actions">
+                      <!-- Zoom papan Dekidaka. Papannya lebar (~1760px) jadi otomatis
+                           dikecilkan agar pas layar; tombol ini untuk memperbesar
+                           supaya tulisannya kebaca. Bisa juga Ctrl + scroll, atau
+                           klik 2x di papannya (pas layar <-> 100%). -->
+                      <div class="dkd-zoom">
+                        <button type="button" class="dkd-zoom-btn" title="Perkecil (Ctrl + scroll)" @click="dekidakaModalZoomOut()">&minus;</button>
+                        <button type="button" class="dkd-zoom-label" title="Klik untuk paskan ke layar" @click="dekidakaModalZoomFit()" x-text="dekidakaModalZoomLabel()"></button>
+                        <button type="button" class="dkd-zoom-btn" title="Perbesar (Ctrl + scroll)" @click="dekidakaModalZoomIn()">+</button>
+                      </div>
                       <button type="button" class="dkd-btn" title="Print" @click="printDekidakaModalBoard()">🖨</button>
                       <button type="button" class="dkd-btn" title="Export PDF" @click="exportDekidakaModalBoardPDF()">📄</button>
                       <button type="button" class="btn-secondary btn-sm" @click="closeDekidakaModal()">✕ Tutup</button>

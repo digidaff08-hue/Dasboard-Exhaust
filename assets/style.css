@@ -1124,6 +1124,29 @@ tr.dkd-row-alert .dkd-ket-abnormality{ font-weight:900; color:#b3261e; backgroun
    tetap tampil di dkd-info-bar seperti biasa. */
 .dkd-modal-board-wrap .dkd-actions{ display:none; }
 
+/* ===== Kontrol zoom papan Dekidaka (di header modal) =====
+   Papan Dekidaka lebarnya ~1760px, jadi otomatis dikecilkan supaya
+   seluruhnya kelihatan -- dan tulisannya jadi kecil. Zoom browser tidak
+   menolong karena fungsi "pas layar" ikut menghitung ulang. Jadi zoom-nya
+   disediakan di sini (lihat dekidakaModalZoomIn/Out/Fit di
+   assets/machine-page.js). Kalau papannya lebih besar dari ruang modal,
+   .dkd-modal-body yang overflow:auto jadi bisa digeser seperti peta. */
+.dkd-zoom{ display:inline-flex; align-items:stretch; border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-right:4px; }
+.dkd-zoom-btn{
+  background:#fff; border:0; cursor:pointer; color:#111;
+  font-size:1rem; font-weight:700; line-height:1; padding:0 11px; min-width:30px;
+}
+.dkd-zoom-btn:hover{ background:#eef0f3; }
+.dkd-zoom-btn:active{ background:#e2e5ea; }
+.dkd-zoom-label{
+  background:#fff; border:0; border-left:1px solid var(--border); border-right:1px solid var(--border);
+  cursor:pointer; color:#444; font-size:.76rem; font-weight:700;
+  padding:6px 9px; min-width:52px; text-align:center; font-variant-numeric:tabular-nums;
+}
+.dkd-zoom-label:hover{ background:#eef0f3; }
+/* Saat papan sedang di-zoom, kursornya jadi penanda "bisa digeser". */
+.dkd-modal-body{ cursor:default; }
+
 .perf-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
