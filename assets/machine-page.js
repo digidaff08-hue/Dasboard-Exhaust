@@ -651,7 +651,11 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // ---- Performance dashboard (3 seksi independen) ----
     perf: {
       tahunan: { anchor: localDateStr(new Date()), loading: false, loaded: false, data: null, trend: [], chart: null, pieChart: null, top5: [], byCategory: [] },
-      bulanan: { anchor: localDateStr(new Date()), loading: false, loaded: false, data: null, trend: [], chart: null, pieChart: null, top5: [], byCategory: [] },
+      // downtimeRows -- "Rekap Downtime" mentah sebulan penuh, strukturnya
+      // disamakan dengan perfDowntimeRows punya Harian (lihat
+      // fetchPerfMonthDowntimeRows), GANTI dari "5 Downtime Terburuk" + pie
+      // "Downtime per Kategori" yang dulu dipakai di sini.
+      bulanan: { anchor: localDateStr(new Date()), loading: false, loaded: false, data: null, trend: [], chart: null, pieChart: null, top5: [], byCategory: [], downtimeRows: [] },
       harian: { anchor: localDateStr(new Date()), loading: false, loaded: false, data: null, trend: [], chart: null, pieChart: null, top5: [], byCategory: [] },
     },
 
@@ -2263,7 +2267,25 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       st.byCategory = (catResult.data || []).map((r) => ({ kategori: r.kategori, menit: Math.round(Number(r.total_menit) || 0) }));
       st.loaded = true;
       if (section === "harian") { this.fetchPerfDayRows(); this.fetchPerfDowntimeRows(); }
+      if (section === "bulanan") { this.fetchPerfMonthDowntimeRows(); }
       this.$nextTick(() => { this.renderPerfChart(section); this.renderPerfPie(section); });
+    },
+    // "Rekap Downtime" Bulanan -- sama persis strukturnya dengan
+    // perfDowntimeRows (Harian), bedanya rentang waktunya 1 bulan penuh
+    // (lihat performance_downtime_rows di migration_performance_downtime_rows.sql
+    // -- fungsinya sudah generik terima p_start/p_end apa saja, jadi tidak
+    // perlu bikin fungsi SQL baru).
+    async fetchPerfMonthDowntimeRows() {
+      const st = this.perf.bulanan;
+      const { start, end } = this.perfBounds("month", st.anchor, 0);
+      const stasiunList = (this.stationConfig.mode === "variant" && this.tandemVariant)
+        ? this.stationConfig.variants[this.tandemVariant]
+        : null;
+      const { data, error } = await supabaseClient.rpc("performance_downtime_rows", {
+        p_mesin: machineKey, p_stasiun_list: stasiunList,
+        p_start: start.toISOString(), p_end: end.toISOString(),
+      });
+      st.downtimeRows = error ? [] : (data || []);
     },
     fetchAllPerf() {
       Object.keys(this.PERF_CONFIG).forEach((s) => this.fetchPerfSection(s));
@@ -2348,24 +2370,81 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         section === "tahunan" && t.kindYear ? cssVar("--navy") : cssVar("--teal")
       );
 
-      st.chart = new Chart(canvas, {
-        data: {
-          labels: st.trend.map((t) => t.label),
-          datasets: [
-            {
-              type: "bar", label: "GSPH (Aktual)",
-              data: st.trend.map((t) => (t.separator ? null : Number((t.gsph || 0).toFixed(1)))),
-              backgroundColor: barColors, borderRadius: 4, borderSkipped: false, barPercentage: 0.7, categoryPercentage: 0.8, order: 2,
-            },
-            {
-              type: "line", label: "GSPH (Target)",
-              data: st.trend.map((t) => (t.separator ? null : Number((t.targetGsph || 0).toFixed(1)))),
-              borderColor: cssVar("--red"), borderWidth: 2, pointRadius: 0, tension: 0, spanGaps: true, order: 1,
-            },
-          ],
+      const datasets = [
+        {
+          type: "bar", label: "Perjam (Aktual)",
+          data: st.trend.map((t) => (t.separator ? null : Number((t.gsph || 0).toFixed(1)))),
+          backgroundColor: barColors, borderRadius: 4, borderSkipped: false, barPercentage: 0.7, categoryPercentage: 0.8, order: 2,
         },
+        {
+          type: "line", label: "Perjam (Target)",
+          data: st.trend.map((t) => (t.separator ? null : Number((t.targetGsph || 0).toFixed(1)))),
+          borderColor: cssVar("--red"), borderWidth: 2, pointRadius: 0, tension: 0, spanGaps: true, order: 1,
+        },
+      ];
+      // Bulanan saja: tiap hari dlm bulan sudah punya t.stroke (Qty Produksi
+      // hari itu, dihitung di fetchPerfSection) -- tumpangkan sebagai garis
+      // putus-putus di sumbu kanan (y1), skalanya beda jauh dari Perjam
+      // jadi tidak dipaksa 1 sumbu yang sama.
+      if (section === "bulanan") {
+        datasets.push({
+          type: "line", label: "Qty Produksi (Harian)",
+          data: st.trend.map((t) => (t.separator ? null : Number(t.stroke || 0))),
+          borderColor: cssVar("--amber"), backgroundColor: "transparent",
+          borderWidth: 2, borderDash: [5, 3], pointRadius: 0, tension: 0.25, spanGaps: true,
+          yAxisID: "y1", order: 0,
+        });
+      }
+
+      // Angka di TENGAH tiap batang "Perjam (Aktual)" (supaya tidak
+      // bertabrakan dgn garis "Perjam (Target)"/"Qty Produksi" yang lewat
+      // di atasnya), + angka di tiap titik garis "Qty Produksi (Harian)".
+      // Chart.js inti tidak punya ini bawaan (plugin chartjs-plugin-datalabels
+      // TIDAK dimuat di app ini, biar tidak nambah dependency luar), jadi
+      // dibikin plugin kecil sendiri, cuma dipasang di chart ini (bukan
+      // global) supaya tidak ikut muncul di chart lain (Dekidaka, dst).
+      const barValueLabelPlugin = {
+        id: "barValueLabel",
+        afterDatasetsDraw(chart) {
+          const { ctx } = chart;
+          chart.data.datasets.forEach((ds, i) => {
+            const meta = chart.getDatasetMeta(i);
+            if (meta.hidden) return;
+            if (ds.type === "bar") {
+              ctx.save();
+              ctx.fillStyle = "#ffffff";
+              ctx.font = "bold 10px sans-serif";
+              ctx.textAlign = "center";
+              ctx.textBaseline = "middle";
+              meta.data.forEach((bar, idx) => {
+                const val = ds.data[idx];
+                if (val === null || val === undefined) return;
+                const midY = (bar.y + bar.base) / 2;
+                ctx.fillText(fmtNum(val), bar.x, midY);
+              });
+              ctx.restore();
+            } else if (ds.label === "Qty Produksi (Harian)") {
+              ctx.save();
+              ctx.fillStyle = cssVar("--amber");
+              ctx.font = "10px sans-serif";
+              ctx.textAlign = "center";
+              ctx.textBaseline = "bottom";
+              meta.data.forEach((point, idx) => {
+                const val = ds.data[idx];
+                if (val === null || val === undefined) return;
+                ctx.fillText(fmtNum(val), point.x, point.y - 4);
+              });
+              ctx.restore();
+            }
+          });
+        },
+      };
+
+      st.chart = new Chart(canvas, {
+        data: { labels: st.trend.map((t) => t.label), datasets },
         options: {
           responsive: true, maintainAspectRatio: false,
+          layout: { padding: { top: 16 } }, // ruang buat angka di atas batang
           plugins: {
             legend: { display: true, position: "top", align: "end",
               labels: { color: cssVar("--muted"), boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 10 }, padding: 12 } },
@@ -2376,8 +2455,14 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
             x: { ticks: { color: cssVar("--chart-tick"), font: { size: 10 } }, grid: { display: false }, border: { display: false } },
             y: { ticks: { color: cssVar("--chart-tick"), font: { size: 10 }, maxTicksLimit: 5 },
                  grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: false }, beginAtZero: true },
+            ...(section === "bulanan" ? {
+              y1: { position: "right", beginAtZero: true,
+                    ticks: { color: cssVar("--amber"), font: { size: 10 }, maxTicksLimit: 5 },
+                    grid: { display: false }, border: { display: false } },
+            } : {}),
           },
         },
+        plugins: [barValueLabelPlugin],
       });
     },
     renderPerfPie(section) {

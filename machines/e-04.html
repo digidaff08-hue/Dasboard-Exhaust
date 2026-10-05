@@ -1111,71 +1111,37 @@
                     </div>
                   </div>
                   <div class="perf-chart-col">
-                    <div class="perf-chart-wrap" x-show="'bulanan' !== 'harian'"><canvas id="perfChart_E-04_bulanan"></canvas></div>
-                    <div x-show="'bulanan' === 'harian'" class="perf-daily-split">
-                      <div class="perf-daily-chart">
-                        <p class="panel-subtitle">Perjam Target vs Aktual</p>
-                        <div style="height:120px;position:relative;"><canvas id="perfChart_E-04_bulanan_daily"></canvas></div>
-                      </div>
-                      <div class="perf-daily-list">
-                        <p class="panel-subtitle">Produksi Hari Itu <span class="count" x-text="perfDayRows.length + ' baris'"></span></p>
-                        <div class="table-wrap" style="max-height:230px;">
-                          <table class="table-compact">
-                            <thead>
-                              <tr>
-                                <th x-show="stationConfig.mode !== 'none'">Stasiun</th>
-                                <th>Mulai</th><th>Selesai</th><th>Part Number</th>
-                                <th>Qty</th><th>NG Inline</th><th>Repair</th><th>Dandori</th><th>DT</th><th>Break</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              <template x-for="row in perfDayRows" :key="row.id">
-                                <tr>
-                                  <td class="mono" x-show="stationConfig.mode !== 'none'" x-text="row.stasiun || '-'"></td>
-                                  <td class="mono" x-text="fmtJam(row.waktu_awal)"></td>
-                                  <td class="mono" x-text="fmtJam(row.waktu_akhir)"></td>
-                                  <td x-text="row.part_number"></td>
-                                  <td class="mono" x-text="fmtNum(row.qty)"></td>
-                                  <td class="mono" x-text="fmtNum(row.ngInlineQty ?? 0)"></td>
-                                  <td class="mono" x-text="fmtNum(row.repairQty ?? 0)"></td>
-                                  <td class="mono" x-text="fmtNum(row.dandori_menit ?? 0)"></td>
-                                  <td class="mono" x-text="fmtNum(row.downtime_menit ?? 0)"></td>
-                                  <td class="mono" x-text="fmtNum(row.break_menit ?? 0)"></td>
-                                </tr>
-                              </template>
-                              <tr x-show="perfDayRows.length === 0"><td colspan="10"><div class="empty-state-daily"><span class="empty-state-title">Belum ada produksi</span>Belum ada baris produksi yang masuk untuk tanggal ini.</div></td></tr>
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="perf-lower-grid">
-                  <div class="perf-lower-col">
-                    <p class="panel-subtitle">5 Downtime Terburuk</p>
-                    <div class="table-wrap">
-                      <table class="table-compact">
-                        <thead><tr><th>Kategori</th><th>Problem</th><th>Menit</th></tr></thead>
-                        <tbody>
-                          <template x-for="row in perf.bulanan.top5" :key="row.kategori + row.problem">
+                    <div class="perf-chart-wrap"><canvas id="perfChart_E-04_bulanan"></canvas></div>
+                    <!-- Rekap Downtime -- strukturnya & posisinya disamakan dengan
+                         Performance Harian (lihat .perf-downtime-rekap di
+                         assets/style.css), bedanya di sini mencakup 1 bulan
+                         penuh (lihat fetchPerfMonthDowntimeRows). -->
+                    <div class="perf-downtime-rekap">
+                      <p class="panel-subtitle">Rekap Downtime <span class="count" x-text="perf.bulanan.downtimeRows.length + ' baris'"></span></p>
+                      <div class="table-wrap" style="height:230px;">
+                        <table class="table-compact">
+                          <thead>
                             <tr>
-                              <td><span class="badge" x-text="row.kategori"></span></td>
-                              <td x-text="row.problem"></td>
-                              <td class="mono" x-text="fmtNum(row.menit)"></td>
+                              <th>PIC</th><th>Problem Kategori</th><th>Problem Detail</th>
+                              <th>Area</th><th>Countermeasure</th><th>Total Losstime</th>
                             </tr>
-                          </template>
-                          <tr x-show="perf.bulanan.top5.length === 0"><td colspan="3" class="empty-state">Tidak ada downtime.</td></tr>
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            <template x-for="(row, idx) in perf.bulanan.downtimeRows" :key="idx">
+                              <tr>
+                                <td><span class="badge" x-text="row.pic"></span></td>
+                                <td x-text="row.problem"></td>
+                                <td x-text="row.penyebab"></td>
+                                <td x-text="row.area"></td>
+                                <td x-text="row.countermeasure"></td>
+                                <td class="mono" x-text="fmtNum(row.durasi_menit) + ' mnt'"></td>
+                              </tr>
+                            </template>
+                            <tr x-show="perf.bulanan.downtimeRows.length === 0"><td colspan="6" class="empty-state">Tidak ada downtime.</td></tr>
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  </div>
-                  <div class="perf-lower-col">
-                    <p class="panel-subtitle">Downtime per Kategori</p>
-                    <div class="perf-pie-wrap"><canvas id="perfPie_E-04_bulanan"></canvas></div>
-                    <p class="perf-pie-summary" x-show="perf.bulanan.byCategory.length > 0"
-                       x-text="downtimeKesimpulan('bulanan')"></p>
                   </div>
                 </div>
               </div>
