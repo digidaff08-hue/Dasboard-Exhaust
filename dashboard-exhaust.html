@@ -2510,7 +2510,12 @@ function dashboardExhaust() {
     qcLineFilter: "ALL",
     // Filter tanggal untuk tabel "Downtime Terbesar per Line" -- tabel ini
     // SELALU per-tanggal (default hari ini, bisa diganti lewat date picker).
-    bulananDate: localDateStr(new Date()),
+    // Sama seperti qcNgInlineDetailDate dkk -- sengaja diisi tanggal 1
+    // bulan berjalan, BUKAN hari-ini-persis, supaya nilainya tidak sudah
+    // "sama dengan hari ini" saat kalender dibuka (kalau sudah sama,
+    // <input type="date"> tidak akan fire event sama sekali waktu user
+    // klik tanggal hari ini, karena buat browser itu bukan "perubahan").
+    bulananDate: localDateStr(new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
     // Mode tabel "Downtime Line": FALSE (default) = tampil SEBULAN PENUH,
     // TRUE = tampil 1 tanggal spesifik (bulananDate) -- persis pola
     // qcNgInlineUseDate di tab Kontrol Kualitas.
@@ -2530,11 +2535,19 @@ function dashboardExhaust() {
     // Status mode "sebulan" vs "1 tanggal" TIDAK ditentukan dari isi/kosong
     // field ini lagi, tapi dari flag qcNgInlineUseDate: true hanya kalau
     // user BENERAN klik/pilih tanggal (event @change).
-    qcNgInlineDetailDate: "",
+    // PENTING: field ini sengaja TIDAK dibiarkan string kosong ("") --
+    // kalau kosong total, <input type="date"> bawaan Chrome punya bug:
+    // klik PERTAMA ke tanggal hari-ini-beneran di kalender tidak dianggap
+    // "berubah" (karena hari ini sudah otomatis ke-highlight duluan oleh
+    // browser saat field kosong), jadi user harus pilih tanggal lain dulu
+    // baru tanggal hari ini bisa kepilih. Diisi tanggal 1 bulan berjalan
+    // supaya selalu ada nilai konkret -- tampilan tetap tersembunyi via
+    // CSS di atas, jadi tidak kelihatan bedanya di layar.
+    qcNgInlineDetailDate: localDateStr(new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
     qcNgInlineUseDate: false,
-    qcNgTrialDetailDate: "",
+    qcNgTrialDetailDate: localDateStr(new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
     qcNgTrialUseDate: false,
-    qcStraightpassDetailDate: "",
+    qcStraightpassDetailDate: localDateStr(new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
     qcNgInlineLoaded: false,
     qcNgInline: {
       monthLabels: [], qtyByMonth: [], valueByMonth: [],
@@ -2553,7 +2566,7 @@ function dashboardExhaust() {
     },
     // Repair -- cuma butuh 1 tabel (Rekap Repair), tidak ada
     // grafik Month/Perline/Model/Daily seperti NG Inline/Trial.
-    qcRepairDetailDate: "",
+    qcRepairDetailDate: localDateStr(new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
     qcRepairUseDate: false,
     qcRepair: { detailRows: [], perlineQty: [], permodelQty: [] },
     // Cache biar setTab('kualitas') tidak fetch ulang ke Supabase tiap kali
