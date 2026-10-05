@@ -1186,7 +1186,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                 </div>
                 <div class="qc-rekap-mode">
                   <div class="qc-date-wrap">
-                    <input type="date" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !bulananDowntimeUseDate }" x-model="bulananDate" :min="bulananDateMin()" :max="bulananDateMax()" @change="bulananDate = $event.target.value; bulananDowntimeUseDate = true; onBulananDowntimeDateChange()">
+                    <input type="date" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !bulananDowntimeUseDate }" x-model="bulananDate" :min="bulananDateMin()" :max="bulananDateMax()" @input="bulananDate = $event.target.value; bulananDowntimeUseDate = true; onBulananDowntimeDateChange()" @change="bulananDate = $event.target.value; bulananDowntimeUseDate = true; onBulananDowntimeDateChange()">
                     <span class="qc-date-month-label" x-show="!bulananDowntimeUseDate" x-text="bulananMonthLabel"></span>
                   </div>
                   <button type="button" class="qc-rekap-clear-btn" title="Kembali ke tampilan sebulan" x-show="bulananDowntimeUseDate" @click="bulananDowntimeUseDate = false; onBulananDowntimeDateChange()">✕</button>
@@ -1546,7 +1546,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                   </div>
                   <div class="qc-rekap-mode">
                     <div class="qc-date-wrap">
-                      <input type="date" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !qcNgInlineUseDate }" x-model="qcNgInlineDetailDate" @change="qcNgInlineDetailDate = $event.target.value; qcNgInlineUseDate = true; fetchQcNgInlineDetail()">
+                      <input type="date" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !qcNgInlineUseDate }" x-model="qcNgInlineDetailDate" @input="qcNgInlineDetailDate = $event.target.value; qcNgInlineUseDate = true; fetchQcNgInlineDetail()" @change="qcNgInlineDetailDate = $event.target.value; qcNgInlineUseDate = true; fetchQcNgInlineDetail()">
                       <span class="qc-date-month-label" x-show="!qcNgInlineUseDate" x-text="qcMonthShortLabel"></span>
                     </div>
                     <button type="button" class="qc-rekap-clear-btn" title="Kembali ke tampilan sebulan" x-show="qcNgInlineUseDate" @click="qcNgInlineUseDate = false; fetchQcNgInlineDetail()">✕</button>
@@ -1611,7 +1611,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                   </div>
                   <div class="qc-rekap-mode">
                     <div class="qc-date-wrap">
-                      <input type="date" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !qcNgTrialUseDate }" x-model="qcNgTrialDetailDate" @change="qcNgTrialDetailDate = $event.target.value; qcNgTrialUseDate = true; fetchQcNgTrialDetail()">
+                      <input type="date" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !qcNgTrialUseDate }" x-model="qcNgTrialDetailDate" @input="qcNgTrialDetailDate = $event.target.value; qcNgTrialUseDate = true; fetchQcNgTrialDetail()" @change="qcNgTrialDetailDate = $event.target.value; qcNgTrialUseDate = true; fetchQcNgTrialDetail()">
                       <span class="qc-date-month-label" x-show="!qcNgTrialUseDate" x-text="qcMonthShortLabel"></span>
                     </div>
                     <button type="button" class="qc-rekap-clear-btn" title="Kembali ke tampilan sebulan" x-show="qcNgTrialUseDate" @click="qcNgTrialUseDate = false; fetchQcNgTrialDetail()">✕</button>
@@ -1675,7 +1675,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
                   </div>
                   <div class="qc-rekap-mode">
                     <div class="qc-date-wrap">
-                      <input type="date" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !qcRepairUseDate }" x-model="qcRepairDetailDate" @change="qcRepairDetailDate = $event.target.value; qcRepairUseDate = true; qcRepairDetailLoaded = false; fetchQcRepairDetail()">
+                      <input type="date" class="dxy-input" style="min-width:120px;" :class="{ 'qc-date-hidden': !qcRepairUseDate }" x-model="qcRepairDetailDate" @input="qcRepairDetailDate = $event.target.value; qcRepairUseDate = true; qcRepairDetailLoaded = false; fetchQcRepairDetail()" @change="qcRepairDetailDate = $event.target.value; qcRepairUseDate = true; qcRepairDetailLoaded = false; fetchQcRepairDetail()">
                       <span class="qc-date-month-label" x-show="!qcRepairUseDate" x-text="qcMonthShortLabel"></span>
                     </div>
                     <button type="button" class="qc-rekap-clear-btn" title="Kembali ke tampilan sebulan" x-show="qcRepairUseDate" @click="qcRepairUseDate = false; qcRepairDetailLoaded = false; fetchQcRepairDetail()">✕</button>
@@ -1735,7 +1735,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
             </div>
             <div class="dxy-field" x-show="attendanceViewMode === 'bulanan'">
               <label>Tanggal</label>
-              <input type="date" class="dxy-select" x-model="attendanceDate" @change="attendanceDate = $event.target.value; onAttendanceDateChange()">
+              <input type="date" class="dxy-select" x-model="attendanceDate" @input="attendanceDate = $event.target.value; onAttendanceDateChange()" @change="attendanceDate = $event.target.value; onAttendanceDateChange()">
             </div>
             <div class="dxy-spacer"></div>
             <div class="dxy-field">
@@ -2009,7 +2009,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
             <p style="margin:0;font-weight:700;font-size:1rem;">Rencana Produksi Harian per Part Number</p>
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
-            <input type="date" x-model="planTanggal" @change="planTanggal = $event.target.value; fetchPlanHarian()"
+            <input type="date" x-model="planTanggal" @input="planTanggal = $event.target.value; fetchPlanHarian()" @change="planTanggal = $event.target.value; fetchPlanHarian()"
               style="padding:6px 10px;border:1px solid var(--field-border);border-radius:var(--radius-sm);background:var(--panel);color:var(--text);font-size:.85rem;">
             <template x-if="isAdmin()">
               <a href="plan-produksi.html" class="btn-secondary btn-sm" style="text-decoration:none;">✏️ Edit Plan</a>
