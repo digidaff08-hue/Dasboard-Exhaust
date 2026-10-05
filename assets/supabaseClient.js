@@ -19,7 +19,7 @@ async function requireAuth() {
   // (Input Produksi, Attendance, halaman mesin, dst) langsung dipantulkan
   // ke Dashboard Exhaust -- termasuk kalau alamatnya diketik manual.
   const myRole = await getMyRole(session);
-  if (!isDashboardExhaustPage() && myRole === "guest") {
+  if (!isDashboardExhaustPage() && !isEmbeddedPerformanceView() && myRole === "guest") {
     window.location.href = getBasePath() + "dashboard-exhaust.html";
     return null;
   }
@@ -50,6 +50,22 @@ function isDashboardExhaustPage() {
   return window.location.pathname.toLowerCase().includes("dashboard-exhaust");
 }
 
+// true kalau halaman mesin ini dibuka lewat ?tab=performance -- itu cara
+// Dashboard Exhaust menampilkan tab "Performance" (lihat <iframe> di
+// dashboard-exhaust.html & embedMode di assets/machine-page.js). Akun
+// GUEST/VIEWER memang BOLEH membuka Dashboard Exhaust, dan tab
+// "Performance" di dalamnya secara teknis memuat machines/e-0X.html di
+// iframe -- tanpa pengecualian ini, pemantulan "halaman mesin" di bawah
+// membuat IFRAME itu sendiri dipantulkan balik ke dashboard-exhaust.html,
+// sehingga yang muncul di dalam tab Performance adalah Dashboard Exhaust
+// versi mini (nyasar), bukan data Performance/OEE line yang dipilih.
+// Ini CUMA guard kenyamanan tampilan -- yang beneran menahan GUEST/VIEWER
+// supaya tidak bisa UBAH data tetap RLS di database, bukan ini.
+function isEmbeddedPerformanceView() {
+  try { return new URLSearchParams(window.location.search).get("tab") === "performance"; }
+  catch (e) { return false; }
+}
+
 function isAndonPage() {
   return window.location.pathname.toLowerCase().includes("andon");
 }
@@ -72,7 +88,7 @@ async function requireStaff(session) {
   // GUEST: boleh HANYA di Dashboard Exhaust (lihat saja), halaman lain
   // dipantulkan ke Dashboard Exhaust.
   if (r === "guest") {
-    if (isDashboardExhaustPage()) return true;
+    if (isDashboardExhaustPage() || isEmbeddedPerformanceView()) return true;
     window.location.href = getBasePath() + "dashboard-exhaust.html";
     return false;
   }
@@ -80,7 +96,7 @@ async function requireStaff(session) {
   // (Attendance memang terbuka untuk semua yang login, tidak lewat sini).
   // Halaman lain dipantulkan ke Attendance.
   if (r === "viewer") {
-    if (isDashboardExhaustPage()) return true;
+    if (isDashboardExhaustPage() || isEmbeddedPerformanceView()) return true;
     window.location.href = getBasePath() + "input-attendance.html";
     return false;
   }
