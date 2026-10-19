@@ -1,0 +1,904 @@
+/* =========================================================
+   Dashboard Exhaust -- CSS khusus halaman dashboard-exhaust.html
+   (dulu inline di <style>; dipindah apa adanya, isi tidak diubah)
+   Dimuat SETELAH assets/style.css.
+   ========================================================= */
+/* =========================================================================
+   DASHBOARD EXHAUST - TAHUNAN (Smart Narrative Redesign)
+   Semua rule di bawah ini di-namespace di bawah ".dxy" supaya TIDAK PERNAH
+   menyentuh style tab Bulanan/Harian/Kualitas yang sudah ada. Tidak ada
+   query, RPC, atau logika data yang diubah di sini -- murni lapisan visual.
+   ========================================================================= */
+.dxy {
+  --dxy-bg: #F5F7FB;
+  --dxy-card: #FFFFFF;
+  --dxy-border: #E5E7EB;
+  --dxy-text: #000000;
+  --dxy-muted: #1A1A1A;
+  --dxy-blue: #2563EB;
+  --dxy-green: #10B981;
+  --dxy-orange: #F97316;
+  --dxy-teal: #14B8A6;
+  --dxy-purple: #8B5CF6;
+  --dxy-red: #EF4444;
+  --dxy-yellow: #F59E0B;
+  --dxy-shadow: 0 1px 2px rgba(15,23,42,.04), 0 8px 24px -12px rgba(15,23,42,.12);
+  --dxy-shadow-hover: 0 4px 10px rgba(15,23,42,.06), 0 16px 32px -14px rgba(15,23,42,.18);
+  background: var(--dxy-bg);
+  color: var(--dxy-text);
+  padding: 4px 6px 12px 6px;
+  border-radius: 20px;
+  font-variant-numeric: tabular-nums;
+}
+[data-theme="dark"] .dxy {
+  --dxy-bg: #0f172a;
+  --dxy-card: #1e293b;
+  --dxy-border: #334155;
+  --dxy-text: #f8fafc;
+  --dxy-muted: #94a3b8;
+  --dxy-shadow: 0 1px 2px rgba(0,0,0,.2), 0 8px 24px -12px rgba(0,0,0,.4);
+  --dxy-shadow-hover: 0 4px 10px rgba(0,0,0,.3), 0 16px 32px -14px rgba(0,0,0,.5);
+}
+
+/* ---- Filter bar (Baris 1) ---- */
+.dxy-filterbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.dxy-filterbar .dxy-spacer { flex: 1; }
+.dxy-field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+.dxy-field label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--dxy-muted);
+  white-space: nowrap;
+}
+.dxy-select, .dxy-input {
+  background: var(--dxy-card);
+  border: 1px solid var(--dxy-border);
+  color: var(--dxy-text);
+  border-radius: 8px;
+  padding: 4px 7px;
+  font-size: 11.5px;
+  font-family: inherit;
+  min-height: 26px;
+}
+.dxy-select:disabled, .dxy-input:disabled { opacity: .45; cursor: not-allowed; }
+.dxy-input { min-width: 120px; }
+.dxy-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--dxy-card);
+  border: 1px solid var(--dxy-border);
+  color: var(--dxy-text);
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.dxy-btn:hover { box-shadow: var(--dxy-shadow); transform: translateY(-1px); }
+.dxy-btn-primary { background: var(--dxy-blue); border-color: var(--dxy-blue); color: #fff; }
+
+/* ---- KPI row (Baris 2) ---- */
+.dxy-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.dxy-kpi-card {
+  grid-column: span 3;
+  background: var(--dxy-card);
+  border: 1px solid var(--dxy-border);
+  border-radius: 16px;
+  padding: 14px 16px;
+  min-height: 112px;
+  box-shadow: var(--dxy-shadow);
+  transition: transform 200ms ease, box-shadow 200ms ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  overflow: hidden;
+}
+.dxy-kpi-card:hover { transform: translateY(-2px); box-shadow: var(--dxy-shadow-hover); }
+.dxy-kpi-top { display: flex; align-items: center; justify-content: space-between; }
+.dxy-kpi-label { display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; color: var(--dxy-muted); text-transform: uppercase; }
+.dxy-kpi-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dxy-kpi-mid { display: flex; align-items: baseline; gap: 8px; }
+.dxy-kpi-value { font-size: 26px; font-weight: 800; letter-spacing: -0.01em; line-height: 1; }
+.dxy-kpi-delta { font-size: 11.5px; font-weight: 700; display: inline-flex; align-items: center; gap: 2px; }
+.dxy-kpi-delta.up { color: var(--dxy-green); }
+.dxy-kpi-delta.down { color: var(--dxy-red); }
+.dxy-kpi-delta.flat { color: var(--dxy-muted); }
+.dxy-kpi-bottom { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
+.dxy-kpi-target { font-size: 10.5px; color: var(--dxy-muted); }
+.dxy-kpi-spark { width: 84px; height: 28px; }
+
+/* ---- Smart Narrative (Baris 3) ---- */
+.dxy-narrative {
+  background: var(--dxy-card);
+  border: 1px solid var(--dxy-border);
+  border-radius: 16px;
+  padding: 16px 20px;
+  box-shadow: var(--dxy-shadow);
+  min-width: 0;
+}
+.dxy-narrative-head { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--dxy-muted); margin-bottom: 10px; }
+.dxy-narrative-list { display: flex; flex-direction: column; gap: 9px; }
+.dxy-narrative-item { display: flex; align-items: flex-start; gap: 9px; font-size: 13px; line-height: 1.5; }
+.dxy-narrative-icon { flex-shrink: 0; font-size: 13px; line-height: 1.5; }
+.dxy-narrative-item b { font-weight: 700; }
+
+/* ---- Chart grid (Baris 4) ---- */
+.dxy-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.dxy-panel {
+  background: #F1F9FE;
+  border: 1px solid #7DD3FC;
+  border-top: 4px solid #0EA5E9;
+  border-radius: 16px;
+  padding: 8px 10px !important;
+  box-shadow: 0 1px 3px rgba(14,165,233,.12), 0 8px 24px -12px rgba(14,165,233,.28);
+  transition: box-shadow 200ms ease, border-color 200ms ease;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.dxy-panel:hover { box-shadow: 0 4px 12px rgba(14,165,233,.18), 0 16px 32px -14px rgba(14,165,233,.42); border-color: #38BDF8; }
+[data-theme="dark"] .dxy-panel { background: #14273A; border-color: #0284C7; border-top-color: #38BDF8; }
+[data-theme="dark"] .dxy-panel:hover { border-color: #7DD3FC; }
+.dxy-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px !important; }
+.dxy-panel-bignum { font-size: 24px; font-weight: 800; letter-spacing: -0.01em; margin: -6px 0 10px; color: var(--dxy-text); }
+.dxy-panel-title { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
+.dxy-panel-badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(16,185,129,.12); color: var(--dxy-green); }
+.dxy-panel-sub { font-size: 10.5px; color: var(--dxy-muted); }
+.dxy-span-3 { grid-column: span 3; }
+.dxy-span-4 { grid-column: span 4; }
+.dxy-span-5 { grid-column: span 5; }
+.dxy-span-2 { grid-column: span 2; }
+.dxy-span-6 { grid-column: span 6; }
+.dxy-span-8 { grid-column: span 8; }
+.dxy-span-12 { grid-column: span 12; }
+.dxy-chart-box { position: relative; flex: 1; min-height: 185px !important; max-height: 185px; }
+/* Legend Chart.js (position:"bottom") nempel persis di tepi bawah kanvas --
+   supaya kelihatan mepet ke garis bawah kartu (bukan ngambang di tengah),
+   padding-bawah kartu yang isinya chart dipersempit di sini. Tidak
+   menyentuh kartu tabel (Rekap NG Inline/Trial/Repair, dst) karena itu
+   tidak punya .dxy-chart-box di dalamnya. */
+.dxy-panel:has(> .dxy-chart-box) { padding-bottom: 2px !important; }
+.dxy-chart-box.tall { min-height: 165px !important; max-height: 165px; }
+
+/* ---- Tabel Downtime Terbesar (redesign total) ---- */
+.dxy-table-panel { grid-column: span 12; }
+/* Varian tabel sejajar 3-kolom (Downtime / NG Inline / Repair Terbesar) */
+.dxy-table-panel-sm .dxy-table-scroll { max-height: 300px !important; overflow-x: hidden; }
+.dxy-table-panel-sm table.dxy-table { font-size: 10px; width: 100%; table-layout: fixed; }
+.dxy-table-panel-sm table.dxy-table thead th { padding: 5px 6px; font-size: 8px; }
+.dxy-table-panel-sm table.dxy-table tbody td { padding: 4px 6px; white-space: nowrap; overflow: hidden; text-overflow: clip; height: 24px; }
+/* Rekap NG Inline / NG Trial / Repair (qc-detail-table): samakan font sel data dengan font header (8px) */
+.dxy-table-panel-sm table.qc-detail-table tbody td { font-size: 8px; }
+/* Kotak Rekap Kontrol Kualitas: tinggi TETAP, pas menampung header + 5 baris data.
+   Kotak TIDAK melebar ke bawah -- kalau data lebih dari 5 baris, scroll muncul
+   DI DALAM kotak ini (kotaknya sendiri diam). Dipasang dengan spesifisitas tinggi
+   supaya menang dari rule breakpoint layar besar (30vh) manapun urutannya. */
+/* Kotak Rekap Kontrol Kualitas: tinggi TETAP/FIX -- TIDAK ikut mengecil atau
+   membesar berapa pun jumlah baris datanya (sedikit maupun banyak). Kalau
+   data melebihi tinggi ini, scroll muncul DI DALAM kotak; kotaknya sendiri
+   tidak pernah berubah ukuran.
+   CATATAN: dulu pakai max-height, tapi max-height masih ikut MENGECIL saat
+   data < 5 baris dan pembungkus kartu (.dxy-panel) di luarnya sama sekali
+   tidak dikunci, jadi kartu tetap "napas" ikut tinggi total isinya. Sekarang
+   dipakai height TETAP (bukan max-height) supaya area tabel selalu persis
+   198px, plus min-height/max-height pada kartu pembungkus supaya kartu itu
+   sendiri juga terkunci -- baik saat data sedikit maupun banyak. */
+.qc-rekap-scroll,
+.dxy-table-panel-sm .qc-rekap-scroll,
+.dxy-panel .qc-rekap-scroll,
+.dxy-qc-col .dxy-table-panel-sm .qc-rekap-scroll,
+.dxy-qc-grid .dxy-qc-col .dxy-panel .qc-rekap-scroll { height: 198px !important; max-height: 198px !important; overflow-y: auto !important; overflow-x: hidden !important; scrollbar-width: thin; scrollbar-color: #94A3B8 transparent; }
+/* Kartu pembungkus "Rekap NG Inline/Trial/Repair" (kolom Kontrol Kualitas
+   saja, lewat scope .dxy-qc-col) dikunci tinggi totalnya juga -- header
+   (judul + input tanggal, ~30px) + area tabel (198px) + padding kartu
+   (~16px) = konstan, tidak ikut membesar/mengecil sama sekali. */
+.dxy-qc-col .dxy-panel.dxy-table-panel-sm {
+  min-height: 246px !important;
+  max-height: 246px !important;
+  height: 246px !important;
+  overflow: hidden;
+}
+/* ---- 3 tabel "Terbesar" di bottom tab Tahunan (Downtime / NG Inline /
+   Repair) -- KHUSUS bagian ini, TIDAK menyentuh tabel Bulanan/Kualitas.
+   Default SELALU 12 baris -- kalau data kurang dari 12, sisanya baris
+   KOSONG POLOS (tidak ada teks "-"/"No Problem" apa pun, lihat template
+   HTML-nya). Tinggi kotak dikunci PAS untuk 12 baris (header + 12 x
+   tinggi baris), TANPA scroll selama baris <= 12. Kalau data asli > 12
+   baris, baris TIDAK dipotong -- overflow:auto otomatis memunculkan
+   scroll DI DALAM kotak yang ukurannya tetap sama (kotak tidak ikut
+   membesar). Selector 3-class ini sengaja dibuat lebih spesifik
+   daripada rule ".dxy-table-panel-sm .dxy-table-scroll" manapun
+   (termasuk breakpoint layar besar), jadi selalu menang. */
+.dxy-panel.dxy-table-panel-sm.dxy-tahunan-terbesar-panel {
+  min-height: 356px !important;
+  max-height: 356px !important;
+  height: 356px !important;
+  overflow: hidden;
+}
+.dxy-panel.dxy-table-panel-sm.dxy-tahunan-terbesar-panel .dxy-table-scroll {
+  height: 310px !important;
+  max-height: 310px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  scrollbar-width: thin;
+  scrollbar-color: #94A3B8 transparent;
+}
+/* Font sel data di 3 tabel ini SERAGAM 8px -- dulu .dxy-pic-chip (11px)
+   & .dxy-minute-badge (11.5px) override lebih besar daripada teks polos
+   lainnya (8px, dari rule "table.qc-detail-table tbody td" di atas),
+   jadi kelihatan besar-kecil tidak rata dalam 1 tabel yang sama. */
+.dxy-tahunan-terbesar-panel .dxy-pic-chip,
+.dxy-tahunan-terbesar-panel .dxy-minute-badge {
+  font-size: 8px !important;
+}
+/* ---- Toggle "Tanggal" / "Sebulan" di header panel Rekap (Kontrol Kualitas) ---- */
+.qc-rekap-mode { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+.qc-rekap-mode .dxy-input { min-height: 24px; padding: 3px 6px; font-size: 10.5px; }
+/* Field tanggal ini diam-diam terisi (tanggal 1 bulan terpilih) supaya
+   kalender bawaan browser terbuka di bulan yang benar -- tapi selama
+   user belum benar-benar memilih tanggal (qcNgInlineUseDate masih false),
+   teksnya disembunyikan (dibikin transparan) supaya tetap KELIHATAN
+   kosong di layar, sesuai tampilan mode "sebulan". */
+.qc-rekap-mode .dxy-input.qc-date-hidden { color: transparent; }
+.qc-rekap-mode .dxy-input.qc-date-hidden::-webkit-datetime-edit-fields-wrapper { color: transparent; }
+/* Wrapper input tanggal + overlay nama bulan di atasnya. Overlay disisakan
+   ruang ~22px di kanan supaya ikon kalender bawaan browser tetap kelihatan
+   & tetap bisa diklik (overlay pointer-events:none, klik tembus ke input
+   di bawahnya, jadi kalender tetap kebuka walau overlay sedang tampil). */
+/* ---- Diganti jadi SATU bingkai tunggal di WRAPPER (bukan lagi border
+   terpisah di label vs border bawaan si <input>) -- pendekatan lama rawan
+   ada garis yang kepotong/tertimpa/tidak presisi nyambung, apalagi saat
+   browser di-zoom. Sekarang: wrapper yang gambar SATU border+radius utuh,
+   input di dalamnya dibikin transparan tanpa border sendiri (border:none),
+   background overlay ikut background wrapper -- jadi mustahil ada 2 garis
+   yang beradu/numpuk lagi, di zoom level berapa pun. ---- */
+.qc-date-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--dxy-border);
+  border-radius: 8px;
+  background: var(--dxy-card);
+  overflow: hidden;
+}
+.qc-date-wrap input[type="date"] {
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+.qc-date-month-label {
+  position: absolute;
+  left: 0; top: 0; bottom: 0; right: 22px;
+  display: flex; align-items: center;
+  padding-left: 7px;
+  background: var(--dxy-card);
+  color: var(--dxy-text);
+  font-size: 10.5px;
+  font-weight: 600;
+  /* Klik-langsung-buka-kalender sempat dicoba (showPicker() di label ini)
+     tapi ternyata browser tetap tidak mau buka popup-nya kecuali klik
+     persis di ikon kalender asli -- jadi dikembalikan ke pointer-events:
+     none (klik "numpang lewat" ke <input> di bawahnya, minimal tetap
+     fokus normal ke field-nya). */
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+}
+/* Ikon kalender bawaan browser (bagian ~22px kanan yang sengaja disisakan
+   di atas) tadinya kelihatan "nempel"/tidak nyambung sama pil overlay di
+   sebelah kirinya -- beda radius (6 vs 8), beda warna ikon tiap tema, dan
+   ada "kotak putih" bawaan browser di sekeliling ikon yang kontras dengan
+   background field. Diperhalus di sini: color-scheme disamakan sama tema
+   dashboard (biar ikon & popup kalender ikut gelap saat dark mode, bukan
+   selalu putih), ikon dibuat transparan+redup lalu nyala pas di-hover,
+   dan alignment-nya dirapikan supaya menyatu jadi 1 pil utuh. */
+.qc-rekap-mode input[type="date"] { color-scheme: light; }
+[data-theme="dark"] .qc-rekap-mode input[type="date"] { color-scheme: dark; }
+.qc-rekap-mode input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0.55;
+  cursor: pointer;
+  padding: 3px;
+  margin-right: 1px;
+  border-radius: 5px;
+  background-color: transparent;
+  transition: opacity 150ms ease, background-color 150ms ease;
+}
+.qc-rekap-mode input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  background-color: var(--dxy-border);
+}
+/* Outline fokus BAWAAN browser dimatikan khusus di sini -- karena outline
+   digambar DI LUAR/DI ATAS semua elemen (termasuk overlay label kita),
+   jadi kelihatan seperti "garis hitam" aneh yang nongol pas field diklik/
+   fokus. Diganti highlight lebih halus (border + glow tipis) yang senada
+   sama warna dashboard, bukan dihilangkan total (supaya tetap ada tanda
+   fokus buat aksesibilitas). */
+.qc-rekap-mode input[type="date"]:focus {
+  outline: none;
+}
+/* Highlight fokus digambar di WRAPPER (bukan di si <input>, yang sekarang
+   sudah tanpa border sendiri) lewat :focus-within -- supaya nyala nya
+   ngikutin bentuk 1 pil utuh, bukan cuma sebagian dalemnya. */
+.qc-date-wrap:focus-within {
+  border-color: #38BDF8;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
+}
+/* Tombol kecil "✕" -- muncul cuma saat tanggal terisi, dipakai untuk
+   mengosongkan tanggal lagi supaya balik otomatis ke tampilan sebulan. */
+.qc-rekap-clear-btn {
+  width: 20px; height: 20px;
+  border-radius: 999px;
+  border: 1px solid var(--dxy-border);
+  background: var(--dxy-card);
+  color: var(--dxy-muted);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+.qc-rekap-clear-btn:hover { background: #ef4444; border-color: #ef4444; color: #fff; }
+/* Scrollbar dibuat jelas kelihatan (default browser kadang terlalu tipis/transparan) */
+.qc-rekap-scroll::-webkit-scrollbar { width: 8px; }
+.qc-rekap-scroll::-webkit-scrollbar-track { background: transparent; }
+.qc-rekap-scroll::-webkit-scrollbar-thumb { background: #94A3B8; border-radius: 8px; }
+.qc-rekap-scroll::-webkit-scrollbar-thumb:hover { background: #64748B; }
+.dxy-table-scroll { max-height: 210px !important; overflow: auto; border-radius: 12px; border: 1px solid #BAE6FD; }
+[data-theme="dark"] .dxy-table-scroll { border-color: #0369A1; }
+table.dxy-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; }
+table.dxy-table thead th {
+  /* z-index dinaikkan dari 1 -> 20. Dengan nilai 1, baris tabel yang
+     tergulir ke bawah kepala kolom kadang masih "menang" saat disorot
+     mouse -- teksnya ikut terlihat menumpuk di atas judul kolom.
+     Nilai 20 memastikan kepala kolom selalu di lapisan paling atas,
+     baik untuk tampilan maupun untuk tangkapan mouse. */
+  position: sticky; top: 0; z-index: 20;
+  background: #E0F2FE;
+  border-bottom: 2px solid #7DD3FC;
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 9px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: #0284C7;
+}
+[data-theme="dark"] table.dxy-table thead th { background: #082F49; border-color: #0369A1; color: #7DD3FC; }
+[data-theme="dark"] table.dxy-table tbody tr,
+[data-theme="dark"] table.dxy-table tbody tr:nth-child(even) { background: transparent; }
+table.dxy-table tbody td { padding: 5px 12px; border-bottom: none; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: clip; }
+table.dxy-table tbody tr,
+table.dxy-table tbody tr:nth-child(even) { background: transparent; }
+table.dxy-table tbody tr:hover { background: rgba(14,165,233,.08); }
+/* ---- Filter per-kolom di tabel Rekap NG Inline / NG Trial / Repair ---- */
+table.qc-detail-table thead th { cursor: pointer; user-select: none; transition: background 120ms ease; }
+/* Warna sorot kepala kolom WAJIB PEKAT, bukan rgba tembus pandang.
+   Dulu memakai rgba(14,165,233,.16): begitu mouse menyentuh kepala
+   kolom, latar biru mudanya hilang dan baris tabel yang tergulir di
+   BELAKANG kepala kolom jadi kelihatan menumpuk.
+   #BEE6FB = hasil campuran warna lama itu di atas #E0F2FE, jadi
+   tampilannya sama persis tapi menutup rapat. */
+table.qc-detail-table thead th:hover { background: #BEE6FB; }
+[data-theme="dark"] table.qc-detail-table thead th:hover { background: #0B3C57; }
+/* NOTE: warna di bawah ini SENGAJA di-hardcode (bukan var(--dxy-*)) karena
+   dropdown-nya di-teleport ke <body>, keluar dari elemen ".dxy" tempat
+   variabel --dxy-* itu didefinisikan -- kalau pakai var(--dxy-*) di sini,
+   nilainya jadi kosong/transparan begitu dropdown pindah ke luar scope-nya. */
+.qc-filter-dropdown {
+  position: fixed;
+  z-index: 999;
+  width: 200px;
+  max-width: 80vw;
+  background: #F0F9FF;
+  border: 1px solid #7DD3FC;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(14,165,233,.12), 0 16px 32px -14px rgba(14,165,233,.35);
+  padding: 9px;
+  font-size: 11px;
+  text-transform: none;
+  letter-spacing: normal;
+  color: #0C4A6E;
+  cursor: default;
+}
+[data-theme="dark"] .qc-filter-dropdown {
+  background: #0C2A3D;
+  border-color: #0369A1;
+  color: #E0F2FE;
+  box-shadow: 0 4px 10px rgba(0,0,0,.3), 0 16px 32px -14px rgba(0,0,0,.55);
+}
+.qc-filter-title { font-size: 10px; font-weight: 700; color: #0284C7; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+[data-theme="dark"] .qc-filter-title { color: #7DD3FC; }
+.qc-filter-search {
+  width: 100%;
+  box-sizing: border-box;
+  background: #E0F2FE;
+  border: 1px solid #BAE6FD;
+  color: #0C4A6E;
+  border-radius: 6px;
+  padding: 5px 7px;
+  font-size: 11px;
+  font-family: inherit;
+  margin-bottom: 6px;
+}
+[data-theme="dark"] .qc-filter-search { background: #082F49; border-color: #0369A1; color: #E0F2FE; }
+.qc-filter-actions { display: flex; gap: 6px; margin-bottom: 6px; }
+.qc-filter-actions button {
+  flex: 1;
+  background: #E0F2FE;
+  border: 1px solid #BAE6FD;
+  color: #0C4A6E;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+[data-theme="dark"] .qc-filter-actions button { background: #082F49; border-color: #0369A1; color: #E0F2FE; }
+.qc-filter-actions button:hover { border-color: #0EA5E9; color: #0EA5E9; }
+.qc-filter-actions button.qc-filter-close-btn { flex: 0 0 auto; padding: 4px 8px; }
+.qc-filter-list { max-height: 190px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.qc-filter-item {
+  display: flex; align-items: center; gap: 7px;
+  padding: 4px 5px; border-radius: 6px; cursor: pointer; font-size: 11px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.qc-filter-item:hover { background: rgba(14,165,233,.14); }
+.qc-filter-item input[type="checkbox"] { flex-shrink: 0; margin: 0; cursor: pointer; }
+.qc-filter-item span { overflow: hidden; text-overflow: ellipsis; }
+.qc-filter-empty { font-size: 10.5px; color: #0284C7; font-style: italic; padding: 6px 4px; }
+[data-theme="dark"] .qc-filter-empty { color: #7DD3FC; }
+
+/* ---- Chip ringkasan filter aktif (badge kecil di sebelah judul panel Rekap) ---- */
+.qc-panel-title-group { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.qc-filter-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: rgba(37,99,235,.12);
+  color: var(--dxy-blue);
+  border: 1px solid rgba(37,99,235,.3);
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.qc-filter-badge:hover { background: var(--dxy-blue); color: #fff; }
+/* Kolom yang lagi difilter: teks header-nya jadi biru -- ini SATU-SATUNYA
+   penanda visual di header (tidak ada ikon tambahan), supaya header tetap
+   bersih untuk kolom yang tidak difilter. */
+table.qc-detail-table thead th.qc-th-active { color: #0369A1; font-weight: 800; }
+[data-theme="dark"] table.qc-detail-table thead th.qc-th-active { color: #7DD3FC; }
+
+.dxy-rank-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  font-size: 10.5px; font-weight: 800; color: #fff; flex-shrink: 0;
+}
+.dxy-pic-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: var(--dxy-muted); }
+.dxy-pic-chip .dot { width: 7px; height: 7px; border-radius: 50%; }
+.dxy-minute-badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; background: rgba(100,116,139,.12); color: var(--dxy-text); }
+.dxy-empty-cell { color: var(--dxy-muted); font-style: italic; }
+
+/* ---- Popup detail "Downtime Terbesar" (breakdown per Line) -- double-klik
+   row di tabel bulananTopProblem. Bukan modal tengah layar -- ini POPUP
+   KECIL yang nempel/floating di atas panel "Downtime Terbesar" (sama
+   seperti pola .qc-filter-dropdown). Warna hardcode karena di-teleport
+   ke <body>, keluar dari scope ".dxy". ---- */
+.dxy-pd-modal {
+  position: fixed;
+  z-index: 1000;
+  width: 260px;
+  max-width: 88vw;
+  max-height: 300px;
+  background: #F0F9FF; color: #0C4A6E;
+  border: 1px solid #7DD3FC; border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(14,165,233,.12), 0 16px 32px -14px rgba(14,165,233,.35);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+[data-theme="dark"] .dxy-pd-modal { background: #0C2A3D; color: #E0F2FE; border-color: #0369A1; }
+.dxy-pd-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 9px 10px 7px 10px; border-bottom: 1px solid #BAE6FD; background: #E0F2FE; }
+[data-theme="dark"] .dxy-pd-head { border-color: #0369A1; background: #082F49; }
+.dxy-pd-title { font-size: 8.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #0284C7; margin-bottom: 2px; }
+[data-theme="dark"] .dxy-pd-title { color: #7DD3FC; }
+.dxy-pd-problem { font-size: 12px; font-weight: 800; line-height: 1.3; color: #0C4A6E; }
+[data-theme="dark"] .dxy-pd-problem { color: #E0F2FE; }
+.dxy-pd-close { flex-shrink: 0; background: transparent; border: none; font-size: 13px; line-height: 1; cursor: pointer; color: #0284C7; padding: 2px 4px; border-radius: 5px; }
+.dxy-pd-close:hover { background: rgba(14,165,233,.18); color: #0C4A6E; }
+[data-theme="dark"] .dxy-pd-close:hover { color: #E0F2FE; }
+.dxy-pd-sub { padding: 6px 10px 0 10px; font-size: 9.5px; color: #0284C7; }
+[data-theme="dark"] .dxy-pd-sub { color: #7DD3FC; }
+.dxy-pd-body { padding: 5px 10px 8px 10px; overflow-y: auto; }
+.dxy-pd-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.dxy-pd-table th { text-align: left; font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: #0284C7; padding: 4px 5px; border-bottom: 1px solid #BAE6FD; }
+[data-theme="dark"] .dxy-pd-table th { color: #7DD3FC; border-color: #0369A1; }
+.dxy-pd-table td { padding: 5px 5px; border-bottom: 1px solid #BAE6FD; }
+[data-theme="dark"] .dxy-pd-table td { border-color: #0369A1; }
+.dxy-pd-table tr:last-child td { border-bottom: none; }
+.dxy-pd-table td.dxy-pd-menit { text-align: right; font-weight: 700; color: #0369A1; }
+[data-theme="dark"] .dxy-pd-table td.dxy-pd-menit { color: #7DD3FC; }
+.dxy-pd-loading, .dxy-pd-empty { padding: 12px 4px; text-align: center; font-size: 11px; color: #0284C7; font-style: italic; }
+[data-theme="dark"] .dxy-pd-loading, [data-theme="dark"] .dxy-pd-empty { color: #7DD3FC; }
+.dxy-pd-total { padding: 6px 10px; border-top: 1px solid #BAE6FD; display: flex; justify-content: space-between; font-size: 10.5px; font-weight: 700; background: #E0F2FE; color: #0369A1; }
+[data-theme="dark"] .dxy-pd-total { border-color: #0369A1; background: #082F49; color: #7DD3FC; }
+/* Baris tabel "Downtime Terbesar" bulanan jadi ada indikasi bisa di-klik */
+table.qc-detail-table tbody tr.dxy-row-clickable { cursor: pointer; }
+table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,235,.1); }
+
+/* ---- Bulanan (harian 1-31): grid Weekly 5 kolom sejajar ---- */
+.dxy-weekly-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.dxy-weekly-grid .dxy-panel { min-width: 0; }
+.dxy-weekly-grid .dxy-chart-box { min-height: 130px !important; max-height: 130px; }
+@media (max-width: 1366px) { .dxy-weekly-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 720px) { .dxy-weekly-grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* ---- Bulanan (harian): tabel Downtime Terbesar per line, 7 kolom ---- */
+.dxy-dt-terbesar-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.dxy-dt-terbesar-grid .dxy-table-scroll { max-height: 165px !important; overflow: auto; }
+.dxy-dt-terbesar-grid table.dxy-table { font-size: 9px; table-layout: fixed; width: 100%; }
+.dxy-dt-terbesar-grid table.dxy-table thead th { padding: 4px 3px; font-size: 7px; white-space: nowrap; overflow: hidden; text-overflow: clip; text-align: center; }
+.dxy-dt-terbesar-grid table.dxy-table tbody td { padding: 3px 3px; white-space: nowrap; overflow: hidden; text-overflow: clip; height: 18px; }
+.dxy-status-chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 9.5px; font-weight: 700; }
+.dxy-status-open { background: rgba(239,68,68,.14); color: #000000; }
+.dxy-status-progress { background: rgba(245,158,11,.14); color: #000000; }
+.dxy-status-closed { background: rgba(16,185,129,.14); color: #000000; }
+/* Status "Belum diisi": abu-abu, miring, garis putus-putus -- sengaja
+   dibuat beda supaya baris yang belum di-follow up langsung kelihatan. */
+.dxy-status-empty { background: #F1F5F9; color: #64748B !important; font-style: italic; font-weight: 600; border: 1px dashed #CBD5E1; }
+/* Status "Corrective Action": hijau -- sudah ada tindakan. */
+.dxy-status-action { background: rgba(16,185,129,.18); color: #065F46 !important; border: 1px solid rgba(16,185,129,.35); }
+@media (max-width: 1366px) { .dxy-dt-terbesar-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 720px) { .dxy-dt-terbesar-grid { grid-template-columns: 1fr; } }
+/* Panel "Downtime Line" TIDAK lagi ikut membesar mengikuti jumlah baris --
+   dikunci ke tinggi yang sama dengan panel "Terbesar" lain (aturan umum
+   .dxy-table-panel-sm .dxy-table-scroll { max-height:300px !important }
+   di atas otomatis berlaku di sini juga, plus overflow:auto dari
+   .dxy-table-scroll dasar), sehingga kalau data lebih banyak dari 300px,
+   scroll muncul DI DALAM kotak, bukan kotaknya yang melar. */
+.dxy-dt-merged-panel table.dxy-table { font-size: 11px; table-layout: fixed; }
+.dxy-dt-merged-panel table.dxy-table thead th { padding: 6px 10px; font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: clip; text-align: center; }
+/* Baris ada isinya (chip Status / badge Menit) vs baris kosong tingginya
+   beda dikit karena chip/badge itu punya padding sendiri di luar padding
+   td -- dikunci tetap 26px semua (lebih ramping dari sebelumnya) supaya
+   rata, nggak peduli ada isinya atau kosong. */
+.dxy-dt-merged-panel table.dxy-table tbody tr { height: 26px; }
+.dxy-dt-merged-panel table.dxy-table tbody td { height: 26px; max-height: 26px; padding: 2px 10px; white-space: nowrap; overflow: hidden; text-overflow: clip; vertical-align: middle; box-sizing: border-box; line-height: 1; }
+.dxy-dt-merged-panel .dxy-status-chip { padding: 1px 7px; font-size: 9px; line-height: 1.4; }
+.dxy-dt-merged-panel .dxy-minute-badge { padding: 1px 7px; font-size: 10.5px; line-height: 1.4; }
+/* ---- Panel "Downtime Terbesar" (sebulan) -- sejajar Downtime Line ---- */
+.dxy-dt-summary-panel .dxy-table-scroll { max-height: 100%; overflow-y: auto; }
+.dxy-dt-summary-panel table.dxy-table { font-size: 11px; table-layout: fixed; }
+.dxy-dt-summary-panel table.dxy-table thead th { padding: 6px 8px; font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: clip; text-align: center; }
+.dxy-dt-summary-panel table.dxy-table tbody tr { height: 26px; }
+.dxy-dt-summary-panel table.dxy-table tbody td { height: 26px; max-height: 26px; padding: 2px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; box-sizing: border-box; line-height: 1; }
+.dxy-dt-summary-panel .dxy-freq-badge { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 700; background: rgba(37,99,235,.12); color: var(--dxy-blue); }
+
+/* ---- Tab Kontrol Kualitas: 3 kolom (NG Inline / NG Inline Trial / Straightpass) ---- */
+.dxy-qc-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  align-items: start;
+}
+.dxy-qc-col {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.dxy-qc-header {
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  text-align: center;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,.25);
+  box-shadow: 0 4px 14px -4px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.25);
+}
+.dxy-qc-amber { background: linear-gradient(135deg, #92400e 0%, #f59e0b 55%, #fcd34d 100%); }
+.dxy-qc-cyan  { background: linear-gradient(135deg, #075985 0%, #06b6d4 55%, #67e8f9 100%); }
+.dxy-qc-green { background: linear-gradient(135deg, #14532d 0%, #22c55e 55%, #86efac 100%); }
+.dxy-qc-subgrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+/* Panel-panel kecil (Perline/Model/dsb) dalam subgrid ini sengaja dibikin
+   lebih tipis border & strip aksennya -- kalau samain kekuatannya dengan
+   panel besar, banyaknya kotak kecil berdempetan bikin layar kerasa penuh
+   garis biru. Warna tetap satu keluarga (biru langit), cuma dikurangi
+   ketebalannya saja. */
+.dxy-qc-subgrid .dxy-panel {
+  border-width: 1px;
+  border-top-width: 2px;
+  border-color: #D3ECFA;
+  border-top-color: #7DD3FC;
+  box-shadow: none;
+}
+.dxy-qc-subgrid .dxy-panel:hover { border-color: #BAE6FD; box-shadow: 0 2px 6px rgba(14,165,233,.10); }
+[data-theme="dark"] .dxy-qc-subgrid .dxy-panel { border-color: #163650; border-top-color: #0284C7; }
+[data-theme="dark"] .dxy-qc-subgrid .dxy-panel:hover { border-color: #0369A1; }
+.qc-chart-month  { min-height: 200px !important; max-height: 200px; }
+.qc-chart-sub    { min-height: 160px !important; max-height: 160px; }
+.qc-chart-daily  { min-height: 170px !important; max-height: 170px; }
+.qc-detail-table { font-size: 7px; table-layout: fixed; }
+.qc-detail-table thead th { padding: 5px 4px; font-size: 7px; white-space: nowrap; overflow: hidden; text-overflow: clip; text-align: center !important; text-transform: none !important; letter-spacing: normal !important; }
+/* text-overflow: ellipsis (bukan clip) -- tooltip bawaan browser sudah
+   dibuang dari sel ini karena menimpa kepala kolom, jadi teks yang
+   terpotong minimal ditandai "..." supaya ketahuan masih ada lanjutannya. */
+.qc-detail-table tbody td { padding: 4px 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 20px; color: #000000 !important; }
+@media (max-width: 1366px) { .dxy-qc-grid { grid-template-columns: 1fr; } }
+@media (max-width: 1366px) { .dxy-qc-subgrid { grid-template-columns: 1fr; } }
+
+/* ---- Khusus tab Tahunan: tinggikan chart Productivity/Availability/NG Inline/
+   Straight Pass & Downtime Exhaust/Supporting/Line. Discope pakai class
+   .dxy-tahunan-main-grid supaya tidak ikut mengubah tab Bulanan. ---- */
+.dxy-tahunan-main-grid .dxy-chart-box { min-height: 210px !important; max-height: 210px; }
+.dxy-tahunan-main-grid .dxy-chart-box.tall { min-height: 195px !important; max-height: 195px; }
+@media (min-width: 1400px) and (min-height: 700px) {
+  .dxy-tahunan-main-grid .dxy-chart-box { min-height: 21vh !important; max-height: 21vh !important; }
+  .dxy-tahunan-main-grid .dxy-chart-box.tall { min-height: 19vh !important; max-height: 19vh !important; }
+}
+
+/* ---- Auto-fit tinggi mengikuti viewport, HANYA untuk layar desktop penuh
+   (lebar >=1400px & tinggi >=700px). Di layar sempit/mobile tetap pakai
+   tinggi fixed (px) di atas supaya layout responsive tidak terganggu. ---- */
+@media (min-width: 1400px) and (min-height: 700px) {
+  .dxy-chart-box { min-height: 18vh !important; max-height: 18vh !important; }
+  .dxy-chart-box.tall { min-height: 15.5vh !important; max-height: 15.5vh !important; }
+  .dxy-weekly-grid .dxy-chart-box { min-height: 11.5vh !important; max-height: 11.5vh !important; }
+  .dxy-table-panel-sm .dxy-table-scroll { max-height: 30vh !important; }
+  .dxy-fill { display: flex; flex-direction: column; min-height: calc(100vh - 120px); }
+  .dxy-fill > .dxy { display: flex; flex-direction: column; flex: 1; }
+  /* Baris 4 kolom Izin/Sakit/Cuti/Mangkir di tab Kontrol Attendance:
+     mekar mengisi SISA tinggi halaman (bukan cuma tinggi pendek lalu
+     nyisain lahan kosong di bawahnya). Pembungkus kartu (.dxy-panel)
+     ikut ditarik penuh, dan area scroll tabel di dalamnya (.dxy-attn-
+     leave-scroll) yang menyerap sisa ruang itu (pakai flex, bukan
+     max-height tetap). */
+  .dxy-attn-leave-row { flex: 1; align-items: stretch; }
+  .dxy-attn-leave-row .dxy-panel { height: 100%; }
+  .dxy-attn-leave-row .dxy-attn-leave-scroll { flex: 1; max-height: none !important; }
+}
+
+/* ---- Skeleton loading ---- */
+.dxy-skeleton-row { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; margin-bottom: 16px; }
+.dxy-skeleton {
+  grid-column: span 3;
+  height: 112px;
+  border-radius: 16px;
+  background: linear-gradient(90deg, var(--dxy-border) 25%, rgba(255,255,255,.5) 37%, var(--dxy-border) 63%);
+  background-size: 400% 100%;
+  animation: dxy-shimmer 1.4s ease infinite;
+}
+/* Skeleton per kotak chart Kontrol Kualitas (menutupi kanvas saat memuat) */
+.qc-chart-skel {
+  position: absolute; inset: 4px; border-radius: 10px; z-index: 2;
+  background: linear-gradient(90deg, var(--dxy-border) 25%, rgba(255,255,255,.5) 37%, var(--dxy-border) 63%);
+  background-size: 400% 100%;
+  animation: dxy-shimmer 1.4s ease infinite;
+}
+@keyframes dxy-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+
+/* ---- Responsive ---- */
+@media (max-width: 1366px) {
+  .dxy-kpi-card { grid-column: span 6; }
+  .dxy-skeleton { grid-column: span 6; }
+  .dxy-span-4 { grid-column: span 6; }
+  .dxy-span-3 { grid-column: span 6; }
+  .dxy-span-8 { grid-column: span 8; }
+}
+@media (max-width: 1024px) {
+  .dxy-span-6, .dxy-span-4, .dxy-span-3, .dxy-span-8, .dxy-span-2, .dxy-span-5 { grid-column: span 12; }
+  .dxy-filterbar { gap: 8px; }
+}
+@media (max-width: 640px) {
+  .dxy-kpi-card, .dxy-skeleton { grid-column: span 12; }
+}
+
+/* ---- Rapatkan jarak di atas konten Tahunan (topbar & tab-nav) ----
+   Ini di luar namespace .dxy karena topbar/tab-nav dipakai bersama oleh
+   semua tab, tapi hanya memangkas whitespace kosong -- tidak mengubah
+   logika atau tampilan konten tab lain. ---- */
+.dash-topbar { margin: 0 !important; padding: 18px 0 0 0 !important; display: flex !important; align-items: flex-start !important; justify-content: space-between !important; gap: 12px; }
+.dash-title-block { margin: 0 !important; padding: 0 !important; }
+.dash-title-block h1 {
+  margin: 0 !important; padding: 0 !important; line-height: 1.1 !important;
+  font-family: 'Luckiest Guy', cursive !important;
+  font-weight: 400 !important;
+  font-size: 40px !important;
+  letter-spacing: 1px;
+  position: relative !important;
+  top: -6px;
+  color: #4FD3EF;
+  -webkit-text-stroke: 2px #1B2A4A;
+  text-stroke: 2px #1B2A4A;
+  paint-order: stroke fill;
+  text-shadow: 2px 2px 0 #1B2A4A, 0 0 0px rgba(79, 211, 239, 0);
+  animation: dxyTitleGlow 2.6s ease-in-out infinite;
+}
+@keyframes dxyTitleGlow {
+  0%, 100% { text-shadow: 2px 2px 0 #1B2A4A, 0 0 6px rgba(79, 211, 239, 0.15); }
+  50%      { text-shadow: 2px 2px 0 #1B2A4A, 0 0 16px rgba(79, 211, 239, 0.65); }
+}
+@media (max-width: 640px) {
+  .dash-title-block h1 { font-size: 28px !important; }
+}
+.dash-controls { margin-left: auto !important; }
+.dxy-live-clock { text-align: right; font-family: 'IBM Plex Mono', monospace; line-height: 1.15; user-select: none; }
+.dxy-clock-time {
+  font-family: 'Luckiest Guy', cursive;
+  font-weight: 400;
+  font-size: 24px;
+  letter-spacing: 1px;
+  color: #4FD3EF;
+  -webkit-text-stroke: 1.5px #1B2A4A;
+  text-stroke: 1.5px #1B2A4A;
+  paint-order: stroke fill;
+  text-shadow: 1.5px 1.5px 0 #1B2A4A;
+}
+.dxy-clock-date { font-family: 'Luckiest Guy', cursive !important; font-weight: 400 !important; font-size: 10px; color: #6b7280; margin-top: 2px; white-space: nowrap; letter-spacing: 0px !important; }
+@media (max-width: 640px) {
+  .dxy-clock-time { font-size: 18px; }
+  .dxy-clock-date { font-size: 9px; }
+}
+.main { padding-top: 0 !important; padding-left: 14px !important; padding-right: 14px !important; gap: 4px !important; }
+.dash-subtab-nav { margin: 0 !important; padding: 0 !important; }
+.dash-subtab-nav button,
+.dash-subtab-nav button.btn-secondary,
+.dash-subtab-nav button.btn-primary,
+.dash-subtab-nav button.btn-sm {
+  font-family: 'Luckiest Guy', cursive !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.5px !important;
+}
+.dash-subtab-nav button:not(.btn-primary) {
+  color: #2563A8 !important;
+}
+.dxy-panel-title {
+  font-family: 'Luckiest Guy', cursive !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.3px !important;
+  font-size: 12px !important;
+  color: #2563A8 !important;
+}
+.dash-subtab-nav button { margin: 0 !important; }
+.dxy-fill { margin-top: 0 !important; padding-top: 0 !important; }
+
+/* ---- Kontrol Attendance: kartu ringkas (Total/Hadir/Cuti/Absen/O.T +
+   Shift 1/2). Namespace .dxy-attn supaya tidak menyentuh style tab lain.
+   Masih placeholder (angka 0) -- belum ada fetch/RPC. ---- */
+.dxy-attn-card {
+  background: #F1F9FE;
+  border: 1px solid #7DD3FC;
+  border-top: 4px solid #0EA5E9;
+  border-radius: 18px;
+  padding: 18px 20px;
+  box-shadow: 0 1px 3px rgba(14,165,233,.12), 0 8px 24px -12px rgba(14,165,233,.28);
+  max-width: 440px;
+}
+[data-theme="dark"] .dxy-attn-card { background: #14273A; border-color: #0284C7; border-top-color: #38BDF8; }
+.dxy-attn-card-fill { max-width: 100%; height: 100%; box-sizing: border-box; }
+/* FIX: sebelumnya pakai height:100% di sini -- di kombinasi dengan Chart.js
+   responsive resize observer, itu bikin infinite-grow loop (tinggi canvas
+   terus membesar tanpa henti tiap resize). Pakai tinggi TETAP supaya
+   Chart.js punya basis ukuran yang pasti, tidak ada feedback loop. */
+.dxy-panel .dxy-chart-box.dxy-attn-trend-box { min-height: 400px !important; max-height: 400px !important; height: 400px !important; }
+@media (max-width: 1024px) {
+  .dxy-panel .dxy-chart-box.dxy-attn-trend-box { min-height: 260px !important; max-height: 260px !important; height: 260px !important; }
+}
+.dxy-attn-head { display: flex; align-items: center; gap: 12px; padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--dxy-border); }
+.dxy-attn-icon { width: 48px; height: 48px; border-radius: 12px; background: #EDE9FE; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+[data-theme="dark"] .dxy-attn-icon { background: #3b2f63; }
+.dxy-attn-title { font-size: 19px; font-weight: 800; letter-spacing: -.01em; color: var(--dxy-text); line-height: 1.1; }
+.dxy-attn-subtitle { font-size: 10.5px; font-weight: 600; letter-spacing: .06em; color: var(--dxy-muted); font-family: "IBM Plex Mono", monospace; text-transform: uppercase; margin-top: 2px; }
+.dxy-attn-rate-label { font-size: 13px; color: var(--dxy-muted); margin-bottom: 4px; }
+.dxy-attn-rate-value { font-size: 40px; font-weight: 800; color: var(--dxy-text); line-height: 1; letter-spacing: -.02em; margin-bottom: 12px; }
+.dxy-attn-progress-track { height: 6px; border-radius: 4px; background: var(--dxy-border); overflow: hidden; margin-bottom: 18px; }
+.dxy-attn-progress-fill { height: 100%; background: var(--dxy-blue); border-radius: 4px; transition: width 300ms ease; }
+.dxy-attn-stat-row { display: grid; grid-template-columns: repeat(2, 1fr) repeat(4, 0.75fr); gap: 10px; margin-bottom: 12px; }
+.dxy-attn-stat { border: 1px solid #BAE6FD; border-radius: 12px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; background: #E0F2FE; }
+.dxy-attn-stat.is-active { border-color: var(--dxy-green); background: rgba(16,185,129,.10); }
+[data-theme="dark"] .dxy-attn-stat { background: #0C4A6E; border-color: #0369A1; }
+[data-theme="dark"] .dxy-attn-stat.is-active { background: rgba(16,185,129,.14); }
+.dxy-attn-stat-icon { font-size: 16px; }
+.dxy-attn-stat-label { font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--dxy-muted); font-family: "IBM Plex Mono", monospace; }
+.dxy-attn-stat-value { font-size: 20px; font-weight: 800; color: var(--dxy-text); line-height: 1; }
+.dxy-attn-stat-value.green { color: var(--dxy-green); }
+.dxy-attn-stat-unit { font-size: 9.5px; color: var(--dxy-muted); font-family: "IBM Plex Mono", monospace; }
+.dxy-attn-shift-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.dxy-attn-shift-box { border: 1px solid #BAE6FD; border-radius: 12px; padding: 16px 10px; text-align: center; background: #E0F2FE; }
+[data-theme="dark"] .dxy-attn-shift-box { background: #0C4A6E; border-color: #0369A1; }
+.dxy-attn-shift-value { font-size: 26px; font-weight: 800; color: var(--dxy-purple); line-height: 1; margin-bottom: 6px; }
+.dxy-attn-shift-label { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--dxy-muted); font-family: "IBM Plex Mono", monospace; }
+.dxy-attn-jenis-badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.dxy-attn-jenis-badge.cuti  { background: rgba(20,184,166,.12); color: var(--dxy-teal); }
+.dxy-attn-jenis-badge.izin  { background: rgba(249,115,22,.12); color: var(--dxy-orange); }
+.dxy-attn-jenis-badge.sakit { background: rgba(239,68,68,.12);  color: var(--dxy-red); }
+.dxy-attn-leave-empty { padding: 18px 10px !important; text-align: center; font-size: 11px; color: var(--dxy-muted); white-space: normal !important; border-bottom: none !important; }
+.dxy-attn-leave-footer { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--dxy-border); text-align: right; font-size: 10.5px; color: var(--dxy-muted); flex-shrink: 0; }
+.dxy-attn-leave-footer b { color: var(--dxy-text); font-size: 12px; }
+/* Panel Cuti/Izin/Sakit: TIDAK dipaksa min-height apa pun -- tinggi kotak
+   selalu ngikutin isi tabel (header + baris yang ada). Kalau baris
+   sedikit, kotaknya ikut pendek, tidak nyisain ruang kosong nganggur. */
+.dxy-attn-leave-panel { min-height: 0; }
+.dxy-attn-leave-scroll { max-height: 260px !important; }
+.dxy-attn-leave-scroll table.dxy-table { table-layout: auto; }
+.dxy-attn-leave-row th { text-align: center !important; }
+/* Font tabel Izin/Sakit/Cuti/Mangkir dikecilin + warna beda dari
+   default (biar nggak polos hitam/putih kayak tabel lain). */
+.dxy-attn-leave-panel table.dxy-table thead th { font-size: 7px; color: #0369A1; }
+.dxy-attn-leave-panel table.dxy-table tbody td { font-size: 9px; color: #475569; }
+[data-theme="dark"] .dxy-attn-leave-panel table.dxy-table thead th { color: #7DD3FC; }
+[data-theme="dark"] .dxy-attn-leave-panel table.dxy-table tbody td { color: #CBD5E1; }
+/* Hapus garis pembatas antar baris & background putih/selang-seling --
+   baris data biar transparan, nyatu sama background panel (bukan kotak
+   putih terpisah tiap baris). */
+.dxy-attn-leave-panel table.dxy-table tbody td { border-bottom: none; }
+.dxy-attn-leave-panel table.dxy-table tbody tr,
+.dxy-attn-leave-panel table.dxy-table tbody tr:nth-child(even) { background: transparent; }
+.dxy-attn-leave-panel table.dxy-table tbody tr:hover { background: rgba(14,165,233,.08); }
+@media (max-width: 640px) {
+  .dxy-attn-card { max-width: 100%; }
+  .dxy-attn-stat-row { grid-template-columns: repeat(3, 1fr); }
+}
+/* ---- Pesan saat rincian per Line Downtime Supporting belum diisi ---- */
+.dxy-supp-kosong { position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 6px; text-align: center; padding: 14px;
+  background: var(--panel, #fff); border-radius: 10px; }
+.dxy-supp-kosong b { color: var(--text, #0F172A); }
+.dxy-supp-kosong > b:first-child { font-size: 13.5px; }
+.dxy-supp-kosong span { font-size: 11.5px; line-height: 1.5; color: var(--muted, #64748B); max-width: 280px; }
+
+/* ---- Chart "Rekap Tahunan" (tab Kontrol Attendance -> Tahunan): lebih
+   sempit (tidak full-width) & lebih tinggi dari box chart standar. Rule
+   ini sengaja ditaruh PALING AKHIR supaya menang dari override
+   .dxy-chart-box di media query manapun di atas (specificity sama,
+   urutan terakhir menang). ---- */
+.dxy-attn-tahunan-panel { grid-column: span 7; max-width: 720px; }
+.dxy-attn-tahunan-box { min-height: 300px !important; max-height: 300px !important; }
+@media (max-width: 1024px) { .dxy-attn-tahunan-panel { grid-column: span 12; max-width: none; } }
+
+/* Tab Dekidaka (CSS .dkd-*, state & fungsi dekidaka*) sudah dihapus dari
+   dashboard ini -- sudah tergantikan tombol "Lihat Dekidaka" di tab
+   Performance tiap halaman line (assets/machine-page.js + assets/style.css,
+   yang TETAP dipakai, TIDAK ikut terhapus). */

@@ -6,7 +6,60 @@ const SUPABASE_URL = "https://ugrbunhudqhycgjlkwha.supabase.co"; // contoh: http
 const SUPABASE_ANON_KEY = "sb_publishable_6TV-ESdlX9EQ5HdrEFPIyg_as3XTP_c";
 
 // Dipakai bersama di semua halaman (login.html, index.html, machines/*.html)
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// =========================================================
+// TANPA SUPABASE (untuk memperbaiki/cek TAMPILAN saja)
+//
+// Isi MODE_TANPA_SUPABASE (di baris tepat di bawah kotak komentar ini):
+//   true   -> TANPA Supabase (semua data kosong)
+//   false  -> PAKAI Supabase (normal)
+//
+// >>> Kalau Supabase sudah aktif lagi: ubah true menjadi false.
+//
+// Saat true dan halaman dibuka dari komputer sendiri (file lokal,
+// localhost, 127.0.0.1, 192.168.x.x), aplikasi TIDAK terhubung ke
+// Supabase dan tanpa data sama sekali (assets/tanpa-supabase.js).
+// Saat dibuka dari alamat online (mis. *.vercel.app) pengaturan ini
+// diabaikan -> tetap terhubung ke Supabase, jadi aman kalau lupa
+// diganti sebelum di-upload.
+//
+// Tanpa mengedit file, bisa dipaksa lewat alamat (disimpan di browser itu):
+//   ?supabase=off    -> paksa TANPA Supabase (juga di alamat online)
+//   ?supabase=on     -> paksa PAKAI Supabase
+//   ?supabase=reset  -> kembali ke aturan otomatis di atas
+// =========================================================
+const MODE_TANPA_SUPABASE = true;
+
+const TANPA_SUPABASE_AKTIF = (() => {
+  try {
+    const q = new URLSearchParams(window.location.search).get("supabase");
+    if (q === "off") localStorage.setItem("tanpa_supabase_v1", "off");
+    else if (q === "on") localStorage.setItem("tanpa_supabase_v1", "on");
+    else if (q === "reset") localStorage.removeItem("tanpa_supabase_v1");
+    const manual = localStorage.getItem("tanpa_supabase_v1");
+    if (manual === "off") return true;
+    if (manual === "on") return false;
+    const h = window.location.hostname || "";
+    const lokal = window.location.protocol === "file:" || h === "localhost" || h === "127.0.0.1" || /^192\.168\./.test(h);
+    return MODE_TANPA_SUPABASE && lokal;
+  } catch (e) { return false; }
+})();
+
+const supabaseClient = TANPA_SUPABASE_AKTIF
+  ? (() => {
+      // Muat pengganti Supabase secara sinkron (jalan sebelum <script> berikutnya),
+      // lalu teruskan semua pemanggilan ke sana.
+      const src = (document.currentScript && document.currentScript.src || "").replace(/supabaseClient\.js(\?.*)?$/, "tanpa-supabase.js");
+      document.write('<script src="' + src + '"><\/script>');
+      return new Proxy({}, {
+        get(_, k) {
+          const c = window.__tanpaSupabase;
+          if (!c) throw new Error("tanpa-supabase.js belum termuat");
+          const v = c[k];
+          return typeof v === "function" ? v.bind(c) : v;
+        },
+      });
+    })()
+  : window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Helper: pastikan user sudah login, kalau belum redirect ke login.html
 async function requireAuth() {

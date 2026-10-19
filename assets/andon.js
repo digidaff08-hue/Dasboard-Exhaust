@@ -412,12 +412,9 @@ function andonWidget(mesin) {
       this.myId = session?.user?.id || null;
       this.myRole = (profile?.role || "").toLowerCase();
       await this.muat();
-      this.channel = supabaseClient
-        .channel("andon_" + this.mesin)
-        .on("postgres_changes",
-            { event: "*", schema: "public", table: "andon_call", filter: "mesin=eq." + this.mesin },
-            () => this.muat())
-        .subscribe();
+      this.channel = RealtimeHub.subscribe("andon_" + this.mesin, [
+        { table: "andon_call", filter: "mesin=eq." + this.mesin, onChange: () => this.muat() },
+      ]);
       setInterval(() => { this.now = Date.now(); }, 1000);
       // cadangan kalau realtime putus
       setInterval(() => this.muat(), 30000);
@@ -558,10 +555,10 @@ function andonBoard() {
       this.cekPush();
       await this.muat();
       this.loading = false;
-      supabaseClient.channel("andon_board")
-        .on("postgres_changes", { event: "*", schema: "public", table: "andon_call" }, () => this.muat())
-        .on("postgres_changes", { event: "*", schema: "public", table: "andon_setting" }, () => this.muatSetting())
-        .subscribe();
+      RealtimeHub.subscribe("andon_board", [
+        { table: "andon_call", onChange: () => this.muat() },
+        { table: "andon_setting", onChange: () => this.muatSetting() },
+      ]);
       document.addEventListener("fullscreenchange", () => { this.fullscreen = !!document.fullscreenElement; });
       // Aturan browser: bunyi baru boleh menyala setelah layar disentuh.
       // Jadi sentuhan / klik PERTAMA di mana saja langsung mengaktifkan bunyi.

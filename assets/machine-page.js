@@ -194,9 +194,6 @@ function computeBreakMinutes(waIso, wkIso) {
   return Math.round(total);
 }
 
-function cssVar(name) {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-}
 function fmtNum(n) {
   if (n === null || n === undefined || n === "") return "-";
   const num = Number(n);
@@ -228,10 +225,6 @@ function toLocalInput(iso) {
 // PENTING: date.toISOString().slice(0,10) mengonversi ke UTC dulu -- karena
 // WIB = UTC+7, tengah malam lokal jadi jam 17:00 hari sebelumnya di UTC,
 // sehingga tanggalnya terpotong mundur 1 hari. Pakai ini untuk tanggal lokal.
-function localDateStr(d) {
-  const p = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
 // Jam lokal 'HH:MM' -- dipakai sebagai default field Jam di form NG Inline & Repair.
 function localTimeStr(d) {
   const p = (n) => String(n).padStart(2, "0");
@@ -772,9 +765,9 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // REALTIME — biar semua tab/HP yang lagi buka line yang sama otomatis
     // ke-update begitu ADA SIAPA SAJA (device manapun) simpan/ubah/hapus
     // data Produksi/Downtime/Non-Produksi/NG Inline/Repair, TANPA reload.
-    // Pakai Supabase Realtime (postgres_changes) -- perlu tabelnya sudah
-    // didaftarkan ke publication `supabase_realtime` (lihat
-    // migration_enable_realtime.sql, jalankan sekali di Supabase).
+    // Lewat RealtimeHub (assets/realtime.js): Supabase Realtime (perlu tabelnya
+    // sudah didaftarkan ke publication `supabase_realtime`, lihat
+    // migration_enable_realtime.sql) ATAU Pusher (lihat PUSHER.md).
     // =========================================================
     _rtChannel: null,
     _rtDebounceTimers: {},
@@ -796,26 +789,24 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         repair_log: () => this.fetchRepairLog(),
         repair_views: () => this.fetchRepairViews(),
       };
-      let channel = supabaseClient.channel("rt_machine_" + machineKey);
-      Object.keys(REALTIME_TABLE_FETCHERS).forEach((table) => {
-        channel = channel.on(
-          "postgres_changes",
-          { event: "*", schema: "public", table, filter: mesinFilter },
-          () => {
-            this.debouncedRealtimeFetch(table, REALTIME_TABLE_FETCHERS[table]);
-            // Data berubah -> angka di tab Performance yang sudah pernah
-            // dibuka user jadi basi, refresh juga (di-debounce terpisah).
-            this.debouncedRealtimeFetch("perf_after_" + table, () => this.refreshLoadedPerf(), 800);
-          }
-        );
-      });
+      // Lewat RealtimeHub (assets/realtime.js): bisa Supabase Realtime atau
+      // Pusher, isi handler di bawah sama untuk keduanya.
+      const specs = Object.keys(REALTIME_TABLE_FETCHERS).map((table) => ({
+        table,
+        filter: mesinFilter,
+        onChange: () => {
+          this.debouncedRealtimeFetch(table, REALTIME_TABLE_FETCHERS[table]);
+          // Data berubah -> angka di tab Performance yang sudah pernah
+          // dibuka user jadi basi, refresh juga (di-debounce terpisah).
+          this.debouncedRealtimeFetch("perf_after_" + table, () => this.refreshLoadedPerf(), 800);
+        },
+      }));
       // repair_points tidak punya kolom "mesin" langsung (nempel ke
       // view_id -> repair_views.mesin), jadi difilter manual di JS: cuma
       // proses kalau view_id-nya memang salah satu part 3D milik line ini.
-      channel = channel.on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "repair_points" },
-        (payload) => {
+      specs.push({
+        table: "repair_points",
+        onChange: (payload) => {
           const viewId = (payload.new && payload.new.view_id) || (payload.old && payload.old.view_id);
           if (!viewId) return;
           if (!this.repairViews.some((v) => v.id === viewId)) return; // bukan part 3D milik line ini
@@ -825,12 +816,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
               this.rebuildRepairMarkers();
             }
           });
-        }
-      );
-      this._rtChannel = channel.subscribe();
+        },
+      });
+      this._rtChannel = RealtimeHub.subscribe("rt_machine_" + machineKey, specs);
       // Tutup koneksi realtime rapi-rapi kalau tab ditutup/pindah halaman.
       window.addEventListener("beforeunload", () => {
-        if (this._rtChannel) supabaseClient.removeChannel(this._rtChannel);
+        if (this._rtChannel) RealtimeHub.close(this._rtChannel);
       });
     },
 
