@@ -5,7 +5,7 @@
 // ini cuma men-cache HTML/CSS/JS-nya, bukan data produksi.
 // =========================================================
 // Naikkan versi ini tiap ada perubahan besar supaya cache lama dibuang.
-const CACHE_NAME = "produksi-downtime-shell-v87-fix-datepicker-empty-value";
+const CACHE_NAME = "produksi-downtime-shell-v91-realtime-hub";
 
 const SHELL_FILES = [
   "/login.html",
@@ -21,6 +21,10 @@ const SHELL_FILES = [
   "/manifest.json",
   "/assets/style.css",
   "/assets/supabaseClient.js",
+  "/assets/realtime.js",
+  "/assets/utils.js",
+  "/assets/dashboard-exhaust.css",
+  "/assets/dashboard-exhaust.js",
   "/assets/produksi-join.js",
   "/assets/machine-page.js",
   "/assets/andon.js",

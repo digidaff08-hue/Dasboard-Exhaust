@@ -17,7 +17,7 @@ direstrukturisasi total untuk Welding (line flat, tanpa sub-stasiun).
 
 ```
 ├── login.html / index.html                      # Login & Dashboard
-├── dashboard-exhaust.html                        # Dashboard Exhaust (ringkasan per line, di atas Dashboard)
+├── dashboard-exhaust.html                        # Dashboard Exhaust (hanya HTML; CSS & JS-nya di assets/dashboard-exhaust.*)
 ├── plan-produksi.html                            # Plan Produksi Harian (di bawah Dashboard)
 ├── input-produksi.html                           # Pilih line → catat produksi/downtime
 ├── input-attendance.html                         # Absensi harian (admin/leader)
@@ -29,7 +29,14 @@ direstrukturisasi total untuk Welding (line flat, tanpa sub-stasiun).
 ├── assets/
 │   ├── style.css
 │   ├── supabaseClient.js                          # ISI URL & KEY SUPABASE DI SINI
-│   └── machine-page.js                            # Logika Alpine.js, dipakai semua 6 line
+│   ├── machine-page.js                            # Logika Alpine.js, dipakai semua 6 line
+│   ├── dashboard-exhaust.css / .js                # CSS & logika Dashboard Exhaust (dulu inline di HTML)
+│   ├── utils.js                                   # Helper bersama (cssVar, localDateStr)
+│   └── tanpa-supabase.js                          # Pengganti Supabase (tanpa data) saat MODE_TANPA_SUPABASE aktif
+├── tools/
+│   ├── machine-template.html                      # SATU-SATUNYA sumber halaman line -- edit di sini
+│   ├── build-machines.js                          # Generator: node tools/build-machines.js
+│   └── test-tanpa-supabase.js                     # Uji otomatis: node tools/test-tanpa-supabase.js
 │
 ├── schema_welding.sql                             # 1) Jalankan sekali di project Supabase baru
 ├── migration_downtime_format_v2.sql               # 2) Tambah field form downtime (PIC, Area, dst)
@@ -48,9 +55,73 @@ direstrukturisasi total untuk Welding (line flat, tanpa sub-stasiun).
 ├── migration_repair_v8_part_color.sql              # 14) Warna custom per Part 3D (file .stl tidak simpan warna)
 ├── migration_plan_produksi.sql                     # 15) Tabel Plan Harian (per part/line/shift) + Backlog + RPC actual
 ├── migration_enable_realtime.sql                   # 16) Aktifkan Supabase Realtime (live update antar tab/HP)
+├── migration_pusher_realtime.sql                   #     Trigger sinyal Pusher (siap pakai, mati dulu)
+├── migration_pusher_cutover.sql                    #     Beralih / kembali Supabase Realtime <-> Pusher
+├── PUSHER.md                                       #     Panduan memasang & beralih ke Pusher
 ├── patch_security_profiles_role.sql                # WAJIB: kunci role/jabatan/NIK supaya user biasa tidak bisa jadi admin
 └── reset_welding.sql                              # Utilitas: reset total kalau setup gagal di tengah
 ```
+
+---
+
+## Mengubah halaman line (E-02 ... E-07)
+
+`machines/e-02.html` sampai `e-07.html` **dibuat otomatis** dari satu
+template, karena isinya identik (beda cuma kode line). Jangan edit
+file `machines/*.html` langsung -- perubahannya akan tertimpa.
+
+1. Edit `tools/machine-template.html` (`{{LINE}}` = E-03, `{{line}}` = e-03)
+2. Jalankan `node tools/build-machines.js` (butuh Node.js; tanpa library tambahan)
+3. Upload / commit semua file `machines/*.html` yang berubah
+4. Naikkan versi `CACHE_NAME` di `service-worker.js`
+
+`node tools/build-machines.js --check` hanya memeriksa apakah file
+`machines/*.html` masih sesuai template (tidak menulis apa pun).
+
+Data tetap **per line** (Part Number, Std CT, Model 3D Repair, riwayat)
+karena dipisah di database lewat kolom `mesin`, bukan lewat file HTML.
+Titik Repair dibagi otomatis ke line yang memakai file model (.stl) yang sama.
+
+---
+
+## Mode Tanpa Supabase (cek / perbaiki tampilan)
+
+Kalau Supabase belum bisa dipakai (limit/blokir), aplikasi tetap bisa
+dibuka untuk melihat dan memperbaiki **tampilan**. Tidak ada request ke
+Supabase dan **tidak ada data sama sekali** (tidak ada data palsu): semua
+tabel dan grafik tampil kosong / 0.
+
+**Saklar** ada di bagian atas `assets/supabaseClient.js`:
+
+```js
+const MODE_TANPA_SUPABASE = true;   // sekarang: TANPA Supabase
+const MODE_TANPA_SUPABASE = false;  // kalau Supabase sudah aktif: PAKAI Supabase
+```
+
+- **Kembali ke Supabase**: ubah `true` menjadi `false`, simpan, buka ulang.
+- Saat `true`, hanya berlaku kalau halaman dibuka dari komputer sendiri
+  (klik dua kali file `.html`, `localhost`, `127.0.0.1`, `192.168.x.x`).
+  Di alamat online (Vercel) selalu pakai Supabase asli, jadi aman kalau
+  lupa mengganti sebelum upload.
+- Tanpa edit file, bisa dipaksa lewat alamat (disimpan di browser itu
+  saja): `?supabase=off` paksa tanpa Supabase, `?supabase=on` paksa pakai
+  Supabase, `?supabase=reset` kembali ke aturan otomatis.
+- Login: isi apa saja, masuk sebagai "Admin Contoh" (akun ini satu-satunya
+  isi, supaya pemeriksaan login tidak menghalangi). Klik Keluar untuk
+  melihat layar login.
+- Tidak ada label di layar. Untuk memastikan aktif: tekan F12 > Console,
+  harus ada tulisan `[TANPA SUPABASE] Tidak terhubung ke Supabase...`.
+
+Aman saat beralih kembali ke Supabase: antrean kirim-ulang offline dan
+status "Mulai Produksi" disimpan di browser dengan nama berawalan
+`contoh_` selama mode ini, jadi tidak pernah terkirim ke Supabase asli
+dan data asli yang menunggu tidak ikut hilang.
+
+Keterbatasan: yang kamu isi di form hanya hidup di memori (hilang saat
+reload); bagian yang butuh data tampil kosong; `approval-cuti.html` tidak
+ikut (koneksi sendiri); model 3D Repair butuh dibuka lewat `localhost`
+(bukan dobel-klik file) karena browser memblokir `fetch` dari `file://`.
+Cek kesehatan: `node tools/test-tanpa-supabase.js`.
 
 ---
 
@@ -215,6 +286,14 @@ Develop > Show Web Inspector) — itu paling cepat untuk melacak
 penyebabnya.
 
 ---
+
+## Realtime: Supabase atau Pusher
+
+Langganan realtime sekarang lewat `assets/realtime.js` (`RealtimeHub`). Default-nya
+tetap Supabase Realtime. Pusher sudah disiapkan sebagai cadangan (trigger database,
+`api/pusher-notify.js`, saklar `REALTIME_PROVIDER`); belum aktif sampai dinyalakan.
+Panduan lengkap: **PUSHER.md**. SQL: `migration_pusher_realtime.sql` dan
+`migration_pusher_cutover.sql`.
 
 ## Realtime (update otomatis antar tab/HP)
 Halaman line (E-02...E-07) otomatis dapat perubahan data **secara live**
