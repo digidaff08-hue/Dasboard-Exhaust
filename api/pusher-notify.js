@@ -37,8 +37,9 @@ function md5(s) { return crypto.createHash("md5").update(s, "utf8").digest("hex"
 function hmac(secret, s) { return crypto.createHmac("sha256", secret).update(s, "utf8").digest("hex"); }
 
 function safeEqual(a, b) {
-  const x = Buffer.from(String(a || ""));
-  const y = Buffer.from(String(b || ""));
+  // trim: salinan dari Notepad/Vercel sering membawa spasi atau baris baru di ujung
+  const x = Buffer.from(String(a || "").trim());
+  const y = Buffer.from(String(b || "").trim());
   if (x.length !== y.length) return false;
   return crypto.timingSafeEqual(x, y);
 }
