@@ -98,16 +98,16 @@
     .mobile-topbar .la-mtabs::-webkit-scrollbar { display: none; }
     .mobile-topbar .la-mtabs button {
       flex: none; white-space: nowrap;
-      padding: 5px 9px !important; font-size: 12px !important;
+      padding: 5px 9px !important; font-size: 0.75rem !important;
       line-height: 1.2; border-radius: 8px;
     }
     .mobile-topbar .la-mtabs-badge {
       background: #ef4444; color: #fff; border-radius: 9px;
-      padding: 0 5px; font-size: 10px; margin-left: 3px;
+      padding: 0 5px; font-size: 0.625rem; margin-left: 3px;
     }
   }
   @media (max-width: 360px) {
-    .mobile-topbar .la-mtabs button { padding: 4px 7px !important; font-size: 11px !important; }
+    .mobile-topbar .la-mtabs button { padding: 4px 7px !important; font-size: 0.6875rem !important; }
   }
 
   /* Field yang memakan 2 kolom di layar lebar. TIDAK boleh dipasang
@@ -124,16 +124,16 @@
 
     /* Panel & form lebih rapat */
     .main .panel { padding: 14px; border-radius: 10px; }
-    .main .panel-title { font-size: 14px; }
+    .main .panel-title { font-size: 0.875rem; }
     .form-grid { gap: 10px; margin-bottom: 12px; }
-    .field label { font-size: 11px; }
-    .field input, .field select, .field textarea { padding: 8px 10px; font-size: 13.5px; }
-    .la-hint { font-size: 10.5px; }
+    .field label { font-size: 0.6875rem; }
+    .field input, .field select, .field textarea { padding: 8px 10px; font-size: 0.8438rem; }
+    .la-hint { font-size: 0.6562rem; }
     .la-section { margin-bottom: 14px; }
-    .la-section-head { font-size: 12.5px; margin-bottom: 10px; }
+    .la-section-head { font-size: 0.7812rem; margin-bottom: 10px; }
     .la-emp { min-height: 52px; padding: 10px; gap: 10px; }
-    .la-emp-avatar { width: 32px; height: 32px; font-size: 13px; }
-    .la-emp-nama { font-size: 14px; }
+    .la-emp-avatar { width: 32px; height: 32px; font-size: 0.8125rem; }
+    .la-emp-nama { font-size: 0.875rem; }
 
     /* Tabel bertanda .la-stack: tiap baris jadi satu kartu, tiap sel
        jadi satu baris "Label ....... isi". Tidak ada yang terpotong
@@ -153,7 +153,7 @@
     .la-stack tr td:last-child { border-bottom: 0; }
     .la-stack td::before {
       content: attr(data-label);
-      font-size: 11px; color: var(--muted); font-weight: 600;
+      font-size: 0.6875rem; color: var(--muted); font-weight: 600;
       text-align: left; flex: none;
     }
     /* Baris "Belum ada data" tidak punya data-label -- tampil biasa */
@@ -165,12 +165,12 @@
        supaya ketiga kolomnya muat tanpa terpotong. */
     .la-riwayat { table-layout: fixed; width: 100%; }
     .la-riwayat th, .la-riwayat td {
-      font-size: 11px; padding: 6px 5px;
+      font-size: 0.6875rem; padding: 6px 5px;
       white-space: normal; word-break: break-word; overflow-wrap: anywhere;
     }
     .la-riwayat th:nth-child(1), .la-riwayat td:nth-child(1) { width: 21%; }
     .la-riwayat th:nth-child(3), .la-riwayat td:nth-child(3) { width: 34%; }
-    .la-riwayat td.empty-state { font-size: 12px; }
+    .la-riwayat td.empty-state { font-size: 0.75rem; }
 
     .la-table-wrap { max-height: none; overflow: visible; }
   }
@@ -179,7 +179,7 @@
   .la-section { margin-bottom: 20px; }
   .la-section:last-of-type { margin-bottom: 0; }
   .la-section-head {
-    font-size: 13px; font-weight: 600; color: var(--text);
+    font-size: 0.8125rem; font-weight: 600; color: var(--text);
     margin: 0 0 12px; padding-bottom: 8px;
     border-bottom: 1px solid var(--border);
   }
@@ -192,7 +192,7 @@
     display: flex; align-items: center; gap: 12px;
     min-height: 62px; padding: 12px 14px;
     border: 1px dashed var(--border); border-radius: 12px;
-    background: var(--panel-2); color: var(--muted); font-size: 13px;
+    background: var(--panel-2); color: var(--muted); font-size: 0.8125rem;
   }
   .la-emp.is-found { border-style: solid; border-color: var(--green); background: color-mix(in srgb, var(--green) 8%, var(--panel)); }
   .la-emp.is-miss { border-style: solid; border-color: var(--red); background: color-mix(in srgb, var(--red) 8%, var(--panel)); }
@@ -200,24 +200,24 @@
     width: 38px; height: 38px; flex: none; border-radius: 50%;
     display: grid; place-items: center;
     background: var(--border); color: var(--muted);
-    font-weight: 700; font-size: 15px;
+    font-weight: 700; font-size: 0.9375rem;
   }
   .la-emp.is-found .la-emp-avatar { background: var(--green); color: #fff; }
   .la-emp.is-miss .la-emp-avatar { background: var(--red); color: #fff; }
-  .la-emp-nama { font-size: 15px; font-weight: 600; color: var(--text); line-height: 1.25; }
-  .la-emp-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .la-emp-nama { font-size: 0.9375rem; font-weight: 600; color: var(--text); line-height: 1.25; }
+  .la-emp-sub { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
 
   /* ---------- Kolom hitungan otomatis ---------- */
   .field input.la-computed {
     background: var(--amber-dim); color: var(--text);
     font-weight: 700; cursor: not-allowed;
   }
-  .la-hint { display: block; margin-top: 5px; font-size: 11px; color: var(--muted); }
+  .la-hint { display: block; margin-top: 5px; font-size: 0.6875rem; color: var(--muted); }
 
   /* ---------- Penanda jenis di tabel riwayat ---------- */
   .la-badge {
     display: inline-block; padding: 3px 10px; border-radius: 999px;
-    font-size: 12px; font-weight: 600; white-space: nowrap;
+    font-size: 0.75rem; font-weight: 600; white-space: nowrap;
     color: var(--c); background: color-mix(in srgb, var(--c) 13%, transparent);
     border: 1px solid color-mix(in srgb, var(--c) 35%, transparent);
   }
@@ -228,13 +228,7 @@
 
 </style>
 
-<script>
-  (function () {
-    var t = "light";   // mode gelap dinonaktifkan -- tombolnya sudah dihapus
-    try { localStorage.removeItem("theme_v1"); } catch (e) {}
-    document.documentElement.setAttribute("data-theme", t);
-  })();
-</script>
+<script src="assets/pengaturan.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/supabaseClient.js"></script>
@@ -343,11 +337,16 @@
     <nav class="sidebar-nav" @click="mobileNavOpen = false">
       <a href="dashboard-exhaust.html" class="sidebar-link" title="Dashboard Exhaust" x-show="isLeaderOrAdmin() || isViewer()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M3 13h4v8H3zM10 3h4v18h-4zM17 8h4v13h-4z"/></svg></span><span x-show="!sidebarCollapsed">Dashboard Exhaust</span></a>
       <a href="input-produksi.html" class="sidebar-link" title="Input Produksi" x-show="isLeaderOrAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
-      <a href="input-attendance.html" class="sidebar-link active" title="Attendance"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></span><span x-show="!sidebarCollapsed">Attendance</span></a>
+      <a href="input-attendance.html" class="sidebar-link active" title="Input Attendance"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></span><span x-show="!sidebarCollapsed">Input Attendance</span></a>
       <a href="andon.html" class="sidebar-link" title="Andon"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm7-6V11c0-3.07-1.64-5.64-4.5-6.32V4a1.5 1.5 0 0 0-3 0v.68C8.63 5.36 7 7.92 7 11v5l-2 2v1h14v-1l-2-2z"/></svg></span><span x-show="!sidebarCollapsed">Andon</span></a>
-            <a href="data-mentah.html" class="sidebar-link" title="Data Mentah" x-show="isAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 7.6V12c0 1.66 3.58 3 8 3s8-1.34 8-3V7.6C18.4 8.9 15.3 9.6 12 9.6S5.6 8.9 4 7.6z"/><path d="M4 14.6V19c0 1.66 3.58 3 8 3s8-1.34 8-3v-4.4c-1.6 1.3-4.7 2-8 2s-6.4-.7-8-2z"/></svg></span><span x-show="!sidebarCollapsed">Data Mentah</span></a>
-<a href="master-data.html" class="sidebar-link" title="Master Data" x-show="isAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg></span><span x-show="!sidebarCollapsed">Master Data</span></a>
+      <a href="perencanaan-produksi.html" class="sidebar-link" title="Perencanaan Produksi" x-show="isAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5zm2 4h4v4H7z"/></svg></span><span x-show="!sidebarCollapsed">Perencanaan Produksi</span></a>
+      <a href="data-mentah.html" class="sidebar-link" title="Data Mentah" x-show="isAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 7.6V12c0 1.66 3.58 3 8 3s8-1.34 8-3V7.6C18.4 8.9 15.3 9.6 12 9.6S5.6 8.9 4 7.6z"/><path d="M4 14.6V19c0 1.66 3.58 3 8 3s8-1.34 8-3v-4.4c-1.6 1.3-4.7 2-8 2s-6.4-.7-8-2z"/></svg></span><span x-show="!sidebarCollapsed">Data Mentah</span></a>
+      <a href="data-karyawan.html" class="sidebar-link" title="Data Karyawan" x-show="isAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM9 7a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zm5 10H4v-.5C4 14.6 7 14 9 14s5 .6 5 2.5V17zm6-2h-4v-2h4v2zm0-4h-4V9h4v2z"/></svg></span><span x-show="!sidebarCollapsed">Data Karyawan</span></a>
+      <a href="data-dashboard.html" class="sidebar-link" title="Data Dashboard" x-show="isAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg></span><span x-show="!sidebarCollapsed">Data Dashboard</span></a>
     </nav>
+    <div class="sidebar-settings">
+      <a href="pengaturan.html" class="sidebar-link" title="Pengaturan"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.61.22L2.71 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.07.63-.07.94s.03.63.07.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.31.61.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.26.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.23.09.48 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg></span><span x-show="!sidebarCollapsed">Pengaturan</span></a>
+    </div>
     <div class="sidebar-foot" x-show="!sidebarCollapsed">
       <div class="sb-av" x-text="((profile?.full_name || session?.user?.email || '?').trim().charAt(0) || '?').toUpperCase()"></div>
       <div class="sb-user"><div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
@@ -368,7 +367,7 @@
         <button type="button" class="btn-secondary btn-sm" :class="tab === 'statuscuti' ? 'btn-primary' : ''" @click="tab = 'statuscuti'; loadStatusCutiSaya()">Status Cuti</button>
         <template x-if="canApprove">
           <button type="button" class="btn-secondary btn-sm" :class="tab === 'approve' ? 'btn-primary' : ''" @click="tab = 'approve'; loadPendingApprovals()">
-            Perlu Disetujui<template x-if="pendingCount > 0"><span style="background:#ef4444;color:#fff;border-radius:9px;padding:0 5px;font-size:11px;margin-left:4px" x-text="pendingCount"></span></template>
+            Perlu Disetujui<template x-if="pendingCount > 0"><span style="background:#ef4444;color:#fff;border-radius:9px;padding:0 5px;font-size:0.6875rem;margin-left:4px" x-text="pendingCount"></span></template>
           </button>
         </template>
       </div>
@@ -494,16 +493,16 @@
           <!-- Kotak WA muncul setelah simpan — bertahan walau di-refresh -->
           <template x-if="leaveWaPesan">
             <div style="margin-top:14px;padding:14px;border-radius:10px;border:1px solid color-mix(in srgb,var(--green) 40%,transparent);background:color-mix(in srgb,var(--green) 8%,var(--panel));">
-              <p style="font-size:13px;font-weight:700;margin-bottom:6px;" x-text="leaveWaJenis === 'cuti' ? '✅ Pengajuan cuti terkirim, menunggu persetujuan atasan' : '✅ Data tersimpan!'"></p>
-              <p style="font-size:12px;color:var(--muted);margin-bottom:10px;" x-text="leaveWaJenis === 'cuti' ? 'Jatah cuti belum terpotong sampai atasan menyetujui. Kirim link approval ke atasan via WhatsApp, lalu pantau di tab Status Cuti.' : 'Kirim notifikasi ke atasan via WhatsApp.'"></p>
+              <p style="font-size:0.8125rem;font-weight:700;margin-bottom:6px;" x-text="leaveWaJenis === 'cuti' ? '✅ Pengajuan cuti terkirim, menunggu persetujuan atasan' : '✅ Data tersimpan!'"></p>
+              <p style="font-size:0.75rem;color:var(--muted);margin-bottom:10px;" x-text="leaveWaJenis === 'cuti' ? 'Jatah cuti belum terpotong sampai atasan menyetujui. Kirim link approval ke atasan via WhatsApp, lalu pantau di tab Status Cuti.' : 'Kirim notifikasi ke atasan via WhatsApp.'"></p>
               <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                 <template x-if="leaveWaTarget">
-                  <button type="button" class="btn-primary btn-sm" @click="sendLeaveWA()" style="background:#25d366;font-size:13px;padding:8px 16px;">📲 Kirim WA ke Atasan</button>
+                  <button type="button" class="btn-primary btn-sm" @click="sendLeaveWA()" style="background:#25d366;font-size:0.8125rem;padding:8px 16px;">📲 Kirim WA ke Atasan</button>
                 </template>
                 <template x-if="!leaveWaTarget">
-                  <p style="font-size:11px;color:var(--amber);margin:0;">⚠️ Nomor WA atasan belum diisi di profil.</p>
+                  <p style="font-size:0.6875rem;color:var(--amber);margin:0;">⚠️ Nomor WA atasan belum diisi di profil.</p>
                 </template>
-                <button type="button" class="btn-secondary btn-sm" @click="clearLeaveWA()" style="font-size:11px;">✕ Tutup</button>
+                <button type="button" class="btn-secondary btn-sm" @click="clearLeaveWA()" style="font-size:0.6875rem;">✕ Tutup</button>
               </div>
             </div>
           </template>
@@ -638,7 +637,7 @@
                         <span class="la-badge" :style="'--c: var(--' + ajukanStatusWarna(r.status) + ')'" x-text="r.status"></span>
                       </div>
                       <!-- Detail rows -->
-                      <div style="font-size:13px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;">
+                      <div style="font-size:0.8125rem;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;">
                         <span style="color:var(--muted);">Tanggal</span>
                         <span class="mono" x-text="ajukanFmtTgl(r.tanggal_mulai, r.tanggal_selesai)"></span>
                         <span style="color:var(--muted);">Hari</span>
@@ -663,7 +662,7 @@
                       <!-- Tombol batalkan — hanya untuk yang masih Menunggu -->
                       <template x-if="r.status === 'Menunggu'">
                         <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
-                          <button type="button" class="btn-secondary btn-sm" style="color:var(--red);border-color:var(--red);font-size:12px;" @click="batalkanCuti(r)">🗑 Batalkan Pengajuan</button>
+                          <button type="button" class="btn-secondary btn-sm" style="color:var(--red);border-color:var(--red);font-size:0.75rem;" @click="batalkanCuti(r)">🗑 Batalkan Pengajuan</button>
                         </div>
                       </template>
                     </div>
@@ -684,10 +683,10 @@
                    browser memblokir jendela WA yang dibuka otomatis. -->
               <template x-if="notifPengaju">
                 <div style="margin-bottom:14px;padding:14px;border-radius:10px;border:1px solid color-mix(in srgb,var(--green) 40%,transparent);background:color-mix(in srgb,var(--green) 8%,var(--panel));">
-                  <p style="font-size:13px;font-weight:700;margin-bottom:6px;" x-text="'Beri tahu ' + notifPengaju.nama + ' bahwa cutinya ' + notifPengaju.statusTeks"></p>
+                  <p style="font-size:0.8125rem;font-weight:700;margin-bottom:6px;" x-text="'Beri tahu ' + notifPengaju.nama + ' bahwa cutinya ' + notifPengaju.statusTeks"></p>
                   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                     <button type="button" class="btn-primary btn-sm" style="background:#25d366;" @click="bukaWa(notifPengaju.noWa, notifPengaju.pesan); notifPengaju = null">📲 Kirim WA ke Pengaju</button>
-                    <button type="button" class="btn-secondary btn-sm" style="font-size:11px;" @click="notifPengaju = null">✕ Tutup</button>
+                    <button type="button" class="btn-secondary btn-sm" style="font-size:0.6875rem;" @click="notifPengaju = null">✕ Tutup</button>
                   </div>
                 </div>
               </template>
@@ -700,15 +699,15 @@
                 <div style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;background:var(--panel-2);">
                   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
                     <div>
-                      <div style="font-weight:700;font-size:15px;" x-text="r.nama || r.pengaju?.full_name || '—'"></div>
-                      <div style="font-size:12px;color:var(--muted);margin-top:3px;">
+                      <div style="font-weight:700;font-size:0.9375rem;" x-text="r.nama || r.pengaju?.full_name || '—'"></div>
+                      <div style="font-size:0.75rem;color:var(--muted);margin-top:3px;">
                         <span class="la-badge" :style="'--c: var(--' + ajukanJenisWarna(r.jenis) + ')'" x-text="r.jenis"></span>
                         &nbsp;<span class="mono" x-text="ajukanFmtTgl(r.tanggal_mulai, r.tanggal_selesai)"></span>
                         &nbsp;(<span x-text="ajukanHari(r)"></span> hari<span x-show="r.jenis_cuti" x-text="', ' + r.jenis_cuti"></span>)
                       </div>
-                      <div x-show="r.alasan" style="font-size:12px;color:var(--muted);margin-top:4px;font-style:italic;" x-text="'Alasan: ' + r.alasan"></div>
+                      <div x-show="r.alasan" style="font-size:0.75rem;color:var(--muted);margin-top:4px;font-style:italic;" x-text="'Alasan: ' + r.alasan"></div>
                     </div>
-                    <div style="font-size:11px;color:var(--muted);white-space:nowrap;" x-text="fmtTgl(r.tanggal_mulai)"></div>
+                    <div style="font-size:0.6875rem;color:var(--muted);white-space:nowrap;" x-text="fmtTgl(r.tanggal_mulai)"></div>
                   </div>
                   <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
                     <button type="button" class="btn-secondary btn-sm" @click="bukaApprovalLink(r)">🔗 Buka link approval</button>
@@ -729,7 +728,7 @@
 
 function baseInputPage() {
   return {
-    session: null, profile: null, mobileNavOpen: false, sidebarCollapsed: true,
+    session: null, profile: null, mobileNavOpen: false, sidebarCollapsed: AppPref.sidebarAwal(true),
     theme: localStorage.getItem("theme_v1") || "light",
     msg: "", msgError: false,
         isAdmin() { return this.profile?.role === "admin"; },
@@ -946,7 +945,7 @@ function attendancePage() {
     // dan halamannya tampil kosong.
     tab: "form",
     // Halaman ini hanya untuk MELIHAT. Jatah cutinya diatur di
-    // master-data.html > tab Cuti. Di sini sisa selalu dihitung ulang:
+    // data-karyawan.html > tab Cuti. Di sini sisa selalu dihitung ulang:
     //   Sisa = Jatah tahun berjalan - Cuti Tahunan yang sudah terpakai
     // Tidak ada kolom "sisa" yang disimpan, supaya angkanya tidak basi
     // kalau ada baris cuti yang diedit atau dihapus.
@@ -1093,7 +1092,7 @@ function attendancePage() {
     // Ini cuma PREVIEW di layar. Angka final yang tersimpan tetap dihitung
     // ulang oleh trigger set_jumlah_hari_cuti() di database (lihat
     // migration_shift2_periode.sql) -- rumusnya harus sama persis dengan
-    // di sini, dan dengan rkHitungHari() di master-data.html.
+    // di sini, dan dengan rkHitungHari() di data-karyawan.html.
     //
     // SATU-SATUNYA rumus hitung hari di halaman ini. Dipakai oleh form
     // (leaveTotalHari), pesan WA (leaveTotalHariDari), dan tab Status /
@@ -1149,7 +1148,7 @@ function attendancePage() {
     },
     // Shift NIK X pada tanggal Y ("1"/"2"/null) -- HARUS SAMA PERSIS dengan
     // public.shift_pada_tanggal() di migration_shift2_periode.sql dan
-    // shiftPadaTanggal() di master-data.html.
+    // shiftPadaTanggal() di data-karyawan.html.
     shiftPadaTanggal(nik, tanggalStr) {
       const cocok = this.shift2Periodes.filter((p) => tanggalStr >= p.tanggal_mulai && tanggalStr <= p.tanggal_selesai);
       if (cocok.length === 0) return null;

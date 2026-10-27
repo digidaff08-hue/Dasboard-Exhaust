@@ -525,7 +525,7 @@ function andonBoard() {
     now: Date.now(),
     loading: true,
     pesan: "", pesanError: false,
-    sidebarCollapsed: true, mobileNavOpen: false,
+    sidebarCollapsed: AppPref.sidebarAwal(true), mobileNavOpen: false,
     _sudahDilihat: new Set(),
     _pertamaMuat: true,
 

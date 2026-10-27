@@ -210,7 +210,7 @@ if (typeof Chart !== "undefined") {
 
 function dashboardExhaust() {
   return {
-    session: null, profile: null, mobileNavOpen: false, sidebarCollapsed: true,
+    session: null, profile: null, mobileNavOpen: false, sidebarCollapsed: AppPref.sidebarAwal(true),
     loading: true,
     activeTab: "bulanan", // bulanan | tahunan | kualitas | attendance
     theme: localStorage.getItem("theme_v1") || "light",
@@ -402,7 +402,7 @@ function dashboardExhaust() {
     // cuma model yang ada di line itu yang ditampilkan. Lihat
     // fetchQcLineModelMap() & renderKualitasCharts() untuk detail
     // mekanismenya, termasuk catatan keterbatasan data Straightpass Model.
-    qcLineFilter: "ALL",
+    qcLineFilter: AppPref.lineFavorit() || "ALL",
     // Filter tanggal untuk tabel "Downtime Terbesar per Line" -- tabel ini
     // SELALU per-tanggal (default hari ini, bisa diganti lewat date picker).
     // Sama seperti qcNgInlineDetailDate dkk -- sengaja diisi tanggal 1
@@ -1417,7 +1417,7 @@ function dashboardExhaust() {
     attendanceCharts: {},
     // Tab Performance: line yang lagi ditampilkan di <iframe> (lihat
     // template x-if="activeTab === 'performance'").
-    perfLine: "E-02",
+    perfLine: AppPref.lineFavorit() || "E-02",
     // Tinggi <iframe> tab Performance, DIHITUNG LANGSUNG via JS sebagai
     // px pasti (bukan calc(100vh - Npx) yg gampang meleset & nyisain area
     // kosong di bawah card) -- px pasti dari window.innerHeight supaya
@@ -1445,13 +1445,13 @@ function dashboardExhaust() {
     // dxyLineFilter: KHUSUS tab Tahunan (dropdown Line di baris filter
     // Tahunan, dipakai dxyRebuildTahunanSeries/chart-chart Tahunan/3
     // tabel Terbesar Tahunan).
-    dxyLineFilter: "ALL",
+    dxyLineFilter: AppPref.lineFavorit() || "ALL",
     // dxyLineFilterBulanan: KHUSUS tab Bulanan (dropdown Line di baris
     // filter Bulanan) -- SENGAJA dipisah dari dxyLineFilter di atas
     // supaya ganti Line di 1 tab TIDAK ikut mengubah Line di tab
     // satunya. Dulu keduanya pakai 1 variabel yang sama (dxyLineFilter),
     // makanya kelihatan "nge-link".
-    dxyLineFilterBulanan: "ALL",
+    dxyLineFilterBulanan: AppPref.lineFavorit() || "ALL",
     MACHINES_REF: MACHINES,
     async init() {
       this.session = await requireAuth();

@@ -1,0 +1,2344 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Karyawan</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  /* =========================================================
+     TAMPILAN HALAMAN MASTER DATA
+     Semua aturan di sini SENGAJA dibatasi ke halaman ini saja
+     (lewat kelas ber-prefix .md- / .pv-, atau selektor di dalam
+     .md-page). assets/style.css TIDAK disentuh supaya halaman
+     lain -- dashboard, input produksi, dll -- tidak ikut berubah.
+
+     Masalah yang dibereskan: halaman ini punya 14 panel yang
+     menumpuk lurus ke bawah, masing-masing dengan bayangan tebal.
+     Perbaikannya dua: (1) form dipasangkan berdampingan dengan
+     tabel riwayatnya, (2) bayangan tebal diganti garis tipis.
+     ========================================================= */
+
+  /* ---------- Grid Absensi (gaya rekap tercetak: bergaris penuh,
+     header tebal, baris ringkasan HADIR/CUTI/dst di bawah) ----------
+     Kolom tanggal (ke-4 dst) dipaksa SEMPIT, dan grid ini scroll di
+     dalam kotaknya sendiri (lihat .absensi-wrap di bawah) dengan
+     header (baris tanggal) yang tetap kelihatan (sticky) selama
+     digulir -- soalnya style umum di assets/style.css bikin tiap <td>
+     lebar minimum besar & kotak scrollnya cuma menampilkan +-7 baris,
+     padahal grid ini butuh banyak kolom sempit + banyak baris. */
+  /* Supaya tanggal (header) TETAP KELIHATAN saat scroll ke bawah, grid
+     ini dibuat scroll SENDIRI di dalam kotak (bukan ikut scroll
+     halaman) dengan tinggi yang cukup besar (hampir sepenuh layar).
+     CATATAN PENTING: overflow-x DAN overflow-y harus SAMA-SAMA "auto"
+     di sini -- kalau salah satu "visible" (kombinasi tidak konsisten),
+     browser otomatis mengubah keduanya jadi scroll versi elemen ITU
+     SENDIRI, tapi karena scroll itu tidak pernah benar-benar terjadi
+     (elemen tinggi pas dengan isinya, ngikut scroll HALAMAN), akibatnya
+     header sticky rusak total (ini yang terjadi di versi sebelumnya). */
+  .absensi-wrap { max-height: calc(100vh - 350px) !important; overflow: auto !important; }
+  .absensi-grid { border-collapse: collapse; table-layout: fixed; }
+  .absensi-grid th, .absensi-grid td {
+    border: 1px solid var(--border, #94A3B8);
+    padding: 1px !important;
+    min-width: 0 !important;
+    overflow: hidden;
+  }
+  /* 3 kolom kiri (NIK/NAMA/STATUS) dipadatkan -- style.css bawaan
+     memberi min-width besar ke SEMUA <th>/<td>, jadi dipaksa di sini
+     supaya sisa lebar bisa dipakai kolom tanggal. */
+  .absensi-grid th:nth-child(1), .absensi-grid td:nth-child(1) {
+    width: 40px !important; min-width: 40px !important; max-width: 40px !important;
+  }
+  .absensi-grid th:nth-child(2), .absensi-grid td:nth-child(2) {
+    width: 92px !important; min-width: 92px !important; max-width: 92px !important;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap !important;
+  }
+  .absensi-grid th:nth-child(3), .absensi-grid td:nth-child(3) {
+    width: 48px !important; min-width: 48px !important; max-width: 48px !important;
+  }
+  /* Kolom tanggal (ke-4 dst) DILEBARKAN dari versi sebelumnya (26px)
+     supaya baris RASIO KEHADIRAN (mis. "92%") tidak terpotong/tumpang
+     tindih -- 34px cukup untuk 3-4 karakter di font 10.5px. */
+  .absensi-grid th:nth-child(n+4), .absensi-grid td:nth-child(n+4) {
+    width: 34px !important; min-width: 34px !important; max-width: 34px !important;
+  }
+  .absensi-grid thead th {
+    background: #EEF2F7 !important; font-weight: 700; text-align: center;
+    padding: 2px 1px !important; font-size: 0.6562rem; line-height: 1.1;
+    /* Nempel di ATAS KOTAK SCROLL grid ini (bukan ke atas halaman --
+       lihat catatan di .absensi-wrap) supaya baris TANGGAL tetap
+       kelihatan terus sepanjang grid ini digulir ke bawah. */
+    position: sticky !important; top: 0px !important; z-index: 4 !important;
+    box-shadow: 0 1px 0 var(--border, #94A3B8);
+  }
+  /* Teks NIK/NAMA (bukan lewat <input>/<select>) ikut style.css bawaan
+     (font 13px, dan NIK lewat class .mono bisa punya ukurannya sendiri)
+     kalau tidak dipaksa di sini -- itu sebab baris masih terasa
+     tinggi/renggang & ukurannya beda dari kolom STATUS. Disamakan
+     persis dengan ukuran select STATUS (9.5px) pakai !important supaya
+     menang dari class .mono / aturan umum tabel. */
+  .absensi-grid tbody td, .absensi-grid tbody th {
+    font-size: 0.5938rem !important; line-height: 1.1; height: auto;
+  }
+  .absensi-grid td input[type="text"] {
+    width: 100%; min-width: 0; padding: 0; margin: 0;
+    border: none; background: transparent; text-align: center;
+    font-size: 0.5938rem !important; line-height: 1.1; height: 14px;
+  }
+  .absensi-grid td select {
+    font-size: 0.5938rem !important; padding: 0 1px; margin: 0; width: 100%;
+    min-width: 0; text-overflow: ellipsis; height: 15px; line-height: 1.1;
+  }
+  .absensi-grid tfoot td {
+    font-weight: 600; background: #F8FAFC; font-size: 0.625rem; text-align: center;
+    white-space: nowrap; padding: 1px !important; line-height: 1.1;
+  }
+  .absensi-grid tfoot td:first-child {
+    text-align: left; padding-left: 6px !important; font-size: 0.625rem;
+    white-space: nowrap; overflow: visible;
+  }
+
+  /* ---------- Ruang di atas grid dipadatkan juga ----------
+     Supaya sebisa mungkin 1 layar penuh: panel/hint/form-grid di
+     panel Absensi dibuat lebih rapat daripada panel lain di halaman
+     ini (yang isinya cuma form pendek, jadi jarak longgar tidak masalah). */
+  .panel-absensi { padding: 12px 14px !important; }
+  .panel-absensi .panel-title { margin-bottom: 8px !important; padding-bottom: 6px !important; }
+  .panel-absensi .hint { font-size: 0.6875rem !important; line-height: 1.35 !important; }
+  .panel-absensi .form-grid { margin-bottom: 0 !important; gap: 8px !important; }
+
+  /* ---------- Jarak judul halaman ke bar kategori ---------- */
+  /* Ada gap kosong bawaan (dari assets/style.css) antara judul "Data"
+     dan bar tombol kategori (Attendance/Productivity/dst) di bawahnya --
+     dirapatkan supaya lebih banyak tersisa untuk tabel Absensi. */
+  .md-page .page-header { margin-bottom: 10px !important; }
+
+  /* ---------- Bar kategori ---------- */
+  /* Nempel di atas saat digulir -- di halaman sepanjang ini, tab
+     yang ikut hilang ke atas bikin orang kehilangan konteks. */
+  .md-subtab-nav {
+    margin: 0 0 12px !important; padding: 4px !important;
+    display: flex; gap: 4px; flex-wrap: wrap;
+    position: sticky; top: 0; z-index: 20;
+    background: var(--panel-2);
+    border: 1px solid var(--border); border-radius: 12px;
+  }
+  .md-subtab-nav button {
+    margin: 0 !important; border: 0 !important; background: transparent !important;
+    box-shadow: none !important; color: var(--muted) !important;
+    padding: 8px 16px !important; border-radius: 9px !important;
+    font-weight: 600; transition: color .12s, background .12s;
+  }
+  .md-subtab-nav button:hover { color: var(--text) !important; background: var(--border) !important; }
+  .md-subtab-nav button.md-tab-on {
+    background: var(--primary) !important; color: #fff !important;
+  }
+
+  /* ---------- Submenu Master Data di sidebar ---------- */
+  .sb-chev {
+    margin-left: auto; font-size: 1.125rem; line-height: 1; opacity: .85;
+    padding: 4px 8px; border-radius: 6px; cursor: pointer;
+    transition: transform .15s ease, background .12s ease, opacity .12s ease;
+  }
+  .sb-chev:hover, .sb-chev:focus-visible { opacity: 1; background: rgba(255,255,255,.22); outline: none; }
+  /* Nama menu grup tidak membuka apa-apa -> kursor biasa; hanya panah yang berbentuk tangan */
+  .sidebar-link.active[href="#"] { cursor: default; }
+  .sb-chev.sb-chev-buka { transform: rotate(90deg); }
+  .sb-submenu {
+    display: flex; flex-direction: column; gap: 2px;
+    margin: 2px 0 6px 20px; padding-left: 10px;
+    border-left: 2px solid var(--sbd-line, #e2e8f0);
+  }
+  .sb-submenu[x-cloak] { display: none !important; }
+  .sidebar-sublink {
+    display: block; padding: 7px 12px; border-radius: 8px;
+    font-size: 0.8125rem; font-weight: 500; text-decoration: none;
+    color: var(--sbd-text, #475569);
+    transition: background .12s, color .12s;
+  }
+  .sidebar-sublink:hover { background: var(--sbd-hover, #eef0ff); color: var(--sbd-bottom, #3a2fb8); }
+  .sidebar-sublink.active {
+    background: var(--sbd-hover, #eef0ff); color: var(--sbd-bottom, #3a2fb8); font-weight: 700;
+  }
+
+  /* ---------- Panel ---------- */
+  /* Bayangan tebal bawaan (0 10px 26px) dihapus di halaman ini:
+     bagus untuk 2-3 kartu, tapi jadi berisik untuk 14 kartu. */
+  .md-page .panel {
+    box-shadow: none;
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-bottom: 18px;
+  }
+  /* Judul panel dapat garis rambut sebagai pemisah, bukan sekadar jarak */
+  .md-page .panel-title {
+    font-size: 0.875rem; letter-spacing: -0.01em;
+    padding-bottom: 10px; margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .md-page .hint { font-size: 0.75rem; line-height: 1.55; color: var(--muted); }
+
+  /* ---------- Form berdampingan dengan riwayatnya ---------- */
+  /* Form (kiri) lebih sempit dari tabel (kanan): tabel butuh lebar,
+     form tidak. Di layar sempit otomatis bertumpuk lagi. */
+  .md-pair { display: grid; grid-template-columns: minmax(300px, 5fr) 7fr; gap: 18px; align-items: start; }
+  .md-pair > .panel { margin-bottom: 18px; }
+  @media (max-width: 1180px) { .md-pair { grid-template-columns: 1fr; gap: 0; } }
+
+  /* ---------- Tabel riwayat ---------- */
+  /* Dibatasi tingginya: riwayat yang panjang tidak boleh mendorong
+     panel di bawahnya jauh ke bawah. Judul kolom ikut menempel. */
+  .md-page .table-wrap { max-height: 340px; overflow: auto; }
+  .md-page .table-wrap thead th {
+    position: sticky; top: 0; z-index: 2;
+    font-size: 0.6875rem; letter-spacing: 0.03em; color: var(--muted);
+  }
+  .md-page .table-wrap tbody tr:nth-child(even) { background: var(--panel-2); }
+  .md-page .table-wrap tbody tr:hover { background: color-mix(in srgb, var(--primary) 8%, var(--panel)); }
+  .md-page .table-wrap td { font-size: 0.8125rem; }
+  .md-page .empty-state { color: var(--muted); font-size: 0.8125rem; padding: 24px 0; text-align: center; }
+
+  /* ---------- Grid input Productivity ----------
+     Matrix 6 baris x 31 kolom tanggal, meniru format Excel "Daily Peff".
+     Semua di-prefix .pv- supaya tidak menimpa tabel lain di halaman ini. */
+  .pv-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; max-height: none; }
+  .pv-table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 0.75rem; }
+  .pv-table th, .pv-table td { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 0; text-align: center; white-space: nowrap; }
+  .pv-table thead th { background: var(--panel-2); font-weight: 600; padding: 6px 4px; position: sticky; top: 0; z-index: 3; }
+  /* 2 kolom kiri (Grup + Baris) & kolom Total dibikin nempel saat digeser */
+  .pv-table .pv-sticky-1 { position: sticky; left: 0; z-index: 2; background: var(--panel); min-width: 76px; padding: 6px 8px; text-align: left; font-weight: 600; }
+  .pv-table .pv-sticky-2 { position: sticky; left: 76px; z-index: 2; background: var(--panel); min-width: 112px; padding: 6px 8px; text-align: left; }
+  /* Kolom ke-3 yang ikut nempel -- dipakai tab Forecast (Total Forecast).
+     left: 188px = lebar pv-sticky-1 (76) + pv-sticky-2 (112). */
+  /* Lebarnya cuma cukup 6 angka (mis. 999.999) supaya kolom tanggal
+     tidak terdesak -- 6 x +-6,6px font mono 11px + padding. */
+  .pv-table .pv-sticky-3 { position: sticky; left: 188px; z-index: 2; background: var(--panel); min-width: 62px; width: 62px; padding: 0; }
+  .pv-table thead .pv-sticky-3 { white-space: normal; line-height: 1.2; font-size: 0.625rem; }
+  /* Kolom tanggal di tab Forecast = hasil hitung, bukan isian.
+     Dibedakan tipis supaya kelihatan memang tidak bisa diketik. */
+  /* Sel yang diketik manual (menimpa rumus) ditandai supaya kebedaan
+     dengan sel yang isinya murni hasil rumus. */
+  .pv-table td.fc-manual { background: color-mix(in srgb, var(--warning, #F59E0B) 16%, var(--panel)); }
+  .pv-table td.fc-manual .pv-cell-input { font-weight: 700; }
+  .pv-table thead .pv-sticky-1, .pv-table thead .pv-sticky-2, .pv-table thead .pv-sticky-3 { z-index: 4; background: var(--panel-2); }
+  .pv-table thead .pv-sticky-3 { padding: 6px 8px; }
+  /* Pembatas tegas antara kolom tetap dan kolom tanggal */
+  .pv-table .pv-sticky-3 { border-right: 2px solid var(--border); }
+  .pv-table .pv-total { position: sticky; right: 0; z-index: 2; background: var(--panel-2); min-width: 80px; padding: 6px 8px; text-align: right; font-weight: 600; }
+  .pv-table thead .pv-total { z-index: 4; }
+  /* 46px: teks terpanjang "207,25" (6 karakter x +-6,6px di font mono 11px
+     = +-40px) + padding, supaya tidak terpotong. 31 kolom x 46px + 268px
+     kolom tetap (Grup/Baris/Total) = +-1694px, masih muat di layar desktop. */
+  .pv-day { min-width: 46px; width: 46px; }
+  /* Kolom tanggal yang jatuh di hari Minggu ditandai tipis */
+  .pv-table th.pv-sunday { color: var(--danger, #DC2626); }
+  .pv-table thead th.pv-day { padding: 6px 2px; font-size: 0.6875rem; }
+  /* Input di dalam sel: tanpa border sendiri, biar kelihatan seperti sel Excel. */
+  .pv-cell-input { width: 100%; border: 0 !important; background: transparent; padding: 4px 3px !important; text-align: right; font-family: "IBM Plex Mono", monospace; font-size: 0.6875rem; border-radius: 0 !important; box-shadow: none !important; height: auto !important; min-height: 0 !important; }
+  .pv-cell-input:focus { outline: 2px solid var(--primary); outline-offset: -2px; background: var(--panel-2); }
+  .pv-cell-input:disabled { color: var(--muted); }
+  .pv-grup-earned td.pv-sticky-1, .pv-grup-earned td.pv-sticky-2 { background: color-mix(in srgb, var(--primary) 7%, var(--panel)); }
+  .pv-grup-operation td.pv-sticky-1, .pv-grup-operation td.pv-sticky-2 { background: color-mix(in srgb, var(--teal, #0EA5E9) 7%, var(--panel)); }
+  .pv-row-sep td { border-top: 2px solid var(--border); }
+  /* Sel yang lagi ke-blok (klik-tahan-geser / shift+klik) */
+  .pv-table td.pv-sel { background: color-mix(in srgb, var(--primary) 22%, var(--panel)); outline: 1px solid var(--primary); outline-offset: -1px; }
+  /* 4 baris hasil hitung -- dibedakan supaya jelas ini bukan kolom isian */
+  .pv-calc-row td { background: var(--panel-2); font-weight: 600; font-family: "IBM Plex Mono", monospace; font-size: 0.625rem; padding: 5px 3px; }
+  .pv-calc-row td.pv-sticky-1, .pv-calc-row td.pv-sticky-2 { font-family: inherit; font-size: 0.75rem; }
+
+  /* Tabel Jatah Cuti: semua rata tengah supaya angka sejajar dengan
+     judul kolomnya. NIK & Nama tetap rata kiri karena itu teks. */
+  .ct-tbl th, .ct-tbl td { text-align: center; vertical-align: middle; }
+  .ct-tbl th:nth-child(1), .ct-tbl td:nth-child(1),
+  .ct-tbl th:nth-child(2), .ct-tbl td:nth-child(2) { text-align: left; }
+
+  /* Kolom Jatah di tab Cuti */
+  .ct-jatah {
+    width: 84px; padding: 5px 8px; text-align: center; margin: 0 auto; display: block;
+    font-family: "IBM Plex Mono", monospace; font-size: 0.8125rem;
+    border: 1px solid var(--border); border-radius: 7px;
+    background: var(--panel); color: var(--text);
+  }
+  .ct-jatah:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
+
+  /* Baris tombol: dipisah garis tipis supaya jelas ini akhir form */
+  .md-page .form-actions {
+    border-top: 1px solid var(--border);
+    padding-top: 14px; margin-top: 16px;
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+
+  /* ---------- Tab Dashboard FY: tabel input angka manual ---------- */
+  .fy-tbl { width: 100%; border-collapse: collapse; }
+  .fy-tbl th { font-size: 0.6875rem; letter-spacing: .02em; text-transform: uppercase;
+    white-space: nowrap; padding: 8px 6px; text-align: center; }
+  .fy-tbl td { padding: 4px 5px; text-align: center; }
+  .fy-tbl td.fy-bln { text-align: left; font-weight: 700; white-space: nowrap;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8125rem; }
+  .fy-tbl input { width: 100%; min-width: 78px; max-width: 120px; text-align: right;
+    padding: 7px 8px !important; font-size: 0.8125rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .fy-tbl tfoot .fy-total-row td { font-weight: 800; border-top: 2px solid var(--border, #E2E8F0);
+    padding: 9px 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8125rem; }
+  .fy-tbl .fy-total-col { font-weight: 700; background: rgba(148,163,184,.10);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8125rem; }
+  .fy-wrap { max-height: none !important; overflow-y: visible !important; }
+  .dxy-fy-dua { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .dxy-fy-dua { grid-template-columns: 1fr; } }
+
+</style>
+
+<script src="assets/pengaturan.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="assets/supabaseClient.js"></script>
+</head>
+<body>
+
+<div class="app-shell" x-data="dataKaryawanPage()">
+  <div class="mobile-topbar">
+    <button class="hamburger" @click="mobileNavOpen = true"><svg class="sb-svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
+  </div>
+
+  <div class="sidebar-overlay" x-show="mobileNavOpen" @click="mobileNavOpen = false" x-cloak></div>
+  <aside class="sidebar" :class="[mobileNavOpen ? 'sidebar-open' : '', sidebarCollapsed ? 'sidebar-collapsed' : '']">
+    <button class="sidebar-collapse-btn" @click="sidebarCollapsed = !sidebarCollapsed">
+      <span x-show="!sidebarCollapsed">‹</span><span x-show="sidebarCollapsed">›</span>
+    </button>
+    <div class="sidebar-brand" x-show="!sidebarCollapsed"><span class="sb-brand-title">WELDING EXHAUST</span><span class="sb-brand-sub">PT Futaba Industrial Indonesia</span></div>
+    <nav class="sidebar-nav" @click="mobileNavOpen = false">
+      <a href="dashboard-exhaust.html" class="sidebar-link" title="Dashboard Exhaust"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M3 13h4v8H3zM10 3h4v18h-4zM17 8h4v13h-4z"/></svg></span><span x-show="!sidebarCollapsed">Dashboard Exhaust</span></a>
+      <a href="input-produksi.html" class="sidebar-link" title="Input Produksi"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
+      <a href="input-attendance.html" class="sidebar-link" title="Input Attendance" x-show="isLeaderOrAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></span><span x-show="!sidebarCollapsed">Input Attendance</span></a>
+      <a href="andon.html" class="sidebar-link" title="Andon"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm7-6V11c0-3.07-1.64-5.64-4.5-6.32V4a1.5 1.5 0 0 0-3 0v.68C8.63 5.36 7 7.92 7 11v5l-2 2v1h14v-1l-2-2z"/></svg></span><span x-show="!sidebarCollapsed">Andon</span></a>
+      <a href="perencanaan-produksi.html" class="sidebar-link" title="Perencanaan Produksi" x-show="isLeaderOrAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5zm2 4h4v4H7z"/></svg></span><span x-show="!sidebarCollapsed">Perencanaan Produksi</span></a>
+      <a href="data-mentah.html" class="sidebar-link" title="Data Mentah" x-show="isAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 7.6V12c0 1.66 3.58 3 8 3s8-1.34 8-3V7.6C18.4 8.9 15.3 9.6 12 9.6S5.6 8.9 4 7.6z"/><path d="M4 14.6V19c0 1.66 3.58 3 8 3s8-1.34 8-3v-4.4c-1.6 1.3-4.7 2-8 2s-6.4-.7-8-2z"/></svg></span><span x-show="!sidebarCollapsed">Data Mentah</span></a>
+      <a href="#" class="sidebar-link active" title="Data Karyawan" x-show="isLeaderOrAdmin()" @click.prevent.stop="sidebarCollapsed = false"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM9 7a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zm5 10H4v-.5C4 14.6 7 14 9 14s5 .6 5 2.5V17zm6-2h-4v-2h4v2zm0-4h-4V9h4v2z"/></svg></span><span x-show="!sidebarCollapsed">Data Karyawan</span><span class="sb-chev" role="button" tabindex="0" x-show="!sidebarCollapsed" :class="kyMenuOpen ? 'sb-chev-buka' : ''" :title="kyMenuOpen ? 'Sembunyikan sub-menu' : 'Tampilkan sub-menu'" :aria-expanded="kyMenuOpen" @click.prevent.stop="kyMenuOpen = !kyMenuOpen" @keydown.enter.prevent.stop="kyMenuOpen = !kyMenuOpen">›</span></a>
+      <div class="sb-submenu" x-show="isLeaderOrAdmin() && kyMenuOpen && !sidebarCollapsed" x-cloak>
+        <template x-for="m in kyMenu" :key="m.tab">
+          <a href="#" class="sidebar-sublink" :class="activeTab === m.tab ? 'active' : ''" @click.prevent="setTab(m.tab)" x-text="m.label"></a>
+        </template>
+      </div>
+      <a href="data-dashboard.html" class="sidebar-link" title="Data Dashboard" x-show="isLeaderOrAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg></span><span x-show="!sidebarCollapsed">Data Dashboard</span></a>
+    </nav>
+    <div class="sidebar-settings">
+      <a href="pengaturan.html" class="sidebar-link" title="Pengaturan"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.61.22L2.71 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.07.63-.07.94s.03.63.07.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.31.61.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.26.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.23.09.48 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg></span><span x-show="!sidebarCollapsed">Pengaturan</span></a>
+    </div>
+    <div class="sidebar-foot" x-show="!sidebarCollapsed">
+      <div class="sb-av" x-text="((profile?.full_name || session?.user?.email || '?').trim().charAt(0) || '?').toUpperCase()"></div>
+      <div class="sb-user"><div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
+      <span class="badge" :class="profile?.role === 'admin' ? 'role-admin' : ''" x-text="profile?.jabatan || profile?.role || '...'"></span></div>
+      <button class="btn-ghost btn-sm" @click="logout()">Keluar</button>
+    </div>
+    <button class="sidebar-logout-collapsed" x-show="sidebarCollapsed" @click="logout()" title="Keluar"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M13 3h-2v10h2V3zm4.83 2.17-1.42 1.42A6.92 6.92 0 0 1 19 12a7 7 0 1 1-11.42-5.42L6.17 5.17A8.93 8.93 0 0 0 3 12a9 9 0 0 0 18 0c0-2.74-1.23-5.18-3.17-6.83z"/></svg></button>
+  </aside>
+
+  <main class="main md-page">
+    <div class="page-header">
+      <h1 class="page-title"><span class="eyebrow">Data</span>Karyawan</h1>
+    </div>
+    <template x-if="!isLeaderOrAdmin() && profile">
+      <div class="error-msg">Halaman ini khusus admin/leader.</div>
+    </template>
+    <template x-if="msg"><div :class="msgError ? 'error-msg' : 'success-msg'" x-text="msg"></div></template>
+
+    <template x-if="isLeaderOrAdmin()">
+      <div>
+        <!-- Kategori dipilih lewat submenu di sidebar (kyMenu di JS). -->
+
+        <!-- ===== TAB: ATTENDANCE ===== -->
+        <template x-if="activeTab === 'attendance'">
+          <div>
+            <!-- Sub-tombol di dalam tab Attendance -- tiap grup panel
+                 (termasuk riwayatnya) disembunyikan/ditampilkan lewat
+                 atSub, pola yang sama dengan ctSub di tab Cuti. -->
+            <div class="md-subtab-nav" style="position:static;">
+              <button class="btn-secondary btn-sm" :class="atSub === 'mp' ? 'md-tab-on' : ''" @click="atSub = 'mp'">Total MP</button>
+              <button class="btn-secondary btn-sm" :class="atSub === 'overtime' ? 'md-tab-on' : ''" @click="atSub = 'overtime'">Overtime</button>
+              <button class="btn-secondary btn-sm" :class="atSub === 'shift2' ? 'md-tab-on' : ''" @click="atSub = 'shift2'">Data Shift 2</button>
+              <button class="btn-secondary btn-sm" :class="atSub === 'libur' ? 'md-tab-on' : ''" @click="atSub = 'libur'">Hari Libur</button>
+              <button class="btn-secondary btn-sm" :class="atSub === 'ganti' ? 'md-tab-on' : ''" @click="atSub = 'ganti'">Ganti Hari</button>
+              <button class="btn-secondary btn-sm" :class="atSub === 'absensi' ? 'md-tab-on' : ''" @click="atSub = 'absensi'; fetchAbsensiIfNeeded()">Absensi</button>
+            </div>
+
+            <template x-if="atSub === 'mp'">
+            <div>
+            <!-- ===== Total Orang (Bulanan) =====
+                 Total Orang cukup diinput SEKALI per bulan (pilih Bulan +
+                 Tahun) -- nilainya disimpan di attendance_log dengan
+                 tanggal = tanggal 1 bulan itu, lalu ikut carry-forward
+                 dipakai untuk SEMUA tanggal di bulan itu di dashboard.
+                 Riwayat diletakkan di BAWAH form (bukan berdampingan)
+                 supaya lebih enak dilihat. -->
+            <div class="panel">
+              <p class="panel-title">Total Orang (Bulanan)</p>
+              <div class="form-grid">
+                <div class="field">
+                  <label>Bulan</label>
+                  <select x-model.number="mpForm.bulan">
+                    <template x-for="(nm, i) in BULAN_LABELS" :key="'mp-bln-'+i">
+                      <option :value="i+1" x-text="nm"></option>
+                    </template>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Tahun</label>
+                  <select x-model.number="mpForm.tahun">
+                    <template x-for="y in tahunOptions" :key="'mp-thn-'+y"><option :value="y" x-text="y"></option></template>
+                  </select>
+                </div>
+                <div class="field"><label>Total Orang</label><input type="number" x-model="mpForm.total_orang"></div>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn-primary" @click="saveMp()">Simpan Total Orang</button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <p class="panel-title">Riwayat Total Orang (Bulanan) <span class="count" x-text="mpRows.length + ' baris'"></span></p>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Bulan</th><th>Total Orang</th><th>Aksi</th></tr></thead>
+                  <tbody>
+                    <template x-for="r in mpRows" :key="r.tanggal">
+                      <tr>
+                        <td class="mono" x-text="fmtBulanTahun(r.tanggal)"></td>
+                        <td class="mono" x-text="fmtNum(r.total_orang)"></td>
+                        <td><button class="btn-secondary btn-sm" @click="editMp(r)">Edit</button></td>
+                      </tr>
+                    </template>
+                    <tr x-show="mpRows.length === 0"><td colspan="3" class="empty-state">Belum ada data.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            </div>
+            </template>
+
+            <template x-if="atSub === 'overtime'">
+            <div>
+            <!-- ===== Overtime Harian =====
+                 Beda dari Total Orang -- OT memang berubah tiap hari,
+                 jadi tetap diinput per tanggal. Menyimpan OT TIDAK ikut
+                 menimpa Total Orang di tanggal yang sama (lihat saveOt()).
+                 Riwayat diletakkan di BAWAH form, bukan berdampingan. -->
+            <div class="panel">
+              <p class="panel-title">Overtime Harian</p>
+              <div class="form-grid">
+                <div class="field"><label>Tanggal</label><input type="date" x-model="otForm.tanggal"></div>
+                <div class="field"><label>Overtime (jam)</label><input type="number" step="0.5" x-model="otForm.overtime_jam"></div>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn-primary" @click="saveOt()">Simpan Overtime</button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <p class="panel-title">Riwayat Overtime Harian <span class="count" x-text="otRows.length + ' baris'"></span></p>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Tanggal</th><th>OT (jam)</th><th>Aksi</th></tr></thead>
+                  <tbody>
+                    <template x-for="r in otRows" :key="r.tanggal">
+                      <tr>
+                        <td class="mono" x-text="r.tanggal"></td>
+                        <td class="mono" x-text="fmtNum(r.overtime_jam)"></td>
+                        <td><button class="btn-secondary btn-sm" @click="editOt(r)">Edit</button></td>
+                      </tr>
+                    </template>
+                    <tr x-show="otRows.length === 0"><td colspan="3" class="empty-state">Belum ada data.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            </div>
+            </template>
+
+            <template x-if="atSub === 'shift2'">
+            <div>
+            <!-- ===== Data Shift 2 =====
+                 Dua kolom: KIRI = Form Kehadiran Shift Mingguan + riwayatnya
+                 (menyusun ke bawah), KANAN = Riwayat Upload Shift 2 (form
+                 upload + riwayatnya, menyusun ke bawah). Supaya jelas: kolom
+                 kiri "shift mingguan (Hadir Shift 1/2)", kolom kanan
+                 "daftar orang Shift 2 per periode". -->
+            <div class="md-pair">
+            <div>
+            <!-- ===== Form Kehadiran Shift Mingguan =====
+                 Terpisah dari Absensi Harian -- Hadir Shift 1/2 diisi per
+                 RENTANG TANGGAL bebas (biasanya 1 minggu), bukan per hari,
+                 karena angkanya memang baru berubah tiap minggu.
+                 Hadir Shift 1/2 terisi OTOMATIS kalau Tanggal Mulai-Selesai
+                 persis sama dengan salah satu periode di panel "Riwayat
+                 Upload Shift 2" di sebelah kanan -- tetap bisa diedit manual
+                 kalau meleset. Lihat autoFillShift(). Riwayatnya diletakkan
+                 di BAWAH form ini (bukan di kolom kanan lagi). -->
+            <div class="panel">
+              <p class="panel-title">Form Kehadiran Shift Mingguan</p>
+              <div class="form-grid">
+                <div class="field"><label>Tanggal Mulai</label><input type="date" x-model="shiftForm.tanggal_mulai" @change="autoFillShift()"></div>
+                <div class="field"><label>Tanggal Selesai</label><input type="date" x-model="shiftForm.tanggal_selesai" :min="shiftForm.tanggal_mulai" @change="autoFillShift()"></div>
+                <div class="field"><label>Hadir Shift 1</label><input type="number" x-model="shiftForm.shift1_hadir"></div>
+                <div class="field"><label>Hadir Shift 2</label><input type="number" x-model="shiftForm.shift2_hadir"></div>
+                <div class="field" style="grid-column: span 2;"><label>Keterangan</label><input type="text" x-model="shiftForm.keterangan" placeholder="Opsional"></div>
+              </div>
+              <p class="hint" x-show="shift2AutoFilled" style="margin-top:4px;">
+                Hadir Shift 1 &amp; 2 terisi otomatis dari upload Shift 2 periode ini. Bisa diedit manual kalau perlu.
+              </p>
+              <div class="form-actions">
+                <button type="button" class="btn-primary" @click="saveShift()" x-text="shiftEditId ? 'Update Shift' : 'Simpan Shift'"></button>
+                <button type="button" class="btn-secondary" x-show="shiftEditId" @click="resetShiftForm()">Batal Edit</button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <p class="panel-title">Riwayat Kehadiran Shift Mingguan <span class="count" x-text="shiftRows.length + ' baris'"></span></p>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Tanggal Mulai</th><th>Tanggal Selesai</th><th>Hadir Shift 1</th><th>Hadir Shift 2</th><th>Keterangan</th><th>Aksi</th></tr></thead>
+                  <tbody>
+                    <template x-for="r in shiftRows" :key="r.id">
+                      <tr>
+                        <td class="mono" x-text="r.tanggal_mulai"></td>
+                        <td class="mono" x-text="r.tanggal_selesai"></td>
+                        <td class="mono" x-text="fmtNum(r.shift1_hadir)"></td>
+                        <td class="mono" x-text="fmtNum(r.shift2_hadir)"></td>
+                        <td x-text="r.keterangan || '-'"></td>
+                        <td>
+                          <button class="btn-secondary btn-sm" @click="editShift(r)">Edit</button>
+                          <button class="btn-secondary btn-sm" @click="deleteShift(r)">Hapus</button>
+                        </td>
+                      </tr>
+                    </template>
+                    <tr x-show="shiftRows.length === 0"><td colspan="6" class="empty-state">Belum ada data.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            </div>
+
+            <!-- ===== Riwayat Upload Shift 2 (kolom kanan) =====
+                 Shift 2 rotasi mingguan -- orangnya beda tiap minggu, jadi
+                 setiap upload Excel berlaku untuk SATU PERIODE (Tanggal
+                 Mulai - Selesai), bukan penempatan tetap per NIK. Yang
+                 tidak ada di daftar Shift 2 untuk periode itu dianggap
+                 Shift 1. Dipakai untuk: (1) auto-isi Hadir Shift 1/2 di
+                 form "Kehadiran Shift Mingguan" di kolom kiri saat
+                 periodenya sama persis, dan (2) menentukan shift orang
+                 untuk hitungan Ganti Hari (dicek PER TANGGAL, bukan
+                 statis). Riwayat tampil ringkas (periode + jumlah orang);
+                 nama baru tampil kalau diklik Detail. -->
+            <div class="panel">
+              <p class="panel-title">Riwayat Upload Shift 2
+                <span class="count" x-text="shift2Periodes.length + ' periode'"></span>
+              </p>
+              <div class="form-grid" style="margin-bottom:12px;">
+                <div class="field"><label>Tanggal Mulai</label><input type="date" x-model="shift2UploadForm.tanggal_mulai"></div>
+                <div class="field"><label>Tanggal Selesai</label><input type="date" x-model="shift2UploadForm.tanggal_selesai" :min="shift2UploadForm.tanggal_mulai"></div>
+              </div>
+              <div class="form-actions" style="margin-bottom:12px;">
+                <button type="button" class="btn-secondary" @click="downloadShift2Template()">Unduh Template Excel</button>
+                <label class="btn-primary" style="cursor:pointer; display:inline-flex; align-items:center;">
+                  <span x-text="shift2Uploading ? 'Mengunggah...' : 'Upload Excel Shift 2'"></span>
+                  <input type="file" accept=".xlsx,.xls" style="display:none" @change="handleShift2Upload($event)" :disabled="shift2Uploading">
+                </label>
+              </div>
+              <p class="hint" x-show="shift2Msg" x-text="shift2Msg"></p>
+              <div class="table-wrap" style="margin-top:12px;">
+                <table>
+                  <thead><tr><th>Tanggal Mulai</th><th>Tanggal Selesai</th><th>Jumlah Orang</th><th>Aksi</th></tr></thead>
+                  <!-- Satu <tbody> per periode (baris utama + baris Detail
+                       yang bisa disembunyikan/ditampilkan), supaya baris
+                       Detail muncul persis di bawah periode yang diklik,
+                       bukan di ujung tabel. Beberapa <tbody> dalam satu
+                       <table> valid secara HTML. -->
+                  <template x-for="p in shift2Periodes" :key="p.id">
+                    <tbody>
+                      <tr>
+                        <td class="mono" x-text="p.tanggal_mulai"></td>
+                        <td class="mono" x-text="p.tanggal_selesai"></td>
+                        <td class="mono" x-text="p.details.length + ' orang'"></td>
+                        <td>
+                          <button class="btn-secondary btn-sm" @click="toggleShift2Detail(p)" x-text="shift2DetailOpenId === p.id ? 'Tutup' : 'Detail'"></button>
+                          <button class="btn-secondary btn-sm" @click="exportShift2Periode(p)">Export</button>
+                          <button class="btn-secondary btn-sm" @click="deleteShift2Periode(p)">Hapus</button>
+                        </td>
+                      </tr>
+                      <tr x-show="shift2DetailOpenId === p.id">
+                        <td colspan="4" style="background:#fafafa;">
+                          <div style="max-height:220px; overflow-y:auto;">
+                            <table>
+                              <thead><tr><th>NIK</th><th>Nama</th></tr></thead>
+                              <tbody>
+                                <template x-for="d in p.details" :key="p.id + '-' + d.nik">
+                                  <tr><td class="mono" x-text="d.nik"></td><td x-text="d.nama"></td></tr>
+                                </template>
+                              </tbody>
+                            </table>
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </template>
+                  <tbody>
+                    <tr x-show="shift2Periodes.length === 0"><td colspan="4" class="empty-state">Belum ada data Shift 2 diupload.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            </div>
+            </div>
+            </template>
+
+            <template x-if="atSub === 'libur'">
+            <div>
+            <!-- ===== Kelola Hari Libur / Tanggal Merah =====
+                 Dipakai di halaman Attendance untuk exclude Sabtu/Minggu/
+                 tanggal merah dari perhitungan Total Hari Cuti. -->
+            <div class="panel">
+              <p class="panel-title">Kelola Hari Libur / Tanggal Merah</p>
+              <div class="form-grid">
+                <div class="field"><label>Tanggal</label><input type="date" x-model="hariLiburForm.tanggal"></div>
+                <div class="field" style="grid-column: span 2;"><label>Keterangan</label><input type="text" x-model="hariLiburForm.keterangan" placeholder="mis. Tahun Baru Masehi"></div>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn-primary" @click="addHariLibur()">Tambah</button>
+              </div>
+              <div class="table-wrap" style="margin-top:12px;">
+                <table>
+                  <thead><tr><th>Tanggal</th><th>Keterangan</th><th>Aksi</th></tr></thead>
+                  <tbody>
+                    <template x-for="r in hariLiburRows" :key="r.tanggal">
+                      <tr>
+                        <td class="mono" x-text="r.tanggal"></td>
+                        <td x-text="r.keterangan || '-'"></td>
+                        <td><button class="btn-secondary btn-sm" @click="deleteHariLibur(r)">Hapus</button></td>
+                      </tr>
+                    </template>
+                    <tr x-show="hariLiburRows.length === 0"><td colspan="3" class="empty-state">Belum ada hari libur.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            </div>
+            </template>
+
+            <template x-if="atSub === 'ganti'">
+            <div>
+            <!-- ===== Ganti Hari (Masuk Kerja) =====
+                 Hari Sabtu yang jadi hari kerja PENGGANTI (menebus libur di
+                 hari kerja lain), biasanya cuma untuk 1 shift -- shift yang
+                 lain tetap libur seperti Sabtu biasa. Kalau ada yang cuti di
+                 tanggal ini DAN dia masuk di shift yang kerja hari itu, cuti
+                 itu MEMOTONG jatah (1 hari), sama seperti hari kerja biasa.
+                 Kalau shift-nya libur hari itu, tetap 0 (tidak dipotong).
+                 Disimpan di tabel hari_libur, jenis = 'ganti_hari', dengan
+                 kolom shift ('1' / '2' / 'penuh'). Trigger database (lihat
+                 migration_shift2_periode.sql) membaca tabel ini dan tabel
+                 shift2_periode / shift2_periode_detail di bawah untuk tahu
+                 shift orangnya PADA TANGGAL cuti itu (Shift 2 berubah tiap
+                 minggu, jadi shift orang dicek per periode, bukan statis). -->
+            <div class="panel">
+              <p class="panel-title">Ganti Hari (Masuk Kerja)
+                <span class="count" x-text="gantiHariRows.length + ' tanggal'"></span>
+              </p>
+              <p class="hint" style="margin-bottom:14px;">
+                Untuk shift yang <b>masuk</b> di tanggal ini, cuti tetap
+                memotong jatah (1 hari) -- sama seperti hari kerja biasa.
+                Untuk shift yang libur hari itu, tetap 0. Shift orang dicek
+                dari periode Shift 2 di panel <b>Riwayat Upload Shift 2</b> di
+                bawah yang mencakup tanggal itu; kalau belum ada periode yang
+                mencakup tanggal itu, sistem mengasumsikan libur (0, tidak
+                dipotong) supaya aman.
+              </p>
+              <div class="form-grid">
+                <div class="field"><label>Tanggal</label><input type="date" x-model="gantiHariForm.tanggal"></div>
+                <div class="field"><label>Shift yang Masuk</label>
+                  <select x-model="gantiHariForm.shift">
+                    <option value="1">Shift 1</option>
+                    <option value="2">Shift 2</option>
+                    <option value="penuh">Shift 1 &amp; 2 (Penuh)</option>
+                  </select>
+                </div>
+                <div class="field" style="grid-column: span 2;"><label>Keterangan</label><input type="text" x-model="gantiHariForm.keterangan" placeholder="mis. Ganti hari cuti bersama 17 Agustus"></div>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn-primary" @click="addGantiHari()">Tambah</button>
+              </div>
+              <div class="table-wrap" style="margin-top:12px;">
+                <table>
+                  <thead><tr><th>Tanggal</th><th>Hari</th><th>Shift Masuk</th><th>Keterangan</th><th>Aksi</th></tr></thead>
+                  <tbody>
+                    <template x-for="r in gantiHariRows" :key="'gh-'+r.tanggal">
+                      <tr>
+                        <td class="mono" x-text="r.tanggal"></td>
+                        <td x-text="namaHari(r.tanggal)"></td>
+                        <td x-text="r.shift === 'penuh' ? 'Shift 1 & 2' : ('Shift ' + r.shift)"></td>
+                        <td x-text="r.keterangan || '-'"></td>
+                        <td><button class="btn-secondary btn-sm" @click="deleteGantiHari(r)">Hapus</button></td>
+                      </tr>
+                    </template>
+                    <tr x-show="gantiHariRows.length === 0"><td colspan="5" class="empty-state">Belum ada tanggal ganti hari.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            </div>
+            </template>
+
+            <template x-if="atSub === 'absensi'">
+            <div>
+            <!-- ===== Absensi (Grid Harian 1-31) =====
+                 Kolom 1..akhir bulan DIHITUNG OTOMATIS dari data yang sudah
+                 ada (Cuti/Izin/Sakit/Mangkir di attendance_leave, Hari
+                 Libur & Ganti Hari di hari_libur -- logika sama persis
+                 dengan absensiKodeAuto() / kenapaNolHari() / trigger
+                 set_jumlah_hari_cuti()), TAPI tiap sel tetap bisa diedit
+                 manual. Yang diketik manual disimpan di tabel terpisah
+                 absensi_manual (nik, tanggal, kode) -- supaya kalau nanti
+                 datanya di sistem berubah, sel yang TIDAK pernah disentuh
+                 tetap ikut update otomatis, dan sel yang SUDAH diedit
+                 manual tidak ketimpa lagi. Mengosongkan sel = kembali ke
+                 hitungan otomatis (override dihapus).
+
+                 Kolom STATUS = kategori/jenis karyawan (FM/LD/Opr.
+                 Permanent/Opr. Contract/Opr. Magang), disimpan permanen di
+                 karyawan_master.status_kerja -- diedit langsung dari
+                 dropdown di baris ini, tidak perlu diketik ulang tiap
+                 bulan. Karyawan yang belum pernah diisi status_kerja-nya
+                 tidak muncul di grid ini (lihat migration_absensi.sql
+                 untuk isi awal 47 nama yang diminta). -->
+            <div class="panel panel-absensi">
+              <p class="panel-title">Absensi</p>
+              <p class="hint" style="margin-bottom:8px;">
+                Kolom tanggal otomatis terisi dari data Cuti/Izin/Sakit/Mangkir dan Hari Libur/Ganti Hari yang sudah ada.
+                Klik sel tanggal untuk mengetik manual (kosongkan lalu klik di luar untuk kembali ke otomatis).
+                Kode: <b>1</b> Hadir, <b>S</b> Sakit, <b>Ct</b> Cuti, <b>I</b> Izin, <b>A</b> Alfa, <b>L</b> Libur.
+              </p>
+              <div class="form-grid">
+                <div class="field"><label>Bulan</label>
+                  <select x-model.number="absensiBulan" @change="fetchAbsensi()">
+                    <template x-for="(nm, i) in BULAN_LABELS" :key="'ab-bln-'+i">
+                      <option :value="i+1" x-text="nm"></option>
+                    </template>
+                  </select>
+                </div>
+                <div class="field"><label>Tahun</label>
+                  <select x-model.number="absensiTahun" @change="fetchAbsensi()">
+                    <template x-for="y in tahunOptions" :key="'ab-thn-'+y"><option :value="y" x-text="y"></option></template>
+                  </select>
+                </div>
+                <div class="field" style="grid-column: span 2;"><label>Cari Karyawan</label><input type="text" x-model="absensiCari" placeholder="NIK atau nama"></div>
+              </div>
+
+              <div class="table-wrap absensi-wrap" style="margin-top:6px;" x-show="!absensiLoading">
+                <table class="absensi-grid">
+                  <thead>
+                    <tr>
+                      <th style="position:sticky; left:0; background:#EEF2F7; z-index:6 !important;">NIK</th>
+                      <th style="position:sticky; left:40px; background:#EEF2F7; z-index:6 !important;">NAMA</th>
+                      <th>STATUS</th>
+                      <template x-for="h in absensiHariList()" :key="'ab-h-'+h">
+                        <th x-text="h"></th>
+                      </template>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="r in absensiRows()" :key="'ab-row-'+r.nik">
+                      <tr>
+                        <td class="mono" style="position:sticky; left:0; background:var(--panel); z-index:1;" :title="r.nik" x-text="r.nik"></td>
+                        <td style="position:sticky; left:40px; background:var(--panel); z-index:1;" :title="r.nama" x-text="r.nama"></td>
+                        <td>
+                          <select :value="r.status_kerja || ''" @change="absensiSetStatus(r.nik, $event.target.value)" :title="r.status_kerja || ''">
+                            <option value="">-</option>
+                            <option value="FM">FM</option>
+                            <option value="LD">LD</option>
+                            <option value="Opr. Permanent">Opr. Permanent</option>
+                            <option value="Opr. Contract">Opr. Contract</option>
+                            <option value="Opr. Magang">Opr. Magang</option>
+                          </select>
+                        </td>
+                        <template x-for="h in absensiHariList()" :key="'ab-cell-'+r.nik+'-'+h">
+                          <td style="padding:2px; text-align:center;">
+                            <input type="text" maxlength="3"
+                                   :style="absensiWarna(absensiKode(r.nik, h))"
+                                   :value="absensiKodeTampil(r.nik, h)"
+                                   @change="absensiSetKode(r.nik, h, $event.target.value)">
+                          </td>
+                        </template>
+                      </tr>
+                    </template>
+                    <tr x-show="absensiRows().length === 0"><td :colspan="3 + absensiHariList().length" class="empty-state">Belum ada karyawan dengan STATUS terisi.</td></tr>
+                  </tbody>
+                  <!-- ===== Ringkasan per tanggal =====
+                       Dihitung dari kode yang SEDANG TAMPIL di baris di
+                       atas (absensiRows(), otomatis + override manual
+                       tergabung lewat absensiKode()) -- bukan query
+                       terpisah, jadi selalu sinkron dengan grid.
+                       TOTAL MP = jumlah orang yang bukan Libur (L) hari
+                       itu. RASIO KEHADIRAN = Hadir / Total MP. -->
+                  <tfoot x-show="absensiRows().length > 0">
+                    <tr>
+                      <td colspan="3" style="position:sticky; left:0; background:#F8FAFC;">HADIR</td>
+                      <template x-for="h in absensiHariList()" :key="'ab-hadir-'+h">
+                        <td x-text="absensiHitung(h, '') || ''"></td>
+                      </template>
+                    </tr>
+                    <tr>
+                      <td colspan="3" style="position:sticky; left:0; background:#F8FAFC;">CUTI</td>
+                      <template x-for="h in absensiHariList()" :key="'ab-cuti-'+h">
+                        <td x-text="absensiHitung(h, 'C') || ''"></td>
+                      </template>
+                    </tr>
+                    <tr>
+                      <td colspan="3" style="position:sticky; left:0; background:#F8FAFC;">SAKIT</td>
+                      <template x-for="h in absensiHariList()" :key="'ab-sakit-'+h">
+                        <td x-text="absensiHitung(h, 'S') || ''"></td>
+                      </template>
+                    </tr>
+                    <tr>
+                      <td colspan="3" style="position:sticky; left:0; background:#F8FAFC;">IZIN</td>
+                      <template x-for="h in absensiHariList()" :key="'ab-izin-'+h">
+                        <td x-text="absensiHitung(h, 'I') || ''"></td>
+                      </template>
+                    </tr>
+                    <tr>
+                      <td colspan="3" style="position:sticky; left:0; background:#F8FAFC;">ALFA</td>
+                      <template x-for="h in absensiHariList()" :key="'ab-alfa-'+h">
+                        <td x-text="absensiHitung(h, 'A') || ''"></td>
+                      </template>
+                    </tr>
+                    <tr>
+                      <td colspan="3" style="position:sticky; left:0; background:#F8FAFC;">TOTAL MP</td>
+                      <template x-for="h in absensiHariList()" :key="'ab-mp-'+h">
+                        <td x-text="absensiTotalMp(h) || ''"></td>
+                      </template>
+                    </tr>
+                    <tr>
+                      <td colspan="3" style="position:sticky; left:0; background:#F8FAFC;">RASIO KEHADIRAN</td>
+                      <template x-for="h in absensiHariList()" :key="'ab-rasio-'+h">
+                        <td x-text="absensiRasio(h)"></td>
+                      </template>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <p x-show="absensiLoading" class="hint">Memuat...</p>
+            </div>
+            </div>
+            </template>
+
+          </div>
+        </template>
+
+        <!-- ===== TAB: CUTI =====
+             Mengatur JATAH cuti tahunan tiap karyawan. Sisa cutinya
+             dilihat di input-attendance.html > tab Sisa Cuti; di sana
+             cuma tampilan, angkanya dihitung dari jatah yang diatur
+             di sini dikurangi cuti yang sudah terpakai. -->
+        <template x-if="activeTab === 'cuti'">
+          <div>
+            <!-- Dua sub-tombol di dalam tab Cuti -->
+            <div class="md-subtab-nav" style="position:static;">
+              <button class="btn-secondary btn-sm" :class="ctSub === 'jatah' ? 'md-tab-on' : ''" @click="ctSub = 'jatah'">Jatah Cuti Tahunan</button>
+              <button class="btn-secondary btn-sm" :class="ctSub === 'rekap' ? 'md-tab-on' : ''" @click="setCutiSub('rekap')">Rekap Cuti</button>
+            </div>
+
+            <template x-if="ctSub === 'jatah'">
+            <div class="panel">
+              <p class="panel-title">Jatah Cuti Tahunan
+                <span class="count" x-text="cutiRows().length + ' karyawan'"></span>
+              </p>
+
+              <div class="form-grid" style="margin-bottom:14px;">
+                <div class="field" style="grid-column: span 2;"><label>Cari karyawan</label>
+                  <input type="text" x-model="ctCari" placeholder="Ketik NIK atau nama">
+                </div>
+              </div>
+
+              <p class="hint" x-show="ctError" style="color:var(--danger, #DC2626); font-weight:600; margin-bottom:10px;" x-text="ctError"></p>
+
+              <template x-if="ctLoading">
+                <p class="empty-state">Memuat data cuti...</p>
+              </template>
+
+              <template x-if="!ctLoading">
+                <div class="table-wrap">
+                  <table class="ct-tbl">
+                    <thead>
+                      <tr>
+                        <th>NIK</th><th>Nama</th>
+                        <template x-for="pr in CT_PERIODE" :key="'ct-h-'+pr.key">
+                          <th x-text="pr.label"></th>
+                        </template>
+                        <th>Total Cuti</th><th>Terpakai</th><th>Sisa</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="r in cutiRows()" :key="'ct-'+r.nik">
+                        <tr>
+                          <td class="mono" x-text="r.nik"></td>
+                          <td x-text="r.nama"></td>
+                          <template x-for="pr in CT_PERIODE" :key="'ct-c-'+r.nik+'-'+pr.key">
+                            <td>
+                              <input type="number" min="0" step="0.5" class="ct-jatah"
+                                     :disabled="!isLeaderOrAdmin()"
+                                     :value="ctJatahEdit[r.nik] ? ctJatahEdit[r.nik][pr.key] : ''"
+                                     @input="ctSetJatah(r.nik, pr.key, $event.target.value)">
+                            </td>
+                          </template>
+                          <td class="mono" style="font-weight:600" x-text="ctFmt(r.total)"></td>
+                          <td class="mono" x-text="ctFmt(r.terpakai)"></td>
+                          <td class="mono" :style="'font-weight:600; color: var(--' + (r.sisa < 0 ? 'danger' : (r.sisa === 0 ? 'amber' : 'green')) + ')'"
+                              x-text="ctFmt(r.sisa) + ' hari'"></td>
+                        </tr>
+                      </template>
+                      <tr x-show="cutiRows().length === 0"><td :colspan="5 + CT_PERIODE.length" class="empty-state" x-text="ctCari ? 'Tidak ada karyawan yang cocok.' : 'Belum ada karyawan di master.'"></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+
+              <div class="form-actions" x-show="isLeaderOrAdmin()">
+                <button type="button" class="btn-primary" @click="saveCuti()" :disabled="ctSaving"
+                        x-text="ctSaving ? 'Menyimpan...' : 'Simpan Jatah'"></button>
+                <button type="button" class="btn-secondary" @click="fetchCuti()" :disabled="ctSaving">Muat Ulang</button>
+              </div>
+            </div>
+            </template>
+
+            <!-- ===== REKAP CUTI =====
+                 Semua inputan Izin / Sakit / Cuti / Mangkir dari SELURUH
+                 user, lengkap dengan siapa yang menginput. Admin bisa
+                 mengubah & menghapus dari sini. -->
+            <template x-if="ctSub === 'rekap'">
+            <div>
+              <div class="panel">
+                <p class="panel-title">Rekap Cuti
+                  <span class="count" x-text="rkRows.length + ' baris'"></span>
+                </p>
+                <p class="hint" style="margin-bottom:14px;">
+                  Menampilkan inputan semua orang. Kosongkan Bulan untuk melihat
+                  satu tahun penuh.
+                </p>
+
+                <div class="form-grid" style="margin-bottom:12px;">
+                  <div class="field"><label>Jenis</label>
+                    <select x-model="rkJenis" @change="fetchRekap()">
+                      <option value="">Semua jenis</option>
+                      <option value="izin">Izin</option>
+                      <option value="sakit">Sakit</option>
+                      <option value="cuti">Cuti</option>
+                      <option value="mangkir">Mangkir</option>
+                    </select>
+                  </div>
+                  <div class="field"><label>Bulan</label>
+                    <select x-model="rkBulan" @change="fetchRekap()">
+                      <option value="">Semua bulan</option>
+                      <template x-for="(nm, i) in BULAN_LABELS" :key="'rk-bl-'+i">
+                        <option :value="String(i+1)" x-text="nm"></option>
+                      </template>
+                    </select>
+                  </div>
+                  <div class="field"><label>Tahun</label>
+                    <select x-model.number="rkTahun" @change="fetchRekap()">
+                      <template x-for="y in kwYearOptions" :key="'rk-th-'+y"><option :value="y" x-text="y"></option></template>
+                    </select>
+                  </div>
+                  <div class="field"><label>Cari karyawan</label>
+                    <input type="text" x-model="rkCari" placeholder="NIK atau nama">
+                  </div>
+                </div>
+
+                <p class="hint" x-show="rkError" style="color:var(--danger, #DC2626); font-weight:600; margin-bottom:10px;" x-text="rkError"></p>
+
+                <div class="form-actions" x-show="isLeaderOrAdmin()" style="margin-bottom:14px;">
+                  <button type="button" class="btn-secondary" @click="rkHitungUlangNol()" :disabled="rkRecalcLoading">
+                    <span x-text="rkRecalcLoading ? 'Menghitung ulang...' : 'Hitung Ulang Total Hari (yang 0)'"></span>
+                  </button>
+                  <span class="hint">Untuk baris Cuti lama yang Total Hari-nya masih 0 (mis. Ganti Hari baru ditambahkan belakangan). Hanya memproses baris sesuai filter di atas. Kalau setelah dijalankan masih ada yang 0 (ditandai merah), arahkan mouse ke angkanya untuk lihat alasannya.</span>
+                </div>
+
+                <template x-if="rkLoading"><p class="empty-state">Memuat rekap...</p></template>
+
+                <template x-if="!rkLoading">
+                  <div class="table-wrap">
+                    <table>
+                      <thead><tr><th>Jenis</th><th>NIK</th><th>Nama</th><th>Tanggal</th><th>Sampai</th><th>Total Hari</th><th>Jenis Cuti</th><th>Keterangan</th><th>Diinput oleh</th><th>Aksi</th></tr></thead>
+                      <tbody>
+                        <template x-for="r in rekapRows()" :key="'rk-'+r.id">
+                          <tr>
+                            <td x-text="rkLabel(r.jenis)"></td>
+                            <td class="mono" x-text="r.nik"></td>
+                            <td x-text="r.nama"></td>
+                            <td class="mono" x-text="r.tanggal"></td>
+                            <td class="mono" x-text="r.tanggal_selesai || '-'"></td>
+                            <td class="mono" :style="r.jenis === 'cuti' && !r.jumlah_hari ? 'color: var(--danger, #DC2626); font-weight:600; cursor:help;' : ''"
+                                :title="r.jenis === 'cuti' ? kenapaNolHari(r) : ''"
+                                x-text="r.jenis === 'cuti' ? (r.jumlah_hari ?? 1) : '-'"></td>
+                            <td x-text="r.jenis_cuti || '-'"></td>
+                            <td x-text="r.keterangan || '-'"></td>
+                            <td x-text="rkPenginput(r)"></td>
+                            <td>
+                              <button class="btn-secondary btn-sm" @click="editRekap(r)">Edit</button>
+                              <button class="btn-secondary btn-sm" @click="hapusRekap(r)">Hapus</button>
+                            </td>
+                          </tr>
+                        </template>
+                        <tr x-show="rekapRows().length === 0"><td colspan="10" class="empty-state">Tidak ada data.</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </template>
+              </div>
+
+              <!-- Form ubah, muncul kalau ada baris yang sedang diedit -->
+              <template x-if="rkEdit">
+                <div class="panel">
+                  <p class="panel-title">Ubah Data <span class="count" x-text="rkEdit.nama + ' (' + rkEdit.nik + ')'"></span></p>
+                  <div class="form-grid">
+                    <div class="field"><label>Jenis</label>
+                      <select x-model="rkEdit.jenis">
+                        <option value="izin">Izin</option>
+                        <option value="sakit">Sakit</option>
+                        <option value="cuti">Cuti</option>
+                        <option value="mangkir">Mangkir</option>
+                      </select>
+                    </div>
+                    <div class="field"><label x-text="rkEdit.jenis === 'cuti' ? 'Tanggal Mulai' : 'Tanggal'"></label>
+                      <input type="date" x-model="rkEdit.tanggal">
+                    </div>
+                    <template x-if="rkEdit.jenis === 'cuti'">
+                      <div class="field"><label>Tanggal Selesai</label>
+                        <input type="date" x-model="rkEdit.tanggal_selesai" :min="rkEdit.tanggal">
+                      </div>
+                    </template>
+                    <template x-if="rkEdit.jenis === 'cuti'">
+                      <div class="field"><label>Total Hari</label>
+                        <input type="number" min="0" step="1" x-model.number="rkEdit.jumlah_hari" placeholder="0">
+                        <span class="hint">
+                          Otomatis (Sabtu, Minggu, tanggal merah, ganti hari tidak dihitung): <b x-text="rkHitungHari() + ' hari'"></b>.
+                          Kalau mau dihitung sesuai jumlah hari cuti sebenarnya (mis. tetap 1 hari walau jatuh Sabtu/tanggal merah), ubah angka di atas langsung, atau
+                          <button type="button" class="btn-secondary btn-sm" @click="rkEdit.jumlah_hari = rkHitungHari()">Pakai Hitungan Otomatis</button>
+                        </span>
+                      </div>
+                    </template>
+                    <template x-if="rkEdit.jenis === 'cuti'">
+                      <div class="field"><label>Jenis Cuti</label>
+                        <select x-model="rkEdit.jenis_cuti">
+                          <option value="">Pilih jenis cuti...</option>
+                          <option value="Cuti Tahunan">Cuti Tahunan</option>
+                          <option value="Cuti Khusus">Cuti Khusus</option>
+                        </select>
+                        <span class="hint" x-show="rkEdit.jenis_cuti === 'Cuti Tahunan'">Memotong jatah cuti tahunan</span>
+                        <span class="hint" x-show="rkEdit.jenis_cuti === 'Cuti Khusus'">Tidak memotong jatah cuti</span>
+                      </div>
+                    </template>
+                    <div class="field" style="grid-column: 1 / -1;"><label>Keterangan</label>
+                      <input type="text" x-model="rkEdit.keterangan">
+                    </div>
+                  </div>
+                  <div class="form-actions">
+                    <button type="button" class="btn-primary" @click="simpanRekap()" :disabled="rkSaving"
+                            x-text="rkSaving ? 'Menyimpan...' : 'Simpan Perubahan'"></button>
+                    <button type="button" class="btn-secondary" @click="rkEdit = null" :disabled="rkSaving">Batal</button>
+                  </div>
+                </div>
+              </template>
+            </div>
+            </template>
+          </div>
+        </template>
+
+        <!-- ===== TAB: DATA KARYAWAN =====
+             Daftar induk seluruh karyawan (tabel karyawan_master).
+             Sumbernya sama dengan yang dipakai Attendance/Cuti/dll --
+             di sini cuma tempat lihat & kelola nama/status kerjanya. -->
+        <template x-if="activeTab === 'karyawan'">
+          <div class="panel">
+            <p class="panel-title">Data Karyawan
+              <span class="count" x-text="mkRows().length + ' / ' + mkList.length + ' karyawan'"></span>
+            </p>
+
+            <div class="form-grid" style="margin-bottom:14px;">
+              <div class="field"><label>Cari karyawan</label>
+                <input type="text" x-model="mkCari" placeholder="Ketik NIK atau nama">
+              </div>
+              <div class="field" x-show="isLeaderOrAdmin()"><label>NIK baru</label>
+                <input type="text" x-model="mkForm.nik" placeholder="mis. 130999">
+              </div>
+              <div class="field" x-show="isLeaderOrAdmin()"><label>Nama</label>
+                <input type="text" x-model="mkForm.nama" placeholder="Nama lengkap" @keyup.enter="mkTambah()">
+              </div>
+              <div class="field" x-show="isLeaderOrAdmin()" style="align-self:flex-end;">
+                <button type="button" class="btn-primary" @click="mkTambah()" :disabled="mkSaving">
+                  <span x-text="mkSaving ? 'Menyimpan...' : '+ Tambah Karyawan'"></span>
+                </button>
+              </div>
+            </div>
+
+            <p class="hint" x-show="mkError" style="color:var(--danger, #DC2626); font-weight:600; margin-bottom:10px;" x-text="mkError"></p>
+
+            <template x-if="mkLoading"><p class="empty-state">Memuat data karyawan...</p></template>
+
+            <template x-if="!mkLoading">
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>NIK</th><th>Nama</th><th>Status Kerja</th><th x-show="isLeaderOrAdmin()">Aksi</th></tr></thead>
+                  <tbody>
+                    <template x-for="r in mkRows()" :key="'mk-' + r.nik">
+                      <tr>
+                        <td class="mono" x-text="r.nik"></td>
+                        <td x-text="r.nama"></td>
+                        <td>
+                          <select :value="r.status_kerja || ''" @change="mkSetStatus(r.nik, $event.target.value)" :disabled="!isLeaderOrAdmin()">
+                            <option value="">Aktif</option>
+                            <option value="resign">Resign</option>
+                          </select>
+                        </td>
+                        <td x-show="isLeaderOrAdmin()">
+                          <button type="button" class="btn-danger btn-sm" @click="mkHapus(r.nik)">Hapus</button>
+                        </td>
+                      </tr>
+                    </template>
+                    <tr x-show="mkRows().length === 0"><td colspan="4" class="empty-state" x-text="mkCari ? 'Tidak ada karyawan yang cocok.' : 'Belum ada data karyawan.'"></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <!-- ===== TAB: DATA SUPPORTING =====
+             Daftar anggota Tim Supporting Andon (tabel andon_tim_anggota) --
+             data yang sama dipakai halaman Andon > Pengaturan > Tim
+             Supporting untuk mengunci filter tim di HP masing-masing
+             orang. Dikelola di sini juga supaya lebih gampang diatur
+             bareng data karyawan lainnya. Khusus admin. -->
+        <template x-if="activeTab === 'supporting'">
+          <div class="panel">
+            <p class="panel-title">Data Supporting
+              <span class="count" x-text="spRows().length + ' / ' + spList.length + ' orang'"></span>
+            </p>
+            <template x-if="!isAdmin()">
+              <p class="hint" style="color:var(--danger, #DC2626); font-weight:600;">Hanya admin yang bisa membuka Data Supporting.</p>
+            </template>
+
+            <template x-if="isAdmin()">
+            <div>
+              <div class="form-grid" style="margin-bottom:14px;">
+                <div class="field"><label>Cari</label>
+                  <input type="text" x-model="spCari" placeholder="NIK, nama, atau tim">
+                </div>
+                <div class="field"><label>NIK</label>
+                  <input type="text" x-model="spForm.nik" placeholder="mis. 130999">
+                </div>
+                <div class="field"><label>Nama</label>
+                  <input type="text" x-model="spForm.nama" placeholder="Nama lengkap">
+                </div>
+                <div class="field"><label>Tim</label>
+                  <select x-model="spForm.tim">
+                    <option value="">-- pilih --</option>
+                    <template x-for="t in spTimList" :key="'sp-opt-' + t"><option :value="t" x-text="t"></option></template>
+                  </select>
+                </div>
+                <div class="field" style="align-self:flex-end;">
+                  <button type="button" class="btn-primary" @click="spTambah()" :disabled="spSaving">
+                    <span x-text="spSaving ? 'Menyimpan...' : '+ Tambah / Ubah'"></span>
+                  </button>
+                </div>
+              </div>
+
+              <p class="hint" x-show="spError" style="color:var(--danger, #DC2626); font-weight:600; margin-bottom:10px;" x-text="spError"></p>
+
+              <template x-if="spLoading"><p class="empty-state">Memuat Tim Supporting...</p></template>
+
+              <template x-if="!spLoading">
+                <div class="table-wrap">
+                  <table>
+                    <thead><tr><th>NIK</th><th>Nama</th><th>Tim</th><th>Akun Login</th><th>Aksi</th></tr></thead>
+                    <tbody>
+                      <template x-for="r in spRows()" :key="'sp-' + r.nik">
+                        <tr>
+                          <td class="mono" x-text="r.nik"></td>
+                          <td x-text="r.nama"></td>
+                          <td><span class="badge" x-text="r.tim"></span></td>
+                          <td x-text="r.punya_akun ? ('Sudah (' + (r.nama_akun || '-') + ')') : 'Belum'"></td>
+                          <td><button type="button" class="btn-danger btn-sm" @click="spHapus(r.nik)">Hapus</button></td>
+                        </tr>
+                      </template>
+                      <tr x-show="spRows().length === 0"><td colspan="5" class="empty-state" x-text="spCari ? 'Tidak ada yang cocok.' : 'Belum ada anggota Tim Supporting.'"></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+            </div>
+            </template>
+          </div>
+        </template>
+
+      </div>
+    </template>
+  </main>
+</div>
+<script>
+
+function baseInputPage() {
+  return {
+    session: null, profile: null, mobileNavOpen: false, sidebarCollapsed: true,
+    theme: localStorage.getItem("theme_v1") || "light",
+    msg: "", msgError: false,
+        isAdmin() { return this.profile?.role === "admin"; },
+
+    isLeaderOrAdmin() { if (!this.profile) return false; const r = (this.profile.role||"").toLowerCase(); const j = (this.profile.jabatan||"").toLowerCase(); return ["admin","leader"].includes(r) || ["admin","leader"].includes(j); },
+    flash(m, isErr) {
+      this.msg = m; this.msgError = !!isErr;
+      setTimeout(() => { this.msg = ""; }, 4000);
+    },
+    async initBase() {
+      this.session = await requireAuth();
+      if (!this.session) return false;
+      if (!await requireStaff(this.session)) return false;
+      const { data } = await supabaseClient.from("profiles").select("*").eq("id", this.session.user.id).maybeSingle();
+      this.profile = data;
+      return true;
+    },
+    logout,
+  };
+}
+function fmtNum(n) {
+  if (n === null || n === undefined || Number.isNaN(Number(n))) return "-";
+  return Number(n).toLocaleString("en-US", { maximumFractionDigits: 1 });
+}
+// toISOString().slice(0,10) mengonversi ke UTC dulu -- WIB = UTC+7, jadi
+// tengah malam lokal bisa terpotong mundur 1 hari. Ambil Y/M/D lokal saja.
+function localDateStr(d) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function dataKaryawanPage() {
+  return {
+    ...baseInputPage(),
+    fmtNum,
+    // Tombol kategori Master Data -- baru ada "attendance" untuk
+    // sekarang, tapi ditulis sebagai activeTab supaya gampang nambah
+    // kategori Master Data lain nanti tanpa ubah struktur.
+    activeTab: "attendance",
+    // Submenu "Master Data" di sidebar (menggantikan deretan tombol di atas
+    // halaman). Mau tambah kategori baru: tambah satu baris di sini + blok
+    // <template x-if="activeTab === '...'"> seperti biasa.
+    // Di halaman ini sidebar dibuka dari awal (default halaman lain: menciut),
+    // karena pindah kategori sekarang lewat submenu di sidebar.
+    sidebarCollapsed: AppPref.sidebarAwal(false),
+    kyMenuOpen: false,   // sub-menu baru muncul setelah panah diklik
+    kyMenu: [
+      { tab: "attendance", label: "Attendance" },
+      { tab: "cuti", label: "Cuti" },
+      { tab: "karyawan", label: "Data Karyawan" },
+      { tab: "supporting", label: "Data Supporting" },
+    ],
+    // ---- Data Karyawan ----
+    mkList: [], mkLoading: false, mkLoaded: false, mkCari: "", mkError: "",
+    mkForm: { nik: "", nama: "" }, mkSaving: false,
+    // ---- Data Supporting (Tim Andon) ----
+    spList: [], spLoading: false, spLoaded: false, spCari: "", spError: "",
+    spForm: { nik: "", nama: "", tim: "" }, spSaving: false,
+    spTimList: ["MESIN", "DIES", "PE", "QC", "PC-SUPP", "PRESS"],
+    setTab(tab) {
+      this.activeTab = tab;
+      if (tab === "cuti" && !this.ctLoaded) { this.ctLoaded = true; this.fetchCuti(); }
+      if (tab === "karyawan" && !this.mkLoaded) { this.mkLoaded = true; this.fetchMkList(); }
+      if (tab === "supporting" && !this.spLoaded) { this.spLoaded = true; this.fetchSpList(); }
+    },
+    // Sub-tombol di dalam tab Attendance: "mp" | "overtime" | "shift2" | "libur" | "ganti"
+    atSub: "mp",
+    // ---- Total Orang (Bulanan) ----
+    // Dropdown Bulan pakai label yang sama dengan dashboard (BULAN_LABELS).
+    BULAN_LABELS: ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"],
+    mpForm: { bulan: new Date().getMonth() + 1, tahun: new Date().getFullYear(), total_orang: 46 },
+    mpRows: [],
+    // ---- Form Overtime Harian ----
+    otForm: { tanggal: localDateStr(new Date()), overtime_jam: "" },
+    otRows: [],
+    // ---- Form Kehadiran Shift Mingguan ----
+    shiftForm: { tanggal_mulai: localDateStr(new Date()), tanggal_selesai: localDateStr(new Date()), shift1_hadir: "", shift2_hadir: "", keterangan: "" },
+    shiftRows: [],
+    shiftEditId: null,
+    // ---- Kelola Hari Libur / Tanggal Merah ----
+    hariLiburRows: [], // { tanggal, keterangan } buat ditampilkan di tabel
+    hariLiburForm: { tanggal: localDateStr(new Date()), keterangan: "" },
+    // ---- Ganti Hari (masuk kerja pengganti) ----
+    // Satu tabel dengan hari libur (hari_libur), dibedakan kolom `jenis`.
+    gantiHariRows: [],
+    gantiHariForm: { tanggal: localDateStr(new Date()), shift: "1", keterangan: "" },
+    // ---- Absensi (grid harian 1-31, auto dari Cuti/Izin/Sakit/Mangkir +
+    // Hari Libur/Ganti Hari, tapi bisa ditimpa manual per sel) ----
+    absensiBulan: new Date().getMonth() + 1,
+    absensiTahun: new Date().getFullYear(),
+    absensiCari: "",
+    absensiLoading: false,
+    absensiLoadedKey: "",
+    absensiKaryawan: [],   // { nik, nama, status_kerja }
+    absensiLeave: [],      // baris attendance_leave yang bersinggungan dgn bulan ini
+    absensiLibur: [],      // baris hari_libur (jenis libur & ganti_hari) bulan ini
+    absensiManual: {},     // { "nik|tanggal": kode } -- override manual dari absensi_manual
+    // ---- Riwayat Upload Shift 2 (dipakai untuk auto-isi Kehadiran Shift
+    // Mingguan & menghitung ganti hari per orang; shift berubah tiap minggu
+    // jadi disimpan per periode, bukan statis per NIK) ----
+    karyawanList: [],         // { nik, nama } semua karyawan, buat validasi upload & template
+    totalKaryawan: 0,
+    shift2Periodes: [],       // { id, tanggal_mulai, tanggal_selesai, details:[{nik,nama}], nikSet:Set }
+    shift2UploadForm: { tanggal_mulai: localDateStr(new Date()), tanggal_selesai: localDateStr(new Date()) },
+    shift2Uploading: false,
+    shift2Msg: "",
+    shift2DetailOpenId: null,
+    shift2AutoFilled: false,
+    // Pilihan Tahun buat dropdown Total Orang (Bulanan) -- 2 tahun ke
+    // belakang s/d 1 tahun ke depan, cukup buat kebutuhan input.
+    // ---- Koefisien (per tahun) ----
+    // Rentang tahun dibikin lebih lebar dari tahunOptions (yang cuma
+    // 2 tahun ke belakang) karena koefisien lama masih sering dilihat.
+    // Sengaja BUKAN getter: kalau getter, arraynya dibuat ulang tiap kali
+    // dibaca, dan <select> yang isinya dari x-for bisa kehilangan nilai
+    // terpilihnya -- ini bikin tahun yang dikirim saat simpan jadi kacau.
+    kwYearOptions: (() => {
+      const y = new Date().getFullYear();
+      const out = [];
+      for (let i = y + 1; i >= y - 5; i--) out.push(i);
+      return out;
+    })(),
+    get tahunOptions() {
+      const y = new Date().getFullYear();
+      return [y - 2, y - 1, y, y + 1];
+    },
+    async init() {
+      if (!await this.initBase()) return;
+      await this.fetchMp();
+      await this.fetchOt();
+      await this.fetchShiftRows();
+      await this.fetchHariLibur();
+      await this.fetchKaryawanList();
+      await this.fetchShift2Periodes();
+      this.initRealtimeCuti();
+    },
+
+    // ================= REALTIME TAB CUTI =================
+    // Begitu ada cuti yang disetujui atasan, diedit, atau dihapus
+    // (tabel attendance_leave berubah), Rekap Cuti dan angka Terpakai/Sisa
+    // di Jatah Cuti ikut segar sendiri tanpa reload. Hanya tab yang SUDAH
+    // pernah dibuka yang disegarkan, supaya tidak menembak query sia-sia.
+    _rtCutiChannel: null,
+    _rtCutiTimers: {},
+    _rtCutiDebounce(key, fn, delayMs = 500) {
+      clearTimeout(this._rtCutiTimers[key]);
+      this._rtCutiTimers[key] = setTimeout(fn, delayMs);
+    },
+    initRealtimeCuti() {
+      if (this._rtCutiChannel) return;   // sudah jalan, jangan dobel subscribe
+      this._rtCutiChannel = supabaseClient.channel("rt_master_cuti")
+        .on("postgres_changes", { event: "*", schema: "public", table: "attendance_leave" }, () => {
+          this._rtCutiDebounce("leave", () => {
+            if (this.rkLoaded) this.fetchRekap({ diam: true });
+            if (this.ctLoaded) this.refreshTerpakaiCuti();
+          });
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "cuti_jatah" }, () => {
+          this._rtCutiDebounce("jatah", () => {
+            // Jangan menimpa angka jatah yang sedang diketik admin
+            if (this.ctLoaded && !this.ctSaving && !this.ctAdaPerubahan()) this.fetchCuti({ diam: true });
+          }, 700);
+        })
+        .subscribe();
+      window.addEventListener("beforeunload", () => {
+        if (this._rtCutiChannel) supabaseClient.removeChannel(this._rtCutiChannel);
+      });
+    },
+    // ---- Total Orang (Bulanan) ----
+    // Ditampilkan sebagai "Riwayat Total Orang" -- hanya baris yang
+    // tanggalnya persis tanggal 1 (hasil input dari form Bulanan ini).
+    // Baris lain (hasil input Overtime Harian di tanggal lain) tidak
+    // ikut nongol di sini, biar nggak ketuker.
+    async fetchMp() {
+      const { data, error } = await supabaseClient.from("attendance_log").select("*").order("tanggal", { ascending: false }).limit(100);
+      if (!error && data) this.mpRows = data.filter((r) => r.tanggal && r.tanggal.endsWith("-01"));
+    },
+    fmtBulanTahun(tanggal) {
+      const [y, m] = tanggal.split("-");
+      return `${this.BULAN_LABELS[Number(m) - 1]} ${y}`;
+    },
+    editMp(r) {
+      const [y, m] = r.tanggal.split("-");
+      this.mpForm = { bulan: Number(m), tahun: Number(y), total_orang: r.total_orang };
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    // Simpan Total Orang untuk 1 bulan penuh -- disimpan di baris
+    // tanggal=1 bulan itu, lalu ikut carry-forward ke semua tanggal di
+    // bulan tsb (lihat totalCarryOn() di dashboard-exhaust.html).
+    // Overtime yang sudah ada di tanggal 1 itu (kalau ada) TIDAK ditimpa.
+    async saveMp() {
+      const f = this.mpForm;
+      if (!f.bulan || !f.tahun || f.total_orang === "" || f.total_orang === null) { this.flash("Bulan, Tahun, dan Total Orang wajib diisi.", true); return; }
+      const tanggal = `${f.tahun}-${String(f.bulan).padStart(2, "0")}-01`;
+      const { data: existing } = await supabaseClient.from("attendance_log").select("overtime_jam").eq("tanggal", tanggal).maybeSingle();
+      const payload = {
+        tanggal,
+        total_orang: Number(f.total_orang) || 0,
+        overtime_jam: existing ? existing.overtime_jam : 0,
+        updated_by: this.session.user.id,
+      };
+      const { error } = await supabaseClient.from("attendance_log").upsert(payload, { onConflict: "tanggal" });
+      if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
+      this.flash(`Total Orang bulan ${this.fmtBulanTahun(tanggal)} tersimpan.`);
+      await this.fetchMp();
+    },
+    // ---- Overtime Harian ----
+    async fetchOt() {
+      const { data, error } = await supabaseClient.from("attendance_log").select("*").order("tanggal", { ascending: false }).limit(100);
+      if (!error && data) this.otRows = data;
+    },
+    editOt(r) {
+      this.otForm = { tanggal: r.tanggal, overtime_jam: r.overtime_jam };
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    // Simpan OT di 1 tanggal spesifik -- TIDAK menimpa Total Orang yang
+    // sudah tersimpan di tanggal itu (kalau ada baris sebelumnya).
+    async saveOt() {
+      const f = this.otForm;
+      if (!f.tanggal) { this.flash("Tanggal wajib diisi.", true); return; }
+      const { data: existing } = await supabaseClient.from("attendance_log").select("total_orang").eq("tanggal", f.tanggal).maybeSingle();
+      const payload = {
+        tanggal: f.tanggal,
+        overtime_jam: Number(f.overtime_jam) || 0,
+        total_orang: existing ? existing.total_orang : 0,
+        updated_by: this.session.user.id,
+      };
+      const { error } = await supabaseClient.from("attendance_log").upsert(payload, { onConflict: "tanggal" });
+      if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
+      this.flash("Overtime tersimpan.");
+      await this.fetchOt();
+      await this.fetchMp();
+    },
+    // ---- Kehadiran Shift Mingguan ----
+    async fetchShiftRows() {
+      const { data, error } = await supabaseClient.from("attendance_shift_weekly").select("*").order("tanggal_mulai", { ascending: false }).limit(100);
+      if (!error && data) this.shiftRows = data;
+    },
+    resetShiftForm() {
+      this.shiftForm = { tanggal_mulai: localDateStr(new Date()), tanggal_selesai: localDateStr(new Date()), shift1_hadir: "", shift2_hadir: "", keterangan: "" };
+      this.shiftEditId = null;
+    },
+    editShift(r) {
+      this.shiftForm = { tanggal_mulai: r.tanggal_mulai, tanggal_selesai: r.tanggal_selesai, shift1_hadir: r.shift1_hadir, shift2_hadir: r.shift2_hadir, keterangan: r.keterangan || "" };
+      this.shiftEditId = r.id;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    async saveShift() {
+      const f = this.shiftForm;
+      if (!f.tanggal_mulai || !f.tanggal_selesai) { this.flash("Tanggal Mulai dan Tanggal Selesai wajib diisi.", true); return; }
+      if (f.tanggal_selesai < f.tanggal_mulai) { this.flash("Tanggal Selesai tidak boleh sebelum Tanggal Mulai.", true); return; }
+      const payload = {
+        tanggal_mulai: f.tanggal_mulai,
+        tanggal_selesai: f.tanggal_selesai,
+        shift1_hadir: Number(f.shift1_hadir) || 0,
+        shift2_hadir: Number(f.shift2_hadir) || 0,
+        keterangan: f.keterangan || null,
+        updated_by: this.session.user.id,
+      };
+      let error;
+      if (this.shiftEditId) {
+        ({ error } = await supabaseClient.from("attendance_shift_weekly").update(payload).eq("id", this.shiftEditId));
+      } else {
+        ({ error } = await supabaseClient.from("attendance_shift_weekly").insert({ ...payload, created_by: this.session.user.id }));
+      }
+      if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
+      this.flash("Kehadiran Shift tersimpan.");
+      this.resetShiftForm();
+      await this.fetchShiftRows();
+    },
+    // Isi Hadir Shift 1/2 otomatis kalau Tanggal Mulai-Selesai di form ini
+    // persis sama dengan salah satu periode Shift 2 yang sudah diupload
+    // (panel Riwayat Upload Shift 2 di bawah). Shift 2 = jumlah orang di
+    // periode itu; Shift 1 = total karyawan dikurangi jumlah Shift 2
+    // (semua karyawan diasumsikan pasti Shift 1 atau Shift 2). Tetap bisa
+    // diedit manual sesudahnya.
+    autoFillShift() {
+      const f = this.shiftForm;
+      this.shift2AutoFilled = false;
+      if (!f.tanggal_mulai || !f.tanggal_selesai) return;
+      const match = this.shift2Periodes.find(
+        (p) => p.tanggal_mulai === f.tanggal_mulai && p.tanggal_selesai === f.tanggal_selesai
+      );
+      if (!match) return;
+      const shift2 = match.details.length;
+      this.shiftForm.shift2_hadir = shift2;
+      this.shiftForm.shift1_hadir = Math.max(0, this.totalKaryawan - shift2);
+      this.shift2AutoFilled = true;
+    },
+    async deleteShift(r) {
+      if (!confirm(`Hapus data Shift ${r.tanggal_mulai} - ${r.tanggal_selesai}?`)) return;
+      const { error } = await supabaseClient.from("attendance_shift_weekly").delete().eq("id", r.id);
+      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
+      this.flash("Data Shift dihapus.");
+      await this.fetchShiftRows();
+    },
+    // ---- Kelola Hari Libur / Tanggal Merah ----
+    async fetchHariLibur() {
+      const { data, error } = await supabaseClient.from("hari_libur").select("*").order("tanggal", { ascending: true });
+      if (!error && data) {
+        // Satu tabel, dua daftar: jenis 'ganti_hari' tampil di panel Ganti Hari,
+        // sisanya (termasuk baris lama tanpa jenis) tampil sebagai hari libur.
+        this.hariLiburRows = data.filter((r) => r.jenis !== "ganti_hari");
+        this.gantiHariRows = data.filter((r) => r.jenis === "ganti_hari");
+      }
+    },
+    async addHariLibur() {
+      const f = this.hariLiburForm;
+      if (!f.tanggal) { this.flash("Tanggal wajib diisi.", true); return; }
+      const bentrok = this.gantiHariRows.find((r) => r.tanggal === f.tanggal);
+      if (bentrok && !confirm(`Tanggal ${f.tanggal} sudah tercatat sebagai Ganti Hari. Ubah jadi hari libur?`)) return;
+      const { error } = await supabaseClient.from("hari_libur").upsert(
+        { tanggal: f.tanggal, keterangan: f.keterangan || null, jenis: "libur", created_by: this.session.user.id },
+        { onConflict: "tanggal" }
+      );
+      if (error) { this.flash("Gagal simpan hari libur: " + error.message, true); return; }
+      this.flash("Hari libur tersimpan.");
+      this.hariLiburForm = { tanggal: localDateStr(new Date()), keterangan: "" };
+      await this.fetchHariLibur();
+    },
+    // ---- Ganti Hari ----
+    // "Senin".."Minggu" untuk tanggal "YYYY-MM-DD" (dibaca sebagai tanggal lokal).
+    namaHari(tanggal) {
+      if (!tanggal) return "-";
+      return ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"][new Date(tanggal + "T00:00:00").getDay()];
+    },
+    async addGantiHari() {
+      const f = this.gantiHariForm;
+      if (!f.tanggal) { this.flash("Tanggal wajib diisi.", true); return; }
+      const bentrok = this.hariLiburRows.find((r) => r.tanggal === f.tanggal);
+      if (bentrok && !confirm(`Tanggal ${f.tanggal} sudah tercatat sebagai hari libur${bentrok.keterangan ? " (" + bentrok.keterangan + ")" : ""}. Ubah jadi Ganti Hari?`)) return;
+      const { error } = await supabaseClient.from("hari_libur").upsert(
+        { tanggal: f.tanggal, keterangan: f.keterangan || null, jenis: "ganti_hari", shift: f.shift || "1", created_by: this.session.user.id },
+        { onConflict: "tanggal" }
+      );
+      if (error) { this.flash("Gagal simpan ganti hari: " + error.message, true); return; }
+      this.flash("Ganti hari tersimpan.");
+      this.gantiHariForm = { tanggal: localDateStr(new Date()), shift: "1", keterangan: "" };
+      await this.fetchHariLibur();
+    },
+    async deleteGantiHari(r) {
+      if (!confirm(`Hapus ganti hari ${r.tanggal}${r.keterangan ? " (" + r.keterangan + ")" : ""}?`)) return;
+      const { error } = await supabaseClient.from("hari_libur").delete().eq("tanggal", r.tanggal);
+      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
+      this.flash("Ganti hari dihapus.");
+      await this.fetchHariLibur();
+    },
+    // ================= Absensi (grid harian) =================
+    fetchAbsensiIfNeeded() {
+      const key = this.absensiBulan + "-" + this.absensiTahun;
+      if (this.absensiLoadedKey !== key) this.fetchAbsensi();
+    },
+    absensiHariList() {
+      const n = new Date(this.absensiTahun, this.absensiBulan, 0).getDate();
+      return Array.from({ length: n }, (_, i) => i + 1);
+    },
+    absensiTanggal(hari) {
+      return this.absensiTahun + "-" + String(this.absensiBulan).padStart(2, "0") + "-" + String(hari).padStart(2, "0");
+    },
+    async fetchAbsensi() {
+      this.absensiLoading = true;
+      try {
+        const bln = this.absensiBulan, thn = this.absensiTahun;
+        const awal = thn + "-" + String(bln).padStart(2, "0") + "-01";
+        const akhir = this.absensiTanggal(new Date(thn, bln, 0).getDate());
+
+        const [karRes, leaveRes, liburRes, manualRes] = await Promise.all([
+          supabaseClient.from("karyawan_master").select("nik,nama,status_kerja").not("status_kerja", "is", null).order("nama"),
+          // Ambil baris cuti (bisa lintas tanggal via tanggal_selesai) DAN
+          // baris izin/sakit/mangkir (satu hari, tanggal_selesai kosong)
+          // yang bersinggungan dengan bulan ini.
+          supabaseClient.from("attendance_leave").select("nik,jenis,tanggal,tanggal_selesai")
+            .lte("tanggal", akhir)
+            .or(`and(tanggal_selesai.is.null,tanggal.gte.${awal}),tanggal_selesai.gte.${awal}`),
+          supabaseClient.from("hari_libur").select("tanggal,jenis,shift").gte("tanggal", awal).lte("tanggal", akhir),
+          supabaseClient.from("absensi_manual").select("nik,tanggal,kode").gte("tanggal", awal).lte("tanggal", akhir),
+        ]);
+
+        if (karRes.error) { this.flash("Gagal memuat karyawan: " + karRes.error.message, true); return; }
+        if (leaveRes.error) { this.flash("Gagal memuat data cuti/izin: " + leaveRes.error.message, true); return; }
+        if (liburRes.error) { this.flash("Gagal memuat hari libur: " + liburRes.error.message, true); return; }
+        if (manualRes.error) {
+          this.flash("Gagal memuat absensi manual: " + manualRes.error.message
+            + (String(manualRes.error.message).toLowerCase().includes("absensi_manual")
+                ? " — tabel absensi_manual belum ada. Jalankan migration_absensi.sql di Supabase SQL Editor."
+                : ""), true);
+          return;
+        }
+
+        this.absensiKaryawan = karRes.data || [];
+        this.absensiLeave = leaveRes.data || [];
+        this.absensiLibur = liburRes.data || [];
+        const man = {};
+        (manualRes.data || []).forEach((r) => { man[r.nik + "|" + r.tanggal] = r.kode; });
+        this.absensiManual = man;
+        this.absensiLoadedKey = bln + "-" + thn;
+      } finally {
+        this.absensiLoading = false;
+      }
+    },
+    absensiRows() {
+      const cari = (this.absensiCari || "").trim().toLowerCase();
+      return this.absensiKaryawan.filter((k) =>
+        !cari || String(k.nik).toLowerCase().includes(cari) || String(k.nama || "").toLowerCase().includes(cari));
+    },
+    // Hitungan otomatis satu sel -- persis logika yang sama dipakai trigger
+    // set_jumlah_hari_cuti() / kenapaNolHari(): Minggu selalu libur, Sabtu
+    // libur kecuali Ganti Hari yang cocok shift, tanggal merah libur,
+    // Senin-Jumat kerja. Cuti/Izin/Sakit/Mangkir menang dari semua itu.
+    absensiKodeAuto(nik, ds) {
+      const leave = this.absensiLeave.find((r) => {
+        if (r.nik !== nik) return false;
+        if (r.jenis === "cuti") {
+          const sampai = r.tanggal_selesai || r.tanggal;
+          return ds >= r.tanggal && ds <= sampai;
+        }
+        return r.tanggal === ds;
+      });
+      if (leave) {
+        if (leave.jenis === "cuti") return "C";
+        if (leave.jenis === "izin") return "I";
+        if (leave.jenis === "sakit") return "S";
+        if (leave.jenis === "mangkir") return "A";
+      }
+      const lib = this.absensiLibur.find((r) => r.tanggal === ds);
+      const dow = new Date(ds + "T00:00:00").getDay();
+      if (dow === 0) return "L";
+      if (dow === 6) {
+        if (lib && lib.jenis === "ganti_hari" && (lib.shift === "penuh" || lib.shift === this.shiftPadaTanggal(nik, ds))) return "";
+        return "L";
+      }
+      if (lib && lib.jenis === "libur") return "L";
+      return "";
+    },
+    absensiKode(nik, hari) {
+      const ds = this.absensiTanggal(hari);
+      const key = nik + "|" + ds;
+      if (Object.prototype.hasOwnProperty.call(this.absensiManual, key)) return this.absensiManual[key];
+      return this.absensiKodeAuto(nik, ds);
+    },
+    // Khusus untuk TAMPILAN sel (bukan data mentah -- data mentah yang
+    // dipakai untuk hitungan ringkasan tetap "" utk Hadir dan "C" utk
+    // Cuti, lihat absensiKode()/absensiHitung()):
+    //   - kosong (Hadir)  -> ditulis "1"
+    //   - C (Cuti)        -> ditulis "Ct"
+    //   - Sabtu & Minggu yang Libur -> "L" dihapus, tidak ditulis apa-apa
+    //     (tapi warna latar abu-abu Libur tetap jalan lewat absensiWarna()
+    //     yang masih pakai kode asli "L").
+    absensiKodeTampil(nik, hari) {
+      const kode = this.absensiKode(nik, hari);
+      if (kode === "L") {
+        const ds = this.absensiTanggal(hari);
+        const dow = new Date(ds + "T00:00:00").getDay();
+        if (dow === 0 || dow === 6) return "";
+        return "L";
+      }
+      if (kode === "") return "1";
+      if (kode === "C") return "Ct";
+      return kode;
+    },
+    absensiWarna(kode) {
+      const map = {
+        C: "background:#EFF6FF; color:#1D4ED8;",
+        I: "background:#FFF7ED; color:#C2410C;",
+        S: "background:#FAF5FF; color:#7E22CE;",
+        A: "background:#FEF2F2; color:#DC2626;",
+        L: "background:#F1F5F9; color:#64748B;",
+      };
+      return map[kode] || "";
+    },
+    // Ketik & pindah fokus (blur/Enter) -> simpan. Dikosongkan -> override
+    // dihapus, sel balik ikut hitungan otomatis lagi.
+    // Catatan: yang diketik user pakai label TAMPILAN ("1" utk Hadir, "Ct"
+    // utk Cuti) -- di sini dinormalkan balik ke kode mentah ("" dan "C")
+    // supaya tetap cocok dengan absensiKodeAuto()/absensiWarna()/hitungan
+    // ringkasan yang masih pakai kode mentah.
+    async absensiSetKode(nik, hari, val) {
+      const ds = this.absensiTanggal(hari);
+      let kode = (val || "").trim().toUpperCase();
+      if (kode === "1") kode = "";
+      if (kode === "CT") kode = "C";
+      const key = nik + "|" + ds;
+      if (!kode) {
+        if (Object.prototype.hasOwnProperty.call(this.absensiManual, key)) {
+          const salinan = { ...this.absensiManual };
+          delete salinan[key];
+          this.absensiManual = salinan;
+          const { error } = await supabaseClient.from("absensi_manual").delete().eq("nik", nik).eq("tanggal", ds);
+          if (error) this.flash("Gagal reset ke otomatis: " + error.message, true);
+        }
+        return;
+      }
+      this.absensiManual = { ...this.absensiManual, [key]: kode };
+      const { error } = await supabaseClient.from("absensi_manual")
+        .upsert({ nik, tanggal: ds, kode }, { onConflict: "nik,tanggal" });
+      if (error) this.flash("Gagal simpan absensi: " + error.message, true);
+    },
+    async absensiSetStatus(nik, val) {
+      const k = this.absensiKaryawan.find((x) => x.nik === nik);
+      if (k) k.status_kerja = val || null;
+      const { error } = await supabaseClient.from("karyawan_master").update({ status_kerja: val || null }).eq("nik", nik);
+      if (error) this.flash("Gagal simpan status: " + error.message, true);
+    },
+    // ---- Baris ringkasan di bawah grid (HADIR/CUTI/SAKIT/IZIN/ALFA/
+    // TOTAL MP/RASIO KEHADIRAN) -- dihitung dari kode yang lagi tampil
+    // di absensiRows(), bukan query terpisah, supaya selalu sinkron. ----
+    absensiHitung(hari, kode) {
+      return this.absensiRows().reduce((n, r) => n + (this.absensiKode(r.nik, hari) === kode ? 1 : 0), 0);
+    },
+    // Total MP hari itu = semua orang yang BUKAN Libur (L) -- Hadir +
+    // Cuti + Sakit + Izin + Alfa. Hari Minggu/tanggal merah biasanya
+    // jadi 0 karena semua orang kodenya L.
+    absensiTotalMp(hari) {
+      return this.absensiRows().reduce((n, r) => n + (this.absensiKode(r.nik, hari) !== "L" ? 1 : 0), 0);
+    },
+    absensiRasio(hari) {
+      const mp = this.absensiTotalMp(hari);
+      if (mp === 0) return "-";
+      const hadir = this.absensiHitung(hari, "");
+      return (hadir / mp * 100).toFixed(1).replace(".", ",") + "%";
+    },
+    // ---- Riwayat Upload Shift 2 ----
+    // Shift 2 rotasi mingguan -- disimpan per PERIODE (shift2_periode +
+    // shift2_periode_detail), bukan satu nilai tetap per NIK. Dipakai untuk
+    // auto-isi form Kehadiran Shift Mingguan, dan (lewat trigger database,
+    // migration_shift2_periode.sql) untuk menentukan shift orang pada
+    // hitungan Ganti Hari -- lihat rkHitungHari() di bawah.
+    async fetchKaryawanList() {
+      const { data } = await supabaseClient.from("karyawan_master").select("nik,nama").order("nama");
+      this.karyawanList = data || [];
+      this.totalKaryawan = this.karyawanList.length;
+    },
+    async fetchShift2Periodes() {
+      const [pRes, dRes] = await Promise.all([
+        supabaseClient.from("shift2_periode").select("id,tanggal_mulai,tanggal_selesai,created_at").order("tanggal_mulai", { ascending: false }).limit(60),
+        supabaseClient.from("shift2_periode_detail").select("periode_id,nik,nama"),
+      ]);
+      const periode = pRes.data || [];
+      const detail = dRes.data || [];
+      this.shift2Periodes = periode.map((p) => {
+        const details = detail.filter((d) => d.periode_id === p.id).sort((a, b) => (a.nama || "").localeCompare(b.nama || ""));
+        return { ...p, details, nikSet: new Set(details.map((d) => d.nik)) };
+      });
+    },
+    // Shift NIK X pada tanggal Y ("1"/"2"/null) -- HARUS SAMA PERSIS dengan
+    // public.shift_pada_tanggal() di migration_shift2_periode.sql, karena
+    // dipakai buat preview hitungan sebelum benar-benar tersimpan.
+    shiftPadaTanggal(nik, tanggalStr) {
+      const cocok = this.shift2Periodes.filter((p) => tanggalStr >= p.tanggal_mulai && tanggalStr <= p.tanggal_selesai);
+      if (cocok.length === 0) return null;
+      cocok.sort((a, b) => (a.tanggal_mulai < b.tanggal_mulai ? 1 : -1));   // periode terbaru dulu
+      return cocok[0].nikSet.has(nik) ? "2" : "1";
+    },
+    // File Excel: kolom NIK, NAMA saja -- daftar orang Shift 2 di satu periode.
+    _shift2SheetFromRows(rows) {
+      const data = [["NIK", "NAMA"], ...rows.map((r) => [r.nik, r.nama])];
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      ws["!cols"] = [{ wch: 12 }, { wch: 28 }];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Shift2");
+      return wb;
+    },
+    downloadShift2Template() {
+      // Template = semua karyawan (NIK, NAMA); tinggal hapus baris yang
+      // BUKAN Shift 2 minggu itu, sisakan yang Shift 2, lalu upload.
+      const wb = this._shift2SheetFromRows(this.karyawanList);
+      XLSX.writeFile(wb, "template_shift2.xlsx");
+    },
+    exportShift2Periode(p) {
+      const wb = this._shift2SheetFromRows(p.details);
+      XLSX.writeFile(wb, `shift2_${p.tanggal_mulai}_${p.tanggal_selesai}.xlsx`);
+    },
+    toggleShift2Detail(p) {
+      this.shift2DetailOpenId = this.shift2DetailOpenId === p.id ? null : p.id;
+    },
+    async deleteShift2Periode(p) {
+      if (!confirm(`Hapus data Shift 2 periode ${p.tanggal_mulai} - ${p.tanggal_selesai} (${p.details.length} orang)?`)) return;
+      const { error } = await supabaseClient.from("shift2_periode").delete().eq("id", p.id);
+      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
+      this.flash("Data Shift 2 dihapus.");
+      if (this.shift2DetailOpenId === p.id) this.shift2DetailOpenId = null;
+      await this.fetchShift2Periodes();
+    },
+    async handleShift2Upload(evt) {
+      const file = evt.target.files[0];
+      evt.target.value = "";   // biar bisa upload file yang sama lagi kalau perlu
+      if (!file) return;
+      const f = this.shift2UploadForm;
+      if (!f.tanggal_mulai || !f.tanggal_selesai) { this.shift2Msg = "Isi Tanggal Mulai dan Tanggal Selesai dulu sebelum upload."; return; }
+      if (f.tanggal_selesai < f.tanggal_mulai) { this.shift2Msg = "Tanggal Selesai tidak boleh sebelum Tanggal Mulai."; return; }
+      this.shift2Uploading = true;
+      this.shift2Msg = "";
+      try {
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+        // Header diterima fleksibel: NIK/nik, NAMA/nama
+        const karyawanMap = {};
+        this.karyawanList.forEach((k) => { karyawanMap[String(k.nik)] = k.nama; });
+        const seen = new Set();
+        const details = [];
+        const nikTakDikenal = [];
+        for (const row of rows) {
+          const nik = String(row.NIK ?? row.nik ?? row.Nik ?? "").trim();
+          if (!nik) continue;   // baris kosong dilewati, tidak dianggap error
+          if (seen.has(nik)) continue;   // duplikat di file, dilewati diam-diam
+          seen.add(nik);
+          if (!karyawanMap[nik]) { nikTakDikenal.push(nik); continue; }
+          const namaFile = String(row.NAMA ?? row.nama ?? row.Nama ?? "").trim();
+          details.push({ nik, nama: namaFile || karyawanMap[nik] });
+        }
+        if (details.length === 0) {
+          this.shift2Msg = "Tidak ada NIK valid untuk disimpan. Cek lagi kolom NIK di file.";
+          return;
+        }
+        // Upload ulang dengan tanggal persis sama = menimpa periode lama itu
+        const existing = this.shift2Periodes.find((p) => p.tanggal_mulai === f.tanggal_mulai && p.tanggal_selesai === f.tanggal_selesai);
+        if (existing) {
+          const { error: delErr } = await supabaseClient.from("shift2_periode").delete().eq("id", existing.id);
+          if (delErr) { this.shift2Msg = "Gagal menimpa data lama: " + delErr.message; return; }
+        }
+        const { data: periodeRow, error: perr } = await supabaseClient
+          .from("shift2_periode")
+          .insert({ tanggal_mulai: f.tanggal_mulai, tanggal_selesai: f.tanggal_selesai, uploaded_by: this.session.user.id })
+          .select()
+          .single();
+        if (perr) { this.shift2Msg = "Gagal menyimpan periode: " + perr.message; return; }
+        const insertRows = details.map((d) => ({ periode_id: periodeRow.id, nik: d.nik, nama: d.nama }));
+        const { error: derr } = await supabaseClient.from("shift2_periode_detail").insert(insertRows);
+        if (derr) { this.shift2Msg = "Gagal menyimpan daftar nama: " + derr.message; return; }
+        let pesan = `${details.length} orang Shift 2 tersimpan untuk periode ${f.tanggal_mulai} - ${f.tanggal_selesai}${existing ? " (menimpa data lama periode ini)" : ""}.`;
+        if (nikTakDikenal.length) pesan += ` ${nikTakDikenal.length} NIK tidak dikenal (dilewati): ${nikTakDikenal.slice(0, 5).join(", ")}${nikTakDikenal.length > 5 ? ", ..." : ""}.`;
+        this.shift2Msg = pesan;
+        this.flash("Data Shift 2 tersimpan.");
+        await this.fetchShift2Periodes();
+        this.autoFillShift();   // isi form Kehadiran Shift Mingguan kalau periodenya lagi sama
+      } catch (e) {
+        this.shift2Msg = "Gagal membaca file: " + e.message;
+      } finally {
+        this.shift2Uploading = false;
+      }
+    },
+    async deleteHariLibur(r) {
+      if (!confirm(`Hapus hari libur ${r.tanggal}${r.keterangan ? " (" + r.keterangan + ")" : ""}?`)) return;
+      const { error } = await supabaseClient.from("hari_libur").delete().eq("tanggal", r.tanggal);
+      if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
+      this.flash("Hari libur dihapus.");
+      await this.fetchHariLibur();
+    },
+    // ================= TAB CUTI: jatah cuti tahunan =================
+    // Tiap periode (tahun fiskal April..Maret) punya jatahnya sendiri,
+    // karena member mendapat cuti baru setiap tahun. Yang disimpan HANYA
+    // jatah per periode; Total, Terpakai, dan Sisa dihitung ulang tiap
+    // kali ditampilkan supaya tidak pernah basi kalau ada baris cuti
+    // yang diedit atau dihapus.
+    //
+    // `tahun` di tabel cuti_jatah = TAHUN AWAL periode.
+    // Jadi periode "25-26" (Apr 2025 .. Mar 2026) disimpan sebagai 2025.
+    CT_PERIODE: [
+      { key: 2025, label: "25-26" },
+      { key: 2026, label: "26-27" },
+      { key: 2027, label: "27-28" },
+      { key: 2028, label: "28-29" },
+    ],
+    ctCari: "",
+    ctLoading: false,
+    ctSaving: false,
+    ctError: "",
+    ctLoaded: false,
+    ctKaryawan: [],
+    ctJatahAwal: {},       // { nik: { tahun: jatah } } dari server
+    ctJatahEdit: {},       // { nik: { tahun: jatah } } yang lagi diketik
+    ctTerpakai: {},        // { nik: total hari Cuti Tahunan sepanjang periode }
+    ctFmt(n) {
+      const v = Number(n);
+      if (!Number.isFinite(v)) return "0";
+      return Number.isInteger(v) ? String(v) : v.toFixed(1).replace(".", ",");
+    },
+    ctSetJatah(nik, tahun, val) {
+      // Objek per-NIK diganti utuh supaya Alpine ikut merender ulang barisnya
+      this.ctJatahEdit[nik] = { ...(this.ctJatahEdit[nik] || {}), [tahun]: val };
+    },
+    // ---- Data Karyawan (tabel karyawan_master) ----
+    async fetchMkList() {
+      this.mkLoading = true; this.mkError = "";
+      const { data, error } = await supabaseClient.from("karyawan_master").select("nik,nama,status_kerja").order("nama");
+      this.mkLoading = false;
+      if (error) { this.mkError = "Gagal memuat data karyawan: " + error.message; return; }
+      this.mkList = data || [];
+    },
+    mkRows() {
+      const cari = (this.mkCari || "").trim().toLowerCase();
+      if (!cari) return this.mkList;
+      return this.mkList.filter((r) => String(r.nik).toLowerCase().includes(cari) || String(r.nama || "").toLowerCase().includes(cari));
+    },
+    async mkTambah() {
+      this.mkError = "";
+      const nik = (this.mkForm.nik || "").trim(), nama = (this.mkForm.nama || "").trim();
+      if (!nik || !nama) { this.mkError = "NIK dan nama wajib diisi."; return; }
+      this.mkSaving = true;
+      const { data, error } = await supabaseClient.rpc("master_karyawan_simpan", { p_nik: nik, p_nama: nama });
+      this.mkSaving = false;
+      if (error) { this.mkError = "Gagal menyimpan: " + error.message; return; }
+      if (!data || !data.ok) { this.mkError = (data && data.pesan) || "Gagal menyimpan."; return; }
+      this.mkForm = { nik: "", nama: "" };
+      this.flash("Karyawan disimpan.");
+      await this.fetchMkList();
+    },
+    async mkSetStatus(nik, val) {
+      const r = this.mkList.find((x) => x.nik === nik);
+      if (r) r.status_kerja = val || null;
+      const { error } = await supabaseClient.from("karyawan_master").update({ status_kerja: val || null }).eq("nik", nik);
+      if (error) this.flash("Gagal simpan status: " + error.message, true);
+    },
+    async mkHapus(nik) {
+      const r = this.mkList.find((x) => x.nik === nik);
+      if (!confirm("Hapus karyawan " + (r ? r.nama : nik) + " (" + nik + ") dari Data Karyawan?")) return;
+      const { data, error } = await supabaseClient.rpc("master_karyawan_hapus", { p_nik: nik });
+      if (error) { this.flash("Gagal menghapus: " + error.message, true); return; }
+      if (!data || !data.ok) { this.flash((data && data.pesan) || "Gagal menghapus.", true); return; }
+      this.mkList = this.mkList.filter((x) => x.nik !== nik);
+      this.flash("Karyawan dihapus.");
+    },
+
+    // ---- Data Supporting (tabel andon_tim_anggota, dipakai bareng Andon) ----
+    async fetchSpList() {
+      this.spLoading = true; this.spError = "";
+      const { data, error } = await supabaseClient.rpc("andon_tim_daftar");
+      this.spLoading = false;
+      if (error) { this.spError = "Gagal memuat Tim Supporting: " + error.message; return; }
+      this.spList = data || [];
+    },
+    spRows() {
+      const cari = (this.spCari || "").trim().toLowerCase();
+      if (!cari) return this.spList;
+      return this.spList.filter((r) =>
+        String(r.nik).toLowerCase().includes(cari) || String(r.nama || "").toLowerCase().includes(cari) || String(r.tim || "").toLowerCase().includes(cari));
+    },
+    async spTambah() {
+      this.spError = "";
+      const nik = (this.spForm.nik || "").trim(), nama = (this.spForm.nama || "").trim(), tim = this.spForm.tim;
+      if (!nik || !nama || !tim) { this.spError = "NIK, nama, dan tim wajib diisi."; return; }
+      this.spSaving = true;
+      const { data, error } = await supabaseClient.rpc("andon_tim_simpan", { p_nik: nik, p_nama: nama, p_tim: tim });
+      this.spSaving = false;
+      if (error) { this.spError = "Gagal menyimpan: " + error.message; return; }
+      if (!data || !data.ok) { this.spError = (data && data.pesan) || "Gagal menyimpan."; return; }
+      this.spForm = { nik: "", nama: "", tim: "" };
+      this.flash("Anggota Tim Supporting disimpan.");
+      await this.fetchSpList();
+    },
+    async spHapus(nik) {
+      const r = this.spList.find((x) => x.nik === nik);
+      if (!confirm("Keluarkan " + (r ? r.nama : nik) + " dari Tim Supporting?")) return;
+      const { data, error } = await supabaseClient.rpc("andon_tim_hapus", { p_nik: nik });
+      if (error) { this.flash("Gagal menghapus: " + error.message, true); return; }
+      if (!data || !data.ok) { this.flash("Gagal menghapus.", true); return; }
+      this.spList = this.spList.filter((x) => x.nik !== nik);
+      this.flash("Anggota dikeluarkan dari Tim Supporting.");
+    },
+
+    async fetchCuti(opts = {}) {
+      if (!opts.diam) this.ctLoading = true;
+      this.ctError = "";
+      try {
+        const tahunList = this.CT_PERIODE.map((p) => p.key);
+        // Rentang tanggal seluruh periode: 1 Apr tahun pertama s/d 31 Mar
+        // setelah tahun terakhir -- karena tahun fiskal mulai bulan April.
+        const mulai = tahunList[0] + "-04-01";
+        const akhir = (tahunList[tahunList.length - 1] + 1) + "-03-31";
+
+        const [karRes, jatahRes, cutiRes] = await Promise.all([
+          supabaseClient.from("karyawan_master").select("nik,nama").order("nama"),
+          supabaseClient.from("cuti_jatah").select("nik,tahun,jatah").in("tahun", tahunList),
+          supabaseClient.from("attendance_leave").select("nik,jenis_cuti,jumlah_hari,tanggal")
+            .eq("jenis", "cuti").gte("tanggal", mulai).lte("tanggal", akhir),
+        ]);
+        if (karRes.error) { this.ctError = "Gagal memuat karyawan: " + karRes.error.message; return; }
+        if (jatahRes.error) {
+          this.ctError = "Gagal memuat jatah cuti: " + jatahRes.error.message
+            + (String(jatahRes.error.message).toLowerCase().includes("cuti_jatah")
+                ? " — tabel cuti_jatah belum ada. Jalankan migration_cuti_jatah.sql di Supabase SQL Editor."
+                : "");
+          return;
+        }
+        if (cutiRes.error) { this.ctError = "Gagal memuat data cuti: " + cutiRes.error.message; return; }
+
+        this.ctKaryawan = karRes.data || [];
+        const awal = {};
+        (jatahRes.data || []).forEach((r) => {
+          awal[r.nik] = awal[r.nik] || {};
+          awal[r.nik][r.tahun] = Number(r.jatah);
+        });
+        const edit = {};
+        this.ctKaryawan.forEach((k) => {
+          edit[k.nik] = {};
+          tahunList.forEach((th) => {
+            // Belum pernah diatur -> DIBIARKAN KOSONG, bukan diisi angka
+            // bawaan. Jatah tiap orang bisa beda, jadi lebih jelas kalau
+            // yang belum diisi memang terlihat kosong.
+            const v = awal[k.nik] && awal[k.nik][th] !== undefined ? awal[k.nik][th] : "";
+            edit[k.nik][th] = v === "" ? "" : String(v);
+          });
+        });
+        this.ctJatahAwal = awal;
+        this.ctJatahEdit = edit;
+
+        this.ctTerpakai = this.hitungTerpakaiCuti(cutiRes.data);
+      } finally {
+        this.ctLoading = false;
+      }
+    },
+    // { nik: total hari } -- hanya Cuti Tahunan yang memotong jatah
+    hitungTerpakaiCuti(rows) {
+      const pakai = {};
+      (rows || []).forEach((r) => {
+        if (r.jenis_cuti !== "Cuti Tahunan") return;
+        pakai[r.nik] = (pakai[r.nik] || 0) + Number(r.jumlah_hari ?? 1);
+      });
+      return pakai;
+    },
+    // Segarkan HANYA angka Terpakai/Sisa (dipanggil realtime). Kolom jatah
+    // tidak disentuh, jadi angka yang sedang diketik admin tidak hilang.
+    async refreshTerpakaiCuti() {
+      const tahunList = this.CT_PERIODE.map((p) => p.key);
+      const mulai = tahunList[0] + "-04-01";
+      const akhir = (tahunList[tahunList.length - 1] + 1) + "-03-31";
+      const { data, error } = await supabaseClient.from("attendance_leave")
+        .select("nik,jenis_cuti,jumlah_hari,tanggal")
+        .eq("jenis", "cuti").gte("tanggal", mulai).lte("tanggal", akhir);
+      if (!error) this.ctTerpakai = this.hitungTerpakaiCuti(data);
+    },
+    // Ada angka jatah yang sudah diketik tapi belum disimpan?
+    ctAdaPerubahan() {
+      for (const nik of Object.keys(this.ctJatahEdit || {})) {
+        for (const p of this.CT_PERIODE) {
+          const isi = String((this.ctJatahEdit[nik] || {})[p.key] ?? "").trim();
+          const lama = (this.ctJatahAwal[nik] || {})[p.key];
+          if (isi === "" ? lama !== undefined : Number(isi) !== Number(lama)) return true;
+        }
+      }
+      return false;
+    },
+    cutiRows() {
+      const cari = (this.ctCari || "").trim().toLowerCase();
+      return this.ctKaryawan
+        .filter((k) => !cari || String(k.nik).toLowerCase().includes(cari) || String(k.nama || "").toLowerCase().includes(cari))
+        .map((k) => {
+          const baris = this.ctJatahEdit[k.nik] || {};
+          const total = this.CT_PERIODE.reduce((a, p) => a + (Number(baris[p.key]) || 0), 0);
+          const terpakai = Number(this.ctTerpakai[k.nik] || 0);
+          return { nik: k.nik, nama: k.nama, total, terpakai, sisa: total - terpakai };
+        });
+    },
+    async saveCuti() {
+      if (!this.isLeaderOrAdmin()) { this.flash("Hanya admin/leader yang bisa menyimpan.", true); return; }
+      // Cuma sel yang angkanya berubah yang dikirim, biar tidak menulis ulang
+      // seluruh daftar (49 karyawan x 4 periode) tiap kali menyimpan.
+      const payload = [];
+      const hapus = [];      // sel yang dikosongkan padahal sebelumnya ada isinya
+      for (const k of this.ctKaryawan) {
+        for (const p of this.CT_PERIODE) {
+          const isi = String((this.ctJatahEdit[k.nik] || {})[p.key] ?? "").trim();
+          const lama = (this.ctJatahAwal[k.nik] || {})[p.key];
+          if (isi === "") {
+            // Dibiarkan kosong. Kalau dulu ada isinya, berarti sengaja dihapus.
+            if (lama !== undefined) hapus.push({ nik: k.nik, tahun: p.key });
+            continue;
+          }
+          const baru = Number(isi);
+          if (!Number.isFinite(baru) || baru < 0) {
+            this.ctError = "Jatah " + (k.nama || k.nik) + " periode " + p.label + " tidak valid."; return;
+          }
+          if (lama === undefined || Number(lama) !== baru) payload.push({ nik: k.nik, tahun: p.key, jatah: baru });
+        }
+      }
+      if (!payload.length && !hapus.length) { this.flash("Tidak ada perubahan jatah."); return; }
+      this.ctSaving = true;
+      this.ctError = "";
+      try {
+        if (payload.length) {
+          const { error } = await supabaseClient.from("cuti_jatah").upsert(payload, { onConflict: "nik,tahun" });
+          if (error) { this.ctError = "Gagal simpan jatah: " + error.message; return; }
+        }
+        for (const h of hapus) {
+          const { error } = await supabaseClient.from("cuti_jatah").delete().eq("nik", h.nik).eq("tahun", h.tahun);
+          if (error) { this.ctError = "Gagal hapus jatah: " + error.message; return; }
+        }
+        this.flash(payload.length + " jatah tersimpan" + (hapus.length ? ", " + hapus.length + " dikosongkan" : "") + ".");
+        await this.fetchCuti();
+      } finally {
+        this.ctSaving = false;
+      }
+    },
+
+    // ================= REKAP CUTI =================
+    // Daftar seluruh inputan Izin/Sakit/Cuti/Mangkir dari semua user,
+    // untuk dilihat & diperbaiki admin. Penyaringan berat (jenis, bulan,
+    // tahun) dilakukan di server; pencarian nama/NIK disaring di layar
+    // supaya tidak menembak query tiap huruf.
+    ctSub: "jatah",        // sub-tab aktif: "jatah" | "rekap"
+    rkJenis: "",
+    rkBulan: "",
+    rkTahun: new Date().getFullYear(),
+    rkCari: "",
+    rkRows: [],
+    rkProfiles: {},        // { user_id: nama } -- untuk kolom "Diinput oleh"
+    rkHariLibur: [],
+    rkLoading: false,
+    rkSaving: false,
+    rkError: "",
+    rkLoaded: false,
+    rkEdit: null,          // salinan baris yang sedang diubah
+    setCutiSub(sub) {
+      this.ctSub = sub;
+      if (sub === "rekap" && !this.rkLoaded) { this.rkLoaded = true; this.fetchRekap(); }
+    },
+    rkLabel(j) {
+      return { izin: "Izin", sakit: "Sakit", cuti: "Cuti", mangkir: "Mangkir" }[j] || j;
+    },
+    rkPenginput(r) {
+      return this.rkProfiles[r.created_by] || "-";
+    },
+    // opts.diam = true -> disegarkan diam-diam (realtime), tabel tidak berkedip
+    async fetchRekap(opts = {}) {
+      if (!opts.diam) this.rkLoading = true;
+      this.rkError = "";
+      try {
+        const th = Number(this.rkTahun);
+        let mulai, akhir;
+        if (this.rkBulan) {
+          const bl = Number(this.rkBulan);
+          const lastDay = new Date(th, bl, 0).getDate();
+          mulai = th + "-" + String(bl).padStart(2, "0") + "-01";
+          akhir = th + "-" + String(bl).padStart(2, "0") + "-" + String(lastDay).padStart(2, "0");
+        } else {
+          mulai = th + "-01-01";
+          akhir = th + "-12-31";
+        }
+        let q = supabaseClient.from("attendance_leave").select("*")
+          .gte("tanggal", mulai).lte("tanggal", akhir)
+          .order("tanggal", { ascending: false }).limit(500);
+        if (this.rkJenis) q = q.eq("jenis", this.rkJenis);
+
+        const [rowsRes, profRes, liburRes] = await Promise.all([
+          q,
+          supabaseClient.from("profiles").select("id,full_name,email"),
+          supabaseClient.from("hari_libur").select("tanggal,jenis,shift"),
+        ]);
+        if (rowsRes.error) { this.rkError = "Gagal memuat rekap: " + rowsRes.error.message; return; }
+        this.rkRows = rowsRes.data || [];
+        const map = {};
+        (profRes.data || []).forEach((p) => { map[p.id] = p.full_name || p.email || "-"; });
+        this.rkProfiles = map;
+        this.rkHariLibur = liburRes.data || [];
+      } finally {
+        this.rkLoading = false;
+      }
+    },
+    rekapRows() {
+      const cari = (this.rkCari || "").trim().toLowerCase();
+      if (!cari) return this.rkRows;
+      return this.rkRows.filter((r) =>
+        String(r.nik || "").toLowerCase().includes(cari) ||
+        String(r.nama || "").toLowerCase().includes(cari));
+    },
+    editRekap(r) {
+      this.rkEdit = { ...r };   // disalin, biar batal tidak mengubah tabel
+      // Data lama bisa berisi Cuti Besar / Cuti Melahirkan / Cuti Lainnya,
+      // yang sudah dihapus dari dropdown. Dipetakan ke Cuti Khusus supaya
+      // dropdown tidak tampil kosong. Sama-sama tidak memotong jatah,
+      // jadi hitungan tidak berubah.
+      if (r.jenis === "cuti" && r.jenis_cuti && !["Cuti Tahunan", "Cuti Khusus"].includes(r.jenis_cuti)) {
+        this.rkEdit.jenis_cuti = "Cuti Khusus";
+      }
+      this.rkError = "";
+    },
+    // Hari yang dihitung antara 2 tanggal:
+    //  - Minggu: selalu tidak dihitung.
+    //  - Senin-Jumat: dihitung, KECUALI tanggal merah biasa (jenis 'libur').
+    //  - Sabtu: TIDAK dihitung, kecuali ada catatan Ganti Hari (jenis
+    //    'ganti_hari') di tanggal itu DAN shift orangnya cocok (atau
+    //    catatannya 'penuh'). Shift orang dicek PER HARI lewat
+    //    shiftPadaTanggal() (Shift 2 rotasi mingguan, jadi bisa beda di
+    //    minggu berbeda dalam satu rentang cuti); kalau belum tercatat,
+    //    dianggap tidak dihitung (aman, tidak memotong jatah secara
+    //    tidak sengaja).
+    // Rumus ini harus SAMA PERSIS dengan leaveTotalHari() di
+    // input-attendance.html dan trigger set_jumlah_hari_cuti() di database
+    // (lihat migration_shift2_periode.sql) -- kalau salah satu diubah,
+    // ubah juga yang lain supaya preview di layar tidak beda dari yang
+    // benar-benar tersimpan.
+    // Fungsi hitung generik -- dipakai rkHitungHari() untuk preview di form
+    // Edit (pakai rkEdit), DAN rkHitungUlangNol() untuk perbaiki massal baris
+    // lama yang Total Hari-nya masih 0 (mis. dulu belum ada catatan Ganti
+    // Hari, sekarang sudah ada). Rumus HARUS SAMA PERSIS dengan
+    // leaveTotalHari() di input-attendance.html dan trigger
+    // set_jumlah_hari_cuti() di database (lihat migration_shift2_periode.sql).
+    hitungHariCuti(nik, tanggalMulai, tanggalSelesai) {
+      if (!tanggalMulai) return 0;
+      const selesai = tanggalSelesai || tanggalMulai;
+      let d = new Date(tanggalMulai + "T00:00:00");
+      const akhir = new Date(selesai + "T00:00:00");
+      if (akhir < d) return 0;
+      let total = 0;
+      while (d <= akhir) {
+        const dow = d.getDay();   // 0 = Minggu, 6 = Sabtu
+        const ds = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+        const lib = this.rkHariLibur.find((r) => r.tanggal === ds);
+        if (dow === 0) {
+          // Minggu: tidak dihitung
+        } else if (dow === 6) {
+          if (lib && lib.jenis === "ganti_hari" && (lib.shift === "penuh" || lib.shift === this.shiftPadaTanggal(nik, ds))) total++;
+        } else {
+          if (!lib || lib.jenis !== "libur") total++;
+        }
+        d.setDate(d.getDate() + 1);
+      }
+      return total;
+    },
+    // ---- Kenapa Total Hari masih 0? ----
+    // Dipakai sebagai tooltip (title) di kolom Total Hari saat nilainya 0,
+    // supaya kelihatan alasannya PER TANGGAL -- bukan cuma "0" tanpa
+    // penjelasan. 3 kemungkinan penyebab hari Sabtu tidak terhitung:
+    //  (1) belum ada catatan Ganti Hari di tanggal itu sama sekali,
+    //  (2) Ganti Hari ada tapi shift-nya tidak "Penuh" DAN shift karyawan
+    //      pada tanggal itu belum diketahui (tidak ada periode Shift 2 yang
+    //      mencakup tanggal itu di panel Riwayat Upload Shift 2),
+    //  (3) Ganti Hari ada, shift karyawan sudah diketahui, tapi shift-nya
+    //      tidak cocok dengan shift Ganti Hari (mis. Ganti Hari untuk Shift
+    //      2, tapi karyawan ini Shift 1 minggu itu -- jadi memang wajar 0).
+    kenapaNolHari(r) {
+      if (r.jenis !== "cuti" || !r.tanggal) return "";
+      const selesai = r.tanggal_selesai || r.tanggal;
+      let d = new Date(r.tanggal + "T00:00:00");
+      const akhir = new Date(selesai + "T00:00:00");
+      if (akhir < d) return "";
+      const alasan = [];
+      while (d <= akhir) {
+        const dow = d.getDay();
+        const ds = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+        const lib = this.rkHariLibur.find((x) => x.tanggal === ds);
+        if (dow === 0) {
+          alasan.push(ds + ": Minggu (memang tidak dihitung)");
+        } else if (dow === 6) {
+          if (!lib || lib.jenis !== "ganti_hari") {
+            alasan.push(ds + ": Sabtu, BELUM ADA catatan Ganti Hari untuk tanggal ini -> tambahkan dulu di Attendance > Ganti Hari.");
+          } else if (lib.shift !== "penuh") {
+            const shiftNya = this.shiftPadaTanggal(r.nik, ds);
+            if (shiftNya === null) {
+              alasan.push(ds + ": Ganti Hari Shift " + lib.shift + ", tapi shift karyawan tanggal ini BELUM DIKETAHUI (tidak ada periode di Riwayat Upload Shift 2 yang mencakup tanggal ini) -> upload periode Shift 2 yang mencakup tanggal ini, atau ubah Ganti Hari ke 'Shift 1 & 2 (Penuh)'.");
+            } else if (shiftNya !== lib.shift) {
+              alasan.push(ds + ": Ganti Hari untuk Shift " + lib.shift + ", tapi karyawan ini Shift " + shiftNya + " pada tanggal itu -> memang tidak dihitung (sesuai aturan).");
+            }
+          }
+        } else if (lib && lib.jenis === "libur") {
+          alasan.push(ds + ": tanggal merah (" + (lib.keterangan || "libur") + ")");
+        }
+        d.setDate(d.getDate() + 1);
+      }
+      return alasan.join("\n");
+    },
+    rkHitungHari() {
+      const e = this.rkEdit;
+      if (!e || !e.tanggal) return 0;
+      return this.hitungHariCuti(e.nik, e.tanggal, e.tanggal_selesai || e.tanggal);
+    },
+    // ---- Hitung Ulang Total Hari (yang masih 0) ----
+    // Untuk baris Cuti LAMA yang Total Hari-nya 0 karena, waktu disimpan
+    // dulu, belum ada catatan Ganti Hari di tanggal itu (sekarang sudah
+    // ditambahkan). Hanya memproses baris yang SEDANG TAMPIL di tabel
+    // (ikut filter Jenis/Bulan/Tahun/Cari di layar) -- supaya cakupannya
+    // jelas dan bisa dipersempit (mis. isi Cari dengan 1 NIK dulu). Baris
+    // yang hasil hitung ulangnya TETAP 0 tidak disentuh/di-update.
+    rkRecalcLoading: false,
+    async rkHitungUlangNol() {
+      const kandidat = this.rekapRows().filter((r) => r.jenis === "cuti" && (r.jumlah_hari === 0 || r.jumlah_hari === null));
+      if (kandidat.length === 0) { this.flash("Tidak ada baris Cuti dengan Total Hari = 0 pada tampilan/filter saat ini."); return; }
+      if (!confirm(`Hitung ulang ${kandidat.length} baris Cuti yang Total Hari-nya 0 (pakai data Hari Libur & Ganti Hari yang berlaku sekarang)?\n\nBaris yang hasil hitungnya tetap 0 tidak akan diubah.`)) return;
+      this.rkRecalcLoading = true;
+      this.rkError = "";
+      let berubah = 0, gagal = 0;
+      try {
+        for (const r of kandidat) {
+          const baru = this.hitungHariCuti(r.nik, r.tanggal, r.tanggal_selesai || r.tanggal);
+          if (baru > 0) {
+            const { error } = await supabaseClient.from("attendance_leave").update({ jumlah_hari: baru }).eq("id", r.id);
+            if (error) gagal++; else berubah++;
+          }
+        }
+        this.flash(`Selesai: ${berubah} baris diperbarui` + (gagal ? `, ${gagal} gagal disimpan.` : "."));
+        await this.fetchRekap();
+      } finally {
+        this.rkRecalcLoading = false;
+      }
+    },
+    async simpanRekap() {
+      const e = this.rkEdit;
+      if (!e) return;
+      if (!e.tanggal) { this.rkError = "Tanggal wajib diisi."; return; }
+      if (e.jenis === "cuti" && !e.tanggal_selesai) { this.rkError = "Tanggal Selesai wajib diisi."; return; }
+      if (e.jenis === "cuti" && e.tanggal_selesai < e.tanggal) { this.rkError = "Tanggal Selesai tidak boleh sebelum Tanggal Mulai."; return; }
+      if (e.jenis === "cuti" && !e.jenis_cuti) { this.rkError = "Jenis Cuti wajib dipilih."; return; }
+      if (e.jenis === "cuti" && (e.jumlah_hari === null || e.jumlah_hari === "" || e.jumlah_hari === undefined || Number(e.jumlah_hari) < 0)) {
+        this.rkError = "Total Hari wajib diisi (boleh 0 kalau memang tidak dihitung, tidak boleh minus).";
+        return;
+      }
+      this.rkSaving = true;
+      this.rkError = "";
+      try {
+        // Kolom khusus cuti dikosongkan kalau jenisnya diubah jadi bukan cuti,
+        // supaya tidak ada sisa data yang menyesatkan.
+        // Total Hari (jumlah_hari) SEKARANG DIAMBIL DARI ANGKA YANG DIKETIK
+        // ADMIN di field Total Hari (bisa beda dari hitungan otomatis
+        // rkHitungHari(), mis. cuti jatuh di Sabtu/tanggal merah tapi admin
+        // memang mau tetap dihitung 1 hari) -- BUKAN dipaksa pakai hitungan
+        // otomatis lagi seperti sebelumnya.
+        const payload = {
+          jenis: e.jenis,
+          tanggal: e.tanggal,
+          tanggal_selesai: e.jenis === "cuti" ? e.tanggal_selesai : null,
+          jenis_cuti: e.jenis === "cuti" ? e.jenis_cuti : null,
+          jumlah_hari: e.jenis === "cuti" ? Number(e.jumlah_hari) : 1,
+          keterangan: (e.keterangan || "").trim() || null,
+        };
+        const { error } = await supabaseClient.from("attendance_leave").update(payload).eq("id", e.id);
+        if (error) { this.rkError = "Gagal simpan: " + error.message; return; }
+        this.flash("Perubahan tersimpan.");
+        this.rkEdit = null;
+        await this.fetchRekap();
+      } finally {
+        this.rkSaving = false;
+      }
+    },
+    async hapusRekap(r) {
+      if (!confirm("Hapus data " + this.rkLabel(r.jenis) + " atas nama " + r.nama + " (" + r.tanggal + ")?")) return;
+      const { error } = await supabaseClient.from("attendance_leave").delete().eq("id", r.id);
+      if (error) { this.rkError = "Gagal hapus: " + error.message; return; }
+      if (this.rkEdit && this.rkEdit.id === r.id) this.rkEdit = null;
+      this.flash("Data dihapus.");
+      await this.fetchRekap();
+    },
+
+  };
+}
+</script>
+</body>
+</html>

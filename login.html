@@ -17,7 +17,7 @@
   /* Tab jenis login: Karyawan / Administrator / Guest */
   .login-jenis { display: flex; gap: 6px; margin: 4px 0 14px; }
   .login-jenis button {
-    flex: 1; padding: 8px 6px; font-size: 12.5px; font-weight: 600;
+    flex: 1; padding: 8px 6px; font-size: 0.7812rem; font-weight: 600;
     border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.55);
     background: rgba(255, 255, 255, 0.10); color: #fff; cursor: pointer;
   }
@@ -283,6 +283,15 @@ function loginPage() {
       //   leader   -> Input Produksi (yang paling sering dikerjakan)
       //   operator -> Attendance (satu-satunya halaman yang boleh dibuka;
       //               kalau lewat Dashboard dulu dia cuma akan dipantulkan)
+      // Pilihan pribadi dari Pengaturan > Halaman awal (hanya admin/leader,
+      // dan hanya halaman yang memang boleh dibuka perannya).
+      try {
+        const pref = (JSON.parse(localStorage.getItem("app_pref_v1")) || {}).halamanAwal;
+        const boleh = admin
+          ? ["dashboard-exhaust.html","input-produksi.html","input-attendance.html","andon.html","perencanaan-produksi.html","data-mentah.html","data-karyawan.html","data-dashboard.html"]
+          : leader ? ["dashboard-exhaust.html","input-produksi.html","input-attendance.html","andon.html"] : [];
+        if (pref && pref !== "auto" && boleh.indexOf(pref) >= 0) return pref;
+      } catch (e) { /* abaikan -> pakai aturan otomatis */ }
       if (role === "guest") return "dashboard-exhaust.html"; // guest: hanya Dashboard Exhaust
       if (role === "viewer") return "dashboard-exhaust.html"; // viewer: Dashboard Exhaust + Attendance
       if (role === "supporting") return "andon.html"; // supporting: hanya Andon

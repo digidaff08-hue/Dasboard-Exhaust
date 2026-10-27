@@ -56,7 +56,7 @@
   gap: 6px;
 }
 .dxy-field label {
-  font-size: 9.5px;
+  font-size: 0.5938rem;
   font-weight: 700;
   letter-spacing: .04em;
   text-transform: uppercase;
@@ -69,7 +69,7 @@
   color: var(--dxy-text);
   border-radius: 8px;
   padding: 4px 7px;
-  font-size: 11.5px;
+  font-size: 0.7188rem;
   font-family: inherit;
   min-height: 26px;
 }
@@ -82,7 +82,7 @@
   color: var(--dxy-text);
   border-radius: 10px;
   padding: 7px 12px;
-  font-size: 12.5px;
+  font-size: 0.7812rem;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -115,16 +115,16 @@
 }
 .dxy-kpi-card:hover { transform: translateY(-2px); box-shadow: var(--dxy-shadow-hover); }
 .dxy-kpi-top { display: flex; align-items: center; justify-content: space-between; }
-.dxy-kpi-label { display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; color: var(--dxy-muted); text-transform: uppercase; }
+.dxy-kpi-label { display: flex; align-items: center; gap: 6px; font-size: 0.6562rem; font-weight: 700; letter-spacing: .04em; color: var(--dxy-muted); text-transform: uppercase; }
 .dxy-kpi-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .dxy-kpi-mid { display: flex; align-items: baseline; gap: 8px; }
-.dxy-kpi-value { font-size: 26px; font-weight: 800; letter-spacing: -0.01em; line-height: 1; }
-.dxy-kpi-delta { font-size: 11.5px; font-weight: 700; display: inline-flex; align-items: center; gap: 2px; }
+.dxy-kpi-value { font-size: 1.625rem; font-weight: 800; letter-spacing: -0.01em; line-height: 1; }
+.dxy-kpi-delta { font-size: 0.7188rem; font-weight: 700; display: inline-flex; align-items: center; gap: 2px; }
 .dxy-kpi-delta.up { color: var(--dxy-green); }
 .dxy-kpi-delta.down { color: var(--dxy-red); }
 .dxy-kpi-delta.flat { color: var(--dxy-muted); }
 .dxy-kpi-bottom { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
-.dxy-kpi-target { font-size: 10.5px; color: var(--dxy-muted); }
+.dxy-kpi-target { font-size: 0.6562rem; color: var(--dxy-muted); }
 .dxy-kpi-spark { width: 84px; height: 28px; }
 
 /* ---- Smart Narrative (Baris 3) ---- */
@@ -136,10 +136,10 @@
   box-shadow: var(--dxy-shadow);
   min-width: 0;
 }
-.dxy-narrative-head { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--dxy-muted); margin-bottom: 10px; }
+.dxy-narrative-head { font-size: 0.6562rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--dxy-muted); margin-bottom: 10px; }
 .dxy-narrative-list { display: flex; flex-direction: column; gap: 9px; }
-.dxy-narrative-item { display: flex; align-items: flex-start; gap: 9px; font-size: 13px; line-height: 1.5; }
-.dxy-narrative-icon { flex-shrink: 0; font-size: 13px; line-height: 1.5; }
+.dxy-narrative-item { display: flex; align-items: flex-start; gap: 9px; font-size: 0.8125rem; line-height: 1.5; }
+.dxy-narrative-icon { flex-shrink: 0; font-size: 0.8125rem; line-height: 1.5; }
 .dxy-narrative-item b { font-weight: 700; }
 
 /* ---- Chart grid (Baris 4) ---- */
@@ -165,10 +165,10 @@
 [data-theme="dark"] .dxy-panel { background: #14273A; border-color: #0284C7; border-top-color: #38BDF8; }
 [data-theme="dark"] .dxy-panel:hover { border-color: #7DD3FC; }
 .dxy-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px !important; }
-.dxy-panel-bignum { font-size: 24px; font-weight: 800; letter-spacing: -0.01em; margin: -6px 0 10px; color: var(--dxy-text); }
-.dxy-panel-title { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
-.dxy-panel-badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(16,185,129,.12); color: var(--dxy-green); }
-.dxy-panel-sub { font-size: 10.5px; color: var(--dxy-muted); }
+.dxy-panel-bignum { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.01em; margin: -6px 0 10px; color: var(--dxy-text); }
+.dxy-panel-title { font-size: 0.8125rem; font-weight: 700; display: flex; align-items: center; gap: 7px; }
+.dxy-panel-badge { font-size: 0.625rem; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(16,185,129,.12); color: var(--dxy-green); }
+.dxy-panel-sub { font-size: 0.6562rem; color: var(--dxy-muted); }
 .dxy-span-3 { grid-column: span 3; }
 .dxy-span-4 { grid-column: span 4; }
 .dxy-span-5 { grid-column: span 5; }
@@ -189,11 +189,11 @@
 .dxy-table-panel { grid-column: span 12; }
 /* Varian tabel sejajar 3-kolom (Downtime / NG Inline / Repair Terbesar) */
 .dxy-table-panel-sm .dxy-table-scroll { max-height: 300px !important; overflow-x: hidden; }
-.dxy-table-panel-sm table.dxy-table { font-size: 10px; width: 100%; table-layout: fixed; }
-.dxy-table-panel-sm table.dxy-table thead th { padding: 5px 6px; font-size: 8px; }
+.dxy-table-panel-sm table.dxy-table { font-size: 0.625rem; width: 100%; table-layout: fixed; }
+.dxy-table-panel-sm table.dxy-table thead th { padding: 5px 6px; font-size: 0.5rem; }
 .dxy-table-panel-sm table.dxy-table tbody td { padding: 4px 6px; white-space: nowrap; overflow: hidden; text-overflow: clip; height: 24px; }
 /* Rekap NG Inline / NG Trial / Repair (qc-detail-table): samakan font sel data dengan font header (8px) */
-.dxy-table-panel-sm table.qc-detail-table tbody td { font-size: 8px; }
+.dxy-table-panel-sm table.qc-detail-table tbody td { font-size: 0.5rem; }
 /* Kotak Rekap Kontrol Kualitas: tinggi TETAP, pas menampung header + 5 baris data.
    Kotak TIDAK melebar ke bawah -- kalau data lebih dari 5 baris, scroll muncul
    DI DALAM kotak ini (kotaknya sendiri diam). Dipasang dengan spesifisitas tinggi
@@ -254,11 +254,11 @@
    jadi kelihatan besar-kecil tidak rata dalam 1 tabel yang sama. */
 .dxy-tahunan-terbesar-panel .dxy-pic-chip,
 .dxy-tahunan-terbesar-panel .dxy-minute-badge {
-  font-size: 8px !important;
+  font-size: 0.5rem !important;
 }
 /* ---- Toggle "Tanggal" / "Sebulan" di header panel Rekap (Kontrol Kualitas) ---- */
 .qc-rekap-mode { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
-.qc-rekap-mode .dxy-input { min-height: 24px; padding: 3px 6px; font-size: 10.5px; }
+.qc-rekap-mode .dxy-input { min-height: 24px; padding: 3px 6px; font-size: 0.6562rem; }
 /* Field tanggal ini diam-diam terisi (tanggal 1 bulan terpilih) supaya
    kalender bawaan browser terbuka di bulan yang benar -- tapi selama
    user belum benar-benar memilih tanggal (qcNgInlineUseDate masih false),
@@ -298,7 +298,7 @@
   padding-left: 7px;
   background: var(--dxy-card);
   color: var(--dxy-text);
-  font-size: 10.5px;
+  font-size: 0.6562rem;
   font-weight: 600;
   /* Klik-langsung-buka-kalender sempat dicoba (showPicker() di label ini)
      tapi ternyata browser tetap tidak mau buka popup-nya kecuali klik
@@ -356,7 +356,7 @@
   border: 1px solid var(--dxy-border);
   background: var(--dxy-card);
   color: var(--dxy-muted);
-  font-size: 10px;
+  font-size: 0.625rem;
   line-height: 1;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
@@ -371,7 +371,7 @@
 .qc-rekap-scroll::-webkit-scrollbar-thumb:hover { background: #64748B; }
 .dxy-table-scroll { max-height: 210px !important; overflow: auto; border-radius: 12px; border: 1px solid #BAE6FD; }
 [data-theme="dark"] .dxy-table-scroll { border-color: #0369A1; }
-table.dxy-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; }
+table.dxy-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.6875rem; }
 table.dxy-table thead th {
   /* z-index dinaikkan dari 1 -> 20. Dengan nilai 1, baris tabel yang
      tergulir ke bawah kepala kolom kadang masih "menang" saat disorot
@@ -383,7 +383,7 @@ table.dxy-table thead th {
   border-bottom: 2px solid #7DD3FC;
   text-align: left;
   padding: 8px 12px;
-  font-size: 9px;
+  font-size: 0.5625rem;
   letter-spacing: .05em;
   text-transform: uppercase;
   color: #0284C7;
@@ -419,7 +419,7 @@ table.qc-detail-table thead th:hover { background: #BEE6FB; }
   border-radius: 10px;
   box-shadow: 0 4px 10px rgba(14,165,233,.12), 0 16px 32px -14px rgba(14,165,233,.35);
   padding: 9px;
-  font-size: 11px;
+  font-size: 0.6875rem;
   text-transform: none;
   letter-spacing: normal;
   color: #0C4A6E;
@@ -431,7 +431,7 @@ table.qc-detail-table thead th:hover { background: #BEE6FB; }
   color: #E0F2FE;
   box-shadow: 0 4px 10px rgba(0,0,0,.3), 0 16px 32px -14px rgba(0,0,0,.55);
 }
-.qc-filter-title { font-size: 10px; font-weight: 700; color: #0284C7; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+.qc-filter-title { font-size: 0.625rem; font-weight: 700; color: #0284C7; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
 [data-theme="dark"] .qc-filter-title { color: #7DD3FC; }
 .qc-filter-search {
   width: 100%;
@@ -441,7 +441,7 @@ table.qc-detail-table thead th:hover { background: #BEE6FB; }
   color: #0C4A6E;
   border-radius: 6px;
   padding: 5px 7px;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-family: inherit;
   margin-bottom: 6px;
 }
@@ -454,7 +454,7 @@ table.qc-detail-table thead th:hover { background: #BEE6FB; }
   color: #0C4A6E;
   border-radius: 6px;
   padding: 4px 6px;
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -465,13 +465,13 @@ table.qc-detail-table thead th:hover { background: #BEE6FB; }
 .qc-filter-list { max-height: 190px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
 .qc-filter-item {
   display: flex; align-items: center; gap: 7px;
-  padding: 4px 5px; border-radius: 6px; cursor: pointer; font-size: 11px;
+  padding: 4px 5px; border-radius: 6px; cursor: pointer; font-size: 0.6875rem;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .qc-filter-item:hover { background: rgba(14,165,233,.14); }
 .qc-filter-item input[type="checkbox"] { flex-shrink: 0; margin: 0; cursor: pointer; }
 .qc-filter-item span { overflow: hidden; text-overflow: ellipsis; }
-.qc-filter-empty { font-size: 10.5px; color: #0284C7; font-style: italic; padding: 6px 4px; }
+.qc-filter-empty { font-size: 0.6562rem; color: #0284C7; font-style: italic; padding: 6px 4px; }
 [data-theme="dark"] .qc-filter-empty { color: #7DD3FC; }
 
 /* ---- Chip ringkasan filter aktif (badge kecil di sebelah judul panel Rekap) ---- */
@@ -483,7 +483,7 @@ table.qc-detail-table thead th:hover { background: #BEE6FB; }
   border: 1px solid rgba(37,99,235,.3);
   border-radius: 999px;
   padding: 2px 7px;
-  font-size: 9px;
+  font-size: 0.5625rem;
   font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
@@ -499,11 +499,11 @@ table.qc-detail-table thead th.qc-th-active { color: #0369A1; font-weight: 800; 
 .dxy-rank-badge {
   display: inline-flex; align-items: center; justify-content: center;
   width: 22px; height: 22px; border-radius: 50%;
-  font-size: 10.5px; font-weight: 800; color: #fff; flex-shrink: 0;
+  font-size: 0.6562rem; font-weight: 800; color: #fff; flex-shrink: 0;
 }
-.dxy-pic-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: var(--dxy-muted); }
+.dxy-pic-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 0.6875rem; font-weight: 700; color: var(--dxy-muted); }
 .dxy-pic-chip .dot { width: 7px; height: 7px; border-radius: 50%; }
-.dxy-minute-badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; background: rgba(100,116,139,.12); color: var(--dxy-text); }
+.dxy-minute-badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 0.7188rem; font-weight: 700; background: rgba(100,116,139,.12); color: var(--dxy-text); }
 .dxy-empty-cell { color: var(--dxy-muted); font-style: italic; }
 
 /* ---- Popup detail "Downtime Terbesar" (breakdown per Line) -- double-klik
@@ -525,27 +525,27 @@ table.qc-detail-table thead th.qc-th-active { color: #0369A1; font-weight: 800; 
 [data-theme="dark"] .dxy-pd-modal { background: #0C2A3D; color: #E0F2FE; border-color: #0369A1; }
 .dxy-pd-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 9px 10px 7px 10px; border-bottom: 1px solid #BAE6FD; background: #E0F2FE; }
 [data-theme="dark"] .dxy-pd-head { border-color: #0369A1; background: #082F49; }
-.dxy-pd-title { font-size: 8.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #0284C7; margin-bottom: 2px; }
+.dxy-pd-title { font-size: 0.5312rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #0284C7; margin-bottom: 2px; }
 [data-theme="dark"] .dxy-pd-title { color: #7DD3FC; }
-.dxy-pd-problem { font-size: 12px; font-weight: 800; line-height: 1.3; color: #0C4A6E; }
+.dxy-pd-problem { font-size: 0.75rem; font-weight: 800; line-height: 1.3; color: #0C4A6E; }
 [data-theme="dark"] .dxy-pd-problem { color: #E0F2FE; }
-.dxy-pd-close { flex-shrink: 0; background: transparent; border: none; font-size: 13px; line-height: 1; cursor: pointer; color: #0284C7; padding: 2px 4px; border-radius: 5px; }
+.dxy-pd-close { flex-shrink: 0; background: transparent; border: none; font-size: 0.8125rem; line-height: 1; cursor: pointer; color: #0284C7; padding: 2px 4px; border-radius: 5px; }
 .dxy-pd-close:hover { background: rgba(14,165,233,.18); color: #0C4A6E; }
 [data-theme="dark"] .dxy-pd-close:hover { color: #E0F2FE; }
-.dxy-pd-sub { padding: 6px 10px 0 10px; font-size: 9.5px; color: #0284C7; }
+.dxy-pd-sub { padding: 6px 10px 0 10px; font-size: 0.5938rem; color: #0284C7; }
 [data-theme="dark"] .dxy-pd-sub { color: #7DD3FC; }
 .dxy-pd-body { padding: 5px 10px 8px 10px; overflow-y: auto; }
-.dxy-pd-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-.dxy-pd-table th { text-align: left; font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: #0284C7; padding: 4px 5px; border-bottom: 1px solid #BAE6FD; }
+.dxy-pd-table { width: 100%; border-collapse: collapse; font-size: 0.6875rem; }
+.dxy-pd-table th { text-align: left; font-size: 0.5312rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: #0284C7; padding: 4px 5px; border-bottom: 1px solid #BAE6FD; }
 [data-theme="dark"] .dxy-pd-table th { color: #7DD3FC; border-color: #0369A1; }
 .dxy-pd-table td { padding: 5px 5px; border-bottom: 1px solid #BAE6FD; }
 [data-theme="dark"] .dxy-pd-table td { border-color: #0369A1; }
 .dxy-pd-table tr:last-child td { border-bottom: none; }
 .dxy-pd-table td.dxy-pd-menit { text-align: right; font-weight: 700; color: #0369A1; }
 [data-theme="dark"] .dxy-pd-table td.dxy-pd-menit { color: #7DD3FC; }
-.dxy-pd-loading, .dxy-pd-empty { padding: 12px 4px; text-align: center; font-size: 11px; color: #0284C7; font-style: italic; }
+.dxy-pd-loading, .dxy-pd-empty { padding: 12px 4px; text-align: center; font-size: 0.6875rem; color: #0284C7; font-style: italic; }
 [data-theme="dark"] .dxy-pd-loading, [data-theme="dark"] .dxy-pd-empty { color: #7DD3FC; }
-.dxy-pd-total { padding: 6px 10px; border-top: 1px solid #BAE6FD; display: flex; justify-content: space-between; font-size: 10.5px; font-weight: 700; background: #E0F2FE; color: #0369A1; }
+.dxy-pd-total { padding: 6px 10px; border-top: 1px solid #BAE6FD; display: flex; justify-content: space-between; font-size: 0.6562rem; font-weight: 700; background: #E0F2FE; color: #0369A1; }
 [data-theme="dark"] .dxy-pd-total { border-color: #0369A1; background: #082F49; color: #7DD3FC; }
 /* Baris tabel "Downtime Terbesar" bulanan jadi ada indikasi bisa di-klik */
 table.qc-detail-table tbody tr.dxy-row-clickable { cursor: pointer; }
@@ -571,10 +571,10 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
   margin-bottom: 10px;
 }
 .dxy-dt-terbesar-grid .dxy-table-scroll { max-height: 165px !important; overflow: auto; }
-.dxy-dt-terbesar-grid table.dxy-table { font-size: 9px; table-layout: fixed; width: 100%; }
-.dxy-dt-terbesar-grid table.dxy-table thead th { padding: 4px 3px; font-size: 7px; white-space: nowrap; overflow: hidden; text-overflow: clip; text-align: center; }
+.dxy-dt-terbesar-grid table.dxy-table { font-size: 0.5625rem; table-layout: fixed; width: 100%; }
+.dxy-dt-terbesar-grid table.dxy-table thead th { padding: 4px 3px; font-size: 0.4375rem; white-space: nowrap; overflow: hidden; text-overflow: clip; text-align: center; }
 .dxy-dt-terbesar-grid table.dxy-table tbody td { padding: 3px 3px; white-space: nowrap; overflow: hidden; text-overflow: clip; height: 18px; }
-.dxy-status-chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 9.5px; font-weight: 700; }
+.dxy-status-chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.5938rem; font-weight: 700; }
 .dxy-status-open { background: rgba(239,68,68,.14); color: #000000; }
 .dxy-status-progress { background: rgba(245,158,11,.14); color: #000000; }
 .dxy-status-closed { background: rgba(16,185,129,.14); color: #000000; }
@@ -591,23 +591,23 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
    di atas otomatis berlaku di sini juga, plus overflow:auto dari
    .dxy-table-scroll dasar), sehingga kalau data lebih banyak dari 300px,
    scroll muncul DI DALAM kotak, bukan kotaknya yang melar. */
-.dxy-dt-merged-panel table.dxy-table { font-size: 11px; table-layout: fixed; }
-.dxy-dt-merged-panel table.dxy-table thead th { padding: 6px 10px; font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: clip; text-align: center; }
+.dxy-dt-merged-panel table.dxy-table { font-size: 0.6875rem; table-layout: fixed; }
+.dxy-dt-merged-panel table.dxy-table thead th { padding: 6px 10px; font-size: 0.5938rem; white-space: nowrap; overflow: hidden; text-overflow: clip; text-align: center; }
 /* Baris ada isinya (chip Status / badge Menit) vs baris kosong tingginya
    beda dikit karena chip/badge itu punya padding sendiri di luar padding
    td -- dikunci tetap 26px semua (lebih ramping dari sebelumnya) supaya
    rata, nggak peduli ada isinya atau kosong. */
 .dxy-dt-merged-panel table.dxy-table tbody tr { height: 26px; }
 .dxy-dt-merged-panel table.dxy-table tbody td { height: 26px; max-height: 26px; padding: 2px 10px; white-space: nowrap; overflow: hidden; text-overflow: clip; vertical-align: middle; box-sizing: border-box; line-height: 1; }
-.dxy-dt-merged-panel .dxy-status-chip { padding: 1px 7px; font-size: 9px; line-height: 1.4; }
-.dxy-dt-merged-panel .dxy-minute-badge { padding: 1px 7px; font-size: 10.5px; line-height: 1.4; }
+.dxy-dt-merged-panel .dxy-status-chip { padding: 1px 7px; font-size: 0.5625rem; line-height: 1.4; }
+.dxy-dt-merged-panel .dxy-minute-badge { padding: 1px 7px; font-size: 0.6562rem; line-height: 1.4; }
 /* ---- Panel "Downtime Terbesar" (sebulan) -- sejajar Downtime Line ---- */
 .dxy-dt-summary-panel .dxy-table-scroll { max-height: 100%; overflow-y: auto; }
-.dxy-dt-summary-panel table.dxy-table { font-size: 11px; table-layout: fixed; }
-.dxy-dt-summary-panel table.dxy-table thead th { padding: 6px 8px; font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: clip; text-align: center; }
+.dxy-dt-summary-panel table.dxy-table { font-size: 0.6875rem; table-layout: fixed; }
+.dxy-dt-summary-panel table.dxy-table thead th { padding: 6px 8px; font-size: 0.5938rem; white-space: nowrap; overflow: hidden; text-overflow: clip; text-align: center; }
 .dxy-dt-summary-panel table.dxy-table tbody tr { height: 26px; }
 .dxy-dt-summary-panel table.dxy-table tbody td { height: 26px; max-height: 26px; padding: 2px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; box-sizing: border-box; line-height: 1; }
-.dxy-dt-summary-panel .dxy-freq-badge { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 700; background: rgba(37,99,235,.12); color: var(--dxy-blue); }
+.dxy-dt-summary-panel .dxy-freq-badge { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 0.625rem; font-weight: 700; background: rgba(37,99,235,.12); color: var(--dxy-blue); }
 
 /* ---- Tab Kontrol Kualitas: 3 kolom (NG Inline / NG Inline Trial / Straightpass) ---- */
 .dxy-qc-grid {
@@ -625,7 +625,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
 .dxy-qc-header {
   border-radius: 12px;
   padding: 10px 14px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 800;
   letter-spacing: .04em;
   text-transform: uppercase;
@@ -660,8 +660,8 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
 .qc-chart-month  { min-height: 200px !important; max-height: 200px; }
 .qc-chart-sub    { min-height: 160px !important; max-height: 160px; }
 .qc-chart-daily  { min-height: 170px !important; max-height: 170px; }
-.qc-detail-table { font-size: 7px; table-layout: fixed; }
-.qc-detail-table thead th { padding: 5px 4px; font-size: 7px; white-space: nowrap; overflow: hidden; text-overflow: clip; text-align: center !important; text-transform: none !important; letter-spacing: normal !important; }
+.qc-detail-table { font-size: 0.4375rem; table-layout: fixed; }
+.qc-detail-table thead th { padding: 5px 4px; font-size: 0.4375rem; white-space: nowrap; overflow: hidden; text-overflow: clip; text-align: center !important; text-transform: none !important; letter-spacing: normal !important; }
 /* text-overflow: ellipsis (bukan clip) -- tooltip bawaan browser sudah
    dibuang dari sel ini karena menimpa kepala kolom, jadi teks yang
    terpotong minimal ditandai "..." supaya ketahuan masih ada lanjutannya. */
@@ -745,7 +745,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
   margin: 0 !important; padding: 0 !important; line-height: 1.1 !important;
   font-family: 'Luckiest Guy', cursive !important;
   font-weight: 400 !important;
-  font-size: 40px !important;
+  font-size: 2.5rem !important;
   letter-spacing: 1px;
   position: relative !important;
   top: -6px;
@@ -761,14 +761,14 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
   50%      { text-shadow: 2px 2px 0 #1B2A4A, 0 0 16px rgba(79, 211, 239, 0.65); }
 }
 @media (max-width: 640px) {
-  .dash-title-block h1 { font-size: 28px !important; }
+  .dash-title-block h1 { font-size: 1.75rem !important; }
 }
 .dash-controls { margin-left: auto !important; }
 .dxy-live-clock { text-align: right; font-family: 'IBM Plex Mono', monospace; line-height: 1.15; user-select: none; }
 .dxy-clock-time {
   font-family: 'Luckiest Guy', cursive;
   font-weight: 400;
-  font-size: 24px;
+  font-size: 1.5rem;
   letter-spacing: 1px;
   color: #4FD3EF;
   -webkit-text-stroke: 1.5px #1B2A4A;
@@ -776,10 +776,10 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
   paint-order: stroke fill;
   text-shadow: 1.5px 1.5px 0 #1B2A4A;
 }
-.dxy-clock-date { font-family: 'Luckiest Guy', cursive !important; font-weight: 400 !important; font-size: 10px; color: #6b7280; margin-top: 2px; white-space: nowrap; letter-spacing: 0px !important; }
+.dxy-clock-date { font-family: 'Luckiest Guy', cursive !important; font-weight: 400 !important; font-size: 0.625rem; color: #6b7280; margin-top: 2px; white-space: nowrap; letter-spacing: 0px !important; }
 @media (max-width: 640px) {
-  .dxy-clock-time { font-size: 18px; }
-  .dxy-clock-date { font-size: 9px; }
+  .dxy-clock-time { font-size: 1.125rem; }
+  .dxy-clock-date { font-size: 0.5625rem; }
 }
 .main { padding-top: 0 !important; padding-left: 14px !important; padding-right: 14px !important; gap: 4px !important; }
 .dash-subtab-nav { margin: 0 !important; padding: 0 !important; }
@@ -798,7 +798,7 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
   font-family: 'Luckiest Guy', cursive !important;
   font-weight: 400 !important;
   letter-spacing: 0.3px !important;
-  font-size: 12px !important;
+  font-size: 0.75rem !important;
   color: #2563A8 !important;
 }
 .dash-subtab-nav button { margin: 0 !important; }
@@ -827,12 +827,12 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
   .dxy-panel .dxy-chart-box.dxy-attn-trend-box { min-height: 260px !important; max-height: 260px !important; height: 260px !important; }
 }
 .dxy-attn-head { display: flex; align-items: center; gap: 12px; padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--dxy-border); }
-.dxy-attn-icon { width: 48px; height: 48px; border-radius: 12px; background: #EDE9FE; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+.dxy-attn-icon { width: 48px; height: 48px; border-radius: 12px; background: #EDE9FE; display: flex; align-items: center; justify-content: center; font-size: 1.375rem; flex-shrink: 0; }
 [data-theme="dark"] .dxy-attn-icon { background: #3b2f63; }
-.dxy-attn-title { font-size: 19px; font-weight: 800; letter-spacing: -.01em; color: var(--dxy-text); line-height: 1.1; }
-.dxy-attn-subtitle { font-size: 10.5px; font-weight: 600; letter-spacing: .06em; color: var(--dxy-muted); font-family: "IBM Plex Mono", monospace; text-transform: uppercase; margin-top: 2px; }
-.dxy-attn-rate-label { font-size: 13px; color: var(--dxy-muted); margin-bottom: 4px; }
-.dxy-attn-rate-value { font-size: 40px; font-weight: 800; color: var(--dxy-text); line-height: 1; letter-spacing: -.02em; margin-bottom: 12px; }
+.dxy-attn-title { font-size: 1.1875rem; font-weight: 800; letter-spacing: -.01em; color: var(--dxy-text); line-height: 1.1; }
+.dxy-attn-subtitle { font-size: 0.6562rem; font-weight: 600; letter-spacing: .06em; color: var(--dxy-muted); font-family: "IBM Plex Mono", monospace; text-transform: uppercase; margin-top: 2px; }
+.dxy-attn-rate-label { font-size: 0.8125rem; color: var(--dxy-muted); margin-bottom: 4px; }
+.dxy-attn-rate-value { font-size: 2.5rem; font-weight: 800; color: var(--dxy-text); line-height: 1; letter-spacing: -.02em; margin-bottom: 12px; }
 .dxy-attn-progress-track { height: 6px; border-radius: 4px; background: var(--dxy-border); overflow: hidden; margin-bottom: 18px; }
 .dxy-attn-progress-fill { height: 100%; background: var(--dxy-blue); border-radius: 4px; transition: width 300ms ease; }
 .dxy-attn-stat-row { display: grid; grid-template-columns: repeat(2, 1fr) repeat(4, 0.75fr); gap: 10px; margin-bottom: 12px; }
@@ -840,23 +840,23 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
 .dxy-attn-stat.is-active { border-color: var(--dxy-green); background: rgba(16,185,129,.10); }
 [data-theme="dark"] .dxy-attn-stat { background: #0C4A6E; border-color: #0369A1; }
 [data-theme="dark"] .dxy-attn-stat.is-active { background: rgba(16,185,129,.14); }
-.dxy-attn-stat-icon { font-size: 16px; }
-.dxy-attn-stat-label { font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--dxy-muted); font-family: "IBM Plex Mono", monospace; }
-.dxy-attn-stat-value { font-size: 20px; font-weight: 800; color: var(--dxy-text); line-height: 1; }
+.dxy-attn-stat-icon { font-size: 1rem; }
+.dxy-attn-stat-label { font-size: 0.5625rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--dxy-muted); font-family: "IBM Plex Mono", monospace; }
+.dxy-attn-stat-value { font-size: 1.25rem; font-weight: 800; color: var(--dxy-text); line-height: 1; }
 .dxy-attn-stat-value.green { color: var(--dxy-green); }
-.dxy-attn-stat-unit { font-size: 9.5px; color: var(--dxy-muted); font-family: "IBM Plex Mono", monospace; }
+.dxy-attn-stat-unit { font-size: 0.5938rem; color: var(--dxy-muted); font-family: "IBM Plex Mono", monospace; }
 .dxy-attn-shift-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .dxy-attn-shift-box { border: 1px solid #BAE6FD; border-radius: 12px; padding: 16px 10px; text-align: center; background: #E0F2FE; }
 [data-theme="dark"] .dxy-attn-shift-box { background: #0C4A6E; border-color: #0369A1; }
-.dxy-attn-shift-value { font-size: 26px; font-weight: 800; color: var(--dxy-purple); line-height: 1; margin-bottom: 6px; }
-.dxy-attn-shift-label { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--dxy-muted); font-family: "IBM Plex Mono", monospace; }
-.dxy-attn-jenis-badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.dxy-attn-shift-value { font-size: 1.625rem; font-weight: 800; color: var(--dxy-purple); line-height: 1; margin-bottom: 6px; }
+.dxy-attn-shift-label { font-size: 0.625rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--dxy-muted); font-family: "IBM Plex Mono", monospace; }
+.dxy-attn-jenis-badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 0.625rem; font-weight: 700; white-space: nowrap; }
 .dxy-attn-jenis-badge.cuti  { background: rgba(20,184,166,.12); color: var(--dxy-teal); }
 .dxy-attn-jenis-badge.izin  { background: rgba(249,115,22,.12); color: var(--dxy-orange); }
 .dxy-attn-jenis-badge.sakit { background: rgba(239,68,68,.12);  color: var(--dxy-red); }
-.dxy-attn-leave-empty { padding: 18px 10px !important; text-align: center; font-size: 11px; color: var(--dxy-muted); white-space: normal !important; border-bottom: none !important; }
-.dxy-attn-leave-footer { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--dxy-border); text-align: right; font-size: 10.5px; color: var(--dxy-muted); flex-shrink: 0; }
-.dxy-attn-leave-footer b { color: var(--dxy-text); font-size: 12px; }
+.dxy-attn-leave-empty { padding: 18px 10px !important; text-align: center; font-size: 0.6875rem; color: var(--dxy-muted); white-space: normal !important; border-bottom: none !important; }
+.dxy-attn-leave-footer { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--dxy-border); text-align: right; font-size: 0.6562rem; color: var(--dxy-muted); flex-shrink: 0; }
+.dxy-attn-leave-footer b { color: var(--dxy-text); font-size: 0.75rem; }
 /* Panel Cuti/Izin/Sakit: TIDAK dipaksa min-height apa pun -- tinggi kotak
    selalu ngikutin isi tabel (header + baris yang ada). Kalau baris
    sedikit, kotaknya ikut pendek, tidak nyisain ruang kosong nganggur. */
@@ -866,8 +866,8 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
 .dxy-attn-leave-row th { text-align: center !important; }
 /* Font tabel Izin/Sakit/Cuti/Mangkir dikecilin + warna beda dari
    default (biar nggak polos hitam/putih kayak tabel lain). */
-.dxy-attn-leave-panel table.dxy-table thead th { font-size: 7px; color: #0369A1; }
-.dxy-attn-leave-panel table.dxy-table tbody td { font-size: 9px; color: #475569; }
+.dxy-attn-leave-panel table.dxy-table thead th { font-size: 0.4375rem; color: #0369A1; }
+.dxy-attn-leave-panel table.dxy-table tbody td { font-size: 0.5625rem; color: #475569; }
 [data-theme="dark"] .dxy-attn-leave-panel table.dxy-table thead th { color: #7DD3FC; }
 [data-theme="dark"] .dxy-attn-leave-panel table.dxy-table tbody td { color: #CBD5E1; }
 /* Hapus garis pembatas antar baris & background putih/selang-seling --
@@ -886,8 +886,8 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
   align-items: center; justify-content: center; gap: 6px; text-align: center; padding: 14px;
   background: var(--panel, #fff); border-radius: 10px; }
 .dxy-supp-kosong b { color: var(--text, #0F172A); }
-.dxy-supp-kosong > b:first-child { font-size: 13.5px; }
-.dxy-supp-kosong span { font-size: 11.5px; line-height: 1.5; color: var(--muted, #64748B); max-width: 280px; }
+.dxy-supp-kosong > b:first-child { font-size: 0.8438rem; }
+.dxy-supp-kosong span { font-size: 0.7188rem; line-height: 1.5; color: var(--muted, #64748B); max-width: 280px; }
 
 /* ---- Chart "Rekap Tahunan" (tab Kontrol Attendance -> Tahunan): lebih
    sempit (tidak full-width) & lebih tinggi dari box chart standar. Rule

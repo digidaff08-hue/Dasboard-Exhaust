@@ -601,7 +601,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     stationConfig: stationConfig || { mode: "none" },
     tandemVariant: null,
     mobileNavOpen: false,
-    sidebarCollapsed: true,
+    sidebarCollapsed: AppPref.sidebarAwal(true),
     // true kalau halaman ini dibuka via Dashboard Exhaust -> tab "Performance"
     // (lewat <iframe src="machines/e-0X.html?tab=performance">). Dihitung
     // langsung di sini (bukan di init()) supaya dari awal render chrome
