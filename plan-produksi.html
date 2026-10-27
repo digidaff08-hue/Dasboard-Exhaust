@@ -60,6 +60,10 @@
         <p>Rencana Produksi Harian per Part Number</p>
       </div>
       <div class="dash-controls">
+        <!-- Kembali ke tab Plan Harian (bukan sekadar ke dashboard-nya) --
+             ?tab=plan_harian dibaca di init() assets/dashboard-exhaust.js,
+             jadi user tidak perlu klik tabnya lagi. -->
+        <a href="dashboard-exhaust.html?tab=plan_harian" class="btn-secondary btn-sm" style="text-decoration:none;">‹ Kembali ke Dashboard</a>
         <input type="date" x-model="tanggal" @change="fetchAll()">
       </div>
     </div>
@@ -68,7 +72,9 @@
     <template x-if="loading"><p class="empty-state">Memuat data...</p></template>
 
     <template x-if="!loading">
-      <div class="dash-body">
+      <!-- "dxy" = kartu pembungkus besar, sama dengan tab Plan Harian di
+           dashboard (lihat .dxy di assets/dashboard-exhaust.css). -->
+      <div class="dash-body plan-skin plan-card">
 
         <!-- ===== Baris atas: tabel Plan Harian + chart Kapasitas Harian ===== -->
         <div class="plan-grid-top">
@@ -81,38 +87,40 @@
               <table class="plan-table">
                 <thead>
                   <tr>
-                    <th>Item</th>
-                    <template x-for="mk in MACHINE_KEYS" :key="mk"><th x-text="mk"></th></template>
-                    <th>Backlog</th>
-                    <th>Plan Awal</th>
+                    <th class="plan-col-item">Item</th>
+                    <template x-for="mk in MACHINE_KEYS" :key="mk"><th class="plan-c-plan" x-text="mk"></th></template>
+                    <th class="plan-sep">Backlog</th>
+                    <th class="plan-sep plan-c-plan">Plan Awal</th>
                   </tr>
                 </thead>
                 <tbody>
                   <template x-for="part in partList" :key="part">
                     <tr>
-                      <td x-text="part"></td>
+                      <td class="plan-col-item" x-text="part"></td>
                       <template x-for="mk in MACHINE_KEYS" :key="mk">
-                        <td x-text="planAwalCell(part, mk) || ''"></td>
+                        <td class="plan-c-plan" x-text="planAwalCell(part, mk) || ''"></td>
                       </template>
-                      <td x-text="backlogFor(part) || ''"></td>
-                      <td><b x-text="rowTotal(part)"></b></td>
+                      <td class="plan-sep" x-text="backlogFor(part) || ''"></td>
+                      <td class="plan-sep plan-c-plan"><b x-text="rowTotal(part)"></b></td>
                     </tr>
                   </template>
                   <tr x-show="partList.length === 0"><td :colspan="MACHINE_KEYS.length + 3" class="empty-state">Belum ada plan untuk tanggal ini.</td></tr>
                   <tr class="plan-total-row" x-show="partList.length > 0">
-                    <td>TOTAL PLAN HARIAN</td>
+                    <td class="plan-col-item">TOTAL PLAN HARIAN</td>
                     <template x-for="mk in MACHINE_KEYS" :key="mk">
                       <td x-text="columnTotal(mk)"></td>
                     </template>
-                    <td x-text="backlogGrandTotal()"></td>
-                    <td x-text="grandTotal()"></td>
+                    <td class="plan-sep" x-text="backlogGrandTotal()"></td>
+                    <td class="plan-sep" x-text="grandTotal()"></td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
 
-          <div class="dash-panel dash-panel-chart">
+          <!-- Kartu grafik disamakan dengan dashboard: .dxy-panel, bukan
+               .dash-panel transparan. -->
+          <div class="plan-chart-card">
             <p class="dash-panel-title">Kapasitas Harian (Plan per Part × Line)</p>
             <div class="dash-chart-sm" style="min-height:280px;"><canvas id="kapasitasChart"></canvas></div>
           </div>
@@ -185,22 +193,22 @@
               <table class="plan-shift-table">
                 <thead>
                   <tr>
-                    <th rowspan="2">Item</th>
-                    <template x-for="mk in MACHINE_KEYS" :key="mk"><th colspan="2" x-text="mk"></th></template>
-                    <th rowspan="2">Balance</th>
+                    <th rowspan="2" class="plan-col-item">Item</th>
+                    <template x-for="mk in MACHINE_KEYS" :key="mk"><th colspan="2" class="plan-line-head plan-sep" x-text="mk"></th></template>
+                    <th rowspan="2" class="plan-sep">Balance</th>
                   </tr>
                   <tr>
-                    <template x-for="col in MACHINE_KEYS.flatMap((mk) => [{ mk, kind: 'plan' }, { mk, kind: 'act' }])" :key="col.mk + col.kind"><th x-text="col.kind === 'plan' ? 'Plan' : 'Act'"></th></template>
+                    <template x-for="col in MACHINE_KEYS.flatMap((mk) => [{ mk, kind: 'plan' }, { mk, kind: 'act' }])" :key="col.mk + col.kind"><th :class="col.kind === 'plan' ? 'plan-c-plan plan-sep' : 'plan-c-act'" x-text="col.kind === 'plan' ? 'Plan' : 'Act'"></th></template>
                   </tr>
                 </thead>
                 <tbody>
                   <template x-for="part in shiftPartList(1)" :key="part">
                     <tr>
-                      <td x-text="part"></td>
+                      <td class="plan-col-item" x-text="part"></td>
                       <template x-for="col in MACHINE_KEYS.flatMap((mk) => [{ mk, kind: 'plan' }, { mk, kind: 'act' }])" :key="col.mk + col.kind">
-                        <td x-text="shiftCell(part, col.mk, 1, col.kind) || ''"></td>
+                        <td :class="col.kind === 'plan' ? 'plan-c-plan plan-sep' : 'plan-c-act plan-cell-act'" x-text="shiftCell(part, col.mk, 1, col.kind) || ''"></td>
                       </template>
-                      <td :class="balanceClass(part, 1)" x-text="shiftBalance(part, 1)"></td>
+                      <td class="plan-sep" :class="balanceClass(part, 1)" x-text="shiftBalance(part, 1)"></td>
                     </tr>
                   </template>
                   <tr x-show="shiftPartList(1).length === 0"><td :colspan="MACHINE_KEYS.length * 2 + 2" class="empty-state">Belum ada plan Shift 1.</td></tr>
@@ -215,22 +223,22 @@
               <table class="plan-shift-table">
                 <thead>
                   <tr>
-                    <th rowspan="2">Item</th>
-                    <template x-for="mk in MACHINE_KEYS" :key="mk"><th colspan="2" x-text="mk"></th></template>
-                    <th rowspan="2">Balance</th>
+                    <th rowspan="2" class="plan-col-item">Item</th>
+                    <template x-for="mk in MACHINE_KEYS" :key="mk"><th colspan="2" class="plan-line-head plan-sep" x-text="mk"></th></template>
+                    <th rowspan="2" class="plan-sep">Balance</th>
                   </tr>
                   <tr>
-                    <template x-for="col in MACHINE_KEYS.flatMap((mk) => [{ mk, kind: 'plan' }, { mk, kind: 'act' }])" :key="col.mk + col.kind"><th x-text="col.kind === 'plan' ? 'Plan' : 'Act'"></th></template>
+                    <template x-for="col in MACHINE_KEYS.flatMap((mk) => [{ mk, kind: 'plan' }, { mk, kind: 'act' }])" :key="col.mk + col.kind"><th :class="col.kind === 'plan' ? 'plan-c-plan plan-sep' : 'plan-c-act'" x-text="col.kind === 'plan' ? 'Plan' : 'Act'"></th></template>
                   </tr>
                 </thead>
                 <tbody>
                   <template x-for="part in shiftPartList(2)" :key="part">
                     <tr>
-                      <td x-text="part"></td>
+                      <td class="plan-col-item" x-text="part"></td>
                       <template x-for="col in MACHINE_KEYS.flatMap((mk) => [{ mk, kind: 'plan' }, { mk, kind: 'act' }])" :key="col.mk + col.kind">
-                        <td x-text="shiftCell(part, col.mk, 2, col.kind) || ''"></td>
+                        <td :class="col.kind === 'plan' ? 'plan-c-plan plan-sep' : 'plan-c-act plan-cell-act'" x-text="shiftCell(part, col.mk, 2, col.kind) || ''"></td>
                       </template>
-                      <td :class="balanceClass(part, 2)" x-text="shiftBalance(part, 2)"></td>
+                      <td class="plan-sep" :class="balanceClass(part, 2)" x-text="shiftBalance(part, 2)"></td>
                     </tr>
                   </template>
                   <tr x-show="shiftPartList(2).length === 0"><td :colspan="MACHINE_KEYS.length * 2 + 2" class="empty-state">Belum ada plan Shift 2.</td></tr>
