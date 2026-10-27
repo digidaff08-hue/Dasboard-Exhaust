@@ -21,7 +21,9 @@ direstrukturisasi total untuk Welding (line flat, tanpa sub-stasiun).
 ├── plan-produksi.html                            # Plan Produksi Harian (di bawah Dashboard)
 ├── input-produksi.html                           # Pilih line → catat produksi/downtime
 ├── input-attendance.html                         # Absensi harian (admin/leader)
-├── master-data.html                              # Master data umum: Total Orang, OT, Shift, Hari Libur, Scrap, Safety (admin)
+├── data-dashboard.html                           # Data Dashboard: Productivity & Dashboard FY (admin/leader)
+├── data-karyawan.html                            # Data Karyawan: Attendance, Cuti, Data Karyawan, Data Supporting
+├── perencanaan-produksi.html                     # Perencanaan Produksi: Delivery Plan & Forecast
 ├── data-mentah.html                              # Lihat & export data mentah (admin)
 ├── reset-password.html                           # Halaman ganti password (dari link email)
 ├── manifest.json / service-worker.js             # PWA (install ke HP + cache offline)

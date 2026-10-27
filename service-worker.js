@@ -5,7 +5,7 @@
 // ini cuma men-cache HTML/CSS/JS-nya, bukan data produksi.
 // =========================================================
 // Naikkan versi ini tiap ada perubahan besar supaya cache lama dibuang.
-const CACHE_NAME = "produksi-downtime-shell-v138-forecast-total-pas";
+const CACHE_NAME = "produksi-downtime-shell-v152-pengaturan-lanjutan";
 
 const SHELL_FILES = [
   "/login.html",
@@ -13,13 +13,17 @@ const SHELL_FILES = [
   "/dashboard-exhaust.html",
   "/input-produksi.html",
   "/input-attendance.html",
-  "/master-data.html",
+  "/data-dashboard.html",
+  "/perencanaan-produksi.html",
+  "/data-karyawan.html",
+  "/pengaturan.html",
   "/data-mentah.html",
   "/andon.html",
   "/reset-password.html",
   "/manifest.json",
   "/assets/style.css",
   "/assets/supabaseClient.js",
+  "/assets/pengaturan.js",
   "/assets/realtime.js",
   "/assets/utils.js",
   "/assets/dashboard-exhaust.css",

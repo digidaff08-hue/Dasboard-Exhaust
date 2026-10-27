@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pengaturan</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .st-page { max-width: 980px; }
+  .st-sec { margin-bottom: 26px; }
+  .st-sec h2 { font-size: 0.9375rem; font-weight: 700; margin: 0 0 4px; }
+  .st-sec .st-sub { font-size: 0.7812rem; color: var(--muted); margin: 0 0 14px; }
+  .st-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+  .st-opt {
+    position: relative; text-align: left; cursor: pointer;
+    background: var(--panel); color: var(--text);
+    border: 2px solid var(--border); border-radius: 12px; padding: 12px 14px 12px;
+    font: inherit; transition: border-color .12s, box-shadow .12s, transform .12s;
+  }
+  .st-opt:hover { border-color: var(--field-border, var(--border)); transform: translateY(-1px); }
+  .st-opt:focus-visible { outline: 2px solid #4f5fe0; outline-offset: 2px; }
+  .st-opt.on { border-color: #4f5fe0; box-shadow: 0 0 0 3px rgba(79,95,224,.18); }
+  .st-opt .st-tick {
+    position: absolute; top: 10px; right: 10px; width: 20px; height: 20px; border-radius: 50%; z-index: 3;
+    background: #4f5fe0; color: #fff; font-size: 0.75rem; font-weight: 800; line-height: 20px; text-align: center;
+    opacity: 0; transform: scale(.6); transition: opacity .12s, transform .12s;
+  }
+  .st-opt.on .st-tick { opacity: 1; transform: scale(1); }
+  .st-opt .st-name { display: block; font-size: 0.875rem; font-weight: 700; margin-top: 10px; }
+  .st-opt .st-note { display: block; font-size: 0.7188rem; color: var(--muted); margin-top: 2px; }
+  /* gambar mini tema */
+  .st-mini { height: 62px; border-radius: 8px; border: 1px solid rgba(128,128,128,.35); display: flex; overflow: hidden; }
+  .st-mini i { display: block; }
+  .st-mini .sb { width: 24%; }
+  .st-mini .bd { flex: 1; padding: 8px; display: flex; flex-direction: column; gap: 5px; }
+  .st-mini .bd b { display: block; height: 7px; border-radius: 3px; }
+  .st-mini .bd b:nth-child(1) { width: 55%; } .st-mini .bd b:nth-child(2) { width: 85%; } .st-mini .bd b:nth-child(3) { width: 40%; }
+  .st-mini.terang { background: #f3f5f9; } .st-mini.terang .sb { background: #fff; border-right: 1px solid #e5e7eb; } .st-mini.terang b { background: #cbd5e1; } .st-mini.terang b:nth-child(1) { background: #4f5fe0; }
+  .st-mini.gelap { background: #0a0f1c; } .st-mini.gelap .sb { background: #0f1623; border-right: 1px solid #1f2937; } .st-mini.gelap b { background: #334155; } .st-mini.gelap b:nth-child(1) { background: #f59e0b; }
+  .st-mini.auto { background: linear-gradient(90deg, #f3f5f9 0 50%, #0a0f1c 50% 100%); }
+  .st-mini.auto .sb { background: linear-gradient(90deg, #fff 0 50%, #0f1623 50% 100%); }
+  .st-mini.auto b { background: #94a3b8; }
+  .st-sample { font-size: 1.375rem; font-weight: 600; line-height: 1.2; }
+  .st-sample-sm { font-size: 0.7812rem; margin-top: 6px; color: var(--muted); }
+  .st-preview { border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; background: var(--panel); }
+  .st-preview table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.8125rem; }
+  .st-preview th, .st-preview td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); }
+  .st-preview th { color: var(--muted); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: .06em; }
+  .st-foot { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .st-foot .hint { margin: 0; }
+  .st-saved { color: var(--green); font-size: 0.7812rem; font-weight: 600; transition: opacity .2s; }
+  .st-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+  .st-pill { cursor: pointer; font: inherit; font-size: 0.8125rem; font-weight: 600; padding: 8px 16px; border-radius: 999px;
+    border: 2px solid var(--border); background: var(--panel); color: var(--text); transition: border-color .12s, background .12s; }
+  .st-pill:hover { border-color: #4f5fe0; }
+  .st-pill.on { border-color: #4f5fe0; background: rgba(79,95,224,.12); color: #4f5fe0; }
+  .st-info { display: grid; grid-template-columns: max-content 1fr; gap: 8px 18px; font-size: 0.8125rem; margin: 0 0 14px; }
+  .st-info dt { color: var(--muted); } .st-info dd { margin: 0; font-weight: 600; }
+  .st-ok { color: var(--green); } .st-bad { color: #dc2626; }
+</style>
+
+<script src="assets/pengaturan.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="assets/supabaseClient.js"></script>
+</head>
+<body>
+
+<div class="app-shell" x-data="pengaturanPage()">
+  <div class="mobile-topbar">
+    <div class="mobile-topbar-top">
+      <button class="hamburger" @click="mobileNavOpen = true"><svg class="sb-svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
+      <span class="mobile-title">ANDON</span>
+      <button type="button" class="ab-top-gear" x-show="isAdmin()" @click="bukaSetting()" title="Pengaturan suara">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.47.47 0 0 0-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87a.47.47 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.48.48 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="sidebar-overlay" x-show="mobileNavOpen" @click="mobileNavOpen = false" x-cloak></div>
+<aside class="sidebar" :class="[mobileNavOpen ? 'sidebar-open' : '', sidebarCollapsed ? 'sidebar-collapsed' : '']">
+    <button class="sidebar-collapse-btn" @click="sidebarCollapsed = !sidebarCollapsed">
+      <span x-show="!sidebarCollapsed">‹</span><span x-show="sidebarCollapsed">›</span>
+    </button>
+    <div class="sidebar-brand" x-show="!sidebarCollapsed"><span class="sb-brand-title">WELDING EXHAUST</span><span class="sb-brand-sub">PT Futaba Industrial Indonesia</span></div>
+    <nav class="sidebar-nav" @click="mobileNavOpen = false">
+      <a href="dashboard-exhaust.html" class="sidebar-link" title="Dashboard Exhaust" x-show="isLeaderOrAdmin() || isViewer()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M3 13h4v8H3zM10 3h4v18h-4zM17 8h4v13h-4z"/></svg></span><span x-show="!sidebarCollapsed">Dashboard Exhaust</span></a>
+      <a href="input-produksi.html" class="sidebar-link" title="Input Produksi" x-show="isLeaderOrAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
+      <a href="input-attendance.html" class="sidebar-link" title="Input Attendance" x-show="!isSupporting()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></span><span x-show="!sidebarCollapsed">Input Attendance</span></a>
+      <a href="andon.html" class="sidebar-link" title="Andon"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm7-6V11c0-3.07-1.64-5.64-4.5-6.32V4a1.5 1.5 0 0 0-3 0v.68C8.63 5.36 7 7.92 7 11v5l-2 2v1h14v-1l-2-2z"/></svg></span><span x-show="!sidebarCollapsed">Andon</span></a>
+      <a href="perencanaan-produksi.html" class="sidebar-link" title="Perencanaan Produksi" x-show="isAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5zm2 4h4v4H7z"/></svg></span><span x-show="!sidebarCollapsed">Perencanaan Produksi</span></a>
+      <a href="data-mentah.html" class="sidebar-link" title="Data Mentah" x-show="isAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 7.6V12c0 1.66 3.58 3 8 3s8-1.34 8-3V7.6C18.4 8.9 15.3 9.6 12 9.6S5.6 8.9 4 7.6z"/><path d="M4 14.6V19c0 1.66 3.58 3 8 3s8-1.34 8-3v-4.4c-1.6 1.3-4.7 2-8 2s-6.4-.7-8-2z"/></svg></span><span x-show="!sidebarCollapsed">Data Mentah</span></a>
+      <a href="data-karyawan.html" class="sidebar-link" title="Data Karyawan" x-show="isAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM9 7a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zm5 10H4v-.5C4 14.6 7 14 9 14s5 .6 5 2.5V17zm6-2h-4v-2h4v2zm0-4h-4V9h4v2z"/></svg></span><span x-show="!sidebarCollapsed">Data Karyawan</span></a>
+      <a href="data-dashboard.html" class="sidebar-link" title="Data Dashboard" x-show="isAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg></span><span x-show="!sidebarCollapsed">Data Dashboard</span></a>
+    </nav>
+    <div class="sidebar-settings">
+      <a href="pengaturan.html" class="sidebar-link active" title="Pengaturan"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.61.22L2.71 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.07.63-.07.94s.03.63.07.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.31.61.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.26.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.23.09.48 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg></span><span x-show="!sidebarCollapsed">Pengaturan</span></a>
+    </div>
+    <div class="sidebar-foot" x-show="!sidebarCollapsed">
+      <div class="sb-av" x-text="((profile?.full_name || session?.user?.email || '?').trim().charAt(0) || '?').toUpperCase()"></div>
+      <div class="sb-user"><div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
+      <span class="badge" :class="profile?.role === 'admin' ? 'role-admin' : ''" x-text="profile?.jabatan || profile?.role || '...'"></span></div>
+      <button class="btn-ghost btn-sm" @click="logout()">Keluar</button>
+    </div>
+    <button class="sidebar-logout-collapsed" x-show="sidebarCollapsed" @click="logout()" title="Keluar"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M13 3h-2v10h2V3zm4.83 2.17-1.42 1.42A6.92 6.92 0 0 1 19 12a7 7 0 1 1-11.42-5.42L6.17 5.17A8.93 8.93 0 0 0 3 12a9 9 0 0 0 18 0c0-2.74-1.23-5.18-3.17-6.83z"/></svg></button>
+  </aside>
+
+  <main class="main md-page">
+    <div class="page-header">
+      <h1 class="page-title"><span class="eyebrow">Atur</span>Pengaturan</h1>
+    </div>
+
+    <div class="st-page" x-cloak>
+      <section class="panel st-sec">
+        <h2>Tema</h2>
+        <p class="st-sub">Pilih tampilan terang atau gelap. Berlaku di semua halaman, langsung terlihat.</p>
+        <div class="st-grid">
+          <template x-for="t in temaList" :key="t.key">
+            <button type="button" class="st-opt" :class="pref.tema === t.key ? 'on' : ''" @click="setTema(t.key)" :aria-pressed="pref.tema === t.key">
+              <span class="st-tick">&#10003;</span>
+              <span class="st-mini" :class="t.key"><i class="sb"></i><span class="bd"><b></b><b></b><b></b></span></span>
+              <span class="st-name" x-text="t.label"></span>
+              <span class="st-note" x-text="t.note"></span>
+            </button>
+          </template>
+        </div>
+      </section>
+
+      <section class="panel st-sec">
+        <h2>Jenis huruf</h2>
+        <p class="st-sub">Pilih font yang paling nyaman dibaca. Angka dan kode (font monospasi) tidak ikut berubah.</p>
+        <div class="st-grid">
+          <template x-for="f in fontList" :key="f.key">
+            <button type="button" class="st-opt" :class="pref.font === f.key ? 'on' : ''" @click="setFont(f.key)" :aria-pressed="pref.font === f.key">
+              <span class="st-tick">&#10003;</span>
+              <span class="st-sample" :style="'font-family:' + f.stack" x-text="'Aa 123'"></span>
+              <span class="st-name" :style="'font-family:' + f.stack" x-text="f.label"></span>
+              <span class="st-note" x-text="f.note"></span>
+            </button>
+          </template>
+        </div>
+      </section>
+
+      <section class="panel st-sec">
+        <h2>Ukuran huruf</h2>
+        <p class="st-sub">Memperbesar atau memperkecil seluruh tulisan di semua halaman.</p>
+        <div class="st-pills">
+          <template x-for="u in ukuranList" :key="u.key">
+            <button type="button" class="st-pill" :class="pref.ukuran === u.key ? 'on' : ''" @click="setPref({ ukuran: u.key }, 'Ukuran huruf disimpan')" x-text="u.label"></button>
+          </template>
+        </div>
+      </section>
+
+      <section class="panel st-sec">
+        <h2>Sidebar saat halaman dibuka</h2>
+        <p class="st-sub">Menentukan sidebar terbuka atau menciut setiap kali membuka halaman.</p>
+        <div class="st-pills">
+          <template x-for="u in sidebarList" :key="u.key">
+            <button type="button" class="st-pill" :class="pref.sidebar === u.key ? 'on' : ''" @click="setPref({ sidebar: u.key }, 'Sidebar disimpan')" x-text="u.label"></button>
+          </template>
+        </div>
+      </section>
+
+      <section class="panel st-sec">
+        <h2>Line favorit</h2>
+        <p class="st-sub">Filter Line di Dashboard Exhaust dan Data Mentah langsung memakai line ini saat halaman dibuka. Tetap bisa diganti di halamannya.</p>
+        <div class="st-pills">
+          <template x-for="u in lineList" :key="u.key">
+            <button type="button" class="st-pill" :class="pref.line === u.key ? 'on' : ''" @click="setPref({ line: u.key }, 'Line favorit disimpan')" x-text="u.label"></button>
+          </template>
+        </div>
+      </section>
+
+      <section class="panel st-sec" x-show="isLeaderOrAdmin()">
+        <h2>Halaman awal setelah login</h2>
+        <p class="st-sub">Halaman pertama yang dibuka setelah masuk. “Otomatis” mengikuti peran Anda.</p>
+        <div class="st-pills">
+          <template x-for="u in halamanList()" :key="u.key">
+            <button type="button" class="st-pill" :class="pref.halamanAwal === u.key ? 'on' : ''" @click="setPref({ halamanAwal: u.key }, 'Halaman awal disimpan')" x-text="u.label"></button>
+          </template>
+        </div>
+      </section>
+
+      <section class="panel st-sec" x-show="isAdmin()">
+        <h2>Info sistem</h2>
+        <p class="st-sub">Khusus admin.</p>
+        <dl class="st-info">
+          <dt>Versi aplikasi</dt><dd x-text="info.versi"></dd>
+          <dt>Koneksi internet</dt><dd :class="info.online ? 'st-ok' : 'st-bad'" x-text="info.online ? 'Tersambung' : 'Terputus'"></dd>
+          <dt>Database (Supabase)</dt><dd :class="info.dbOk === true ? 'st-ok' : (info.dbOk === false ? 'st-bad' : '')" x-text="info.db"></dd>
+        </dl>
+        <div class="st-pills">
+          <button type="button" class="st-pill" @click="cekInfo()">Periksa ulang</button>
+          <button type="button" class="st-pill" @click="bersihkanCache()" :disabled="info.bersih">Bersihkan cache dan muat ulang</button>
+        </div>
+      </section>
+
+      <section class="panel st-sec">
+        <h2>Pratinjau</h2>
+        <p class="st-sub">Contoh tampilan dengan pilihan Anda sekarang.</p>
+        <div class="st-preview">
+          <div class="st-sample">Produksi hari ini: 1.234 pcs</div>
+          <div class="st-sample-sm">Line E-03 &middot; Shift 1 &middot; Target tercapai 98,6%</div>
+          <table>
+            <thead><tr><th>Line</th><th>Part</th><th>Qty</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td>E-02</td><td class="mono">25051-0Y050</td><td class="mono">412</td><td>Jalan</td></tr>
+              <tr><td>E-03</td><td class="mono">14110-74U50</td><td class="mono">320</td><td>Jalan</td></tr>
+              <tr><td>E-04</td><td class="mono">25051-BZ110</td><td class="mono">0</td><td>Berhenti</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="st-foot">
+        <button type="button" class="btn-secondary" @click="reset()">Kembalikan ke bawaan</button>
+        <span class="st-saved" x-show="saved" x-transition.opacity x-text="saved"></span>
+        <p class="hint">Pengaturan disimpan di perangkat dan browser ini saja.</p>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+function baseInputPage() {
+  return {
+    session: null, profile: null, mobileNavOpen: false, sidebarCollapsed: AppPref.sidebarAwal(false),
+    isAdmin() { return this.profile?.role === "admin"; },
+    role() { return (this.profile?.role || "").toLowerCase(); },
+    isViewer() { return this.role() === "viewer"; },
+    isSupporting() { return this.role() === "supporting"; },
+    isLeaderOrAdmin() { if (!this.profile) return false; const r = (this.profile.role||"").toLowerCase(); const j = (this.profile.jabatan||"").toLowerCase(); return ["admin","leader"].includes(r) || ["admin","leader"].includes(j); },
+    async initBase() {
+      this.session = await requireAuth();
+      if (!this.session) return false;
+      if (!await requireStaff(this.session)) return false;
+      const { data } = await supabaseClient.from("profiles").select("*").eq("id", this.session.user.id).maybeSingle();
+      this.profile = data;
+      return true;
+    },
+    logout,
+  };
+}
+function pengaturanPage() {
+  const FONTS = window.AppPref.FONTS;
+  return {
+    ...baseInputPage(),
+    pref: window.AppPref.load(),
+    saved: "",
+    _savedT: null,
+    temaList: [
+      { key: "terang", label: "Terang", note: "Latar putih, seperti sekarang" },
+      { key: "gelap",  label: "Gelap",  note: "Nyaman di ruangan redup" },
+      { key: "auto",   label: "Ikuti perangkat", note: "Otomatis mengikuti pengaturan Windows/HP" },
+    ],
+    fontList: Object.keys(FONTS).map((k) => ({ key: k, label: FONTS[k].label, note: FONTS[k].note, stack: FONTS[k].stack })),
+    ukuranList: [{ key: "kecil", label: "Kecil" }, { key: "normal", label: "Normal" }, { key: "besar", label: "Besar" }],
+    sidebarList: [{ key: "bawaan", label: "Bawaan tiap halaman" }, { key: "terbuka", label: "Selalu terbuka" }, { key: "menciut", label: "Selalu menciut" }],
+    lineList: [{ key: "", label: "Semua line" }].concat(window.AppPref.LINES.map((l) => ({ key: l, label: l }))),
+    info: { versi: "memeriksa…", online: navigator.onLine, db: "memeriksa…", dbOk: null, bersih: false },
+    halamanList() {
+      const semua = [
+        ["auto", "Otomatis sesuai peran"], ["dashboard-exhaust.html", "Dashboard Exhaust"], ["input-produksi.html", "Input Produksi"],
+        ["input-attendance.html", "Input Attendance"], ["andon.html", "Andon"],
+      ];
+      if (this.isAdmin()) semua.push(["perencanaan-produksi.html", "Perencanaan Produksi"], ["data-mentah.html", "Data Mentah"], ["data-karyawan.html", "Data Karyawan"], ["data-dashboard.html", "Data Dashboard"]);
+      return semua.map((x) => ({ key: x[0], label: x[1] }));
+    },
+    setPref(patch, teks) { this.pref = window.AppPref.set(patch); this.kabar(teks); },
+    async cekInfo() {
+      this.info.online = navigator.onLine;
+      try {
+        const r = await fetch("/service-worker.js", { cache: "no-store" });
+        const m = (await r.text()).match(/CACHE_NAME\s*=\s*"([^"]+)"/);
+        this.info.versi = m ? m[1] : "tidak diketahui";
+      } catch (e) { this.info.versi = "tidak terbaca (mode lokal)"; }
+      this.info.db = "memeriksa…"; this.info.dbOk = null;
+      const t0 = performance.now();
+      try {
+        const { error } = await supabaseClient.from("profiles").select("id", { head: true, count: "exact" }).limit(1);
+        if (error) throw error;
+        const lokal = ["file:"].includes(location.protocol) || /^(localhost|127\.0\.0\.1|192\.168\.)/.test(location.hostname);
+        this.info.db = (lokal ? "Mode uji tanpa Supabase" : "Tersambung") + " (" + Math.round(performance.now() - t0) + " ms)";
+        this.info.dbOk = true;
+      } catch (e) { this.info.db = "Gagal tersambung"; this.info.dbOk = false; }
+    },
+    async bersihkanCache() {
+      this.info.bersih = true;
+      try {
+        if ("serviceWorker" in navigator) { const rs = await navigator.serviceWorker.getRegistrations(); await Promise.all(rs.map((r) => r.unregister())); }
+        if (window.caches) { const ks = await caches.keys(); await Promise.all(ks.map((k) => caches.delete(k))); }
+      } catch (e) { /* lanjut muat ulang */ }
+      location.reload();
+    },
+    async init() {
+      // muat font contoh supaya kartu pilihan tampil dengan huruf aslinya
+      for (const k of Object.keys(FONTS)) window.AppPref.muatFont(k);
+      await this.initBase();
+      this.cekInfo();
+    },
+    kabar(t) { this.saved = t; clearTimeout(this._savedT); this._savedT = setTimeout(() => { this.saved = ""; }, 2500); },
+    setTema(k) { this.pref = window.AppPref.set({ tema: k }); this.kabar("Tema disimpan"); },
+    setFont(k) { this.pref = window.AppPref.set({ font: k }); this.kabar("Font disimpan"); },
+    reset() { this.pref = window.AppPref.reset(); this.kabar("Dikembalikan ke bawaan"); },
+  };
+}
+</script>
+</body>
+</html>
