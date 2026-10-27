@@ -57,6 +57,32 @@
   --sidebar-active-bg: #f1f5f9;       /* hover */
   --sidebar-current-bg: #fdf1e0;      /* menu halaman yang sedang dibuka */
   --sidebar-chip-bg: rgba(15, 23, 42, 0.06);
+  /* Baris TOTAL di tabel Plan Harian. Riwayatnya: oranye penuh -> abu tua
+     -> sekarang BIRU, satu keluarga dengan warna Plan di grafik, supaya
+     tabelnya tidak lagi "separuh biru separuh hitam". Birunya sengaja
+     setingkat lebih tua dari --plan-blue: teks putih di atas biru muda
+     tidak cukup terbaca untuk huruf sekecil ini. */
+  --plan-total-bg: #4376d8;
+  --plan-total-text: #ffffff;
+  /* Biru = Plan, hijau = Aktual -- PERSIS warna batang di grafik "Plan vs
+     Aktual per Line" (PLAN_LINE_COLORS[0] & [3] di dashboard-exhaust.js).
+     Dipakai di tabel supaya kolom Plan/Aktual langsung dikenali sebagai
+     hal yang sama dengan yang di grafik, dan tabelnya tidak lagi jadi
+     bidang putih polos. Kalau warna grafiknya diganti, ganti juga di sini. */
+  --plan-blue: #5b8def;
+  --plan-green: #31b06a;
+  --plan-blue-bg: #edf3fe;
+  --plan-green-bg: #e9f6ef;
+  /* Kepala tabel Plan Harian: PERSIS sama dengan badan tabel. Sempat
+     dibuat setingkat lebih tua supaya "terlihat seperti header", tapi
+     justru itu yang bikin pitanya terbaca sebagai warna lain. Pembatas
+     header cukup garis tebal di bawahnya + huruf kapital. */
+  --plan-head-bg: #edf3fe;
+  /* Warna tulisan dasar di tabel Plan Harian (Part Number, Backlog, dan
+     sel netral lain). Dulu hitam --text, kelihatan "lepas" di antara
+     kolom biru & hijau. Ini biru tua, masih satu keluarga tapi cukup
+     pekat untuk dibaca sebagai teks biasa. */
+  --plan-ink: #3a5578;
 }
 
 /* ---------- Tema Gelap ---------- */
@@ -73,6 +99,14 @@
   --muted: #94a3b8;
   --primary: #f59e0b;
   --navy: #94a3b8;
+  --plan-total-bg: #2f5bb0;
+  --plan-total-text: #f8fafc;
+  --plan-blue: #7ba6f5;
+  --plan-green: #4ec98a;
+  --plan-blue-bg: #1e2b44;
+  --plan-green-bg: #182f24;
+  --plan-head-bg: #1e2b44;
+  --plan-ink: #bcccE4;
   --teal: var(--green);
   --sky: #60a5fa;
   --amber: #f59e0b;
@@ -157,6 +191,14 @@ a { color: var(--amber); }
   padding-top: 8px !important;
   max-width: none !important;
   width: 100% !important;
+}
+/* Di dalam <iframe> dashboard, kotaknya dibuat tanpa garis tepi & latar
+   transparan (lihat dashboard-exhaust.html), jadi latar halaman ini yang
+   terlihat. Disamakan dengan latar dashboard supaya menyatu dan sisa
+   ruang di bawah isi tidak terlihat seperti kotak tersendiri. */
+.app-shell.embed-mode,
+body:has(> .app-shell.embed-mode) {
+  background: var(--page-bg);
 }
 
 .sidebar {
@@ -1208,6 +1250,10 @@ tr.dkd-row-alert .dkd-ket-abnormality{ font-weight:900; color:#b3261e; backgroun
   border-top: 1px dashed var(--border);
 }
 .perf-lower-col .table-wrap { max-height: 220px; }
+/* Catatan: .perf-lower-grid / .perf-lower-col / .perf-pie-wrap sekarang
+   SUDAH TIDAK DIPAKAI halaman mesin mana pun -- "5 Downtime Terburuk"
+   pindah ke bawah grafik dan pie "Downtime per Kategori" dihapus.
+   Aturannya sengaja dibiarkan di sini supaya gampang dihidupkan lagi. */
 .perf-pie-wrap {
   height: 200px;
   position: relative;
@@ -2813,13 +2859,283 @@ body, .sqcpm-col, .dash-panel, .kpi-card, .perf-card, .panel,
 .repair-3d-hint { font-size: 12px; color: var(--muted); margin-top: 8px; text-align: center; }
 .repair-edit-hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
 
+/* ---------- Plan Produksi Harian: kepala halaman ---------- */
+.plan-head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 6px;
+}
+.plan-head-main { margin: 0; font-weight: 700; font-size: .95rem; }
+.plan-head-sub {
+  margin: 1px 0 0; font-family: var(--font-mono); font-size: 12px;
+  color: var(--muted); display: flex; align-items: center; gap: 8px;
+}
+.plan-today-chip {
+  background: var(--good-bg); color: var(--green);
+  font-weight: 700; font-size: 10px; letter-spacing: .04em;
+  text-transform: uppercase; padding: 2px 7px; border-radius: 999px;
+}
+.plan-head-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.plan-date-nav {
+  display: flex; align-items: stretch;
+  border: 1px solid var(--field-border); border-radius: var(--radius-sm);
+  overflow: hidden; background: var(--panel);
+}
+.plan-date-nav input[type="date"] {
+  padding: 6px 10px; border: none; background: transparent;
+  color: var(--text); font-size: .85rem;
+}
+.plan-nav-btn {
+  border: none; background: var(--panel-2); color: var(--muted);
+  padding: 0 11px; font-size: 16px; line-height: 1; cursor: pointer;
+}
+.plan-nav-btn:hover { background: var(--sidebar-active-bg); color: var(--text); }
+
+/* ---------- Tata letak ----------
+   Susunannya tetap seperti semula: ringkasan, lalu tabel utama + grafik,
+   lalu Shift 1 & 2. Yang dirapatkan cuma jarak antar bagiannya, supaya
+   satu tab muat dalam satu layar tanpa perlu scroll. */
+/* Tab ini dirapatkan: padding bawah .main dan jarak antar bagian dikecilkan. */
+/* .plan-tab sekarang dibungkus .dxy-fill, jadi bukan anak langsung .main
+   lagi -- pemilihnya dilonggarkan supaya aturan ini tetap jalan. */
+.main:has(.plan-tab) { padding-bottom: 8px; }
+.plan-tab { padding: 2px 0 0; }
+.plan-tab .dash-body { gap: 8px; }
+/* Kartu TABEL dibuat menyatu dengan halaman -- warna kolomnya sendiri
+   yang jadi latar, jadi tidak ada bidang putih besar di baliknya. Kartu
+   KPI di atas sengaja DIBIARKAN putih supaya tetap menonjol sebagai
+   ringkasan. */
+/* =========================================================
+   Kartu Plan Harian -- SATU definisi, dipakai dua halaman:
+   tab Plan Harian di dashboard-exhaust.html dan plan-produksi.html.
+   Nilainya menyalin .dxy & .dxy-panel di assets/dashboard-exhaust.css
+   (kartu yang dipakai tab Tahunan dkk). Sengaja disalin ke sini, BUKAN
+   dipakai langsung, karena dashboard-exhaust.css tidak dimuat di
+   plan-produksi.html -- dan memuatnya di sana ikut menimpa .main /
+   .dash-topbar / .dash-title-block halaman itu. Kalau kartu di
+   dashboard-exhaust.css diubah, samakan juga di sini.
+   ========================================================= */
+.plan-card {
+  background: #F5F7FB;
+  padding: 4px 6px 12px 6px;
+  border-radius: 20px;
+}
+[data-theme="dark"] .plan-card { background: #0f172a; }
+.plan-chart-card {
+  background: #F1F9FE;
+  border: 1px solid #7DD3FC;
+  border-top: 4px solid #0EA5E9;
+  border-radius: 16px;
+  padding: 8px 10px;
+  box-shadow: 0 1px 3px rgba(14,165,233,.12), 0 8px 24px -12px rgba(14,165,233,.28);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+[data-theme="dark"] .plan-chart-card {
+  background: #14273A; border-color: #0284C7; border-top-color: #38BDF8;
+}
+
+/* ---------- Mode edit plan (di dalam tab Plan Harian) ---------- */
+.plan-edit-actions { display: inline-flex; align-items: center; gap: 6px; }
+/* Kotak isian dibuat TIDAK TERLIHAT: tanpa garis tepi, tanpa latar, huruf
+   & perataannya meniru teks selnya. Jadi saat mode edit menyala tabelnya
+   terlihat sama persis -- selnya langsung bisa diketik, bukan muncul
+   deretan kotak putih. Tandanya cuma muncul saat disentuh kursor (hover)
+   dan saat sedang diketik (focus). */
+.plan-edit-input {
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: right;
+  line-height: inherit;
+  font-variant-numeric: tabular-nums;
+}
+.plan-edit-input:hover { background: rgba(91, 141, 239, 0.10); }
+.plan-edit-input:focus {
+  outline: none;
+  background: var(--panel);
+  box-shadow: 0 0 0 1.5px var(--plan-blue);
+}
+/* Panah naik-turun bawaan browser dimatikan -- di kolom selebar ini
+   panahnya menutupi angkanya sendiri. */
+.plan-edit-input::-webkit-outer-spin-button,
+.plan-edit-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.plan-edit-input { -moz-appearance: textfield; appearance: textfield; }
+/* Angka di tabel atas ditebalkan (kolom Plan per Line memang tebal saat
+   bukan mode edit), supaya tampilannya tidak berubah saat mode edit. */
+table.plan-table .plan-edit-input { font-weight: inherit; }
+.plan-edit-msg {
+  margin: 4px 0 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--green);
+}
+.plan-edit-msg.plan-edit-msg-bad { color: var(--red); }
+
+.plan-skin .dash-panel {
+  /* Tanpa padding: tepi tabel = tepi kolom grid, jadi tabel atas dan
+     tabel Shift benar-benar lurus satu sama lain. Jarak antar baris
+     diurus .dash-body (gap). Hook .plan-skin dipakai BERSAMA oleh tab
+     Plan Harian di dashboard dan halaman plan-produksi.html, supaya
+     tampilan keduanya tidak pernah lepas satu sama lain lagi. */
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+/* Kartu GRAFIK tidak memakai .dash-panel sama sekali -- dia memakai
+   .dxy-panel (assets/dashboard-exhaust.css), kartu yang sama dengan
+   grafik di tab Tahunan dkk. Lihat dashboard-exhaust.html. */
+/* Semua judul kolom rata tengah -- termasuk kolom pertama (Part Number)
+   yang bawaannya rata kiri. Isi selnya tetap: nama part rata kiri,
+   angka rata kanan. */
+.plan-skin table.plan-table thead th,
+.plan-skin table.plan-table thead th:first-child,
+.plan-skin table.plan-table thead th.plan-col-item,
+.plan-skin table.plan-shift-table thead th,
+.plan-skin table.plan-shift-table thead th:first-child,
+.plan-skin table.plan-shift-table thead th.plan-col-item {
+  text-align: center;
+}
+.plan-chart-box { position: relative; flex: 1; min-height: 150px; }
+/* Canvas-nya dibuat "melayang" (absolute) di dalam kotaknya.
+   Alasannya: Chart.js menulis tinggi canvas dalam px (mis. height: 492px)
+   hasil mengukur kotak ini. Kalau canvas-nya tetap di dalam alur, tinggi
+   px itu balik lagi jadi penentu tinggi kotak -> tinggi baris -> tinggi
+   kotak. Lingkaran itu bikin grafiknya tidak pernah mau mengecil lagi:
+   setelah keluar dari layar penuh (F11) tingginya tetap setinggi layar
+   penuh, jadi halamannya jadi kelebihan ~128px (muncul scrollbar) dan
+   isinya terlihat bertumpuk.
+   Dengan melayang, canvas tidak menyumbang tinggi sama sekali: tinggi
+   kotak murni dari layout (sisa ruang layar), lalu canvas menempel
+   penuh ke kotak itu. Mengecil maupun membesar sama-sama ikut. */
+.plan-tab .plan-chart-box > canvas {
+  position: absolute;
+  left: 0; top: 0;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ---------- Form kapasitas per line (CAPACITY) ---------- */
+.plan-capa-dlg { width: min(720px, 96vw); max-height: 88vh; overflow: auto; padding: 18px 18px 14px; }
+/* Tiga sub di dalam form: Capacity Harian / Kapasitas Line / Master Part */
+.plan-capa-subtabs {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  margin: 0 0 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border);
+}
+.plan-capa-subtab {
+  padding: 5px 11px; font-size: 12px; font-weight: 600; cursor: pointer;
+  color: var(--muted); background: var(--panel-2);
+  border: 1px solid var(--border); border-radius: 999px;
+}
+.plan-capa-subtab:hover { color: var(--text); }
+.plan-capa-subtab-aktif {
+  color: #fff; background: var(--primary); border-color: var(--primary);
+}
+/* Master Part barisnya banyak -> dibatasi tingginya, isinya yang scroll */
+.plan-capa-scroll { max-height: 52vh; overflow-y: auto; }
+.plan-capa-unit { display: block; font-size: 9.5px; font-weight: 500; opacity: .75; }
+/* Daftar watari ('E-03,E-04,E-06') lebih enak dibaca rata kiri.
+   Ditulis lebih spesifik supaya menang dari .plan-capa-input di bawah,
+   yang rata tengah. */
+.plan-capa-table td input.plan-capa-input-kiri { text-align: left; }
+.plan-capa-table-part th:first-child, .plan-capa-table-part td:first-child { text-align: left; }
+.plan-capa-dlg-title { margin: 0; font-size: 16px; font-weight: 800; color: var(--text); }
+.plan-capa-dlg-sub { margin: 2px 0 12px; font-size: 12px; color: var(--muted); }
+.plan-capa-dlg-note { margin: 10px 0 0; font-size: 11.5px; color: var(--muted); }
+.plan-capa-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.plan-capa-table th {
+  text-align: center; font-size: 10.5px; font-weight: 700; letter-spacing: .02em;
+  color: var(--muted); padding: 6px 6px; border-bottom: 1px solid var(--border);
+  white-space: normal; line-height: 1.25;
+}
+.plan-capa-table td { padding: 4px 6px; border-bottom: 1px solid var(--border); }
+.plan-capa-table tr:last-child td { border-bottom: 0; }
+.plan-capa-line { font-weight: 700; color: var(--text); font-family: var(--font-mono, monospace); }
+/* Titik warna kecil = warna garisnya di grafik, biar kolomnya gampang dicocokkan */
+.plan-capa-dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 2px;
+  margin-right: 5px; vertical-align: middle;
+}
+.plan-capa-input {
+  width: 100%; text-align: center; padding: 5px 6px; font-size: 12.5px;
+  color: var(--text); background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.plan-capa-input:focus { outline: none; border-color: var(--primary); }
+.plan-capa-dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+
+/* ---------- Ringkasan sehari (KPI) ---------- */
+.plan-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 8px;
+  align-content: stretch;
+}
+.plan-kpi {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 5px 10px;
+  box-shadow: var(--shadow-sm); display: flex; flex-direction: column;
+  gap: 1px; justify-content: center;
+}
+.plan-kpi-label {
+  font-family: var(--font-mono); font-size: 10px; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--muted);
+}
+.plan-kpi-value {
+  font-family: var(--font-display); font-size: 18px; font-weight: 700;
+  color: var(--text); font-variant-numeric: tabular-nums; line-height: 1.1;
+}
+.plan-kpi-unit { font-size: 10px; color: var(--muted); }
+.plan-kpi-main { border-top: 3px solid var(--border); }
+.plan-kpi-main.ach-ok { border-top-color: var(--green); background: var(--good-bg); }
+.plan-kpi-main.ach-warn { border-top-color: var(--warn); background: var(--warn-bg); }
+.plan-kpi-main.ach-bad { border-top-color: var(--red); background: var(--bad-bg); }
+.plan-kpi-main.ach-ok .plan-kpi-value { color: var(--green); }
+.plan-kpi-main.ach-warn .plan-kpi-value { color: var(--warn); }
+.plan-kpi-main.ach-bad .plan-kpi-value { color: var(--red); }
+.plan-kpi-bar {
+  height: 4px; border-radius: 999px; background: var(--border);
+  overflow: hidden; margin-top: 4px;
+}
+.plan-kpi-bar i { display: block; height: 100%; background: currentColor; border-radius: 999px; }
+.plan-kpi-main.ach-ok .plan-kpi-bar i { background: var(--green); }
+.plan-kpi-main.ach-warn .plan-kpi-bar i { background: var(--warn); }
+.plan-kpi-main.ach-bad .plan-kpi-bar i { background: var(--red); }
+
+/* warna pencapaian dipakai juga di dalam tabel */
+.ach-ok { color: var(--green); }
+.ach-warn { color: var(--warn); }
+.ach-bad { color: var(--red); }
+
+/* ---------- Pesan saat datanya kosong ---------- */
+.plan-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; padding: 28px 16px; text-align: center;
+  color: var(--muted); font-size: 12.5px;
+}
+.plan-empty-title {
+  font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--text);
+}
+.plan-note { margin: 2px 0 0; font-size: 11px; color: var(--muted); }
+
 /* ---------- Plan Produksi Harian ---------- */
 .plan-grid-top {
   display: grid;
-  grid-template-columns: 1.15fr 1fr;
-  gap: 16px;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 12px;
   align-items: stretch;
 }
+/* Di tab Plan Harian dashboard, pembagian kolomnya disamakan dengan
+   .plan-shift-grid (1fr 1fr) supaya tepi tabel atas lurus dengan tabel
+   Shift 1 dan kartu grafik lurus dengan tabel Shift 2. Halaman
+   plan-produksi.html TETAP 1.3fr 1fr seperti semula. */
+.plan-tab .plan-grid-top { grid-template-columns: 1fr 1fr; }
 @media (max-width: 1000px) {
   .plan-grid-top { grid-template-columns: 1fr; }
 }
@@ -2828,17 +3144,32 @@ body, .sqcpm-col, .dash-panel, .kpi-card, .perf-card, .panel,
   color: #fff;
   font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 12px;
+  font-size: 11px;
   padding: 4px 10px;
   border-radius: 6px;
+  white-space: nowrap;
 }
-table.plan-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.plan-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
 table.plan-table th, table.plan-table td {
-  padding: 7px 9px;
+  padding: 1px 6px;
+  line-height: 1.25;
   text-align: right;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
+/* Angka rata kanan dengan lebar digit seragam -- tanpa ini "1,120" dan
+   "760" tidak sejajar dan kolomnya terlihat bergoyang. */
+/* Isi tabel dikecilkan (header tetap) -- angkanya banyak dan rapat, huruf
+   yang lebih kecil bikin tiap kolom lebih lega. Berlaku juga untuk kolom
+   Part Number. */
+table.plan-table td { font-variant-numeric: tabular-nums; }
+.plan-skin table.plan-table td { color: var(--plan-ink); font-size: 10.5px; }
+/* SELURUH badan tabel berlatar biru muda -- termasuk kolom Part Number,
+   Backlog, dan Capai yang tidak punya warna sendiri. Dulu kolom-kolom itu
+   dibiarkan memakai latar halaman (abu), dan di sebelah kolom biru yang
+   lebih terang mereka terbaca sebagai kolom gelap. Kolom Aktual menimpa
+   aturan ini dengan hijau. */
+.plan-skin table.plan-table tbody td { background: var(--plan-blue-bg); }
 table.plan-table th:first-child, table.plan-table td:first-child { text-align: left; }
 table.plan-table thead th {
   color: var(--muted);
@@ -2847,36 +3178,226 @@ table.plan-table thead th {
   letter-spacing: 0.03em;
   border-bottom: 2px solid var(--border);
 }
+/* Khusus tab Plan Harian dashboard: judul kolom ikut keluarga biru dan
+   diberi latar supaya terbaca sebagai satu pita. */
+.plan-skin table.plan-table thead th {
+  color: var(--plan-blue);
+  background: var(--plan-head-bg);
+}
+/* Warna senada grafik: kolom Plan biru, kolom Aktual hijau. */
+table.plan-table thead th.plan-c-plan { color: var(--plan-blue); background: var(--plan-blue-bg); }
+table.plan-table thead th.plan-c-act { color: var(--plan-green); background: var(--plan-green-bg); }
+/* Angkanya ikut warna kolomnya: biru di kolom Plan, hijau di kolom
+   Aktual -- bukan hitam di atas latar berwarna. */
+table.plan-table tbody td.plan-c-plan { background: var(--plan-blue-bg); color: var(--plan-blue); }
+table.plan-table tbody td.plan-c-act { background: var(--plan-green-bg); color: var(--plan-green); font-weight: 700; }
+/* Kolom ringkasan "Hasil Hari Ini" ditebalkan -- dua kolom inilah yang
+   paling sering dibaca. */
+table.plan-table tbody td.plan-sep.plan-c-plan { font-weight: 700; }
+/* Dulu di sini ada baris selang-seling (zebra). Dicabut setelah kolom
+   Plan/Aktual diberi warna senada grafik -- dua-duanya sekaligus bikin
+   tabelnya jadi papan catur. Pemisah barisnya cukup garis mendatar,
+   pemisah kolomnya warna + garis tegak. */
 table.plan-table tr.plan-total-row td {
   background: var(--amber);
   color: #fff;
   font-weight: 700;
 }
+.plan-skin table.plan-table tr.plan-total-row td {
+  background: var(--plan-total-bg);
+  color: var(--plan-total-text);
+  border-bottom-color: var(--plan-total-bg);
+}
 table.plan-table tbody tr:hover td { background: var(--panel-2); }
 table.plan-table tr.plan-total-row:hover td { background: var(--amber); }
+.plan-skin table.plan-table tbody tr:hover td,
+.plan-skin table.plan-table tbody tr:hover .plan-col-item { background: var(--sidebar-active-bg); }
+.plan-skin table.plan-table tr.plan-total-row:hover td,
+.plan-skin table.plan-table tr.plan-total-row:hover .plan-col-item { background: var(--plan-total-bg); }
+
+/* Header bertingkat: kelompok "Plan per Line" vs "Hasil Hari Ini" */
+table.plan-table th.plan-group-head {
+  text-align: center;
+  background: var(--plan-head-bg);
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
+  color: var(--plan-blue);
+  font-weight: 700;
+}
+/* Garis tegak pemisah antar kelompok kolom (… E-07 │ Backlog │ Hasil …).
+   Tanpa ini ketiga kelompok menyatu jadi satu deretan angka panjang. */
+table.plan-table th.plan-sep,
+table.plan-table td.plan-sep { border-left: 2px solid var(--border); }
+/* Kolom Part Number ikut ke kiri saat tabelnya digeser mendatar */
+table.plan-table .plan-col-item,
+table.plan-shift-table .plan-col-item {
+  position: sticky; left: 0; z-index: 2;
+  /* Harus pekat (bukan transparent) supaya menutupi angka yang lewat di
+     bawahnya saat tabel digeser mendatar. Warnanya sama dengan badan
+     tabel yang lain. */
+  background: var(--plan-blue-bg);
+  text-align: left;
+}
+table.plan-table thead .plan-col-item,
+table.plan-shift-table thead .plan-col-item { z-index: 3; background: var(--plan-head-bg); }
+table.plan-table tbody tr:hover .plan-col-item { background: var(--sidebar-active-bg); }
+table.plan-table tr.plan-total-row .plan-col-item,
+table.plan-shift-table tr.plan-total-row .plan-col-item { background: var(--plan-total-bg); }
+/* Sel kosong: titik samar, bukan kosong melompong yang bikin ragu */
+table.plan-table td.plan-cell-kosong { color: var(--border); }
+/* Kolom pencapaian: angka + bar mini (sebaris, biar barisnya tetap pendek) */
+table.plan-table .plan-col-ach { min-width: 74px; }
+.plan-ach-wrap { display: flex; align-items: center; justify-content: flex-end; gap: 5px; }
+.plan-ach-num { font-weight: 700; font-variant-numeric: tabular-nums; }
+.plan-ach-bar {
+  width: 30px; height: 4px; border-radius: 999px; flex: none;
+  background: var(--border); overflow: hidden;
+}
+.plan-ach-bar i { display: block; height: 100%; border-radius: 999px; background: var(--muted); }
+.plan-ach-bar.ach-ok i { background: var(--green); }
+.plan-ach-bar.ach-warn i { background: var(--warn); }
+.plan-ach-bar.ach-bad i { background: var(--red); }
+/* Baris "Capai per line" di bawah TOTAL */
+table.plan-table tr.plan-ach-row td {
+  background: var(--plan-head-bg);
+  font-weight: 700;
+  font-size: 10.5px;
+  border-bottom: none;
+}
+table.plan-table tr.plan-ach-row .plan-col-item {
+  background: var(--plan-head-bg);
+  font-weight: 600; color: var(--muted); text-transform: none;
+}
 .plan-shift-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 12px;
+  align-items: start;
 }
 @media (max-width: 1000px) {
   .plan-shift-grid { grid-template-columns: 1fr; }
 }
-table.plan-shift-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.plan-shift-table { width: 100%; border-collapse: collapse; font-size: 11px; }
 table.plan-shift-table th, table.plan-shift-table td {
-  padding: 6px 7px;
+  padding: 1px 4px;
+  line-height: 1.2;
   text-align: right;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
+table.plan-shift-table td { font-variant-numeric: tabular-nums; }
+.plan-skin table.plan-shift-table td { color: var(--plan-ink); font-size: 10px; }
+/* Sama seperti tabel atas: Part Number & Balance ikut biru muda, tidak
+   dibiarkan memakai latar halaman yang lebih gelap. */
+.plan-skin table.plan-shift-table tbody td { background: var(--plan-blue-bg); }
 table.plan-shift-table th:first-child, table.plan-shift-table td:first-child { text-align: left; }
 table.plan-shift-table thead th {
   color: var(--muted);
   font-size: 9.5px;
   text-transform: uppercase;
 }
+/* Khusus tab Plan Harian dashboard. Latar dipasang ke SELURUH sel kepala
+   (termasuk "Balance" yang tidak punya warna kolom sendiri) supaya pita
+   header-nya utuh tanpa bolong; kolom Plan/Act menimpanya biru/hijau. */
+.plan-skin table.plan-shift-table thead th {
+  color: var(--plan-blue);
+  border-bottom: 2px solid var(--border);
+  background: var(--plan-head-bg);
+}
 table.plan-shift-table td.balance-ok { color: var(--green); font-weight: 700; }
 table.plan-shift-table td.balance-bad { color: var(--red); font-weight: 700; }
+
+/* Kepala panel shift + ringkasan kecil di kanannya */
+.plan-shift-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; flex-wrap: wrap; margin-bottom: 4px;
+}
+.plan-shift-sum {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono); font-size: 10px; color: var(--muted);
+}
+/* Judul "Shift 1 · 07:00-19:30" dibuat tebal & lebih pekat -- bawaannya
+   .dash-panel-title abu tipis, hampir tenggelam di antara tabelnya. */
+.plan-shift-head .dash-panel-title {
+  font-weight: 700;
+  color: var(--plan-ink);
+}
+.plan-shift-sum b { font-size: 11.5px; }
+
+/* Tiap line = sepasang kolom Plan/Act. Pemisahnya garis tegak di kolom
+   "Plan", DAN warnanya dibedakan senada grafik: kolom Plan berlatar biru
+   muda, kolom Act hijau muda. Dulu cuma beda abu selang-seling antar
+   line -- 12 kolom angka terbaca seperti satu blok putih. */
+table.plan-shift-table th.plan-line-head {
+  text-align: center; font-size: 10.5px; color: var(--plan-blue); font-weight: 700;
+  background: var(--plan-head-bg);
+}
+table.plan-shift-table .plan-c-plan { background: var(--plan-blue-bg); color: var(--plan-blue); }
+table.plan-shift-table .plan-c-act { background: var(--plan-green-bg); color: var(--plan-green); }
+
+table.plan-shift-table th.plan-sep,
+table.plan-shift-table td.plan-sep { border-left: 2px solid var(--border); }
+table.plan-shift-table td.plan-cell-act { font-weight: 700; }
+table.plan-shift-table tbody tr:hover td { background: var(--panel-2); }
+.plan-skin table.plan-shift-table tbody tr:hover td { background: var(--sidebar-active-bg); }
+table.plan-shift-table tr.plan-total-row td {
+  background: var(--plan-total-bg); color: var(--plan-total-text); font-weight: 700;
+  border-bottom-color: var(--plan-total-bg);
+}
+table.plan-shift-table tr.plan-total-row:hover td { background: var(--plan-total-bg); }
+/* Balance di baris TOTAL: hijau/merah biasa terlalu gelap di atas pita
+   abu tua, jadi dipakai versi mudanya -- tandanya tetap kebaca. */
+table.plan-shift-table tr.plan-total-row td.balance-ok { color: #86efac; }
+table.plan-shift-table tr.plan-total-row td.balance-bad { color: #fca5a5; }
+/* Baris tabel shift tidak ikut melar mengisi tinggi panel */
+.dash-panel .table-wrap table.plan-shift-table { height: auto; }
+.dash-panel .table-wrap table.plan-shift-table tbody tr { height: auto; }
+
+/* =========================================================
+   Plan Harian: mengisi tinggi layar secara otomatis.
+   Tanpa ini isinya berhenti di tinggi "alami" tabel, jadi di layar besar
+   (monitor 55") separuh halaman ke bawah kosong melompong, sementara di
+   layar laptop malah terasa padat.
+   Caranya: tab ini dibuat kolom flex setinggi layar, lalu SISA ruangnya
+   dibagi ke dua baris tabel -- barisnya yang melar, bukan dibiarkan
+   menganga. Ambang layarnya disamakan dengan tab Tahunan dkk
+   (lihat @media di assets/dashboard-exhaust.css) supaya di layar
+   sempit/HP tata letaknya tetap seperti biasa.
+   ========================================================= */
+@media (min-width: 1400px) and (min-height: 700px) {
+  /* .dxy-fill bawaannya calc(100vh - 120px). Di tab ini sisa ruang di
+     atasnya sedikit berbeda, jadi tingginya dikoreksi -- tanpa ini ada
+     kelebihan 5px yang memunculkan scrollbar padahal isinya sudah pas. */
+  .dxy-fill:has(> .plan-tab) { min-height: calc(100vh - 125px); }
+  .plan-tab > .dash-body { flex: 1; min-height: 0; }
+  /* Dua baris tabel berbagi sisa tinggi sama rata. Baris kartu KPI &
+     judul tetap setinggi isinya. */
+  /* flex: 1 0 auto -- BUKAN flex: 1.
+     "flex: 1" artinya basis 0: kedua baris dipaksa berbagi tinggi SAMA
+     RATA, padahal baris atas isinya lebih banyak (ada baris TOTAL dan
+     "Capai per line"). Jadi kotaknya selalu sedikit lebih kecil dari
+     isinya -- dulu kelebihannya cuma tumpah tanpa kelihatan, dan saat
+     keluar dari layar penuh (F11) tumpahan itu tergambar menimpa baris
+     Shift di bawahnya.
+     Dengan "1 0 auto": tinggi dasarnya = tinggi isi (tidak pernah lebih
+     kecil, jadi tidak ada yang tumpah maupun kepotong), lalu SISA ruang
+     layar baru dibagi ke dua baris. Kalau isinya lebih tinggi dari layar,
+     halamannya yang scroll -- itu benar, bukan dipotong. */
+  .plan-tab .plan-grid-top,
+  .plan-tab .plan-shift-grid { flex: 1 0 auto; }
+  /* .plan-shift-grid bawaannya align-items:start -- kotaknya cuma
+     setinggi isi, jadi flex:1 di atas tidak ada efeknya dan baris Shift
+     tetap pendek. Ditarik penuh di sini. */
+  .plan-tab .plan-shift-grid { align-items: stretch; }
+  .plan-tab .plan-grid-top > .dash-panel,
+  .plan-tab .plan-shift-grid > .dash-panel { min-height: 0; }
+  .plan-tab .dash-panel > .table-wrap { flex: 1; min-height: 0; max-height: none; }
+  /* Tabelnya ikut setinggi kotaknya -> tiap baris melebar merata.
+     Menimpa aturan "height: auto" di atas yang dipasang waktu tab ini
+     belum mengikuti tinggi layar. */
+  .plan-tab .table-wrap > table.plan-table,
+  .plan-tab .dash-panel .table-wrap table.plan-shift-table { height: 100%; }
+}
 .plan-form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));

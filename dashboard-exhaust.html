@@ -173,8 +173,8 @@
       <button class="btn-secondary btn-sm" :class="activeTab==='bulanan' ? 'btn-primary' : ''" @click="setTab('bulanan')">Kontrol Downtime</button>
       <button class="btn-secondary btn-sm" :class="activeTab==='kualitas' ? 'btn-primary' : ''" @click="setTab('kualitas')">Kontrol Kualitas</button>
       <button class="btn-secondary btn-sm" :class="activeTab==='attendance' ? 'btn-primary' : ''" @click="setTab('attendance')">Kontrol Attendance</button>
-      <button class="btn-secondary btn-sm" :class="activeTab==='performance' ? 'btn-primary' : ''" @click="setTab('performance')">Performance</button>
-      <button class="btn-secondary btn-sm" :class="activeTab==='plan_harian' ? 'btn-primary' : ''" @click="setTab('plan_harian')">Plan Harian</button>
+      <button class="btn-secondary btn-sm" x-show="bolehLihatTab('performance')" :class="activeTab==='performance' ? 'btn-primary' : ''" @click="setTab('performance')">Performance</button>
+      <button class="btn-secondary btn-sm" x-show="bolehLihatTab('plan_harian')" :class="activeTab==='plan_harian' ? 'btn-primary' : ''" @click="setTab('plan_harian')">Plan Harian</button>
     </div>
 
     <!-- ===== TAB: BULANAN (harian, tanggal 1-31) ===== -->
@@ -1079,7 +1079,7 @@
          iframe cuma dibuat (x-if) saat tab ini aktif, dan cuma utk LINE
          yang lagi dipilih -- supaya tidak sekaligus memuat 6 halaman
          mesin yang berat. ===== -->
-    <template x-if="activeTab === 'performance'">
+    <template x-if="activeTab === 'performance' && bolehLihatTab('performance')">
       <div class="dxy-fill" x-init="$nextTick(() => perfComputeIframeHeight())">
         <div class="dash-subtab-nav" id="perfSubNav" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
           <template x-for="ln in ['E-02','E-03','E-04','E-05','E-06','E-07']" :key="ln">
@@ -1094,27 +1094,216 @@
              machine-page.js. Supaya tombolnya tampil di lokasi yang sama
              persis walau tab Performance ini dibuka LANGSUNG di halaman
              line (bukan cuma lewat iframe dashboard). -->
+        <!-- Tanpa garis tepi & latar transparan. Dulu kotaknya bergaris
+             dan berlatar putih; karena tingginya selalu sebesar sisa
+             layar, di tab yang isinya pendek (Tahunan) garis bawahnya
+             menggantung jauh di bawah isi dan terlihat seperti garis
+             nyasar. Dibuat menyatu dengan halaman dashboard -- sisa ruang
+             di bawahnya jadi sekadar latar, bukan kotak kosong. -->
         <iframe :src="'machines/' + perfLine.toLowerCase() + '.html?tab=performance'"
-                :style="'width:100%; height:' + perfIframeHeight + 'px; min-height:560px; border:1px solid var(--dxy-border, #ddd); border-radius:8px; background:#fff; display:block;'"
+                :style="'width:100%; height:' + perfIframeHeight + 'px; min-height:560px; border:0; background:transparent; display:block;'"
                 title="Performance"></iframe>
       </div>
     </template>
 
     <!-- ===== TAB: PLAN HARIAN ===== -->
-    <template x-if="activeTab === 'plan_harian'">
-      <div style="padding:16px 0;">
+    <template x-if="activeTab === 'plan_harian' && bolehLihatTab('plan_harian')">
+      <!-- class "dxy" = kartu pembungkus besar yang sama dengan tab
+           Tahunan / Kontrol Downtime / Kontrol Kualitas (lihat .dxy di
+           assets/dashboard-exhaust.css). Dengan ini seluruh isi tab --
+           judul, kartu KPI, tabel, dan grafik -- duduk di dalam satu
+           kartu, bukan tersebar langsung di atas halaman.
+           Pembungkus luar "dxy-fill" bikin kartunya memanjang mengikuti
+           tinggi layar (lihat @media min-width:1400px di
+           assets/dashboard-exhaust.css), supaya di monitor besar tidak
+           ada lahan kosong menganga di bawah. -->
+      <div class="dxy-fill">
+      <div class="plan-tab plan-skin dxy">
 
         <!-- Header + filter tanggal -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
-          <div>
-            <p style="margin:0;font-weight:700;font-size:1rem;">Rencana Produksi Harian per Part Number</p>
+        <div class="plan-head">
+          <div class="plan-head-title">
+            <p class="plan-head-main">Rencana Produksi Harian</p>
+            <p class="plan-head-sub">
+              <span x-text="planTanggalLabel"></span>
+            </p>
           </div>
-          <div style="display:flex;align-items:center;gap:10px;">
-            <input type="date" x-model="planTanggal" @input="planTanggal = $event.target.value; fetchPlanHarian()" @change="planTanggal = $event.target.value; fetchPlanHarian()"
-              style="padding:6px 10px;border:1px solid var(--field-border);border-radius:var(--radius-sm);background:var(--panel);color:var(--text);font-size:.85rem;">
-            <template x-if="isAdmin()">
-              <a href="plan-produksi.html" class="btn-secondary btn-sm" style="text-decoration:none;">✏️ Edit Plan</a>
+          <div class="plan-head-tools">
+            <div class="plan-date-nav">
+              <button type="button" class="plan-nav-btn" title="Hari sebelumnya" @click="planBatalEdit(); planGeserHari(-1)">‹</button>
+              <input type="date" x-model="planTanggal" @input="planBatalEdit(); planTanggal = $event.target.value; fetchPlanHarian()" @change="planBatalEdit(); planTanggal = $event.target.value; fetchPlanHarian()">
+              <button type="button" class="plan-nav-btn" title="Hari berikutnya" @click="planBatalEdit(); planGeserHari(1)">›</button>
+            </div>
+            <!-- Edit DI TEMPAT: tombol ini cuma menyalakan mode edit, tidak
+                 pindah halaman. Kotak isian muncul di kolom PLAN tabel
+                 Shift 1/2 dan kolom Backlog tabel atas. -->
+            <template x-if="isAdmin() && !planEditMode">
+              <button type="button" class="btn-secondary btn-sm" @click="planMulaiEdit()">✏️ Edit Plan</button>
             </template>
+            <!-- Angka garis CAPACITY (standar / +OT 3 jam / +OT 2 jam +
+                 Shift 1) diubah di form ini, bukan di dalam kode. -->
+            <template x-if="isAdmin() && !planEditMode">
+              <button type="button" class="btn-secondary btn-sm" @click="planCapaBuka()">⚙️ Capacity</button>
+            </template>
+            <template x-if="isAdmin() && planEditMode">
+              <span class="plan-edit-actions">
+                <button type="button" class="btn-primary btn-sm" :disabled="planSaving"
+                  @click="planSimpanEdit()" x-text="planSaving ? 'Menyimpan…' : '💾 Simpan'"></button>
+                <button type="button" class="btn-secondary btn-sm" :disabled="planSaving" @click="planBatalEdit()">Batal</button>
+              </span>
+            </template>
+          </div>
+        </div>
+
+        <!-- Form isian kapasitas per line. position:fixed, jadi tidak ikut
+             mempengaruhi tinggi/lebar isi tab ini. -->
+        <div class="modal-overlay" x-show="planCapaOpen" x-cloak
+             @click.self="planCapaTutup()" @keydown.escape.window="planCapaTutup()">
+          <div class="panel plan-capa-dlg">
+            <p class="plan-capa-dlg-title">Pengaturan Capacity</p>
+            <p class="plan-capa-dlg-sub">
+              Dipakai grafik CAPACITY, dan nanti buat menghitung plan harian
+              &amp; pembagian shift.
+            </p>
+
+            <!-- 3 sub. Ketikan di sub mana pun tidak hilang waktu pindah
+                 sub; tombol Simpan menyimpan semuanya sekaligus. -->
+            <div class="plan-capa-subtabs">
+              <template x-for="s in planCapaSubTabs" :key="s.kunci">
+                <button type="button" class="plan-capa-subtab"
+                  :class="planCapaTab === s.kunci ? 'plan-capa-subtab-aktif' : ''"
+                  @click="planCapaTab = s.kunci" x-text="s.nama"></button>
+              </template>
+            </div>
+
+            <!-- ===== Sub 1: Capacity Harian (garis di grafik) ===== -->
+            <div x-show="planCapaTab === 'harian'">
+              <div class="table-wrap">
+                <table class="plan-capa-table">
+                  <thead>
+                    <tr>
+                      <th>LINE</th>
+                      <template x-for="j in planCapaJenis" :key="j.kunci">
+                        <th>
+                          <span class="plan-capa-dot" :style="'background:' + j.warna"></span>
+                          <span x-text="j.nama"></span>
+                        </th>
+                      </template>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="mk in planCapaMesin" :key="mk">
+                      <tr>
+                        <td class="plan-capa-line" x-text="mk"></td>
+                        <template x-for="j in planCapaJenis" :key="j.kunci">
+                          <td>
+                            <input class="plan-capa-input" type="number" min="0" step="1" inputmode="numeric"
+                              :value="planCapaDraft[mk] ? planCapaDraft[mk][j.kunci] : ''"
+                              @input="planCapaDraftSet(mk, j.kunci, $event.target.value)">
+                          </td>
+                        </template>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+              <p class="plan-capa-dlg-note">Satuan pcs. Angka inilah yang digambar jadi garis di grafik CAPACITY.</p>
+            </div>
+
+            <!-- ===== Sub 2: Kapasitas Line ===== -->
+            <div x-show="planCapaTab === 'line'" x-cloak>
+              <div class="table-wrap">
+                <table class="plan-capa-table">
+                  <thead>
+                    <tr>
+                      <th>LINE</th>
+                      <template x-for="j in planLineJenis" :key="j.kunci">
+                        <th>
+                          <span x-text="j.nama"></span>
+                          <small class="plan-capa-unit" x-text="j.satuan"></small>
+                        </th>
+                      </template>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="mk in planCapaMesin" :key="mk">
+                      <tr>
+                        <td class="plan-capa-line" x-text="mk"></td>
+                        <template x-for="j in planLineJenis" :key="j.kunci">
+                          <td>
+                            <input class="plan-capa-input" type="number" min="0" step="1" inputmode="numeric"
+                              :value="planLineDraft[mk] ? planLineDraft[mk][j.kunci] : ''"
+                              @input="planLineDraftSet(mk, j.kunci, $event.target.value)">
+                          </td>
+                        </template>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- ===== Sub 3: Master Part ===== -->
+            <div x-show="planCapaTab === 'part'" x-cloak>
+              <div class="table-wrap plan-capa-scroll">
+                <table class="plan-capa-table plan-capa-table-part">
+                  <thead>
+                    <tr>
+                      <th>PART NO</th>
+                      <th>DEFAULT LINE</th>
+                      <th>CYCLE TIME<small class="plan-capa-unit">detik</small></th>
+                      <th>WATARI</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="part in planPartFormList" :key="part">
+                      <tr>
+                        <td class="plan-capa-line" x-text="part"></td>
+                        <td>
+                          <select class="plan-capa-input"
+                            @change="planPartDraftSet(part, 'default_line', $event.target.value)">
+                            <option value="" :selected="!(planPartDraft[part] && planPartDraft[part].default_line)">-</option>
+                            <template x-for="mk in planCapaMesin" :key="mk">
+                              <option :value="mk" :selected="planPartDraft[part] && planPartDraft[part].default_line === mk" x-text="mk"></option>
+                            </template>
+                          </select>
+                        </td>
+                        <td>
+                          <input class="plan-capa-input" type="text" inputmode="decimal" placeholder="102,9"
+                            :value="planPartDraft[part] ? planPartDraft[part].cycle_time : ''"
+                            @input="planPartDraftSet(part, 'cycle_time', $event.target.value)">
+                        </td>
+                        <td>
+                          <input class="plan-capa-input plan-capa-input-kiri" type="text" placeholder="NO"
+                            :value="planPartDraft[part] ? planPartDraft[part].watari : ''"
+                            @input="planPartDraftSet(part, 'watari', $event.target.value)">
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+              <p class="plan-capa-dlg-note">
+                Watari = line lain yang boleh dipakai part ini. Tulis <b>NO</b> kalau tidak ada,
+                atau daftar line dipisah koma: <b>E-03,E-04,E-06</b>.
+                Cycle time boleh pakai koma (102,9) maupun titik (102.9).
+              </p>
+            </div>
+
+            <template x-if="planCapaMsg">
+              <p class="plan-edit-msg" :class="planCapaMsgError ? 'plan-edit-msg-bad' : ''" x-text="planCapaMsg"></p>
+            </template>
+            <template x-if="planCapaDariDefault || planMasterPartDariDefault">
+              <p class="plan-capa-dlg-note">
+                Sebagian angka di atas masih angka bawaan (tabelnya belum berisi).
+                Tekan Simpan untuk menyimpannya ke database.
+              </p>
+            </template>
+            <div class="plan-capa-dlg-actions">
+              <button type="button" class="btn-secondary btn-sm" :disabled="planCapaSaving" @click="planCapaTutup()">Batal</button>
+              <button type="button" class="btn-primary btn-sm" :disabled="planCapaSaving"
+                @click="planCapaSimpan()" x-text="planCapaSaving ? 'Menyimpan…' : '💾 Simpan'"></button>
+            </div>
           </div>
         </div>
 
@@ -1122,109 +1311,219 @@
           <p style="text-align:center;padding:32px;color:var(--muted);">Memuat data...</p>
         </template>
 
+        <!-- Pesan hasil simpan / gagal simpan, tampil di dalam tab ini -->
+        <template x-if="planMsg">
+          <p class="plan-edit-msg" :class="planMsgError ? 'plan-edit-msg-bad' : ''" x-text="planMsg"></p>
+        </template>
+
         <template x-if="!planLoading">
           <div class="dash-body">
 
-            <!-- Baris atas: tabel Plan Harian + chart Kapasitas Harian.
-                 Tata letaknya disamakan dengan plan-produksi.html: tabel di
-                 kiri, grafik di kanan. Kelas .plan-grid-top sudah ada di
-                 assets/style.css (otomatis bertumpuk di layar sempit). -->
+            <!-- Ringkasan sehari dalam satu baris: pertanyaan "hari ini
+                 tercapai atau tidak" terjawab tanpa membaca tabelnya. -->
+            <div class="plan-kpi-row">
+              <div class="plan-kpi">
+                <span class="plan-kpi-label">Total Plan</span>
+                <span class="plan-kpi-value" x-text="planFmt(planTotalPlan)"></span>
+                <span class="plan-kpi-unit">pcs</span>
+              </div>
+              <div class="plan-kpi">
+                <span class="plan-kpi-label">Total Aktual</span>
+                <span class="plan-kpi-value" x-text="planFmt(planTotalAct)"></span>
+                <span class="plan-kpi-unit">pcs</span>
+              </div>
+              <div class="plan-kpi plan-kpi-main" :class="planAchTotalClass">
+                <span class="plan-kpi-label">Pencapaian</span>
+                <span class="plan-kpi-value" x-text="planAchTotalText"></span>
+                <div class="plan-kpi-bar"><i :style="'width:' + planPctBar(planTotalAct, planTotalPlan)"></i></div>
+              </div>
+              <div class="plan-kpi">
+                <span class="plan-kpi-label">Selisih</span>
+                <span class="plan-kpi-value" :class="planSelisihTotal >= 0 ? 'ach-ok' : 'ach-bad'" x-text="planFmtSigned(planSelisihTotal)"></span>
+                <span class="plan-kpi-unit">pcs vs plan</span>
+              </div>
+              <div class="plan-kpi">
+                <span class="plan-kpi-label">Backlog</span>
+                <span class="plan-kpi-value" x-text="planFmt(planTotalBacklog)"></span>
+                <span class="plan-kpi-unit">pcs tertunda</span>
+              </div>
+            </div>
+
+            <!-- Baris atas: tabel utama di kiri, grafik di kanan. -->
             <div class="plan-grid-top">
             <div class="dash-panel" style="overflow-x:auto;">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                <p class="dash-panel-title" style="margin:0;">Plan Harian</p>
-                <span class="plan-date-badge" x-text="'Plan Date: ' + planTanggal.slice(8,10)"></span>
-              </div>
               <div class="table-wrap">
                 <table class="plan-table">
                   <thead>
+                    <!-- Header dua tingkat: jelas mana yang "plan per line"
+                         dan mana yang "hasil hari ini". -->
                     <tr>
-                      <th>Item</th>
-                      <template x-for="mk in ['E-02','E-03','E-04','E-05','E-06','E-07']" :key="mk"><th x-text="mk"></th></template>
-                      <th>Backlog</th>
-                      <th>Plan Awal</th>
+                      <th rowspan="2" class="plan-col-item">Part Number</th>
+                      <th colspan="6" class="plan-group-head plan-group-plan">Plan per Line (pcs)</th>
+                      <th rowspan="2" class="plan-sep">Backlog</th>
+                      <th colspan="3" class="plan-group-head plan-sep">Hasil Hari Ini</th>
+                    </tr>
+                    <tr>
+                      <template x-for="mk in ['E-02','E-03','E-04','E-05','E-06','E-07']" :key="mk"><th class="plan-c-plan" x-text="mk"></th></template>
+                      <th class="plan-sep plan-c-plan">Plan</th>
+                      <th class="plan-c-act">Aktual</th>
+                      <th class="plan-col-ach">Capai</th>
                     </tr>
                   </thead>
                   <tbody>
                     <template x-for="part in planPartList" :key="part">
                       <tr>
-                        <td x-text="part"></td>
+                        <td class="plan-col-item" x-text="part"></td>
                         <template x-for="mk in ['E-02','E-03','E-04','E-05','E-06','E-07']" :key="mk">
-                          <td x-text="planCell(part, mk) || ''"></td>
+                          <!-- Kolom yang DIKETIK saat mode edit. Isinya total
+                               satu part di satu line untuk hari itu; tabel
+                               Shift 1/2 di bawah mengikuti angka ini. -->
+                          <td class="plan-c-plan">
+                            <template x-if="planEditMode">
+                              <input class="plan-edit-input" type="number" min="0" step="1" inputmode="numeric"
+                                :value="planDraftGet(part, mk)"
+                                @input="planDraftSet(part, mk, $event.target.value)">
+                            </template>
+                            <template x-if="!planEditMode">
+                              <span :class="planCell(part, mk) ? '' : 'plan-cell-kosong'" x-text="planCell(part, mk) || '·'"></span>
+                            </template>
+                          </td>
                         </template>
-                        <td x-text="planBacklog(part) || ''"></td>
-                        <td><b x-text="planRowTotal(part)"></b></td>
+                        <!-- Backlog bisa langsung diubah saat mode edit -->
+                        <td class="plan-sep">
+                          <template x-if="planEditMode">
+                            <input class="plan-edit-input" type="number" min="0" step="1" inputmode="numeric"
+                              :value="planBacklogDraftGet(part)"
+                              @input="planBacklogDraftSet(part, $event.target.value)">
+                          </template>
+                          <template x-if="!planEditMode">
+                            <span x-text="planBacklog(part) || ''"></span>
+                          </template>
+                        </td>
+                        <td class="plan-sep plan-c-plan" x-text="planRowTotal(part)"></td>
+                        <td class="plan-c-act" x-text="planActRow(part) || '·'" :class="planActRow(part) ? '' : 'plan-cell-kosong'"></td>
+                        <td class="plan-col-ach">
+                          <span class="plan-ach-wrap">
+                            <span class="plan-ach-num" :class="planPctClass(planNumAct(part), planNumPlan(part))"
+                              x-text="planPctText(planNumAct(part), planNumPlan(part))"></span>
+                            <span class="plan-ach-bar" :class="planPctClass(planNumAct(part), planNumPlan(part))"
+                              x-show="planPct(planNumAct(part), planNumPlan(part)) !== null">
+                              <i :style="'width:' + planPctBar(planNumAct(part), planNumPlan(part))"></i>
+                            </span>
+                          </span>
+                        </td>
                       </tr>
                     </template>
                     <tr x-show="planPartList.length === 0">
-                      <td colspan="10" class="empty-state">Belum ada plan untuk tanggal ini.</td>
+                      <td colspan="11">
+                        <div class="plan-empty">
+                          <span class="plan-empty-title">Belum ada plan untuk tanggal ini</span>
+                          <span x-text="planTanggalLabel"></span>
+                          <template x-if="isAdmin() && !planEditMode">
+                            <button type="button" class="btn-secondary btn-sm" style="margin-top:10px;" @click="planMulaiEdit()">✏️ Buat plan</button>
+                          </template>
+                        </div>
+                      </td>
                     </tr>
                     <tr class="plan-total-row" x-show="planPartList.length > 0">
-                      <td>TOTAL PLAN HARIAN</td>
+                      <td class="plan-col-item">TOTAL</td>
                       <template x-for="mk in ['E-02','E-03','E-04','E-05','E-06','E-07']" :key="mk">
                         <td x-text="planColTotal(mk)"></td>
                       </template>
-                      <td x-text="planBacklogTotal()"></td>
-                      <td x-text="planGrandTotal()"></td>
+                      <td class="plan-sep" x-text="planBacklogTotal()"></td>
+                      <td class="plan-sep" x-text="planGrandTotal()"></td>
+                      <td x-text="planActGrandTotal()"></td>
+                      <td class="plan-col-ach" x-text="planAchTotalText"></td>
                     </tr>
+                    <!-- Baris "Capai per line" dihapus (permintaan). -->
                   </tbody>
                 </table>
               </div>
             </div>
 
-            <div class="dash-panel dash-panel-chart">
-              <p class="dash-panel-title">Kapasitas Harian (Plan per Part × Line)</p>
-              <div class="dash-chart-sm" style="min-height:280px;"><canvas id="dxPlanKapasitas"></canvas></div>
+            <!-- Pakai .dxy-panel -- kartu yang SAMA PERSIS dengan grafik di
+                 tab Tahunan/Kontrol Downtime/Kontrol Kualitas (biru muda,
+                 garis cyan, sudut membulat). Lihat .dxy-panel di
+                 assets/dashboard-exhaust.css. Sengaja TIDAK memakai
+                 .dash-panel supaya aturan "kartu transparan" di tab Plan
+                 Harian tidak ikut kena. -->
+            <div class="plan-chart-card">
+              <!-- Judul panel sengaja dihapus (permintaan): grafiknya sudah
+                   punya legenda nama part + nama line di sumbu X, jadi
+                   judulnya cuma makan tinggi. -->
+              <div class="plan-chart-box"><canvas id="dxPlanKapasitas"></canvas></div>
             </div>
             </div>
 
-            <!-- Shift 1 & Shift 2 -->
+            <!-- Shift 1 & Shift 2. shift dikirim sebagai ANGKA (bukan '1'/'2'),
+                 karena kolom shift di database bertipe angka dan perbandingannya
+                 sekarang ketat (===). -->
             <div class="plan-shift-grid">
-              <!-- shift dikirim sebagai ANGKA (bukan '1'/'2'), karena kolom shift di
-                   database bertipe angka dan perbandingannya sekarang ketat (===),
-                   sama seperti di plan-produksi.html -->
-              <template x-for="shift in [1, 2]" :key="shift">
+            <template x-for="shift in [1, 2]" :key="shift">
                 <div class="dash-panel">
-                  <p class="dash-panel-title" x-text="'Shift ' + shift"></p>
+                  <div class="plan-shift-head">
+                    <p class="dash-panel-title" style="margin:0;" x-text="shift === 1 ? 'Shift 1 · 07:00-19:30' : 'Shift 2 · 19:30-07:00'"></p>
+                    <!-- Ringkasan "0 / 105 pcs 0%" di kanan judul shift
+                         dihapus (permintaan). Angkanya tetap ada di baris
+                         TOTAL tabelnya. -->
+                  </div>
                   <div class="table-wrap">
                     <table class="plan-shift-table">
                       <thead>
                         <tr>
-                          <th rowspan="2">Item</th>
-                          <template x-for="mk in ['E-02','E-03','E-04','E-05','E-06','E-07']" :key="mk">
-                            <th colspan="2" x-text="mk"></th>
+                          <th rowspan="2" class="plan-col-item">Part Number</th>
+                          <template x-for="(mk, mi) in ['E-02','E-03','E-04','E-05','E-06','E-07']" :key="mk">
+                            <th colspan="2" class="plan-line-head plan-sep" x-text="mk"></th>
                           </template>
-                          <th rowspan="2">Balance</th>
+                          <th rowspan="2" class="plan-sep" title="Aktual dikurangi Plan">Balance</th>
                         </tr>
                         <tr>
-                          <template x-for="col in ['E-02','E-03','E-04','E-05','E-06','E-07'].flatMap((mk) => [{ mk, kind: 'plan' }, { mk, kind: 'act' }])" :key="col.mk + col.kind">
-                            <th x-text="col.kind === 'plan' ? 'Plan' : 'Act'"></th>
+                          <template x-for="col in ['E-02','E-03','E-04','E-05','E-06','E-07'].flatMap((mk, mi) => [{ mk, mi, kind: 'plan' }, { mk, mi, kind: 'act' }])" :key="col.mk + col.kind">
+                            <th :class="col.kind === 'plan' ? 'plan-c-plan plan-sep' : 'plan-c-act'" x-text="col.kind === 'plan' ? 'Plan' : 'Act'"></th>
                           </template>
                         </tr>
                       </thead>
                       <tbody>
                         <template x-for="part in planShiftParts(shift)" :key="part">
                           <tr>
-                            <td x-text="part"></td>
-                            <template x-for="col in ['E-02','E-03','E-04','E-05','E-06','E-07'].flatMap((mk) => [{ mk, kind: 'plan' }, { mk, kind: 'act' }])" :key="col.mk + col.kind">
-                              <td x-text="(col.kind === 'plan' ? planShiftCell(part, col.mk, shift) : planActCell(part, col.mk, shift)) || ''"></td>
+                            <td class="plan-col-item" x-text="part"></td>
+                            <template x-for="col in ['E-02','E-03','E-04','E-05','E-06','E-07'].flatMap((mk, mi) => [{ mk, mi, kind: 'plan' }, { mk, mi, kind: 'act' }])" :key="col.mk + col.kind">
+                              <!-- HANYA BACA. Angka Plan di sini mengikuti kolom
+                                   "Plan per Line" di tabel atas (lihat
+                                   planBagiKeShift di dashboard-exhaust.js),
+                                   dan Act memang hasil produksi. -->
+                              <td :class="col.kind === 'plan' ? 'plan-c-plan plan-sep' : 'plan-c-act plan-cell-act'"
+                                x-text="(col.kind === 'plan' ? planShiftCell(part, col.mk, shift) : planActCell(part, col.mk, shift)) || ''"></td>
                             </template>
-                            <td :class="planBalanceClass(part, shift)" x-text="planBalance(part, shift)"></td>
+                            <td class="plan-sep" :class="planBalanceClass(part, shift)" x-text="planBalance(part, shift)"></td>
                           </tr>
                         </template>
                         <tr x-show="planShiftParts(shift).length === 0">
-                          <td :colspan="['E-02','E-03','E-04','E-05','E-06','E-07'].length * 2 + 2" class="empty-state"
-                            x-text="'Belum ada plan Shift ' + shift + '.'"></td>
+                          <td :colspan="['E-02','E-03','E-04','E-05','E-06','E-07'].length * 2 + 2">
+                            <div class="plan-empty">
+                              <span class="plan-empty-title" x-text="'Belum ada data Shift ' + shift"></span>
+                              <span>Tidak ada plan maupun hasil produksi di shift ini.</span>
+                            </div>
+                          </td>
+                        </tr>
+                        <tr class="plan-total-row" x-show="planShiftParts(shift).length > 0">
+                          <td class="plan-col-item">TOTAL</td>
+                          <template x-for="col in ['E-02','E-03','E-04','E-05','E-06','E-07'].flatMap((mk, mi) => [{ mk, mi, kind: 'plan' }, { mk, mi, kind: 'act' }])" :key="col.mk + col.kind">
+                            <td :class="col.kind === 'plan' ? 'plan-sep' : ''" x-text="planShiftColTotal(col.mk, shift, col.kind)"></td>
+                          </template>
+                          <td class="plan-sep" x-text="planShiftBalanceTotal(shift)"></td>
                         </tr>
                       </tbody>
                     </table>
                   </div>
                 </div>
-              </template>
+            </template>
             </div>
+
 
           </div>
         </template>
+      </div>
       </div>
     </template>
 

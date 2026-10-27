@@ -3,6 +3,38 @@
 // (dulu inline di <script>; dipindah apa adanya).
 // Butuh assets/utils.js (cssVar, localDateStr) dimuat SEBELUM file ini.
 // =========================================================
+
+// =========================================================
+// SIAPA YANG BOLEH MEMBUKA TAB TERTENTU
+//
+//   false = HANYA Administrator. Tombol tabnya disembunyikan dari
+//           yang lain, dan isinya tidak bisa dibuka walau dipaksa.
+//   true  = semua orang yang sudah login boleh membukanya.
+//
+// Cukup ganti true/false-nya saja, tidak ada yang lain yang perlu
+// diubah. Tab yang tidak terdaftar di sini terbuka untuk semua.
+//
+// CATATAN PENTING: ini mengatur TAMPILAN, bukan kunci data. Orang yang
+// sudah login tetap bisa membaca angkanya lewat jalur lain kalau dia
+// tahu caranya, karena izin baca data diatur di database, bukan di sini.
+// Untuk mengunci betulan, aturan di database yang harus diubah.
+// =========================================================
+const TAB_UNTUK_SEMUA = {
+  performance: false,
+  plan_harian: false,
+};
+
+// Dua kolom ringkasan "FY '25" & "FY '26" di paling kiri grafik bulanan.
+// Dipakai bersama oleh tab Tahunan, Kontrol Downtime, dan Kontrol Kualitas
+// supaya bentuk & aturannya sama persis di ketiganya.
+const fyTickLabel = (th) => ["FY", "'" + String(th).slice(-2)];
+// Rata-rata per bulan; bulan yang belum berjalan (kosong/nol) tidak membagi.
+const rataBulanan = (arr) => {
+  const v = (arr || []).filter((x) => x !== null && x !== undefined && Number.isFinite(Number(x)) && Number(x) !== 0);
+  return v.length ? Math.round(v.reduce((a, b) => a + Number(b), 0) / v.length) : null;
+};
+const angkaManual = (v) => (v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
+
 const MACHINES = [
   { key: "E-02", label: "E-02", href: "machines/e-02.html" },
   { key: "E-03", label: "E-03", href: "machines/e-03.html" },
@@ -96,8 +128,70 @@ async function fetchAllRpcRows(rpcName, params, pageSize = 1000) {
   return { data: allRows, error: lastError };
 }
 // Warna batang chart Kapasitas Harian -- disamakan persis dengan
-// plan-produksi.html supaya part yang sama berwarna sama di dua halaman.
+// halaman plan produksi (sudah dihapus) supaya part yang sama berwarna sama.
 const PLAN_LINE_COLORS = ["#5b8def", "#f2a541", "#e05a5a", "#31b06a", "#8f6bd6", "#2fb8c6"];
+
+// ---------- Garis acuan CAPACITY di grafik Plan Harian ----------
+// Tiga garis: kapasitas standar, standar + OT 3 jam, dan standar + OT 2 jam
+// + Shift 1. Angka di bawah cuma CADANGAN -- yang dipakai sehari-hari
+// diambil dari tabel production_capa_line (bisa diubah lewat tombol
+// "⚙️ Capacity" di tab Plan Harian). Cadangan ini terpakai hanya kalau
+// tabelnya belum dibuat (migration_capa_line.sql belum dijalankan) atau
+// isinya masih kosong, supaya grafiknya tidak pernah tampil tanpa garis.
+const CAPA_DEFAULT = {
+  "E-02": { capa_standar: 360, capa_ot3: 420, capa_ot2_shift1: 460 },
+  "E-03": { capa_standar: 480, capa_ot3: 550, capa_ot2_shift1: 600 },
+  "E-04": { capa_standar: 480, capa_ot3: 576, capa_ot2_shift1: 640 },
+  "E-05": { capa_standar: 480, capa_ot3: 550, capa_ot2_shift1: 600 },
+  "E-06": { capa_standar: 412, capa_ot3: 480, capa_ot2_shift1: 534 },
+  "E-07": { capa_standar: 520, capa_ot3: 625, capa_ot2_shift1: 695 },
+};
+// Urutan & tampilan ketiga garis (dipakai grafik DAN form isiannya).
+const CAPA_JENIS = [
+  { kunci: "capa_standar",    nama: "Capa Standar",                   warna: "#16a34a" },
+  { kunci: "capa_ot3",        nama: "Capa Standar + OT 3 Jam",        warna: "#2563eb" },
+  { kunci: "capa_ot2_shift1", nama: "Capa Standar + OT 2 Jam + Shift 1", warna: "#dc2626" },
+];
+
+// ---------- Sub "Kapasitas Line" (sheet Plan Produksi) ----------
+// Kolomnya: kapasitas normal/hari, man power, kapasitas hari Jum'at,
+// kapasitas per jam. Disimpan di tabel yang sama (production_capa_line),
+// kolom terpisah -- lihat migration_capa_line_v2.sql.
+const LINE_JENIS = [
+  { kunci: "kapasitas",         nama: "Kapasitas",         satuan: "pcs/hari" },
+  { kunci: "man_power",         nama: "Man Power",         satuan: "orang" },
+  { kunci: "kapasitas_jumat",   nama: "Kapasitas Hari Jum'at", satuan: "pcs" },
+  { kunci: "kapasitas_per_jam", nama: "Kapasitas Per Jam", satuan: "pcs/jam" },
+];
+const LINE_DEFAULT = {
+  "E-02": { kapasitas: 240, man_power: 3, kapasitas_jumat: 270, kapasitas_per_jam: 25 },
+  "E-03": { kapasitas: 600, man_power: 4, kapasitas_jumat: 568, kapasitas_per_jam: 32 },
+  "E-04": { kapasitas: 640, man_power: 4, kapasitas_jumat: 608, kapasitas_per_jam: 32 },
+  "E-05": { kapasitas: 600, man_power: 4, kapasitas_jumat: 568, kapasitas_per_jam: 32 },
+  "E-06": { kapasitas: 534, man_power: 4, kapasitas_jumat: 502, kapasitas_per_jam: 32 },
+  "E-07": { kapasitas: 260, man_power: 5, kapasitas_jumat: 225, kapasitas_per_jam: 35 },
+};
+
+// ---------- Sub "Master Part" (sheet Plan Produksi) ----------
+// watari = line lain yang boleh dipakai part ini. 'NO' = tidak ada.
+// Nanti dipakai buat menghitung plan harian & pembagian shift.
+const MASTER_PART_DEFAULT = [
+  { part_number: "14110-52P00",   default_line: "E-02", cycle_time: 105,   watari: "NO" },
+  { part_number: "14110-73R10",   default_line: "E-02", cycle_time: 119,   watari: "NO" },
+  { part_number: "14110-73R20",   default_line: "E-02", cycle_time: 119,   watari: "NO" },
+  { part_number: "14110-74U00",   default_line: "E-02", cycle_time: 113,   watari: "NO" },
+  { part_number: "25051-BZ060",   default_line: "E-03", cycle_time: 102.9, watari: "NO" },
+  { part_number: "25051-BZ260",   default_line: "E-05", cycle_time: 102.9, watari: "E-03" },
+  { part_number: "25051-0Y050",   default_line: "E-05", cycle_time: 102.9, watari: "NO" },
+  { part_number: "25051-0Y060",   default_line: "E-05", cycle_time: 102.9, watari: "NO" },
+  { part_number: "25051-BZ140",   default_line: "E-06", cycle_time: 102.9, watari: "E-03,E-04,E-05,E-06" },
+  { part_number: "25051-BZ140-T", default_line: "E-03", cycle_time: 102.9, watari: "E-03,E-04,E-06" },
+  { part_number: "25051-BZ150-T", default_line: "E-04", cycle_time: 102.9, watari: "E-05" },
+  { part_number: "25051-BZ110",   default_line: "E-06", cycle_time: 105,   watari: "NO" },
+  { part_number: "25051-BZ010",   default_line: "E-06", cycle_time: 105,   watari: "NO" },
+  { part_number: "25051-BZ180",   default_line: "E-06", cycle_time: 105,   watari: "NO" },
+  { part_number: "14110-74U50",   default_line: "E-07", cycle_time: 92,    watari: "NO" },
+];
 
 
 // Default hover/tooltip GLOBAL untuk semua chart Chart.js di dashboard ini.
@@ -122,6 +216,12 @@ function dashboardExhaust() {
     theme: localStorage.getItem("theme_v1") || "light",
     fmtNum,
         isAdmin() { return this.profile?.role === "admin"; },
+    // Tab yang dibatasi lewat TAB_UNTUK_SEMUA (lihat atas file).
+    // Tab yang tidak terdaftar di sana selalu boleh dibuka.
+    bolehLihatTab(tab) {
+      if (TAB_UNTUK_SEMUA[tab] !== false) return true;
+      return this.isAdmin();
+    },
     // Akun tamu: hanya lihat Dashboard Exhaust, semua menu lain disembunyikan.
     isGuest() { return (this.profile?.role || "").toLowerCase() === "guest"; },
     // Viewer: karyawan yang cuma boleh buka Dashboard Exhaust + Attendance.
@@ -155,6 +255,9 @@ function dashboardExhaust() {
     // Tab Dekidaka (method2 dekidaka*) sudah dihapus dari sini -- lihat
     // catatan di assets/dashboard-exhaust.css.
     async setTab(tab) {
+      // Tab khusus Administrator: tolak di sini juga, bukan cuma
+      // disembunyikan tombolnya.
+      if (!this.bolehLihatTab(tab)) return;
       if (this.activeTab === "bulanan" && tab !== "bulanan") this.destroyBulananCharts();
       if (this.activeTab === "tahunan" && tab !== "tahunan") this.destroyTahunanCharts();
       if (this.activeTab === "kualitas" && tab !== "kualitas") this.destroyKualitasCharts();
@@ -708,9 +811,11 @@ function dashboardExhaust() {
         // Tahunan tiap kali sebuah FY diaktifkan datanya manual. Dibungkus
         // try/catch supaya tetap jalan normal kalau migration_fy_override.sql
         // belum dijalankan.
+        let ovHeadQc = null;
         try {
           const { data: ovHeadData, error: ovHeadErr } = await supabaseClient
             .from("fy_override").select("*").eq("fy", fyStartYear).maybeSingle();
+          if (!ovHeadErr && ovHeadData) ovHeadQc = ovHeadData;   // utk kolom FY sebelumnya
           if (!ovHeadErr && ovHeadData && ovHeadData.aktif) {
             const { data: ovBulanData } = await supabaseClient
               .from("fy_override_bulan").select("bulan,ng_qty,ng_value").eq("fy", fyStartYear);
@@ -756,6 +861,11 @@ function dashboardExhaust() {
         this.qcNgInline = {
           monthLabels: this.tahunan.monthLabels && this.tahunan.monthLabels.length ? this.tahunan.monthLabels.slice(2) : ["Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des","Jan","Feb","Mar"],
           qtyByMonth, valueByMonth,
+          // Angka FY sebelumnya (diisi tangan di Master Data) + tahun fiskal
+          // yang sedang dilihat -- dipakai chart Month utk dua kolom kiri.
+          fyStartYear,
+          fyPrevQty: angkaManual(ovHeadQc && ovHeadQc.ng_qty_fy_prev),
+          fyPrevValue: angkaManual(ovHeadQc && ovHeadQc.ng_value_fy_prev),
           perlineQty, perlineValue,
           permodelQty, permodelValue,
           dailyQty, dailyValue,
@@ -865,9 +975,21 @@ function dashboardExhaust() {
           return r ? Number(r.value) || 0 : 0;
         });
 
+        // Angka FY sebelumnya utk dua kolom ringkasan di chart Month.
+        // Dibungkus try/catch supaya tetap jalan kalau tabelnya belum ada.
+        let ovHeadTrial = null;
+        try {
+          const { data: hT } = await supabaseClient
+            .from("fy_override").select("*").eq("fy", fyStartYear).maybeSingle();
+          ovHeadTrial = hT || null;
+        } catch (e) { /* tabel belum ada -> kolom FY sebelumnya dibiarkan kosong */ }
+
         this.qcNgTrial = {
           monthLabels: this.tahunan.monthLabels && this.tahunan.monthLabels.length ? this.tahunan.monthLabels.slice(2) : ["Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des","Jan","Feb","Mar"],
           qtyByMonth, valueByMonth,
+          fyStartYear,
+          fyPrevQty: angkaManual(ovHeadTrial && ovHeadTrial.ng_trial_qty_fy_prev),
+          fyPrevValue: angkaManual(ovHeadTrial && ovHeadTrial.ng_trial_value_fy_prev),
           perlineQty, perlineValue,
           permodelQty, permodelValue,
           dailyQty, dailyValue,
@@ -1034,11 +1156,13 @@ function dashboardExhaust() {
 
         // Kalau FY ini dipasang data manual (Master Data > Dashboard FY),
         // angkanya ikut manual -- supaya sama dengan tab Tahunan.
+        let ovHeadSp = null;
         try {
           const [hRes, bRes] = await Promise.all([
             supabaseClient.from("fy_override").select("*").eq("fy", fyStartYear).maybeSingle(),
             supabaseClient.from("fy_override_bulan").select("bulan,sp_actual,sp_repair_qty").eq("fy", fyStartYear),
           ]);
+          if (!hRes.error && hRes.data) ovHeadSp = hRes.data;   // utk kolom FY sebelumnya
           if (!hRes.error && hRes.data && hRes.data.aktif) {
             const peta = new Map((bRes.data || []).map((r) => [Number(r.bulan), r]));
             const ambil = (nama) => Array.from({ length: 12 }, (_, i) => {
@@ -1054,6 +1178,9 @@ function dashboardExhaust() {
         this.qcFy = {
           monthLabels: fyMonths.map((d) => monthLabelId[d.getMonth()]),
           actual, repairQty, target: 95,
+          fyStartYear,
+          fyPrevSp: angkaManual(ovHeadSp && ovHeadSp.sp_fy_prev),
+          fyPrevRepair: angkaManual(ovHeadSp && ovHeadSp.sp_repair_fy_prev),
         };
         this.qcFyLoadedKey = String(fyStartYear);
       } catch (e) {
@@ -1296,6 +1423,14 @@ function dashboardExhaust() {
     // kosong di bawah card) -- px pasti dari window.innerHeight supaya
     // tidak nebak-nebak tinggi header/nav di atasnya.
     perfIframeHeight: 560,
+    // CATATAN: pernah dicoba tinggi iframe mengikuti tinggi ISI-nya
+    // (diukur dari luar + ResizeObserver) supaya tidak ada ruang kosong
+    // menggantung di tab Tahunan. DIBATALKAN: saat file dibuka langsung
+    // dari komputer (file://), isi iframe tidak boleh diukur dari halaman
+    // induk, jadi ukurannya terkunci di angka pertama (saat isinya masih
+    // kosong) dan panelnya malah kepotong. Jangan diulang tanpa cara ukur
+    // yang tidak bergantung akses lintas-dokumen (mis. postMessage dari
+    // machines/e-0X.html sendiri).
     perfComputeIframeHeight() {
       const nav = document.getElementById("perfSubNav");
       if (!nav) return;
@@ -1325,14 +1460,32 @@ function dashboardExhaust() {
       const { data } = await supabaseClient.from("profiles").select("*").eq("id", this.session.user.id).maybeSingle();
       this.profile = data;
       this.loading = false;
+      // ?tab=... -> langsung buka tab itu, mis.
+      // dashboard-exhaust.html?tab=plan_harian. Berguna untuk tautan/
+      // bookmark ke tab tertentu tanpa harus klik tabnya dulu.
+      try {
+        const minta = new URLSearchParams(window.location.search).get("tab");
+        if (minta && this.bolehLihatTab(minta)) this.activeTab = minta;
+      } catch (e) { /* alamat aneh -> abaikan, pakai tab bawaan */ }
       if (this.activeTab === "bulanan") await this.setTab("bulanan");
       if (this.activeTab === "tahunan") await this.setTab("tahunan");
+      if (this.activeTab === "plan_harian") await this.setTab("plan_harian");
       this.initRealtime();
       // Tab Performance: iframe-nya pakai tinggi px pasti (lihat
       // perfComputeIframeHeight) supaya gak nyisain area kosong di bawah
       // card putih -- dihitung ulang tiap window di-resize, tapi CUMA
       // kalau tab Performance lagi aktif.
       window.addEventListener("resize", () => { if (this.activeTab === "performance") this.perfComputeIframeHeight(); });
+      // Masuk/keluar layar penuh (F11) mengubah 100vh, tapi browser kadang
+      // belum selesai menata ulang saat event-nya tiba -- grafik Plan Harian
+      // bisa tertinggal memakai ukuran canvas yang lama. Digambar ulang satu
+      // frame setelahnya, saat ukuran barunya sudah pasti.
+      // (Tumpang tindih tabelnya sendiri sudah dicegah lewat overflow:hidden
+      // di .plan-grid-top / .plan-shift-grid, lihat assets/style.css.)
+      document.addEventListener("fullscreenchange", () => {
+        if (this.activeTab !== "plan_harian") return;
+        requestAnimationFrame(() => this.renderPlanKapasitas());
+      });
       // PREFETCH: begitu tab pertama selesai, data tab Tahunan & Kontrol
       // Kualitas diambil diam-diam di belakang. Jadi saat user pindah ke
       // tab itu, datanya sudah ada di memori dan chart langsung tampil
@@ -1617,13 +1770,17 @@ function dashboardExhaust() {
         const fyStart = new Date(fyStartYear, 3, 1);
         const fyEnd = new Date(fyStartYear + 1, 3, 1);
 
-        const [prodRes, picRes, lineRes, weeklyRes, topProblemSummaryRes, dtExhaustRes] = await Promise.all([
+        const prevFyStartBln = new Date(fyStartYear - 1, 3, 1);
+        const [prodRes, picRes, lineRes, weeklyRes, topProblemSummaryRes, dtExhaustRes, dtExhaustPrevRes] = await Promise.all([
           supabaseClient.rpc("dashboard_harian_produksi", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_mesin: mesinFilter }),
           supabaseClient.rpc("dashboard_harian_downtime_by_pic", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_mesin: mesinFilter }),
           supabaseClient.rpc("dashboard_harian_downtime_by_line", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString() }),
           supabaseClient.rpc("dashboard_bulanan_weekly", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString() }),
           supabaseClient.rpc("dashboard_bulanan_top_problems_summary", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_limit: 10, p_mesin: mesinFilter }),
           supabaseClient.rpc("dashboard_harian_produksi", { p_start: fyStart.toISOString(), p_end: fyEnd.toISOString(), p_mesin: mesinFilter }),
+          // FY SEBELUMNYA -- untuk garis pembanding per bulan di chart
+          // Downtime Exhaust. Satu panggilan tambahan, ikut filter Line.
+          supabaseClient.rpc("dashboard_harian_produksi", { p_start: prevFyStartBln.toISOString(), p_end: fyStart.toISOString(), p_mesin: mesinFilter }),
         ]);
         const prodRows = prodRes.data || [];
         const dayKeyStr = (day) => localDateStr(new Date(year, month - 1, day));
@@ -1648,17 +1805,23 @@ function dashboardExhaust() {
         // diaktifkan di sana, SEMUA chart Tahunan memakai angka itu -- bukan
         // hasil hitungan RPC di atas. Dibungkus try/catch supaya dashboard
         // tetap jalan normal kalau migration_fy_override.sql belum dijalankan.
-        let ovHead = null, ovBulan = [], ovKategori = [];
+        let ovHead = null, ovBulan = [], ovKategori = [], ovPrev = null;
         try {
           const [hRes, bRes, kRes] = await Promise.all([
             supabaseClient.from("fy_override").select("*").eq("fy", fyStartYear).maybeSingle(),
             supabaseClient.from("fy_override_bulan").select("*").eq("fy", fyStartYear).order("bulan"),
             supabaseClient.from("fy_override_kategori").select("*").eq("fy", fyStartYear),
           ]);
-          if (!hRes.error && hRes.data && hRes.data.aktif) {
-            ovHead = hRes.data;
-            ovBulan = bRes.data || [];
-            ovKategori = kRes.data || [];
+          if (!hRes.error && hRes.data) {
+            // Angka ringkasan FY SEBELUMNYA diisi tangan dan SELALU dipakai,
+            // tidak peduli saklar "pakai data manual" menyala atau tidak --
+            // saklar itu urusan angka 12 bulan, bukan kolom FY sebelumnya.
+            ovPrev = hRes.data;
+            if (hRes.data.aktif) {
+              ovHead = hRes.data;
+              ovBulan = bRes.data || [];
+              ovKategori = kRes.data || [];
+            }
           }
         } catch (e) { /* tabel belum ada -> pakai hitungan sistem seperti biasa */ }
         const pvManualRows = pvManualRes.data || [];
@@ -1833,9 +1996,11 @@ function dashboardExhaust() {
         // -- supaya sama persis dengan tab Tahunan.
         //   Semua Line -> angka bulanan di fy_override_bulan
         //   1 Line     -> dijumlah dari fy_override_kategori (jenis 'line')
+        let ovHeadBln = null;
         try {
           const { data: ovH } = await supabaseClient
             .from("fy_override").select("*").eq("fy", fyStartYear).maybeSingle();
+          ovHeadBln = ovH || null;   // dipakai juga utk kolom FY sebelumnya
           if (ovH && ovH.aktif) {
             if (!mesinFilter) {
               const { data: ovB } = await supabaseClient
@@ -1855,6 +2020,33 @@ function dashboardExhaust() {
             }
           }
         } catch (e) { /* tabel belum ada -> pakai angka sistem seperti biasa */ }
+
+        // Dua kolom ringkasan "FY '25" & "FY '26" di paling kiri Downtime
+        // Exhaust -- sama seperti di tab Tahunan. FY sebelumnya diisi tangan
+        // di Master Data; FY berjalan = rata-rata menit per bulan.
+        // Garis pembanding: downtime per bulan FY sebelumnya.
+        const dtPrevRows = (dtExhaustPrevRes && dtExhaustPrevRes.data) || [];
+        const dtPrevBulan = Array.from({ length: 12 }, (_, i) => {
+          const d = new Date(fyStartYear - 1, 3 + i, 1);
+          const y = d.getFullYear(), m = d.getMonth();
+          const baris = dtPrevRows.filter((r) => {
+            const rd = new Date(r.tanggal + "T00:00:00");
+            return rd.getFullYear() === y && rd.getMonth() === m;
+          });
+          if (!baris.length) return null;
+          return Math.round(baris.reduce((a, r) => a + (Number(r.downtime_menit) || 0), 0));
+        });
+
+        downtimeExhaust.labels = [
+          fyTickLabel(fyStartYear - 1), fyTickLabel(fyStartYear), ...downtimeExhaust.labels,
+        ];
+        downtimeExhaust.values = [
+          angkaManual(ovHeadBln && ovHeadBln.downtime_fy_prev_menit),
+          rataBulanan(downtimeExhaust.values),
+          ...downtimeExhaust.values,
+        ];
+        downtimeExhaust.prevValues = [null, null, ...dtPrevBulan];
+        downtimeExhaust.prevLabel = "FY '" + String(fyStartYear - 1).slice(-2);
 
         this.bulanan = {
           dayLabels,
@@ -1916,17 +2108,23 @@ function dashboardExhaust() {
         // diaktifkan di sana, SEMUA chart Tahunan memakai angka itu -- bukan
         // hasil hitungan RPC di atas. Dibungkus try/catch supaya dashboard
         // tetap jalan normal kalau migration_fy_override.sql belum dijalankan.
-        let ovHead = null, ovBulan = [], ovKategori = [];
+        let ovHead = null, ovBulan = [], ovKategori = [], ovPrev = null;
         try {
           const [hRes, bRes, kRes] = await Promise.all([
             supabaseClient.from("fy_override").select("*").eq("fy", fyStartYear).maybeSingle(),
             supabaseClient.from("fy_override_bulan").select("*").eq("fy", fyStartYear).order("bulan"),
             supabaseClient.from("fy_override_kategori").select("*").eq("fy", fyStartYear),
           ]);
-          if (!hRes.error && hRes.data && hRes.data.aktif) {
-            ovHead = hRes.data;
-            ovBulan = bRes.data || [];
-            ovKategori = kRes.data || [];
+          if (!hRes.error && hRes.data) {
+            // Angka ringkasan FY SEBELUMNYA diisi tangan dan SELALU dipakai,
+            // tidak peduli saklar "pakai data manual" menyala atau tidak --
+            // saklar itu urusan angka 12 bulan, bukan kolom FY sebelumnya.
+            ovPrev = hRes.data;
+            if (hRes.data.aktif) {
+              ovHead = hRes.data;
+              ovBulan = bRes.data || [];
+              ovKategori = kRes.data || [];
+            }
           }
         } catch (e) { /* tabel belum ada -> pakai hitungan sistem seperti biasa */ }
         // Downtime Terbesar: ikut 1 tahun fiskal yang dipilih (bukan bulan berjalan)
@@ -1982,7 +2180,7 @@ function dashboardExhaust() {
           koefRows: koefRes.data || [],
           targetRows: tgRes.data || [],
           fyStartYear, fyStart, fyEnd, prevFyStart,
-          ovHead, ovBulan, ovKategori,
+          ovHead, ovBulan, ovKategori, ovPrev,
         };
 
         // Downtime Terbesar per line -- selalu tampilkan 5 baris ke bawah,
@@ -2075,7 +2273,28 @@ function dashboardExhaust() {
       // 12 bulan FY berjalan (Apr..Mar)
       const fyMonths = [];
       for (let i = 0; i < 12; i++) fyMonths.push(new Date(fyStartYear, 3 + i, 1));
+      // 12 bulan FY sebelumnya -- dipakai garis pembanding Downtime Exhaust.
+      const prevFyMonthsDt = [];
+      for (let i = 0; i < 12; i++) prevFyMonthsDt.push(new Date(fyStartYear - 1, 3 + i, 1));
       const monthLabelId = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+
+      // Rata-rata sederhana: jumlah angka bulanan dibagi JUMLAH BULAN YANG
+      // ADA ANGKANYA. Bulan yang belum berjalan / belum diisi tidak ikut
+      // membagi, jadi angkanya tidak ikut turun gara-gara bulan kosong.
+      const rataRata = (arr) => {
+        const v = (arr || []).filter((x) => x !== null && x !== undefined && Number.isFinite(Number(x)));
+        if (!v.length) return null;
+        return Number((v.reduce((a, b) => a + Number(b), 0) / v.length).toFixed(1));
+      };
+      // Untuk yang satuannya JUMLAH (NG, Qty Repair, Downtime), kolom FY
+      // diisi RATA-RATA PER BULAN, bukan total setahun. Kalau total, angkanya
+      // dua belas kali lipat angka bulanan di sebelahnya -- batang bulanannya
+      // tergencet jadi garis tipis dan tidak terbaca lagi.
+      // Bulan yang belum berjalan (kosong / nol) tidak ikut membagi.
+      const rataPerBulan = (arr) => {
+        const v = (arr || []).filter((x) => x !== null && x !== undefined && Number.isFinite(Number(x)) && Number(x) !== 0);
+        return v.length ? Math.round(v.reduce((a, b) => a + Number(b), 0) / v.length) : null;
+      };
 
       const findRow = (rows, d) => rows.find((r) => r.bulan === monthKeyStr(d));
       const sumInRange = (rows, start, end, field) =>
@@ -2098,7 +2317,9 @@ function dashboardExhaust() {
         const r = koefRows.find((x) => Number(x.tahun) === Number(th));
         return r && Number.isFinite(Number(r.nilai)) ? Number(r.nilai) : null;
       };
-      const productivityActual = fyMonths.map((d) => {
+      // Dibuat jadi fungsi supaya rumus yang SAMA PERSIS bisa dipakai untuk
+      // FY berjalan dan FY sebelumnya -- bukan disalin dua kali.
+      const hitungProductivity = (months) => months.map((d) => {
         const y = d.getFullYear(), m = d.getMonth() + 1;
         let earned = 0, oper = 0, ada = false;
         for (const row of pvManualRows) {
@@ -2111,6 +2332,7 @@ function dashboardExhaust() {
         if (!ada || !oper || !k) return null;
         return Number((((earned / oper) / k) * 100).toFixed(1));
       });
+      const productivityActual = hitungProductivity(fyMonths);
       // Garis Target Productivity, diambil dari tabel productivity_target
       // (diisi di Master Data > Productivity > Target Productivity Bulanan).
       // Tiap bulan punya angkanya sendiri, jadi garisnya bertangga -- bukan
@@ -2159,7 +2381,20 @@ function dashboardExhaust() {
         : 0;
 
       // Downtime Exhaust: FY-1, FY, lalu 12 bulan Apr..Mar
-      const dtExhaustLabels = ["FY " + fyStartYear, "FY " + (fyStartYear + 1), ...fyMonths.map((d) => monthLabelId[d.getMonth()])];
+      // Dropdown menulis "FY 2026" untuk Apr 2026..Mar 2027, jadi dua kolom
+      // ringkasan ini ikut patokan yang sama: FY sebelumnya lalu FY berjalan.
+      // Ditulis sebagai ARRAY ["FY", "2025"] supaya Chart.js memecahnya jadi
+      // DUA BARIS -- kalau satu baris, "FY 2025" dan "FY 2026" saling
+      // bersentuhan dengan "Apr" di kartu yang sempit.
+      // Tahunnya dipendekkan jadi dua angka ("'25"). Di kartu NG Inline &
+      // Straight Pass yang punya sumbu kiri DAN kanan, ruang per kolom
+      // tinggal sedikit -- "2025" dan "2026" masih saling bersentuhan.
+      const fyTick = (th) => ["FY", "'" + String(th).slice(-2)];
+      const dtExhaustLabels = [
+        fyTick(fyStartYear - 1),
+        fyTick(fyStartYear),
+        ...fyMonths.map((d) => monthLabelId[d.getMonth()]),
+      ];
       // Dijumlah dari baris HARIAN (dashboard_harian_produksi) -- sumber yang
       // sama dengan tab Kontrol Downtime, supaya angkanya tidak beda.
       const dtRowsFilter = lineFilter === "ALL"
@@ -2172,9 +2407,26 @@ function dashboardExhaust() {
           .reduce((a, r) => a + (Number(r.downtime_menit) || 0), 0);
         return Math.round(sum);
       });
+      // Downtime per bulan FY SEBELUMNYA -- untuk garis pembanding.
+      // Diambil dari prodRows (dashboard_bulanan_produksi) yang memang sudah
+      // mencakup DUA tahun fiskal, jadi tidak perlu query tambahan. prodRows
+      // juga sudah ikut filter Line lewat collapseByLine di atas.
+      const dtExhaustBulanPrev = prevFyMonthsDt.map((d) => {
+        const row = findRow(prodRows, d);
+        return row && row.downtime_menit !== null && row.downtime_menit !== undefined
+          ? Math.round(Number(row.downtime_menit)) : null;
+      });
+
+      // Dua kolom ringkasan = RATA-RATA MENIT PER BULAN (bukan total setahun),
+      // supaya sejajar dengan batang bulanan di sebelahnya.
       const dtExhaustValues = [
-        Math.round(sumInRange(prodRows, prevFyStart, fyStart, "downtime_menit")),
-        dtExhaustBulan.reduce((a, v) => a + v, 0),
+        // FY sebelumnya: pakai angka yang diketik di Master Data kalau ada.
+        (() => {
+          const m = (raw.ovPrev && raw.ovPrev.downtime_fy_prev_menit);
+          if (m !== null && m !== undefined && m !== "" && Number.isFinite(Number(m))) return Math.round(Number(m));
+          return null;
+        })(),
+        rataPerBulan(dtExhaustBulan),
         ...dtExhaustBulan,
       ];
 
@@ -2206,20 +2458,52 @@ function dashboardExhaust() {
         act: lineKeys.map((k) => { const r = raw.lineRows.find((x) => x.mesin === k); return r ? Math.round(Number(r.act_menit)) : 0; }),
       };
 
+      // ---- Dua kolom ringkasan di paling kiri: FY sebelumnya & FY berjalan ----
+      // FY SEBELUMNYA diisi tangan di Master Data > Dashboard FY. Kalau
+      // belum diisi, kolomnya dibiarkan KOSONG (bukan nol) supaya tidak
+      // terbaca sebagai "hasilnya nol".
+      // FY BERJALAN dihitung dari 12 bulan di sebelah kanannya: rata-rata
+      // untuk yang satuannya persen, total untuk yang satuannya jumlah.
+      const ovp = raw.ovPrev || {};
+      const angkaOv = (v) => (v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
+      const ngQtyBulan = fyMonths.map((d) => { const r = findRow(ngRows, d); return r ? Number(r.qty) : null; });
+      const ngValBulan = fyMonths.map((d) => { const r = findRow(ngRows, d); return r ? Number(r.value) : null; });
+
       const hasil = {
         ...this.tahunan,
         monthLabels: dtExhaustLabels,
-        productivity: { value: productivityValue, actual: [null, null, ...productivityActual], target: [null, null, ...productivityTarget] },
+        productivity: {
+          value: productivityValue,
+          actual: [angkaOv(ovp.productivity_fy_prev), rataRata(productivityActual), ...productivityActual],
+          target: [null, null, ...productivityTarget],
+        },
         // Availability SENGAJA tanpa garis Target -- target: null
-        availability: { value: availabilityValue, actual: [null, null, ...availabilityActual], target: null },
+        availability: {
+          value: availabilityValue,
+          actual: [angkaOv(ovp.availability_fy_prev), rataRata(availabilityActual), ...availabilityActual],
+          target: null,
+        },
         ngInline: {
           qty: lastNgRow ? Number(lastNgRow.qty) : 0,
           value: lastNgRow ? Number(lastNgRow.value) : 0,
-          qtyByMonth: [null, null, ...fyMonths.map((d) => { const r = findRow(ngRows, d); return r ? Number(r.qty) : null; })],
-          valueByMonth: [null, null, ...fyMonths.map((d) => { const r = findRow(ngRows, d); return r ? Number(r.value) : null; })],
+          qtyByMonth: [angkaOv(ovp.ng_qty_fy_prev), rataPerBulan(ngQtyBulan), ...ngQtyBulan],
+          valueByMonth: [angkaOv(ovp.ng_value_fy_prev), rataPerBulan(ngValBulan), ...ngValBulan],
         },
-        straightpass: { value: straightpassValue, actual: [null, null, ...straightpassActual], qty: [null, null, ...straightpassQty], repairQty: [null, null, ...straightpassRepairQty], target: 95 },
-        downtimeExhaust: { labels: dtExhaustLabels, values: dtExhaustValues },
+        straightpass: {
+          value: straightpassValue,
+          actual: [angkaOv(ovp.sp_fy_prev), rataRata(straightpassActual), ...straightpassActual],
+          qty: [null, rataPerBulan(straightpassQty), ...straightpassQty],
+          repairQty: [angkaOv(ovp.sp_repair_fy_prev), rataPerBulan(straightpassRepairQty), ...straightpassRepairQty],
+          target: 95,
+        },
+        downtimeExhaust: {
+          labels: dtExhaustLabels,
+          values: dtExhaustValues,
+          // Garis pembanding FY sebelumnya. Dua slot pertama kosong karena
+          // itu kolom ringkasan, bukan bulan.
+          prevValues: [null, null, ...dtExhaustBulanPrev],
+          prevLabel: "FY '" + String(fyStartYear - 1).slice(-2),
+        },
         downtimeSupporting,
         downtimeLine,
       };
@@ -3429,15 +3713,81 @@ function dashboardExhaust() {
         if (!canvas) return;
         const vals = b.downtimeExhaust.values;
         const labels = b.downtimeExhaust.labels;
+        const prevVals = b.downtimeExhaust.prevValues || [];
+        const adaPrev = prevVals.some((v) => v !== null && v !== undefined);
+
+        // Dua penulis angka khusus chart ini: angka batang di BAWAH (dekat
+        // sumbu) dan angka garis FY sebelumnya di ATAS titiknya. Ditulis di
+        // sini, bukan dipakai bersama, supaya chart lain di tab ini tidak
+        // ikut berubah.
+        const angkaBatangBawah = (datasetIndex) => ({
+          id: "dxbDtBarBase",
+          afterDatasetsDraw(chart) {
+            const { ctx, chartArea } = chart;
+            const meta = chart.getDatasetMeta(datasetIndex);
+            const ds = chart.data.datasets[datasetIndex];
+            if (!meta || !ds || meta.type !== "bar" || !meta.data) return;
+            const n = meta.data.length;
+            const slot = chartArea && n ? chartArea.width / n : 30;
+            const fs = slot < 18 ? 6.5 : slot < 26 ? 7.5 : slot < 40 ? 8.5 : 9.5;
+            ctx.save();
+            ctx.font = `700 ${fs}px Inter, sans-serif`;
+            ctx.textAlign = "center"; ctx.fillStyle = "#000000"; ctx.textBaseline = "bottom";
+            const baris = [];
+            meta.data.forEach((bar, i) => {
+              const v = Number(ds.data[i]);
+              if (ds.data[i] === null || ds.data[i] === undefined || Number.isNaN(v) || v === 0) return;
+              const { x, base } = bar.getProps(["x", "base"], true);
+              const txt = fmtNum(v);
+              const setengah = ctx.measureText(txt).width / 2 + 3;
+              let r = 0;
+              while (r < baris.length && x - setengah < baris[r]) r++;
+              baris[r] = x + setengah;
+              ctx.fillText(txt, x, base - 3 - r * (fs + 3));
+            });
+            ctx.restore();
+          },
+        });
+        const angkaGarisAtas = (datasetIndex) => ({
+          id: "dxbDtLineTop",
+          afterDatasetsDraw(chart) {
+            const { ctx, chartArea } = chart;
+            const meta = chart.getDatasetMeta(datasetIndex);
+            const ds = chart.data.datasets[datasetIndex];
+            if (!meta || !ds || meta.type !== "line" || !meta.data) return;
+            const n = meta.data.length;
+            const slot = chartArea && n ? chartArea.width / n : 30;
+            const fs = slot < 18 ? 6.5 : slot < 26 ? 7.5 : slot < 40 ? 8.5 : 9.5;
+            ctx.save();
+            ctx.font = `700 ${fs}px Inter, sans-serif`;
+            ctx.textAlign = "center"; ctx.fillStyle = "#000000"; ctx.textBaseline = "bottom";
+            meta.data.forEach((titik, i) => {
+              const v = Number(ds.data[i]);
+              if (ds.data[i] === null || ds.data[i] === undefined || Number.isNaN(v) || v === 0) return;
+              const { x, y } = titik.getProps(["x", "y"], true);
+              const atasAman = chartArea ? chartArea.top + fs : -Infinity;
+              ctx.fillText(fmtNum(v), x, Math.max(atasAman, y - 5));
+            });
+            ctx.restore();
+          },
+        });
+
         this.bulananCharts.dxbDowntimeExhaust = new Chart(canvas, {
           data: {
             labels: labels,
             datasets: [
               { order: 2, type: "bar", label: "Downtime (menit)", data: vals, backgroundColor: barBg(canvas, CALM.sand, vals.length), borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
+              ...(adaPrev ? [{
+                order: 1, type: "line", label: b.downtimeExhaust.prevLabel || "FY lalu",
+                data: prevVals, borderColor: "#6B7280", backgroundColor: "#6B7280",
+                borderWidth: 1.5, pointRadius: 1.5, tension: 0.3, spanGaps: true,
+              }] : []),
             ],
           },
-          options: { responsive: true, maintainAspectRatio: false, animation: noAnim, layout: { padding: { top: 20 } }, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
-          plugins: [barValueLabels((v) => fmtNum(v)), barBevelInset(0)],
+          options: { responsive: true, maintainAspectRatio: false, animation: noAnim, layout: { padding: { top: adaPrev ? 30 : 20 } }, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
+          plugins: adaPrev
+            ? [angkaBatangBawah(0), angkaGarisAtas(1), barBevelInset(0)]
+            : [barValueLabels((v) => fmtNum(v)), barBevelInset(0)],
         });
       }, "downtimeExhaust");
 
@@ -3997,9 +4347,12 @@ function dashboardExhaust() {
       // tahun fiskal). Untuk grafik-grafik lain kita buang 2 kolom ini,
       // cukup tampilkan 12 bulan (Apr..Mar). Ini murni di layer render,
       // data asli di this.tahunan tidak diubah.
-      safe(() => kpiBig("dxyBigProductivity", b.monthLabels.slice(2), b.productivity.actual.slice(2), b.productivity.target.slice(2), "#2563EB"), "big-productivity");
-      safe(() => kpiBig("dxyBigAvailability", b.monthLabels.slice(2), b.availability.actual.slice(2), b.availability.target, "#10B981", "above", 120), "big-availability");
-      safe(() => bigStraightpassDual("dxyBigStraightpass", b.monthLabels.slice(2), b.straightpass.repairQty.slice(2), b.straightpass.actual.slice(2), b.straightpass.target, "#14B8A6"), "big-straightpass");
+      // Dua kolom pertama = ringkasan "FY 2025" & "FY 2026" (lihat
+      // dxyRebuildTahunanSeries). Sekarang DITAMPILKAN lagi, jadi tidak
+      // ada slice(2) di sini.
+      safe(() => kpiBig("dxyBigProductivity", b.monthLabels, b.productivity.actual, b.productivity.target, "#2563EB"), "big-productivity");
+      safe(() => kpiBig("dxyBigAvailability", b.monthLabels, b.availability.actual, b.availability.target, "#10B981", "above", 120), "big-availability");
+      safe(() => bigStraightpassDual("dxyBigStraightpass", b.monthLabels, b.straightpass.repairQty, b.straightpass.actual, b.straightpass.target, "#14B8A6"), "big-straightpass");
 
       // --- NG Inline dual axis: Qty (bar oranye) + Value (area hitam tipis) ---
       safe(() => {
@@ -4008,10 +4361,10 @@ function dashboardExhaust() {
         if (!canvas) return;
         this.tahunanCharts.dxyBigNg = new Chart(canvas, {
           data: {
-            labels: b.monthLabels.slice(2),
+            labels: b.monthLabels,
             datasets: [
-              { order: 2, type: "bar", label: "Qty", data: b.ngInline.qtyByMonth.slice(2), backgroundColor: barBg(canvas, "#F43F5E", b.ngInline.qtyByMonth.length - 2), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
-              { order: 1, type: "line", label: "Value", data: b.ngInline.valueByMonth.slice(2), borderColor: "#1D4ED8", backgroundColor: "rgba(29,78,216,0.1)", borderWidth: 1.5, fill: true, yAxisID: "y1", pointRadius: 1, tension: 0.3 },
+              { order: 2, type: "bar", label: "Qty", data: b.ngInline.qtyByMonth, backgroundColor: barBg(canvas, "#F43F5E", b.ngInline.qtyByMonth.length), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
+              { order: 1, type: "line", label: "Value", data: b.ngInline.valueByMonth, borderColor: "#1D4ED8", backgroundColor: "rgba(29,78,216,0.1)", borderWidth: 1.5, fill: true, yAxisID: "y1", pointRadius: 1, tension: 0.3 },
             ],
           },
           options: {
@@ -4034,21 +4387,34 @@ function dashboardExhaust() {
         destroy("dxyDowntimeExhaust");
         const canvas = document.getElementById("dxyDowntimeExhaust");
         if (!canvas) return;
-        // Dua kolom pertama (FY 2026 & FY 2027) berisi angka ringkasan
-        // total per tahun fiskal -- sesuai instruksi, kolom ini dibuang
-        // dari SEMUA grafik, termasuk di sini. Chart sekarang murni
-        // menampilkan 12 bulan (Apr..Mar).
-        const vals = b.downtimeExhaust.values.slice(2);
-        const labels = b.downtimeExhaust.labels.slice(2);
+        // Dua kolom pertama = ringkasan total per tahun fiskal
+        // ("FY 2025" & "FY 2026"). Dulu sempat disembunyikan, sekarang
+        // ditampilkan lagi atas permintaan.
+        const vals = b.downtimeExhaust.values;
+        const labels = b.downtimeExhaust.labels;
+        // Garis pembanding FY sebelumnya (per bulan). Kalau ada, angka
+        // batang FY berjalan PINDAH KE BAWAH supaya tidak berebut tempat
+        // dengan angka garis yang ditulis di atas titiknya.
+        const prevVals = b.downtimeExhaust.prevValues || [];
+        const adaPrev = prevVals.some((v) => v !== null && v !== undefined);
         this.tahunanCharts.dxyDowntimeExhaust = new Chart(canvas, {
           data: {
             labels: labels,
             datasets: [
               { order: 2, type: "bar", label: "Downtime (menit)", data: vals, backgroundColor: barBg(canvas, "#F97316", vals.length), borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
+              ...(adaPrev ? [{
+                order: 1, type: "line", label: b.downtimeExhaust.prevLabel || "FY lalu",
+                data: prevVals, borderColor: "#6B7280", backgroundColor: "#6B7280",
+                borderWidth: 1.5, pointRadius: 1.5, tension: 0.3, spanGaps: true,
+              }] : []),
             ],
           },
           options: { responsive: true, maintainAspectRatio: false, animation: noAnim, layout: { padding: { top: 34 } }, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
-          plugins: [barValueLabels((v) => fmtNum(v), 0), barBevelInset(0)],
+          plugins: [
+            barValueLabels((v) => fmtNum(v), 0, adaPrev ? "base" : "above"),
+            ...(adaPrev ? [lineValueLabelsAll((v) => (v === null ? "" : fmtNum(v)), 1)] : []),
+            barBevelInset(0),
+          ],
         });
       }, "downtimeExhaust");
 
@@ -4297,11 +4663,24 @@ function dashboardExhaust() {
         const ngi = this.qcNgInline;
         const lineFilterMonth = this.qcLineFilter || "ALL";
         const ngiMonthForLine = lineFilterMonth === "ALL" ? null : this.qcLineMonthMap.ngInline[lineFilterMonth];
-        const monthQty = ngiMonthForLine ? ngiMonthForLine.qtyByMonth : ngi.qtyByMonth;
-        const monthValue = ngiMonthForLine ? ngiMonthForLine.valueByMonth : ngi.valueByMonth;
+        const monthQty0 = ngiMonthForLine ? ngiMonthForLine.qtyByMonth : ngi.qtyByMonth;
+        const monthValue0 = ngiMonthForLine ? ngiMonthForLine.valueByMonth : ngi.valueByMonth;
+        // Dua kolom ringkasan di paling kiri: FY sebelumnya (diisi tangan di
+        // Master Data) & FY berjalan (rata-rata per bulan). Waktu filter Line
+        // dipakai, kolom FY sebelumnya DIKOSONGKAN -- angka manualnya total
+        // pabrik, bukan per Line, jadi salah kalau ditempel di satu Line.
+        const fyTh = ngi.fyStartYear;
+        const perLine = !!ngiMonthForLine;
+        const monthLabelsNgi = Number.isFinite(Number(fyTh))
+          ? [fyTickLabel(fyTh - 1), fyTickLabel(fyTh), ...ngi.monthLabels]
+          : ngi.monthLabels;
+        const monthQty = Number.isFinite(Number(fyTh))
+          ? [perLine ? null : ngi.fyPrevQty, rataBulanan(monthQty0), ...monthQty0] : monthQty0;
+        const monthValue = Number.isFinite(Number(fyTh))
+          ? [perLine ? null : ngi.fyPrevValue, rataBulanan(monthValue0), ...monthValue0] : monthValue0;
         this.qcCharts.qcNgInlineMonth = new Chart(canvas, {
           data: {
-            labels: ngi.monthLabels,
+            labels: monthLabelsNgi,
             datasets: [
               { order: 2, type: "bar", label: "Qty", data: monthQty, backgroundColor: barBg(canvas, QC_BAR.ngInline, monthQty.length), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
               { order: 1, type: "line", label: "Value", data: monthValue, borderColor: "#1D4ED8", backgroundColor: "rgba(29,78,216,0.1)", borderWidth: 1.5, fill: true, yAxisID: "y1", pointRadius: 1, tension: 0.3 },
@@ -4334,11 +4713,22 @@ function dashboardExhaust() {
         const labels = qcMonthLabels;
         const lineFilterTrialMonth = this.qcLineFilter || "ALL";
         const ngtMonthForLine = lineFilterTrialMonth === "ALL" ? null : this.qcLineMonthMap.ngTrial[lineFilterTrialMonth];
-        const trialQty = ngtMonthForLine ? ngtMonthForLine.qtyByMonth : (ngt.qtyByMonth && ngt.qtyByMonth.length ? ngt.qtyByMonth : labels.map(() => null));
-        const trialValue = ngtMonthForLine ? ngtMonthForLine.valueByMonth : (ngt.valueByMonth && ngt.valueByMonth.length ? ngt.valueByMonth : labels.map(() => null));
+        const trialQty0 = ngtMonthForLine ? ngtMonthForLine.qtyByMonth : (ngt.qtyByMonth && ngt.qtyByMonth.length ? ngt.qtyByMonth : labels.map(() => null));
+        const trialValue0 = ngtMonthForLine ? ngtMonthForLine.valueByMonth : (ngt.valueByMonth && ngt.valueByMonth.length ? ngt.valueByMonth : labels.map(() => null));
+        // Dua kolom ringkasan di paling kiri -- aturannya sama dengan chart
+        // NG Inline Month: FY sebelumnya diisi tangan, FY berjalan dihitung,
+        // dan kolom FY sebelumnya dikosongkan kalau filter Line dipakai.
+        const fyThT = ngt.fyStartYear;
+        const adaFyT = Number.isFinite(Number(fyThT));
+        const perLineT = !!ngtMonthForLine;
+        const labelsT = adaFyT ? [fyTickLabel(fyThT - 1), fyTickLabel(fyThT), ...labels] : labels;
+        const trialQty = adaFyT
+          ? [perLineT ? null : ngt.fyPrevQty, rataBulanan(trialQty0), ...trialQty0] : trialQty0;
+        const trialValue = adaFyT
+          ? [perLineT ? null : ngt.fyPrevValue, rataBulanan(trialValue0), ...trialValue0] : trialValue0;
         this.qcCharts.qcNgTrialMonth = new Chart(canvas, {
           data: {
-            labels,
+            labels: labelsT,
             datasets: [
               { order: 2, type: "bar", label: "Qty", data: trialQty, backgroundColor: barBg(canvas, QC_BAR.ngTrial, trialQty.length), yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
               { order: 1, type: "line", label: "Value", data: trialValue, borderColor: "#1D4ED8", backgroundColor: "rgba(29,78,216,0.1)", borderWidth: 1.5, fill: true, yAxisID: "y1", pointRadius: 1, tension: 0.3 },
@@ -4376,11 +4766,24 @@ function dashboardExhaust() {
         // this.tahunan, supaya ganti tahun di tab Tahunan tidak menggeser
         // chart ini. Deret qcFy sudah 12 bulan, jadi tidak perlu .slice(2).
         const f = qcFyData;
-        const labels = qcMonthLabels;
         const lineFilterSpMonth = this.qcLineFilter || "ALL";
         const repairMonthForLine = lineFilterSpMonth === "ALL" ? null : this.qcLineMonthMap.repair[lineFilterSpMonth];
-        const repairQty = repairMonthForLine ? repairMonthForLine.qtyByMonth : (f.repairQty || []);
-        const actual = f.actual || [];
+        const repairQty0 = repairMonthForLine ? repairMonthForLine.qtyByMonth : (f.repairQty || []);
+        const actual0 = f.actual || [];
+        // Dua kolom ringkasan di paling kiri -- lihat penjelasan di chart
+        // NG Inline Month. Qty Repair = rata-rata per bulan, % = rata-rata.
+        const fyThSp = f.fyStartYear;
+        const perLineSp = !!repairMonthForLine;
+        const adaFySp = Number.isFinite(Number(fyThSp));
+        const rataPersen = (arr) => {
+          const v = (arr || []).filter((x) => x !== null && x !== undefined && Number.isFinite(Number(x)));
+          return v.length ? Number((v.reduce((a, b) => a + Number(b), 0) / v.length).toFixed(1)) : null;
+        };
+        const labels = adaFySp ? [fyTickLabel(fyThSp - 1), fyTickLabel(fyThSp), ...qcMonthLabels] : qcMonthLabels;
+        const repairQty = adaFySp
+          ? [perLineSp ? null : f.fyPrevRepair, rataBulanan(repairQty0), ...repairQty0] : repairQty0;
+        const actual = adaFySp
+          ? [perLineSp ? null : f.fyPrevSp, rataPersen(actual0), ...actual0] : actual0;
         this.qcCharts.qcStraightpassMonth = new Chart(canvas, {
           data: {
             labels,
@@ -4916,10 +5319,188 @@ function dashboardExhaust() {
     planRows: [],
     planBacklogRows: [],
     planActualRows: [],
+    planPartMaster: [],   // daftar part number dari master (dipakai supaya
+                          // barisnya tetap tampil walau belum ada plan)
     planLoading: false,
+
+    // ---------- Edit plan DI TEMPAT (tanpa pindah halaman) ----------
+    // Dulu tombol "Edit Plan" melempar ke plan-produksi.html. Halaman itu
+    // sudah dihapus: sekarang kolom "Plan per Line" di tabel atas yang
+    // berubah jadi kotak isian, lalu disimpan langsung dari sini.
+    //
+    // Yang diketik user = total plan satu part di satu line untuk hari itu.
+    // Tabel Shift 1/2 MENGIKUTI angka itu (hanya baca, tidak bisa diketik).
+    // Backlog per part juga bisa diubah di kolom Backlog tabel atas.
+    planEditMode: false,
+    planSaving: false,
+    planDraft: {},        // "part|mesin" -> isi kotak (teks)
+    planDraftBacklog: {}, // "part" -> isi kotak (teks)
+    planMsg: "",
+    planMsgError: false,
+
+    planKunci(part, mesin) { return part + "|" + mesin; },
+    // Angka plan yang TERSIMPAN untuk satu part/line pada satu shift.
+    planAngkaTersimpan(part, mesin, shift) {
+      return this.planRows
+        .filter((r) => r.part_number === part && r.mesin === mesin && r.shift === shift)
+        .reduce((a, r) => a + (Number(r.qty_rencana) || 0), 0);
+    },
+    // Total satu part/line untuk hari itu (shift 1 + shift 2).
+    planTotalTersimpan(part, mesin) {
+      return this.planAngkaTersimpan(part, mesin, 1) + this.planAngkaTersimpan(part, mesin, 2);
+    },
+    planBacklogTersimpan(part) {
+      const row = this.planBacklogRows.find((b) => b.part_number === part);
+      return Number(row && row.backlog) || 0;
+    },
+
+    // ⚠ ATURAN PEMBAGIAN KE SHIFT -- MASIH SEMENTARA.
+    // User bilang pembagiannya "ada sistemnya" dan akan dijelaskan nanti.
+    // Sampai aturan itu diberikan, dipakai aturan sementara berikut:
+    //   - kalau part/line ini SUDAH punya angka di kedua shift, perbandingan
+    //     lamanya dipertahankan (mis. 600:400 -> 1.000 jadi 600:400);
+    //   - kalau belum ada sama sekali, dibagi rata; sisa pembagian ganjil
+    //     masuk ke Shift 1.
+    // SELURUH logika pembagian HANYA ada di fungsi ini -- begitu aturan
+    // aslinya diberikan, cukup ganti isi fungsi ini saja, tidak ada tempat
+    // lain yang perlu disentuh.
+    planBagiKeShift(total, part, mesin) {
+      const t = Math.max(0, Math.round(Number(total) || 0));
+      if (t === 0) return { 1: 0, 2: 0 };
+      const s1 = this.planAngkaTersimpan(part, mesin, 1);
+      const s2 = this.planAngkaTersimpan(part, mesin, 2);
+      const lama = s1 + s2;
+      if (lama > 0) {
+        const a = Math.round((s1 / lama) * t);
+        return { 1: a, 2: t - a };
+      }
+      const a = Math.ceil(t / 2);
+      return { 1: a, 2: t - a };
+    },
+
+    planMulaiEdit() {
+      if (!this.isAdmin()) return;
+      // Draft diisi dari angka yang sekarang tersimpan, jadi kotak isian
+      // langsung menampilkan nilai berjalan (bukan kosong).
+      const draft = {}, draftB = {};
+      this.planPartList.forEach((part) => {
+        MACHINES.forEach((m) => {
+          const v = this.planTotalTersimpan(part, m.key);
+          draft[this.planKunci(part, m.key)] = v > 0 ? String(v) : "";
+        });
+        const b = this.planBacklogTersimpan(part);
+        draftB[part] = b > 0 ? String(b) : "";
+      });
+      this.planDraft = draft;
+      this.planDraftBacklog = draftB;
+      this.planMsg = "";
+      this.planEditMode = true;
+    },
+    planBatalEdit() {
+      this.planEditMode = false;
+      this.planDraft = {};
+      this.planDraftBacklog = {};
+      this.planMsg = "";
+    },
+    planDraftGet(part, mesin) { return this.planDraft[this.planKunci(part, mesin)] ?? ""; },
+    planDraftSet(part, mesin, v) { this.planDraft[this.planKunci(part, mesin)] = v; },
+    planBacklogDraftGet(part) { return this.planDraftBacklog[part] ?? ""; },
+    planBacklogDraftSet(part, v) { this.planDraftBacklog[part] = v; },
+
+    // Simpan HANYA yang berubah. Angka yang dikosongkan / diisi 0 berarti
+    // barisnya dihapus, bukan disimpan sebagai 0 -- supaya tabel tidak
+    // penuh baris nol yang tidak berarti apa-apa.
+    async planSimpanEdit() {
+      if (this.planSaving) return;
+      this.planSaving = true;
+      this.planMsg = "";
+      try {
+        const upPlan = [], delPlan = [];
+        Object.keys(this.planDraft).forEach((k) => {
+          const [part, mesin] = k.split("|");
+          const baru = Math.max(0, Math.round(Number(this.planDraft[k]) || 0));
+          const lama = this.planTotalTersimpan(part, mesin);
+          if (baru === lama) return;
+          // Satu angka per line dipecah jadi baris per shift, karena
+          // production_plan_harian menyimpannya per shift.
+          const bagi = this.planBagiKeShift(baru, part, mesin);
+          [1, 2].forEach((shift) => {
+            const q = bagi[shift] || 0;
+            if (q > 0) upPlan.push({ tanggal: this.planTanggal, part_number: part, mesin, shift, qty_rencana: q });
+            else if (this.planAngkaTersimpan(part, mesin, shift) > 0) delPlan.push({ part, mesin, shift });
+          });
+        });
+
+        const upBack = [], delBack = [];
+        Object.keys(this.planDraftBacklog).forEach((part) => {
+          const baru = Math.max(0, Math.round(Number(this.planDraftBacklog[part]) || 0));
+          const lama = this.planBacklogTersimpan(part);
+          if (baru === lama) return;
+          if (baru > 0) upBack.push({ tanggal: this.planTanggal, part_number: part, backlog: baru });
+          else delBack.push(part);
+        });
+
+        if (!upPlan.length && !delPlan.length && !upBack.length && !delBack.length) {
+          // Tidak ada yang diubah -> keluar diam-diam dari mode edit.
+          this.planMsg = "";
+          this.planEditMode = false;
+          return;
+        }
+
+        if (upPlan.length) {
+          const { error } = await supabaseClient.from("production_plan_harian")
+            .upsert(upPlan, { onConflict: "tanggal,part_number,mesin,shift" });
+          if (error) throw error;
+        }
+        for (const d of delPlan) {
+          const { error } = await supabaseClient.from("production_plan_harian")
+            .delete().eq("tanggal", this.planTanggal).eq("part_number", d.part)
+            .eq("mesin", d.mesin).eq("shift", d.shift);
+          if (error) throw error;
+        }
+        if (upBack.length) {
+          const { error } = await supabaseClient.from("production_plan_backlog")
+            .upsert(upBack, { onConflict: "tanggal,part_number" });
+          if (error) throw error;
+        }
+        for (const part of delBack) {
+          const { error } = await supabaseClient.from("production_plan_backlog")
+            .delete().eq("tanggal", this.planTanggal).eq("part_number", part);
+          if (error) throw error;
+        }
+
+        this.planEditMode = false;
+        this.planDraft = {};
+        this.planDraftBacklog = {};
+        // Pemberitahuan "Tersimpan (N perubahan)" dihapus (permintaan).
+        // Pesan GAGAL simpan sengaja tetap ada -- tanpa itu, simpan yang
+        // ditolak server (mis. tidak punya hak) jadi tidak kelihatan sama
+        // sekali dan angkanya diam-diam tidak tersimpan.
+        this.planMsgError = false;
+        this.planMsg = "";
+        await this.fetchPlanHarian();
+      } catch (e) {
+        this.planMsgError = true;
+        this.planMsg = "Gagal simpan: " + (e && e.message ? e.message : e);
+      } finally {
+        this.planSaving = false;
+      }
+    },
 
     async fetchPlanHarian() {
       this.planLoading = true;
+      // Master part number cukup diambil sekali per sesi -- isinya jarang
+      // berubah, dan dipakai tiap ganti tanggal.
+      if (!this.planPartMaster.length) {
+        try {
+          const { data } = await supabaseClient.from("part_numbers").select("value");
+          this.planPartMaster = [...new Set((data || []).map((r) => r.value).filter(Boolean))].sort();
+        } catch (e) { this.planPartMaster = []; }
+      }
+      // Kapasitas & master part tidak bergantung tanggal, jadi cukup
+      // diambil sekali per sesi (dan tiap kali selesai disimpan).
+      if (!this.planCapaRows.length) await this.fetchPlanCapa();
+      if (!this.planMasterPartRows.length) await this.fetchPlanMasterPart();
       try {
         const [planRes, backlogRes, actRes] = await Promise.all([
           supabaseClient.from('production_plan_harian').select('*').eq('tanggal', this.planTanggal),
@@ -4937,61 +5518,518 @@ function dashboardExhaust() {
       this.$nextTick(() => this.renderPlanKapasitas());
     },
 
+    // ---------- Kapasitas (CAPACITY) per line ----------
+    // planCapaRows diisi dari tabel production_capa_line. Kalau tabelnya
+    // belum dibuat / masih kosong, planCapaDariDefault = true dan angka
+    // cadangan CAPA_DEFAULT yang dipakai, jadi grafiknya tetap bergaris.
+    planCapaRows: [],
+    planCapaDariDefault: true,
+    planCapaOpen: false,
+    planCapaDraft: {},
+    planCapaSaving: false,
+    planCapaMsg: "",
+    planCapaMsgError: false,
+    // Sub mana yang sedang dibuka di form: harian / line / part
+    planCapaTab: "harian",
+    // Sub "Kapasitas Line" & "Master Part"
+    planLineDraft: {},
+    planMasterPartRows: [],
+    planMasterPartDariDefault: true,
+    planPartDraft: {},
+
+    async fetchPlanCapa() {
+      try {
+        const { data, error } = await supabaseClient.from("production_capa_line").select("*");
+        if (error) throw error;
+        this.planCapaRows = data || [];
+        this.planCapaDariDefault = this.planCapaRows.length === 0;
+      } catch (e) {
+        // Tabelnya belum ada (migration_capa_line.sql belum dijalankan)
+        // -> jangan bikin tab ini gagal tampil, cukup pakai cadangan.
+        this.planCapaRows = [];
+        this.planCapaDariDefault = true;
+      }
+    },
+    async fetchPlanMasterPart() {
+      try {
+        const { data, error } = await supabaseClient.from("production_master_part").select("*");
+        if (error) throw error;
+        this.planMasterPartRows = data || [];
+        this.planMasterPartDariDefault = this.planMasterPartRows.length === 0;
+      } catch (e) {
+        this.planMasterPartRows = [];
+        this.planMasterPartDariDefault = true;
+      }
+    },
+    // ----- pembaca angka: dari database kalau ada, kalau tidak dari cadangan -----
+    planLineVal(mesin, kunci) {
+      const row = this.planCapaRows.find((r) => r.mesin === mesin);
+      // 0 dianggap "belum diisi" -> pakai cadangan, supaya kolom baru yang
+      // defaultnya 0 (sebelum migration v2 diisi) tidak tampil nol semua.
+      if (row && Number(row[kunci])) return Number(row[kunci]);
+      const d = LINE_DEFAULT[mesin];
+      return d ? Number(d[kunci]) || 0 : 0;
+    },
+    planPartRow(part) {
+      return this.planMasterPartRows.find((r) => r.part_number === part)
+        || MASTER_PART_DEFAULT.find((r) => r.part_number === part)
+        || null;
+    },
+    planPartVal(part, kunci) {
+      const r = this.planPartRow(part);
+      if (!r) return kunci === "watari" ? "NO" : (kunci === "default_line" ? "" : 0);
+      const v = r[kunci];
+      return v === null || v === undefined || v === "" ? (kunci === "watari" ? "NO" : "") : v;
+    },
+    // Daftar part di form = master part_numbers digabung dengan part yang
+    // sudah tersimpan/ada di cadangan, jadi part baru ikut muncul sendiri.
+    get planPartFormList() {
+      const kumpul = new Set([
+        ...this.planPartMaster,
+        ...this.planMasterPartRows.map((r) => r.part_number),
+        ...MASTER_PART_DEFAULT.map((r) => r.part_number),
+      ]);
+      return [...kumpul].filter(Boolean).sort();
+    },
+    // Cycle time ditulis gaya Indonesia (102,9) biar sama dengan sheet.
+    planCtTeks(v) {
+      const n = Number(v);
+      if (!n) return "";
+      return String(Math.round(n * 100) / 100).replace(".", ",");
+    },
+    // 'e-03 , E04' -> 'E-03'. Yang tidak berbentuk E-0x dibuang.
+    planWatariBersih(teks) {
+      const s = String(teks ?? "").trim();
+      if (!s || /^(no|tidak|-)$/i.test(s)) return "NO";
+      const pakai = [...new Set(
+        s.toUpperCase().split(/[,;/\s]+/)
+          .map((t) => t.replace(/^E-?0?(\d)$/, "E-0$1"))
+          .filter((t) => /^E-0[2-7]$/.test(t))
+      )];
+      return pakai.length ? pakai.join(",") : "NO";
+    },
+    // Satu angka kapasitas: dari tabel kalau ada, kalau tidak dari cadangan.
+    planCapaVal(mesin, kunci) {
+      const row = this.planCapaRows.find((r) => r.mesin === mesin);
+      if (row && row[kunci] !== null && row[kunci] !== undefined) return Number(row[kunci]) || 0;
+      const d = CAPA_DEFAULT[mesin];
+      return d ? Number(d[kunci]) || 0 : 0;
+    },
+    get planCapaJenis() { return CAPA_JENIS; },
+    get planLineJenis() { return LINE_JENIS; },
+    get planCapaMesin() { return MACHINES.map((m) => m.key); },
+    get planCapaSubTabs() {
+      return [
+        { kunci: "harian", nama: "Capacity Harian" },
+        { kunci: "line",   nama: "Kapasitas Line" },
+        { kunci: "part",   nama: "Master Part" },
+      ];
+    },
+
+    planCapaBuka() {
+      // Ketiga draft diisi dari angka yang sedang dipakai, jadi form-nya
+      // langsung terisi (bukan kosong) dan tinggal diubah yang perlu.
+      // Semua sub disiapkan sekaligus supaya pindah-pindah sub tidak
+      // menghapus ketikan yang belum disimpan.
+      const dCapa = {}, dLine = {};
+      this.planCapaMesin.forEach((mk) => {
+        dCapa[mk] = {}; dLine[mk] = {};
+        CAPA_JENIS.forEach((j) => { dCapa[mk][j.kunci] = String(this.planCapaVal(mk, j.kunci)); });
+        LINE_JENIS.forEach((j) => { dLine[mk][j.kunci] = String(this.planLineVal(mk, j.kunci)); });
+      });
+      const dPart = {};
+      this.planPartFormList.forEach((part) => {
+        dPart[part] = {
+          default_line: String(this.planPartVal(part, "default_line") || ""),
+          cycle_time: this.planCtTeks(this.planPartVal(part, "cycle_time")),
+          watari: String(this.planPartVal(part, "watari") || "NO"),
+        };
+      });
+      this.planCapaDraft = dCapa;
+      this.planLineDraft = dLine;
+      this.planPartDraft = dPart;
+      this.planCapaMsg = "";
+      this.planCapaMsgError = false;
+      this.planCapaOpen = true;
+    },
+    planCapaTutup() {
+      if (this.planCapaSaving) return;
+      this.planCapaOpen = false;
+      this.planCapaDraft = {};
+      this.planLineDraft = {};
+      this.planPartDraft = {};
+    },
+    planCapaDraftSet(mesin, kunci, nilai) {
+      if (!this.planCapaDraft[mesin]) this.planCapaDraft[mesin] = {};
+      this.planCapaDraft[mesin][kunci] = String(nilai ?? "").replace(/[^0-9]/g, "");
+    },
+    planLineDraftSet(mesin, kunci, nilai) {
+      if (!this.planLineDraft[mesin]) this.planLineDraft[mesin] = {};
+      this.planLineDraft[mesin][kunci] = String(nilai ?? "").replace(/[^0-9]/g, "");
+    },
+    planPartDraftSet(part, kunci, nilai) {
+      if (!this.planPartDraft[part]) this.planPartDraft[part] = {};
+      // cycle_time: koma & titik dua-duanya diterima (sheet pakai koma).
+      this.planPartDraft[part][kunci] = kunci === "cycle_time"
+        ? String(nilai ?? "").replace(/[^0-9.,]/g, "")
+        : String(nilai ?? "");
+    },
+    // Satu tombol Simpan untuk ketiga sub: yang disimpan SELURUH isi form,
+    // bukan cuma sub yang sedang terlihat -- jadi kalau mengubah dua sub
+    // lalu menekan Simpan, dua-duanya ikut tersimpan.
+    async planCapaSimpan() {
+      this.planCapaSaving = true;
+      this.planCapaMsg = "";
+      this.planCapaMsgError = false;
+      try {
+        const barisLine = this.planCapaMesin.map((mk) => {
+          const isi = { mesin: mk };
+          CAPA_JENIS.forEach((j) => {
+            isi[j.kunci] = Math.max(0, Math.round(Number(this.planCapaDraft[mk]?.[j.kunci]) || 0));
+          });
+          LINE_JENIS.forEach((j) => {
+            isi[j.kunci] = Math.max(0, Math.round(Number(this.planLineDraft[mk]?.[j.kunci]) || 0));
+          });
+          return isi;
+        });
+        const { error: errLine } = await supabaseClient
+          .from("production_capa_line")
+          .upsert(barisLine, { onConflict: "mesin" });
+        if (errLine) throw errLine;
+
+        const barisPart = Object.keys(this.planPartDraft).map((part) => {
+          const d = this.planPartDraft[part] || {};
+          const ct = Number(String(d.cycle_time ?? "").replace(",", ".")) || 0;
+          return {
+            part_number: part,
+            // Line kosong dikirim null, bukan "" -- kolomnya bertipe
+            // machine_type, dan "" ditolak Postgres.
+            default_line: /^E-0[2-7]$/.test(d.default_line || "") ? d.default_line : null,
+            cycle_time: Math.max(0, Math.round(ct * 100) / 100),
+            watari: this.planWatariBersih(d.watari),
+          };
+        });
+        if (barisPart.length) {
+          const { error: errPart } = await supabaseClient
+            .from("production_master_part")
+            .upsert(barisPart, { onConflict: "part_number" });
+          if (errPart) throw errPart;
+        }
+
+        await Promise.all([this.fetchPlanCapa(), this.fetchPlanMasterPart()]);
+        this.planCapaOpen = false;
+        this.planCapaDraft = {};
+        this.planLineDraft = {};
+        this.planPartDraft = {};
+        // Tanpa pemberitahuan: form-nya menutup sendiri dan garis di grafik
+        // langsung pindah, jadi hasilnya sudah kelihatan.
+        this.planMsgError = false;
+        this.planMsg = "";
+        this.$nextTick(() => this.renderPlanKapasitas());
+      } catch (e) {
+        const pesan = (e && e.message ? e.message : String(e));
+        this.planCapaMsgError = true;
+        // Pesan Postgres untuk tabel/kolom yang belum ada susah dimengerti,
+        // jadi diterjemahkan ke langkah yang harus dilakukan.
+        this.planCapaMsg = /does not exist|schema cache|relation|column/i.test(pesan)
+          ? "Tabel/kolomnya belum ada di database. Jalankan migration_capa_line.sql lalu migration_capa_line_v2.sql di Supabase > SQL Editor, baru simpan lagi."
+          : "Gagal simpan: " + pesan;
+      } finally {
+        this.planCapaSaving = false;
+      }
+    },
+
     planKapasitasChart: null,
+    // Warna batang per part number. 6 warna dasar dipakai bergantian; tiap
+    // kali daftarnya habis, putarannya berikutnya dibuat lebih muda/tua
+    // sedikit supaya dua part yang memakai warna dasar sama tetap bisa
+    // dibedakan walau partnya lebih dari enam.
+    planWarnaPart(i) {
+      const dasar = PLAN_LINE_COLORS[i % PLAN_LINE_COLORS.length];
+      const putaran = Math.floor(i / PLAN_LINE_COLORS.length);
+      if (putaran === 0) return dasar;
+      // Dicampur manual di sini (bukan color-mix CSS): warna ini dipakai
+      // sebagai fillStyle canvas, dan canvas tidak mengerti color-mix().
+      const campur = putaran % 2 === 1 ? [255, 255, 255] : [31, 41, 55];
+      const kadar = Math.min(0.55, 0.26 + 0.14 * Math.floor((putaran - 1) / 2));
+      const n = parseInt(dasar.slice(1), 16);
+      const rgb = [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+        .map((c, k) => Math.round(c * (1 - kadar) + campur[k] * kadar));
+      return "rgb(" + rgb.join(",") + ")";
+    },
+    // Grafik = TUMPUKAN QTY PER PART NUMBER di tiap line (pcs), bukan lagi
+    // satu batang total per line dan bukan persen. Jadi sekali lihat
+    // ketahuan line mana yang paling penuh DAN part apa saja isinya.
     renderPlanKapasitas() {
       const canvas = document.getElementById("dxPlanKapasitas");
       if (!canvas || typeof Chart === "undefined") return;
       if (this.planKapasitasChart) this.planKapasitasChart.destroy();
+      this.planKapasitasChart = null;
+      // Grafik tetap digambar walau semua angkanya 0, supaya nama line
+      // (E-02..E-07) selalu kelihatan.
       const mesinKeys = MACHINES.map((m) => m.key);
-      const parts = this.planPartList;
-      const datasets = parts.map((part, idx) => ({
+      // Hanya part yang HARI INI ada rencananya yang jadi batang; kalau
+      // semua part master ikut, legendanya penuh part yang nilainya 0.
+      const partAda = this.planPartList.filter((part) =>
+        mesinKeys.some((mk) => this.planNumCellPlan(part, mk) > 0)
+      );
+      const datasets = partAda.map((part, i) => ({
         label: part,
-        data: mesinKeys.map((mk) => this.planRows
-          .filter((r) => r.part_number === part && r.mesin === mk)
-          .reduce((a, r) => a + (Number(r.qty_rencana) || 0), 0)),
-        backgroundColor: PLAN_LINE_COLORS[idx % PLAN_LINE_COLORS.length],
-        borderRadius: 3, stack: "plan",
+        data: mesinKeys.map((mk) => this.planNumCellPlan(part, mk)),
+        backgroundColor: this.planWarnaPart(i),
+        borderWidth: 0,
+        borderRadius: 0,
+        // Batang sengaja dibuat lebih ramping (dulu 0.7 x 0.9): lebarnya
+        // kini ~35% dari jatah kolom, jadi garis CAPACITY di belakangnya
+        // tetap kelihatan.
+        barPercentage: 0.7,
+        categoryPercentage: 0.5,
       }));
+
+      // ----- 3 garis acuan CAPACITY -----
+      // Dipasang di sumbu Y terpisah (yCapa) yang TIDAK ditumpuk. Kalau
+      // ikut sumbu batang yang stacked:true, garisnya ikut ditumpuk juga
+      // (hijau+biru+merah saling menambah) -- itu salah. Batas atas kedua
+      // sumbu disamakan manual di bawah supaya tingginya tetap sebanding.
+      const capaData = CAPA_JENIS.map((j) => ({
+        jenis: j,
+        angka: mesinKeys.map((mk) => this.planCapaVal(mk, j.kunci)),
+      }));
+      capaData.forEach(({ jenis, angka }) => {
+        datasets.push({
+          type: "line",
+          label: jenis.nama,
+          data: angka,
+          yAxisID: "yCapa",
+          borderColor: jenis.warna,
+          backgroundColor: jenis.warna,
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          fill: false,
+          tension: 0,
+          order: 0,       // digambar di ATAS batang
+        });
+      });
+
+      // Batas atas sumbu: setinggi mana pun yang paling tinggi antara
+      // tumpukan plan dan garis kapasitas, dibulatkan ke atas biar rapi.
+      const tinggiTumpukan = mesinKeys.map((mk, i) =>
+        partAda.reduce((a, part) => a + this.planNumCellPlan(part, mesinKeys[i]), 0)
+      );
+      const tertinggi = Math.max(0, ...tinggiTumpukan, ...capaData.flatMap((c) => c.angka));
+      const langkah = tertinggi > 1000 ? 100 : 50;
+      const batasAtas = tertinggi > 0 ? Math.ceil((tertinggi * 1.08) / langkah) * langkah : 10;
+
       this.planKapasitasChart = new Chart(canvas, {
         type: "bar",
         data: { labels: mesinKeys, datasets },
         options: {
           responsive: true, maintainAspectRatio: false,
           plugins: {
-            legend: { position: "bottom", labels: { color: cssVar("--muted"), boxWidth: 8, boxHeight: 8, font: { size: 9 }, usePointStyle: true, pointStyle: "circle" } },
-            tooltip: { backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"), borderColor: cssVar("--border"), borderWidth: 1, padding: 10 },
+            title: {
+              display: true,
+              text: "CAPACITY",
+              color: cssVar("--text"),
+              font: { size: 18, weight: "800" },
+              padding: { top: 2, bottom: 8 },
+            },
+            // Legenda dihidupkan lagi: dengan tumpukan per part, warnanya
+            // harus bisa dibaca namanya.
+            legend: {
+              display: datasets.length > 0,
+              position: "top",
+              align: "start",
+              labels: {
+                color: cssVar("--chart-tick"), font: { size: 10 },
+                boxWidth: 9, boxHeight: 9, padding: 7, usePointStyle: true, pointStyle: "rect",
+              },
+            },
+            tooltip: {
+              backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"),
+              borderColor: cssVar("--border"), borderWidth: 1, padding: 10,
+              // Part yang 0 di line itu tidak perlu ikut muncul di tooltip.
+              filter: (item) => Number(item.raw) > 0,
+              callbacks: {
+                label: (item) => {
+                  const v = Math.round(Number(item.raw) || 0);
+                  // Garis kapasitas: tambahi tulisan "kapasitas" supaya
+                  // tidak terbaca sebagai angka plan.
+                  const ekor = item.dataset.type === "line" ? " pcs (kapasitas)" : " pcs";
+                  return " " + item.dataset.label + ": " + v + ekor;
+                },
+              },
+            },
           },
           scales: {
             x: { stacked: true, ticks: { color: cssVar("--chart-tick"), font: { size: 10 } }, grid: { display: false }, border: { display: false } },
-            y: { stacked: true, ticks: { color: cssVar("--chart-tick"), font: { size: 10 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: false }, beginAtZero: true },
+            y: { stacked: true, ticks: { color: cssVar("--chart-tick"), font: { size: 10 } }, grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: false }, beginAtZero: true, max: batasAtas },
+            // Sumbu khusus garis kapasitas: tidak ditumpuk, tidak
+            // ditampilkan, tapi batas atasnya SAMA dengan sumbu Y batang
+            // supaya garis dan batang bisa dibandingkan langsung.
+            yCapa: { display: false, stacked: false, beginAtZero: true, max: batasAtas, grid: { display: false } },
           },
         },
+        // Angka QTY ditulis di tengah tiap potongan tumpukan (per part),
+        // bukan total batangnya. Potongan yang terlalu tipis dilewati
+        // supaya angkanya tidak tumpang tindih -- nilainya tetap kebaca
+        // lewat tooltip.
+        plugins: [{
+          id: "dxPlanQtyLabels",
+          afterDatasetsDraw(chart) {
+            const ctx = chart.ctx;
+            ctx.save();
+            ctx.font = "700 10px Inter, sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillStyle = "#ffffff";
+            chart.data.datasets.forEach((ds, di) => {
+              // Garis kapasitas dilewati -- angkanya bukan plan, dan
+              // elemen garis tidak punya "base" seperti batang.
+              if (ds.type === "line") return;
+              const meta = chart.getDatasetMeta(di);
+              if (!meta || meta.hidden || !meta.data) return;
+              meta.data.forEach((bar, i) => {
+                const v = Math.round(Number(ds.data[i]) || 0);
+                if (v <= 0) return;
+                const tinggi = Math.abs(bar.base - bar.y);
+                if (tinggi < 13) return;
+                ctx.fillText(String(v), bar.x, (bar.base + bar.y) / 2);
+              });
+            });
+            ctx.restore();
+          },
+        }],
       });
     },
 
     // ---------- Plan Harian ----------
-    // Perhitungan di bawah SENGAJA disamakan persis dengan plan-produksi.html,
-    // karena halaman itu yang jadi acuan. Sebelumnya ada beberapa beda yang
-    // bikin angkanya tidak sama:
+    // Perhitungan di bawah dulu disamakan persis dengan halaman plan-produksi
+    // (sudah dihapus, editnya sekarang di tab ini). Beda-beda yang dulu bikin
+    // angkanya tidak sama dan sudah diluruskan:
     //   1. daftar part di tabel Shift dulu cuma dari plan; sekarang ikut
     //      memasukkan part yang ADA AKTUALNYA tapi tidak direncanakan
     //   2. pemisah ribuan dulu pakai id-ID (1.234), sekarang en-US (1,234)
     //   3. beberapa total yang nilainya 0 dulu tampil kosong, sekarang "0"
     //   4. perbandingan shift dulu longgar (==), sekarang ketat (===)
     // fmtNum bawaan dashboard tidak dipakai di sini karena dibatasi 1 desimal,
-    // sedangkan plan-produksi membulatkan ke bilangan bulat.
+    // sedangkan plan harian selalu bilangan bulat.
     planFmt(n) {
       if (n === null || n === undefined || Number.isNaN(Number(n))) return "-";
       return Number(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
     },
 
     get planPartList() {
-      return [...new Set(this.planRows.map((r) => r.part_number))].sort();
+      // SELURUH part number master selalu tampil, ditambah part yang
+      // direncanakan atau ada aktualnya walau tidak ada di master. Dengan
+      // begitu daftar barisnya tetap sama tiap hari, dan part yang belum
+      // ada planya kelihatan kosong (bukan hilang dari tabel).
+      const fromPlan = this.planRows.map((r) => r.part_number);
+      const fromAct = this.planActualRows.map((r) => r.part_number);
+      return [...new Set([...this.planPartMaster, ...fromPlan, ...fromAct])].filter(Boolean).sort();
     },
-    planCell(part, mesin) {
-      const sum = this.planRows
+
+    // Ada isinya atau tidak -- dipakai untuk memilih antara tabel
+    // dan pesan "belum ada plan".
+    get planAdaData() {
+      return this.planRows.length > 0 || this.planActualRows.length > 0;
+    },
+
+    // Tanggal yang sedang dilihat, ditulis lengkap ("Senin, 19 Okt 2026")
+    // supaya tidak perlu menebak dari angka "19" saja.
+    get planTanggalLabel() {
+      const d = new Date(this.planTanggal + "T00:00:00");
+      if (Number.isNaN(d.getTime())) return this.planTanggal;
+      const hari = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"][d.getDay()];
+      const bulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"][d.getMonth()];
+      return `${hari}, ${d.getDate()} ${bulan} ${d.getFullYear()}`;
+    },
+    get planHariIni() {
+      return this.planTanggal === localDateStr(new Date());
+    },
+    // Pindah tanggal mundur/maju 1 hari lewat tombol, tanpa buka date picker.
+    planGeserHari(n) {
+      const d = new Date(this.planTanggal + "T00:00:00");
+      if (Number.isNaN(d.getTime())) return;
+      d.setDate(d.getDate() + n);
+      this.planTanggal = localDateStr(d);
+      this.fetchPlanHarian();
+    },
+
+    // ---------- angka mentah (tanpa format) ----------
+    planNumPlan(part) {
+      return this.planRows.filter((r) => r.part_number === part).reduce((a, r) => a + (Number(r.qty_rencana) || 0), 0);
+    },
+    planNumAct(part) {
+      return this.planActualRows.filter((r) => r.part_number === part).reduce((a, r) => a + (Number(r.qty_aktual) || 0), 0);
+    },
+    planNumColPlan(mesin) {
+      return this.planRows.filter((r) => r.mesin === mesin).reduce((a, r) => a + (Number(r.qty_rencana) || 0), 0);
+    },
+    planNumColAct(mesin) {
+      return this.planActualRows.filter((r) => r.mesin === mesin).reduce((a, r) => a + (Number(r.qty_aktual) || 0), 0);
+    },
+    get planTotalPlan() {
+      return this.planRows.reduce((a, r) => a + (Number(r.qty_rencana) || 0), 0);
+    },
+    get planTotalAct() {
+      return this.planActualRows.reduce((a, r) => a + (Number(r.qty_aktual) || 0), 0);
+    },
+    get planTotalBacklog() {
+      return this.planBacklogRows.reduce((a, r) => a + (Number(r.backlog) || 0), 0);
+    },
+
+    // ---------- pencapaian (%) ----------
+    // Plan 0 -> tidak ada target, jadi persennya tidak dihitung (null),
+    // bukan 0% (yang bikin seolah-olah gagal).
+    planPct(act, plan) {
+      if (!plan) return null;
+      return Math.round((act / plan) * 100);
+    },
+    planPctText(act, plan) {
+      const p = this.planPct(act, plan);
+      return p === null ? "-" : p + "%";
+    },
+    planPctClass(act, plan) {
+      const p = this.planPct(act, plan);
+      if (p === null) return "";
+      return p >= 100 ? "ach-ok" : p >= 90 ? "ach-warn" : "ach-bad";
+    },
+    // Lebar bar mini di kolom pencapaian (dipotong di 100% biar rapi).
+    planPctBar(act, plan) {
+      const p = this.planPct(act, plan);
+      return (p === null ? 0 : Math.max(0, Math.min(100, p))) + "%";
+    },
+    get planAchTotal() { return this.planPct(this.planTotalAct, this.planTotalPlan); },
+    get planAchTotalText() { return this.planPctText(this.planTotalAct, this.planTotalPlan); },
+    get planAchTotalClass() { return this.planPctClass(this.planTotalAct, this.planTotalPlan); },
+    get planSelisihTotal() { return this.planTotalAct - this.planTotalPlan; },
+    // Angka bertanda (+120 / -300) supaya arah selisihnya langsung kebaca.
+    planFmtSigned(n) {
+      const v = Number(n) || 0;
+      return (v > 0 ? "+" : "") + this.planFmt(v);
+    },
+
+    // ---------- kolom Aktual & pencapaian di tabel utama ----------
+    planActRow(part) {
+      const v = this.planNumAct(part);
+      return v > 0 ? this.planFmt(v) : "";
+    },
+    planActColTotal(mesin) {
+      return this.planFmt(this.planNumColAct(mesin));
+    },
+    planActGrandTotal() {
+      return this.planFmt(this.planTotalAct);
+    },
+    // Angka mentah 1 sel (part x line). planCell() di bawahnya memakai ini
+    // juga, supaya tabel dan grafik pasti membaca sumber yang sama.
+    planNumCellPlan(part, mesin) {
+      return this.planRows
         .filter((r) => r.part_number === part && r.mesin === mesin)
         .reduce((a, r) => a + (Number(r.qty_rencana) || 0), 0);
+    },
+    planCell(part, mesin) {
+      const sum = this.planNumCellPlan(part, mesin);
       return sum > 0 ? this.planFmt(sum) : "";
     },
     planRowTotal(part) {
@@ -5016,10 +6054,12 @@ function dashboardExhaust() {
     },
 
     // ---------- tabel Shift 1 / Shift 2 ----------
+    // Sama seperti tabel utama: semua part master selalu tampil di kedua
+    // shift, supaya barisnya konsisten dan gampang dibandingkan.
     planShiftParts(shift) {
       const fromPlan = this.planRows.filter((r) => r.shift === shift).map((r) => r.part_number);
       const fromAct = this.planActualRows.filter((r) => r.shift === shift).map((r) => r.part_number);
-      return [...new Set([...fromPlan, ...fromAct])].sort();
+      return [...new Set([...this.planPartMaster, ...fromPlan, ...fromAct])].filter(Boolean).sort();
     },
     planShiftCell(part, mesin, shift) {
       const row = this.planRows.find((r) => r.part_number === part && r.mesin === mesin && r.shift === shift);
@@ -5036,12 +6076,40 @@ function dashboardExhaust() {
     },
     planBalance(part, shift) {
       const { plan, act } = this.planShiftTotals(part, shift);
-      return this.planFmt(act - plan);
+      return this.planFmtSigned(act - plan);
     },
     planBalanceClass(part, shift) {
       const { plan, act } = this.planShiftTotals(part, shift);
       if (plan === 0 && act === 0) return "";
       return act >= plan ? "balance-ok" : "balance-bad";
+    },
+    // Baris TOTAL di tabel Shift -- sebelumnya tidak ada, jadi total per
+    // line per shift harus dijumlah sendiri dari layar.
+    planShiftColTotal(mesin, shift, kind) {
+      const sum = kind === "plan"
+        ? this.planRows.filter((r) => r.mesin === mesin && r.shift === shift).reduce((a, r) => a + (Number(r.qty_rencana) || 0), 0)
+        : this.planActualRows.filter((r) => r.mesin === mesin && r.shift === shift).reduce((a, r) => a + (Number(r.qty_aktual) || 0), 0);
+      return sum > 0 ? this.planFmt(sum) : "";
+    },
+    planShiftGrand(shift, kind) {
+      return kind === "plan"
+        ? this.planRows.filter((r) => r.shift === shift).reduce((a, r) => a + (Number(r.qty_rencana) || 0), 0)
+        : this.planActualRows.filter((r) => r.shift === shift).reduce((a, r) => a + (Number(r.qty_aktual) || 0), 0);
+    },
+    planShiftBalanceTotal(shift) {
+      return this.planFmtSigned(this.planShiftGrand(shift, "act") - this.planShiftGrand(shift, "plan"));
+    },
+    planShiftBalanceTotalClass(shift) {
+      const plan = this.planShiftGrand(shift, "plan");
+      const act = this.planShiftGrand(shift, "act");
+      if (plan === 0 && act === 0) return "";
+      return act >= plan ? "balance-ok" : "balance-bad";
+    },
+    planShiftAchText(shift) {
+      return this.planPctText(this.planShiftGrand(shift, "act"), this.planShiftGrand(shift, "plan"));
+    },
+    planShiftAchClass(shift) {
+      return this.planPctClass(this.planShiftGrand(shift, "act"), this.planShiftGrand(shift, "plan"));
     },
 
     logout,

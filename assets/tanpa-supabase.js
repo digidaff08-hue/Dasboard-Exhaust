@@ -2,10 +2,12 @@
 // TANPA SUPABASE -- pengganti Supabase yang jalan sepenuhnya di browser.
 //
 // Dipakai untuk melihat / memperbaiki TAMPILAN saat Supabase belum bisa
-// dipakai. Tidak ada request jaringan ke Supabase, dan TIDAK ADA DATA:
-// semua tabel kosong, semua RPC mengembalikan daftar kosong. Satu-satunya
-// isi adalah sebuah akun masuk ("Admin Contoh") supaya pemeriksaan login
-// tidak menghalangi halaman.
+// dipakai. Tidak ada request jaringan ke Supabase, dan TIDAK ADA DATA
+// HASIL PRODUKSI: semua tabel kosong, semua RPC mengembalikan daftar
+// kosong. Yang ikut diisi cuma dua hal yang sifatnya DAFTAR PILIHAN,
+// bukan data: akun masuk ("Admin Contoh") supaya pemeriksaan login tidak
+// menghalangi halaman, dan daftar part number (master) supaya tabel yang
+// barisnya diambil dari master tidak tampil kosong melompong.
 //
 // Kapan aktif & cara kembali ke Supabase: lihat bagian atas
 // assets/supabaseClient.js (MODE_TANPA_SUPABASE).
@@ -69,6 +71,23 @@
     id: USER_CONTOH.id, full_name: "Admin Contoh", role: "admin", jabatan: "admin",
     nik: "CONTOH001", email: USER_CONTOH.email, no_wa: "", created_at: nowIso(),
   });
+
+  // Daftar part number (master) -- ikut diisi karena ini DAFTAR PILIHAN,
+  // bukan data hasil produksi. Tanpa ini, halaman yang barisnya memang
+  // diambil dari master (mis. tabel Plan Harian) tampil kosong melompong
+  // waktu dicek dari komputer, padahal di aplikasi aslinya terisi.
+  // Isinya disamakan dengan seed_welding_part_numbers.sql.
+  [
+    ["E-02", "14110-52P00"], ["E-02", "14110-73R10"], ["E-02", "14110-73R20"], ["E-02", "14110-74U00"],
+    ["E-03", "25051-BZ060"], ["E-03", "25051-BZ260"],
+    ["E-04", "25051-BZ150-T"],
+    ["E-05", "25051-0Y050"], ["E-05", "25051-0Y060"], ["E-05", "25051-BZ140-T"],
+    ["E-06", "25051-BZ010"], ["E-06", "25051-BZ110"], ["E-06", "25051-BZ140"], ["E-06", "25051-BZ180"],
+    ["E-07", "14110-74U50"],
+  ].forEach(([mesin, value]) => table("part_numbers").push({
+    id: uuid(), mesin, value, std_ct: null, std_mp: 3, harga_pcs: 0, stroke_ratio: 1,
+    next_processes: [], alias_values: [], target_peff: null, created_at: nowIso(),
+  }));
 
   // ---------- perbandingan & filter ----------
   const ISO_DT = /^\d{4}-\d{2}-\d{2}T/;

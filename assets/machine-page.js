@@ -6,6 +6,62 @@
 // pakai jam sistem, tidak bisa diketik manual (kecuali mode edit koreksi).
 // =========================================================
 
+// ---------- Bevel batang (sama persis dgn dashboard) ----------
+// Di dashboard-exhaust.html plugin ini dipasang di <head>, jadi semua
+// grafik batang di sana (Downtime Exhaust dll) terlihat timbul. Halaman
+// mesin punya <head> sendiri yang tidak memuatnya, makanya batangnya
+// dulu terlihat rata. Didaftarkan di sini supaya ikut semua halaman
+// mesin tanpa harus mengubah 6 file HTML satu-satu.
+//
+// Tiap batang diberi 4 sisi miring:
+//   atas & kiri   -> kilap terang (kesan kena cahaya)
+//   bawah & kanan -> bayangan gelap
+// Atur lewat BEVEL_STYLE:
+//   size  : lebar sisi bevel (px), otomatis mengecil di batang tipis
+//   light : kekuatan kilap sisi atas/kiri
+//   dark  : kekuatan bayangan sisi bawah/kanan
+// Matikan untuk chart tertentu dengan
+//   options.plugins.dxBarBevel = { enabled: false }
+if (typeof Chart !== "undefined" && !window.__dxBarBevelTerpasang) {
+  window.__dxBarBevelTerpasang = true;
+  const BEVEL_STYLE = { size: 3, lightTop: 0.45, lightLeft: 0.30, darkRight: 0.22, darkBottom: 0.30 };
+  const bevelPoly = (ctx, pts, color) => {
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let k = 1; k < pts.length; k++) ctx.lineTo(pts[k][0], pts[k][1]);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+  };
+  Chart.register({
+    id: "dxBarBevel",
+    afterDatasetsDraw(chart, args, opts) {
+      if (opts && opts.enabled === false) return;
+      const horizontal = chart.options.indexAxis === "y";
+      const { ctx } = chart;
+      (chart.data.datasets || []).forEach((ds, i) => {
+        const meta = chart.getDatasetMeta(i);
+        if (!meta || meta.type !== "bar" || !meta.data || !chart.isDatasetVisible(i)) return;
+        meta.data.forEach((bar) => {
+          const p = bar.getProps(["x", "y", "base", "width", "height"], true);
+          let L, T, W, H;
+          if (horizontal) { L = Math.min(p.x, p.base); W = Math.abs(p.x - p.base); T = p.y - p.height / 2; H = p.height; }
+          else { T = Math.min(p.y, p.base); H = Math.abs(p.y - p.base); L = p.x - p.width / 2; W = p.width; }
+          if (!(W > 2) || !(H > 2)) return;
+          const b = Math.min(BEVEL_STYLE.size, W / 4, H / 4);
+          const R = L + W, B = T + H;
+          ctx.save();
+          bevelPoly(ctx, [[L, T], [R, T], [R - b, T + b], [L + b, T + b]], `rgba(255,255,255,${BEVEL_STYLE.lightTop})`);
+          bevelPoly(ctx, [[L, T], [L + b, T + b], [L + b, B - b], [L, B]], `rgba(255,255,255,${BEVEL_STYLE.lightLeft})`);
+          bevelPoly(ctx, [[R, T], [R, B], [R - b, B - b], [R - b, T + b]], `rgba(0,0,0,${BEVEL_STYLE.darkRight})`);
+          bevelPoly(ctx, [[L, B], [R, B], [R - b, B - b], [L + b, B - b]], `rgba(0,0,0,${BEVEL_STYLE.darkBottom})`);
+          ctx.restore();
+        });
+      });
+    },
+  });
+}
+
 // ---------- Offline queue (localStorage) ----------
 const OFFLINE_QUEUE_KEY = "offline_queue_v2";
 function loadOfflineQueue() {
@@ -643,7 +699,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
 
     // ---- Performance dashboard (3 seksi independen) ----
     perf: {
-      tahunan: { anchor: localDateStr(new Date()), loading: false, loaded: false, data: null, trend: [], chart: null, pieChart: null, top5: [], byCategory: [] },
+      // downtimeRows (Tahunan) -- isi tabel "5 Downtime Terburuk", sekarang
+      // 5 BARIS DOWNTIME TERLAMA (kolom PIC / Problem Detail / Total
+      // Losstime), bukan lagi ringkasan kategori+problem. Diambil lewat
+      // fetchPerfYearDowntimeRows(). Field top5 di bawah dibiarkan karena
+      // masih dipakai seksi lain.
+      tahunan: { anchor: localDateStr(new Date()), loading: false, loaded: false, data: null, trend: [], chart: null, pieChart: null, top5: [], byCategory: [], downtimeRows: [] },
       // downtimeRows -- "Rekap Downtime" mentah sebulan penuh, strukturnya
       // disamakan dengan perfDowntimeRows punya Harian (lihat
       // fetchPerfMonthDowntimeRows), GANTI dari "5 Downtime Terburuk" + pie
@@ -2053,27 +2114,32 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       harian: { unit: "day" },
     },
     // Susun daftar periode utk grafik, sesuai mode:
-    //  - tahunan : 3 tahun terakhir + PEMBATAS + Jan..Des tahun terpilih
+    //  - tahunan : FY sebelumnya + FY berjalan + PEMBATAS + Apr..Mar FY berjalan
     //  - bulanan : tiap hari dlm bulan terpilih
     //  - harian  : hanya hari itu (Target vs Aktual)
     buildPerfPeriods(section, anchorStr) {
       const d = new Date(anchorStr + "T00:00:00");
       const out = [];
       if (section === "tahunan") {
+        // Tahun fiskal: April sampai Maret. Tahun yang dipilih menentukan
+        // FY berjalan; misalnya 2026 berarti Apr 2026 .. Mar 2027, dan
+        // ditulis "FY 2026" -- sama dengan patokan di Dashboard Exhaust.
         const y = d.getFullYear();
-        for (let i = 2; i >= 0; i--) {
-          const yy = y - i;
+        const fyAwal = d.getMonth() >= 3 ? y : y - 1;
+        [fyAwal - 1, fyAwal].forEach((th) => {
           out.push({
-            start: new Date(yy, 0, 1), end: new Date(yy + 1, 0, 1),
-            label: String(yy), kind: "year",
+            start: new Date(th, 3, 1), end: new Date(th + 1, 3, 1),
+            label: ["FY", "'" + String(th).slice(-2)], kind: "year",
           });
-        }
+        });
         out.push({ separator: true, label: "", kind: "sep" });
         const NAMA_BULAN = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
-        for (let m = 0; m < 12; m++) {
+        // 12 bulan FY berjalan, urut April dulu sampai Maret.
+        for (let i = 0; i < 12; i++) {
+          const t = new Date(fyAwal, 3 + i, 1);
           out.push({
-            start: new Date(y, m, 1), end: new Date(y, m + 1, 1),
-            label: NAMA_BULAN[m], kind: "month",
+            start: t, end: new Date(fyAwal, 3 + i + 1, 1),
+            label: NAMA_BULAN[t.getMonth()], kind: "month",
           });
         }
         return out;
@@ -2171,18 +2237,21 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
                 p_start: p.start.toISOString(), p_end: p.end.toISOString(),
               })
         )),
-        supabaseClient.rpc("downtime_top_problems", {
-          p_mesin: machineKey, p_stasiun_list: stasiunList,
-          p_start: currentBounds.start.toISOString(), p_end: currentBounds.end.toISOString(),
-          // Dipakai Tahunan/Bulanan ("Downtime Terburuk") -- Harian sekarang
-          // pakai perfDowntimeRows (lihat fetchPerfDowntimeRows), jadi di
-          // sini limit 5 biasa aja, gak perlu dibikin besar lagi.
-          p_limit: 5,
-        }),
-        supabaseClient.rpc("downtime_by_category", {
-          p_mesin: machineKey, p_stasiun_list: stasiunList,
-          p_start: currentBounds.start.toISOString(), p_end: currentBounds.end.toISOString(),
-        }),
+        // downtime_top_problems (ringkasan kategori+problem) SUDAH TIDAK
+        // DIPAKAI lagi oleh tampilan mana pun: Harian pakai
+        // perfDowntimeRows, Bulanan pakai fetchPerfMonthDowntimeRows, dan
+        // Tahunan sekarang pakai fetchPerfYearDowntimeRows (kolom PIC /
+        // Problem Detail / Total Losstime). Jadi panggilannya dimatikan
+        // supaya tiap buka seksi tidak ada request yang terbuang. Fungsi
+        // SQL-nya sendiri dibiarkan ada di database -- aman kalau nanti
+        // mau dipakai lagi; tinggal kembalikan rpc-nya di sini.
+        Promise.resolve({ data: [] }),
+        // downtime_by_category: dulu isi pie "Downtime per Kategori" di
+        // Tahunan. Pie-nya sudah dihapus dari tampilan, jadi panggilannya
+        // ikut dimatikan supaya tidak ada request terbuang. Fungsi SQL-nya
+        // tetap ada di database; renderPerfPie() juga masih ada tapi
+        // langsung berhenti sendiri karena canvas-nya tidak ada lagi.
+        Promise.resolve({ data: [] }),
       ]);
       st.loading = false;
 
@@ -2225,10 +2294,15 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       });
       st.trend = trend;
       // Kartu angka selalu menampilkan PERIODE TERPILIH:
-      //  - tahunan -> tahun terpilih (index ke-2, sebelum pembatas)
+      //  - tahunan -> FY BERJALAN, yaitu kolom tahun TERAKHIR sebelum
+      //    pembatas. Dicari lewat kindYear, BUKAN nomor index -- dulu
+      //    ditulis trend[2] waktu kolom tahunnya masih tiga. Sekarang
+      //    kolomnya dua (FY lalu + FY berjalan), jadi index 2 malah
+      //    mengenai pembatas dan kartunya jadi kosong semua.
       //  - bulanan/harian -> agregat periode itu sendiri
       if (section === "tahunan") {
-        st.data = trend[2] || null;
+        const kolomFy = trend.filter((t) => t.kindYear);
+        st.data = kolomFy.length ? kolomFy[kolomFy.length - 1] : null;
       } else if (section === "bulanan") {
         // jumlahkan seluruh hari dlm bulan terpilih
         const valid = trend.filter((t) => !t.separator);
@@ -2259,6 +2333,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       st.loaded = true;
       if (section === "harian") { this.fetchPerfDayRows(); this.fetchPerfDowntimeRows(); }
       if (section === "bulanan") { this.fetchPerfMonthDowntimeRows(); }
+      if (section === "tahunan") { this.fetchPerfYearDowntimeRows(); }
       this.$nextTick(() => { this.renderPerfChart(section); this.renderPerfPie(section); });
     },
     // "Rekap Downtime" Bulanan -- sama persis strukturnya dengan
@@ -2276,6 +2351,29 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         p_mesin: machineKey, p_stasiun_list: stasiunList,
         p_start: start.toISOString(), p_end: end.toISOString(),
       });
+      st.downtimeRows = error ? [] : (data || []);
+    },
+    // "5 Downtime Terburuk" Tahunan -- 5 baris downtime dengan losstime
+    // PALING LAMA dalam periode ini, kolomnya PIC / Problem Detail /
+    // Total Losstime. Pakai fungsi SQL yang sama dengan Rekap Downtime
+    // Bulanan (performance_downtime_rows, sudah generik terima p_start/
+    // p_end), jadi TIDAK perlu fungsi SQL baru. Urut + batas 5 baris
+    // dikerjakan di database (PostgREST menerima order/limit untuk
+    // fungsi yang mengembalikan tabel), bukan menarik sebaris-barisnya
+    // setahun penuh ke browser.
+    async fetchPerfYearDowntimeRows() {
+      const st = this.perf.tahunan;
+      const { start, end } = this.perfBounds("year", st.anchor, 0);
+      const stasiunList = (this.stationConfig.mode === "variant" && this.tandemVariant)
+        ? this.stationConfig.variants[this.tandemVariant]
+        : null;
+      const { data, error } = await supabaseClient
+        .rpc("performance_downtime_rows", {
+          p_mesin: machineKey, p_stasiun_list: stasiunList,
+          p_start: start.toISOString(), p_end: end.toISOString(),
+        })
+        .order("durasi_menit", { ascending: false })
+        .limit(5);
       st.downtimeRows = error ? [] : (data || []);
     },
     fetchAllPerf() {
@@ -2333,9 +2431,9 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
             labels: ["GSPH"],
             datasets: [
               { label: "Target", data: [Number((d.targetGsph || 0).toFixed(1))],
-                backgroundColor: cssVar("--sky"), borderRadius: 6, borderSkipped: false, barPercentage: 0.5, categoryPercentage: 0.6 },
+                backgroundColor: cssVar("--sky"), borderRadius: 0, borderSkipped: false, barPercentage: 0.5, categoryPercentage: 0.6 },
               { label: "Aktual", data: [Number((d.gsph || 0).toFixed(1))],
-                backgroundColor: cssVar("--teal"), borderRadius: 6, borderSkipped: false, barPercentage: 0.5, categoryPercentage: 0.6 },
+                backgroundColor: cssVar("--teal"), borderRadius: 0, borderSkipped: false, barPercentage: 0.5, categoryPercentage: 0.6 },
             ],
           },
           options: {
@@ -2356,20 +2454,28 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         return;
       }
 
-      // Warnai batang tahun berbeda dari batang bulan (mode tahunan)
+      // Batang Perjam (Aktual) HIJAU. Dua kolom ringkasan FY dibuat hijau
+      // tua supaya masih bisa dibedakan dari batang bulanan tanpa keluar
+      // dari warna yang diminta.
       const barColors = st.trend.map((t) =>
-        section === "tahunan" && t.kindYear ? cssVar("--navy") : cssVar("--teal")
+        section === "tahunan" && t.kindYear ? "#15803D" : cssVar("--green")
       );
 
       const datasets = [
         {
           type: "bar", label: "Perjam (Aktual)",
           data: st.trend.map((t) => (t.separator ? null : Number((t.gsph || 0).toFixed(1)))),
-          backgroundColor: barColors, borderRadius: 4, borderSkipped: false, barPercentage: 0.7, categoryPercentage: 0.8, order: 2,
+          // Sudut dibuat siku (0) supaya sisi bevel menempel rapat di
+          // pojoknya, sama seperti batang di dashboard.
+          backgroundColor: barColors, borderRadius: 0, borderSkipped: false, barPercentage: 0.7, categoryPercentage: 0.8, order: 2,
         },
         {
           type: "line", label: "Perjam (Target)",
-          data: st.trend.map((t) => (t.separator ? null : Number((t.targetGsph || 0).toFixed(1)))),
+          // Dua kolom ringkasan FY sengaja DIKOSONGKAN -- di sana yang
+          // ditampilkan cuma batang Perjam (Aktual). Garis Target baru
+          // mulai dari kolom April. (kindYear hanya ada di mode tahunan,
+          // jadi mode bulanan/harian tidak terpengaruh.)
+          data: st.trend.map((t) => (t.separator || t.kindYear ? null : Number((t.targetGsph || 0).toFixed(1)))),
           borderColor: cssVar("--red"), borderWidth: 2, pointRadius: 0, tension: 0, spanGaps: true, order: 1,
         },
       ];
@@ -2383,6 +2489,29 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           data: st.trend.map((t) => (t.separator ? null : Number(t.stroke || 0))),
           borderColor: cssVar("--amber"), backgroundColor: "transparent",
           borderWidth: 2, borderDash: [5, 3], pointRadius: 0, tension: 0.25, spanGaps: true,
+          yAxisID: "y1", order: 0,
+        });
+      }
+      // Tahunan: Qty Pcs sebagai garis HITAM di sumbu KANAN. Satuannya
+      // (puluhan ribu pcs) beda jauh dari Perjam (puluhan pcs/jam), jadi
+      // tidak boleh satu sumbu -- kalau dipaksa, batang Perjam-nya tergencet.
+      if (section === "tahunan") {
+        // Dua kolom ringkasan FY sengaja DIKOSONGKAN -- di sana yang
+        // ditampilkan cuma batang Perjam (Aktual). Garis Qty baru mulai
+        // dari kolom April, jadi angkanya total SEBULAN semua dan
+        // skalanya seragam.
+        const qtyTitik = st.trend.map((t) => {
+          if (t.separator || t.kindYear) return null;
+          const v = Number(t.stroke || 0);
+          // Bulan yang belum berjalan dibiarkan KOSONG (null), bukan nol,
+          // supaya garisnya berhenti di bulan terakhir yang ada datanya.
+          return v > 0 ? v : null;
+        });
+        datasets.push({
+          type: "line", label: "Qty Pcs",
+          data: qtyTitik,
+          borderColor: "#000000", backgroundColor: "#000000",
+          borderWidth: 1.5, pointRadius: 1.5, tension: 0.3, spanGaps: true,
           yAxisID: "y1", order: 0,
         });
       }
@@ -2412,6 +2541,18 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
                 if (val === null || val === undefined) return;
                 const midY = (bar.y + bar.base) / 2;
                 ctx.fillText(fmtNum(val), bar.x, midY);
+              });
+              ctx.restore();
+            } else if (String(ds.label).indexOf("Qty Pcs") === 0) {
+              ctx.save();
+              ctx.fillStyle = "#000000";
+              ctx.font = "bold 10px sans-serif";
+              ctx.textAlign = "center";
+              ctx.textBaseline = "bottom";
+              meta.data.forEach((point, idx) => {
+                const val = ds.data[idx];
+                if (val === null || val === undefined || Number(val) === 0) return;
+                ctx.fillText(fmtNum(val), point.x, point.y - 5);
               });
               ctx.restore();
             } else if (ds.label === "Qty Produksi (Harian)") {
@@ -2449,6 +2590,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
             ...(section === "bulanan" ? {
               y1: { position: "right", beginAtZero: true,
                     ticks: { color: cssVar("--amber"), font: { size: 10 }, maxTicksLimit: 5 },
+                    grid: { display: false }, border: { display: false } },
+            } : {}),
+            // Tahunan: sumbu kanan khusus Qty Pcs (garis hitam).
+            ...(section === "tahunan" ? {
+              y1: { position: "right", beginAtZero: true, grace: "12%",
+                    ticks: { color: "#000000", font: { size: 10 }, maxTicksLimit: 5 },
                     grid: { display: false }, border: { display: false } },
             } : {}),
           },

@@ -1029,33 +1029,28 @@
                         </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-
-                <div class="perf-lower-grid">
-                  <div class="perf-lower-col">
-                    <p class="panel-subtitle">5 Downtime Terburuk</p>
-                    <div class="table-wrap">
-                      <table class="table-compact">
-                        <thead><tr><th>Kategori</th><th>Problem</th><th>Menit</th></tr></thead>
-                        <tbody>
-                          <template x-for="row in perf.tahunan.top5" :key="row.kategori + row.problem">
-                            <tr>
-                              <td><span class="badge" x-text="row.kategori"></span></td>
-                              <td x-text="row.problem"></td>
-                              <td class="mono" x-text="fmtNum(row.menit)"></td>
-                            </tr>
-                          </template>
-                          <tr x-show="perf.tahunan.top5.length === 0"><td colspan="3" class="empty-state">Tidak ada downtime.</td></tr>
-                        </tbody>
-                      </table>
+                    <!-- "5 Downtime Terburuk" sengaja ditempel DI BAWAH GRAFIK
+                         (satu kolom dengan grafiknya), gaya yang sama dengan
+                         "Rekap Downtime" di Performance Bulanan. Dulu dia ada
+                         di baris paling bawah, bersebelahan dengan pie. -->
+                    <div class="perf-downtime-rekap">
+                      <p class="panel-subtitle">5 Downtime Terburuk</p>
+                      <div class="table-wrap" style="max-height:230px;">
+                        <table class="table-compact">
+                          <thead><tr><th>PIC</th><th>Problem Detail</th><th>Total Losstime</th></tr></thead>
+                          <tbody>
+                            <template x-for="(row, idx) in perf.tahunan.downtimeRows" :key="idx">
+                              <tr>
+                                <td><span class="badge" x-text="row.pic"></span></td>
+                                <td x-text="row.penyebab"></td>
+                                <td class="mono" x-text="fmtNum(row.durasi_menit) + ' mnt'"></td>
+                              </tr>
+                            </template>
+                            <tr x-show="perf.tahunan.downtimeRows.length === 0"><td colspan="3" class="empty-state">Tidak ada downtime.</td></tr>
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  </div>
-                  <div class="perf-lower-col">
-                    <p class="panel-subtitle">Downtime per Kategori</p>
-                    <div class="perf-pie-wrap"><canvas id="perfPie_{{LINE}}_tahunan"></canvas></div>
-                    <p class="perf-pie-summary" x-show="perf.tahunan.byCategory.length > 0"
-                       x-text="downtimeKesimpulan('tahunan')"></p>
                   </div>
                 </div>
               </div>

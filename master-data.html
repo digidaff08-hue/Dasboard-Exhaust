@@ -187,7 +187,22 @@
   /* 2 kolom kiri (Grup + Baris) & kolom Total dibikin nempel saat digeser */
   .pv-table .pv-sticky-1 { position: sticky; left: 0; z-index: 2; background: var(--panel); min-width: 76px; padding: 6px 8px; text-align: left; font-weight: 600; }
   .pv-table .pv-sticky-2 { position: sticky; left: 76px; z-index: 2; background: var(--panel); min-width: 112px; padding: 6px 8px; text-align: left; }
-  .pv-table thead .pv-sticky-1, .pv-table thead .pv-sticky-2 { z-index: 4; background: var(--panel-2); }
+  /* Kolom ke-3 yang ikut nempel -- dipakai tab Forecast (Total Forecast).
+     left: 188px = lebar pv-sticky-1 (76) + pv-sticky-2 (112). */
+  /* Lebarnya cuma cukup 6 angka (mis. 999.999) supaya kolom tanggal
+     tidak terdesak -- 6 x +-6,6px font mono 11px + padding. */
+  .pv-table .pv-sticky-3 { position: sticky; left: 188px; z-index: 2; background: var(--panel); min-width: 62px; width: 62px; padding: 0; }
+  .pv-table thead .pv-sticky-3 { white-space: normal; line-height: 1.2; font-size: 10px; }
+  /* Kolom tanggal di tab Forecast = hasil hitung, bukan isian.
+     Dibedakan tipis supaya kelihatan memang tidak bisa diketik. */
+  /* Sel yang diketik manual (menimpa rumus) ditandai supaya kebedaan
+     dengan sel yang isinya murni hasil rumus. */
+  .pv-table td.fc-manual { background: color-mix(in srgb, var(--warning, #F59E0B) 16%, var(--panel)); }
+  .pv-table td.fc-manual .pv-cell-input { font-weight: 700; }
+  .pv-table thead .pv-sticky-1, .pv-table thead .pv-sticky-2, .pv-table thead .pv-sticky-3 { z-index: 4; background: var(--panel-2); }
+  .pv-table thead .pv-sticky-3 { padding: 6px 8px; }
+  /* Pembatas tegas antara kolom tetap dan kolom tanggal */
+  .pv-table .pv-sticky-3 { border-right: 2px solid var(--border); }
   .pv-table .pv-total { position: sticky; right: 0; z-index: 2; background: var(--panel-2); min-width: 80px; padding: 6px 8px; text-align: right; font-weight: 600; }
   .pv-table thead .pv-total { z-index: 4; }
   /* 46px: teks terpanjang "207,25" (6 karakter x +-6,6px di font mono 11px
@@ -315,6 +330,8 @@
           <button class="btn-secondary btn-sm" :class="activeTab === 'scrap' ? 'md-tab-on' : ''" @click="setTab('scrap')">Scrap</button>
           <button class="btn-secondary btn-sm" :class="activeTab === 'safety' ? 'md-tab-on' : ''" @click="setTab('safety')">Safety</button>
           <button class="btn-secondary btn-sm" :class="activeTab === 'productivity' ? 'md-tab-on' : ''" @click="setTab('productivity')">Productivity</button>
+          <button class="btn-secondary btn-sm" :class="activeTab === 'delivery' ? 'md-tab-on' : ''" @click="setTab('delivery')">Delivery Plan</button>
+          <button class="btn-secondary btn-sm" :class="activeTab === 'forecast' ? 'md-tab-on' : ''" @click="setTab('forecast')">Forecast</button>
           <button class="btn-secondary btn-sm" :class="activeTab === 'cuti' ? 'md-tab-on' : ''" @click="setTab('cuti')">Cuti</button>
           <button class="btn-secondary btn-sm" :class="activeTab === 'karyawan' ? 'md-tab-on' : ''" @click="setTab('karyawan')">Data Karyawan</button>
           <button class="btn-secondary btn-sm" :class="activeTab === 'supporting' ? 'md-tab-on' : ''" @click="setTab('supporting')">Data Supporting</button>
@@ -1174,6 +1191,220 @@
           </div>
         </template>
 
+        <!-- ===== TAB: DELIVERY PLAN =====
+             Isi delivery plan (dp) per part per tanggal. Bentuk gridnya
+             sengaja sama persis dengan tab Productivity -- termasuk
+             tempel dari Excel, blok sel, dan Hapus sel terpilih --
+             supaya tidak perlu belajar cara pakai yang baru. -->
+        <template x-if="activeTab === 'delivery'">
+          <div>
+            <div class="panel">
+              <p class="panel-title">Input Delivery Plan</p>
+              <!-- Keterangan cara pakai sengaja dihilangkan (permintaan).
+                   Cara kerjanya tidak berubah: tempel dari Excel, blok sel
+                   + Delete, dan Simpan tetap jalan seperti biasa. -->
+
+              <div class="form-grid">
+                <div class="field"><label>Bulan</label>
+                  <!-- :selected wajib ada. Daftar <option> dibuat x-for SETELAH
+                       <select> terpasang, jadi tanpa ini kotaknya terlanjur
+                       menampilkan pilihan pertama (Januari) padahal yang dimuat
+                       bulan berjalan -- bikin bingung karena isi tabel dan
+                       tulisan di kotak beda bulan. -->
+                  <select x-model.number="dpMonth" @change="fetchDeliveryPlan()">
+                    <template x-for="(nm, i) in BULAN_LABELS" :key="'dp-bln-'+i">
+                      <option :value="i+1" :selected="(i+1) === dpMonth" x-text="nm"></option>
+                    </template>
+                  </select>
+                </div>
+                <div class="field"><label>Tahun</label>
+                  <select x-model.number="dpYear" @change="fetchDeliveryPlan()">
+                    <template x-for="y in tahunOptions" :key="'dp-thn-'+y"><option :value="y" :selected="y === dpYear" x-text="y"></option></template>
+                  </select>
+                </div>
+              </div>
+
+              <template x-if="dpLoading">
+                <p class="empty-state">Memuat delivery plan...</p>
+              </template>
+
+              <template x-if="!dpLoading">
+                <div class="pv-wrap" @mouseup.window="dpSelEnd()" @keydown.window="dpSelKey($event)">
+                  <table class="pv-table">
+                    <thead>
+                      <tr>
+                        <th class="pv-sticky-1">UNIQ</th>
+                        <th class="pv-sticky-2">P/N</th>
+                        <template x-for="d in dpDays" :key="'dp-h-'+d">
+                          <th class="pv-day" :class="dpIsSunday(d) ? 'pv-sunday' : ''" x-text="d"></th>
+                        </template>
+                        <th class="pv-total">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="(r, i) in DP_ROWS" :key="'dp-r-'+r.uniq">
+                        <tr :class="r.sep ? 'pv-row-sep' : ''">
+                          <td class="pv-sticky-1 mono" x-text="r.uniq"></td>
+                          <td class="pv-sticky-2 mono" x-text="r.pn"></td>
+                          <template x-for="d in dpDays" :key="'dp-c-'+r.uniq+'-'+d">
+                            <td :class="dpSelHas(i, d) ? 'pv-sel' : ''"
+                                @mousedown="dpSelStart(i, d, $event)"
+                                @mouseenter="dpSelEnter(i, d)">
+                              <input type="text" inputmode="numeric" class="pv-cell-input"
+                                     :disabled="!isLeaderOrAdmin()"
+                                     :value="dpGrid[r.uniq][d]"
+                                     @input="dpGrid[r.uniq][d] = dpSanitize($event.target.value); $event.target.value = dpGrid[r.uniq][d]"
+                                     @paste="dpPaste($event, i, d)">
+                            </td>
+                          </template>
+                          <td class="pv-total mono" x-text="dpRowTotal(r.uniq)"></td>
+                        </tr>
+                      </template>
+
+                      <!-- Total semua part per tanggal. Tampilan saja. -->
+                      <tr class="pv-calc-row pv-row-sep">
+                        <td class="pv-sticky-1">Total</td>
+                        <td class="pv-sticky-2">semua part</td>
+                        <template x-for="d in dpDays" :key="'dp-td-'+d">
+                          <td class="mono" x-text="dpColTotal(d)"></td>
+                        </template>
+                        <td class="pv-total mono" x-text="dpGrandTotal()"></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+
+              <div class="form-actions" x-show="isLeaderOrAdmin()">
+                <button type="button" class="btn-primary" @click="saveDeliveryPlan()" :disabled="dpSaving"
+                        x-text="dpSaving ? 'Menyimpan...' : 'Simpan Delivery Plan'"></button>
+                <button type="button" class="btn-secondary" @click="dpSelDelete()" :disabled="dpSaving || dpSelCount() < 1"
+                        x-text="dpSelCount() > 1 ? ('Hapus ' + dpSelCount() + ' sel terpilih') : 'Hapus sel terpilih'"></button>
+                <button type="button" class="btn-danger" @click="dpClearMonth()" :disabled="dpSaving">Kosongkan Bulan Ini</button>
+                <button type="button" class="btn-secondary" @click="fetchDeliveryPlan()" :disabled="dpSaving">Muat Ulang</button>
+              </div>
+              <p class="hint" x-show="!isLeaderOrAdmin()" style="margin-top:12px;">
+                Hanya admin / leader yang bisa mengisi. Kamu tetap bisa melihat datanya.
+              </p>
+            </div>
+          </div>
+        </template>
+
+        <!-- ===== TAB: FORECAST HARIAN =====
+             Sama persis dengan Delivery Plan, tambah kolom Total Forecast
+             (per part, per bulan) dan isian Hari Kerja (per bulan). -->
+        <template x-if="activeTab === 'forecast'">
+          <div>
+            <div class="panel">
+              <p class="panel-title">Input Forecast Harian</p>
+
+              <div class="form-grid">
+                <div class="field"><label>Bulan</label>
+                  <select x-model.number="fcMonth" @change="fetchForecast()">
+                    <template x-for="(nm, i) in BULAN_LABELS" :key="'fc-bln-'+i">
+                      <option :value="i+1" :selected="(i+1) === fcMonth" x-text="nm"></option>
+                    </template>
+                  </select>
+                </div>
+                <!-- Hari kerja diisi manual, satu angka untuk sebulan.
+                     Disimpan per bulan di tabel hari_kerja_bulanan. -->
+                <div class="field"><label>Hari Kerja</label>
+                  <input type="text" inputmode="numeric" placeholder="mis. 21"
+                         :disabled="!isLeaderOrAdmin()"
+                         :value="fcHariKerja"
+                         @input="fcHariKerja = $event.target.value.replace(/[^0-9]/g, ''); $event.target.value = fcHariKerja">
+                  <!-- Peringatan kalau isiannya beda dengan jumlah hari
+                       kerja di kalender -- itu satu-satunya sebab jumlah
+                       sebulan bisa tidak sama dengan Total Forecast. -->
+                  <small class="hint" x-show="fcHariKerjaBeda" style="color:var(--danger, #DC2626); font-weight:600;"
+                         x-text="'Kalender bulan ini ada ' + fcHariKerjaKalender + ' hari kerja (Sabtu/Minggu & tanggal merah tidak dihitung).'"></small>
+                </div>
+                <div class="field"><label>Tahun</label>
+                  <select x-model.number="fcYear" @change="fetchForecast()">
+                    <template x-for="y in tahunOptions" :key="'fc-thn-'+y"><option :value="y" :selected="y === fcYear" x-text="y"></option></template>
+                  </select>
+                </div>
+              </div>
+
+              <template x-if="fcLoading">
+                <p class="empty-state">Memuat forecast...</p>
+              </template>
+
+              <template x-if="!fcLoading">
+                <div class="pv-wrap" @mouseup.window="fcSelEnd()" @keydown.window="fcSelKey($event)">
+                  <table class="pv-table">
+                    <thead>
+                      <tr>
+                        <th class="pv-sticky-1">UNIQ</th>
+                        <th class="pv-sticky-2">P/N</th>
+                        <th class="pv-sticky-3">Total<br>Forecast</th>
+                        <template x-for="d in fcDays" :key="'fc-h-'+d">
+                          <th class="pv-day" :class="fcIsSunday(d) ? 'pv-sunday' : ''" x-text="d"></th>
+                        </template>
+                        <th class="pv-total">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="(r, i) in DP_ROWS" :key="'fc-r-'+r.uniq">
+                        <tr :class="r.sep ? 'pv-row-sep' : ''">
+                          <td class="pv-sticky-1 mono" x-text="r.uniq"></td>
+                          <td class="pv-sticky-2 mono" x-text="r.pn"></td>
+                          <td class="pv-sticky-3">
+                            <input type="text" inputmode="numeric" class="pv-cell-input"
+                                   :disabled="!isLeaderOrAdmin()"
+                                   :value="fcTotal[r.uniq]"
+                                   @input="fcTotal[r.uniq] = $event.target.value.replace(/[^0-9]/g, ''); $event.target.value = fcTotal[r.uniq]">
+                          </td>
+                          <!-- Kolom tanggal: isinya HASIL HITUNG (Total
+                               Forecast / Hari Kerja) di hari kerja, dan
+                               kosong di hari libur. Tetap bisa diketik /
+                               ditempel manual; yang diketik menimpa rumus
+                               dan ditandai warna. Dikosongkan = kembali
+                               ikut rumus lagi. -->
+                          <template x-for="d in fcDays" :key="'fc-c-'+r.uniq+'-'+d">
+                            <td :class="(fcSelHas(i, d) ? 'pv-sel ' : '') + (fcAdaManual(r.uniq, d) ? 'fc-manual' : '')"
+                                @mousedown="fcSelStart(i, d, $event)"
+                                @mouseenter="fcSelEnter(i, d)">
+                              <input type="text" inputmode="numeric" class="pv-cell-input"
+                                     :disabled="!isLeaderOrAdmin()"
+                                     :value="fcNilaiTeks(r.uniq, d)"
+                                     @input="fcSetManual(r.uniq, d, $event.target.value); $event.target.value = fcNilaiTeks(r.uniq, d)"
+                                     @paste="fcPaste($event, i, d)">
+                            </td>
+                          </template>
+                          <td class="pv-total mono" x-text="fcRowTotal(r.uniq)"></td>
+                        </tr>
+                      </template>
+
+                      <tr class="pv-calc-row pv-row-sep">
+                        <td class="pv-sticky-1">Total</td>
+                        <td class="pv-sticky-2">semua part</td>
+                        <td class="pv-sticky-3 mono" style="padding:5px 8px; text-align:right;" x-text="fcTotalForecastSemua()"></td>
+                        <template x-for="d in fcDays" :key="'fc-td-'+d">
+                          <td class="mono" x-text="fcColTotal(d)"></td>
+                        </template>
+                        <td class="pv-total mono" x-text="fcGrandTotal()"></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+
+              <div class="form-actions" x-show="isLeaderOrAdmin()">
+                <button type="button" class="btn-primary" @click="saveForecast()" :disabled="fcSaving"
+                        x-text="fcSaving ? 'Menyimpan...' : 'Simpan Forecast'"></button>
+                <button type="button" class="btn-secondary" @click="fcSelDelete()" :disabled="fcSaving || fcSelCount() < 1"
+                        x-text="fcSelCount() > 1 ? ('Kembalikan ' + fcSelCount() + ' sel ke rumus') : 'Kembalikan sel ke rumus'"></button>
+                <button type="button" class="btn-danger" @click="fcClearMonth()" :disabled="fcSaving">Kosongkan Bulan Ini</button>
+                <button type="button" class="btn-secondary" @click="fetchForecast()" :disabled="fcSaving">Muat Ulang</button>
+              </div>
+              <p class="hint" x-show="!isLeaderOrAdmin()" style="margin-top:12px;">
+                Hanya admin / leader yang bisa mengisi. Kamu tetap bisa melihat datanya.
+              </p>
+            </div>
+          </div>
+        </template>
+
         <!-- ===== TAB: CUTI =====
              Mengatur JATAH cuti tahunan tiap karyawan. Sisa cutinya
              dilihat di input-attendance.html > tab Sisa Cuti; di sana
@@ -1568,8 +1799,49 @@
                     <option :value="false">Tidak &mdash; pakai hitungan sistem</option>
                   </select>
                 </div>
-                <div class="field"><label>Downtime Exhaust FY sebelumnya (menit)</label>
-                  <input type="number" step="any" x-model="fyPrev" placeholder="mis. 124500">
+              </div>
+
+              <p class="panel-title" style="margin-top:4px;">Angka FY Sebelumnya &mdash; kolom paling kiri tiap grafik</p>
+              <p class="hint" style="margin-bottom:14px;">
+                Tiap grafik di tab <b>Tahunan</b> punya dua kolom ringkasan di paling kiri:
+                FY sebelumnya dan FY berjalan. Kolom <b>FY berjalan dihitung sendiri</b> oleh sistem
+                dari dua belas bulan di sebelahnya. Kolom <b>FY sebelumnya diisi di sini</b>,
+                karena data tahun lama belum tentu ada di sistem.
+                Kalau dikosongkan, kolomnya tidak digambar &mdash; bukan nol.
+                <br><b>Perhatikan satuannya:</b> yang persen diisi rata-rata setahun, sedangkan yang
+                jumlah diisi <b>rata-rata PER BULAN</b> (total setahun dibagi jumlah bulan berjalan),
+                bukan total setahun. Kalau diisi total, batangnya jadi dua belas kali lipat batang
+                bulanan di sebelahnya dan grafiknya tidak terbaca.
+                <span x-text="'Yang diisi di bawah ini adalah angka FY ' + (fyYear - 1) + '.'"></span>
+              </p>
+
+              <div class="form-grid" style="margin-bottom:6px;">
+                <div class="field"><label>Productivity (rata-rata %)</label>
+                  <input type="number" step="any" x-model="fyPrevProd" placeholder="mis. 92.4">
+                </div>
+                <div class="field"><label>Availability (rata-rata %)</label>
+                  <input type="number" step="any" x-model="fyPrevAvail" placeholder="mis. 96.1">
+                </div>
+                <div class="field"><label>Straight Pass (rata-rata %)</label>
+                  <input type="number" step="any" x-model="fyPrevSp" placeholder="mis. 98.7">
+                </div>
+                <div class="field"><label>Downtime Exhaust (rata-rata menit/bulan)</label>
+                  <input type="number" step="any" x-model="fyPrev" placeholder="mis. 4333">
+                </div>
+                <div class="field"><label>NG Inline Qty (rata-rata/bulan)</label>
+                  <input type="number" step="any" x-model="fyPrevNgQty" placeholder="mis. 121">
+                </div>
+                <div class="field"><label>NG Inline Value (rata-rata Rp/bulan)</label>
+                  <input type="number" step="any" x-model="fyPrevNgValue" placeholder="mis. 1208000">
+                </div>
+                <div class="field"><label>Qty Repair (rata-rata/bulan)</label>
+                  <input type="number" step="any" x-model="fyPrevSpRepair" placeholder="mis. 300">
+                </div>
+                <div class="field"><label>NG Trial Qty (rata-rata/bulan)</label>
+                  <input type="number" step="any" x-model="fyPrevNgTrialQty" placeholder="mis. 35">
+                </div>
+                <div class="field"><label>NG Trial Value (rata-rata Rp/bulan)</label>
+                  <input type="number" step="any" x-model="fyPrevNgTrialValue" placeholder="mis. 350000">
                 </div>
               </div>
 
@@ -1784,6 +2056,41 @@ function pvBlankGrid() {
   return g;
 }
 
+// ---- Baris tab Delivery Plan ----
+// Dikunci ke daftar ini (bukan diambil dari master part) karena delivery
+// plan datang dari PC pakai kode UNIQ, dan sebagian part-nya memang tidak
+// ada di master part welding (mis. 14110-73R11, 57605-VT020).
+// `sep: true` = baris pembatas grup, meniru pengelompokan di sheet.
+const DP_ROWS = [
+  { uniq: "D159",  pn: "25051-0Y050" },
+  { uniq: "D160",  pn: "25051-0Y060" },
+  { uniq: "D410",  pn: "25051-BZ140-T" },
+  { uniq: "D411",  pn: "25051-BZ150-T" },
+  { uniq: "D513",  pn: "25051-BZ260" },
+  { uniq: "A014",  pn: "14110-73R11" },
+  { uniq: "A015",  pn: "14110-73R21" },
+  { uniq: "E2229", pn: "25051-BZ110" },
+  { uniq: "E2424", pn: "25051-BZ180" },
+  { uniq: "163S",  pn: "14110-74U00" },
+  { uniq: "159S",  pn: "14110-74U50" },
+  { uniq: "126D",  pn: "57605-VT020", sep: true },
+  { uniq: "127D",  pn: "57606-VT020" },
+  { uniq: "A010",  pn: "62100-73R21" },
+  { uniq: "A011",  pn: "62300-73R21" },
+  { uniq: "E2184", pn: "25051-BZ060", sep: true },
+  { uniq: "E2646", pn: "25051-BZ140" },
+  { uniq: "A008",  pn: "14110-52P01" },
+  { uniq: "E1852", pn: "25051-BZ010" },
+];
+function dpBlankGrid() {
+  const g = {};
+  for (const r of DP_ROWS) {
+    g[r.uniq] = {};
+    for (let d = 1; d <= 31; d++) g[r.uniq][d] = "";
+  }
+  return g;
+}
+
 function masterDataPage() {
   return {
     ...baseInputPage(),
@@ -1801,6 +2108,10 @@ function masterDataPage() {
     spTimList: ["MESIN", "DIES", "PE", "QC", "PC-SUPP", "PRESS"],
     // ---- Dashboard FY (data manual tab Tahunan) ----
     fyYear: 2025, fyAktif: true, fyPrev: "",
+    // Angka ringkasan FY SEBELUMNYA (kolom paling kiri tiap grafik Tahunan).
+    // Diisi tangan karena data tahun lama tidak selalu ada di sistem.
+    fyPrevProd: "", fyPrevAvail: "", fyPrevNgQty: "", fyPrevNgValue: "",
+    fyPrevSp: "", fyPrevSpRepair: "", fyPrevNgTrialQty: "", fyPrevNgTrialValue: "",
     fyBulan: [], fySupp: [], fyLine: [],
     fyLoading: false, fyLoaded: false, fySaving: false, fyError: "",
     fySuppMode: "act", fyLineMode: "act", fySuppLine: "ALL",
@@ -1811,6 +2122,8 @@ function masterDataPage() {
       // Data Productivity baru ditarik saat tabnya dibuka (bukan di init())
       // supaya halaman Master Data tidak jadi lebih lambat waktu pertama load.
       if (tab === "productivity" && this.pvLoadedKey !== this.pvYear + "-" + this.pvMonth) this.fetchProductivity();
+      if (tab === "delivery" && this.dpLoadedKey !== this.dpYear + "-" + this.dpMonth) this.fetchDeliveryPlan();
+      if (tab === "forecast" && this.fcLoadedKey !== this.fcYear + "-" + this.fcMonth) this.fetchForecast();
       if (tab === "productivity" && !this.kwLoaded) { this.kwLoaded = true; this.fetchKoefisien(); this.fetchTarget(); }
       if (tab === "cuti" && !this.ctLoaded) { this.ctLoaded = true; this.fetchCuti(); }
       if (tab === "karyawan" && !this.mkLoaded) { this.mkLoaded = true; this.fetchMkList(); }
@@ -1893,6 +2206,28 @@ function masterDataPage() {
     pvFocusKey: "",
     pvSaving: false,
     pvLoadedKey: "",   // "YYYY-M" bulan yang sedang termuat, biar tidak refetch percuma
+    // ---- Delivery Plan (dp) ----
+    DP_ROWS,
+    dpMonth: new Date().getMonth() + 1,
+    dpYear: new Date().getFullYear(),
+    dpGrid: dpBlankGrid(),
+    dpLoading: false,
+    dpSaving: false,
+    dpLoadedKey: "",
+    // ---- Forecast Harian (fc) ----
+    // Barisnya memakai daftar yang sama dengan Delivery Plan (DP_ROWS).
+    fcMonth: new Date().getMonth() + 1,
+    fcYear: new Date().getFullYear(),
+    fcTotal: {},          // fcTotal[uniq] = "angka" (Total Forecast sebulan)
+    fcHariKerja: "",      // satu angka untuk sebulan
+    // fcGrid di tab ini isinya KETIKAN MANUAL saja (timpaan atas rumus).
+    // Sel yang tidak diketik dibiarkan "" supaya ikut rumus.
+    fcGrid: {},
+    fcLibur: new Set(),      // tanggal merah bulan ini (hari_libur)
+    fcGantiHari: new Set(),  // akhir pekan yang dijadikan hari kerja
+    fcLoading: false,
+    fcSaving: false,
+    fcLoadedKey: "",
     // ---- Koefisien (per tahun, manual) ----
     // kwValue disimpan sebagai STRING supaya angka panjang seperti
     // 0,441702442879684 tidak berubah gara-gara dibolak-balik ke Number
@@ -2787,6 +3122,565 @@ function masterDataPage() {
       }
     },
 
+    // =====================================================
+    // Delivery Plan (dp) -- tabel delivery_plan
+    // Pola kodenya menyalin Productivity di atas; bedanya baris =
+    // part (kunci UNIQ) dan angkanya selalu bilangan bulat.
+    // =====================================================
+    get dpDays() {
+      const n = new Date(this.dpYear, this.dpMonth, 0).getDate();
+      return Array.from({ length: n }, (_, i) => i + 1);
+    },
+    dpIsSunday(d) {
+      return new Date(this.dpYear, this.dpMonth - 1, d).getDay() === 0;
+    },
+    // Delivery plan selalu bilangan bulat -> angka saja, tanpa koma/titik.
+    dpSanitize(v) {
+      return String(v ?? "").replace(/[^0-9]/g, "");
+    },
+    dpNum(v) {
+      const s = String(v ?? "").trim();
+      if (s === "") return null;
+      const n = Number(s);
+      return Number.isFinite(n) ? Math.round(n) : null;
+    },
+    dpRowTotal(uniq) {
+      let sum = 0, ada = false;
+      for (const d of this.dpDays) {
+        const n = this.dpNum(this.dpGrid[uniq]?.[d]);
+        if (n !== null) { sum += n; ada = true; }
+      }
+      return ada ? sum.toLocaleString("en-US") : "";
+    },
+    dpColTotal(d) {
+      let sum = 0, ada = false;
+      for (const r of DP_ROWS) {
+        const n = this.dpNum(this.dpGrid[r.uniq]?.[d]);
+        if (n !== null) { sum += n; ada = true; }
+      }
+      return ada ? sum.toLocaleString("en-US") : "";
+    },
+    dpGrandTotal() {
+      let sum = 0, ada = false;
+      for (const r of DP_ROWS) for (const d of this.dpDays) {
+        const n = this.dpNum(this.dpGrid[r.uniq]?.[d]);
+        if (n !== null) { sum += n; ada = true; }
+      }
+      return ada ? sum.toLocaleString("en-US") : "";
+    },
+    // Tempel dari Excel. Pakai pembaca yang sama dengan Productivity
+    // (pvParseHtmlTable / pvParsePasted), hasilnya dibulatkan ke bilangan
+    // bulat karena delivery plan tidak mengenal pecahan.
+    dpPaste(ev, rowIdx, day) {
+      if (!this.isLeaderOrAdmin()) return;
+      const cd = ev.clipboardData || window.clipboardData;
+      if (!cd) return;
+      const html = cd.getData ? cd.getData("text/html") : "";
+      const text = cd.getData ? cd.getData("text") : "";
+      if (!html && !text) return;
+      ev.preventDefault();
+
+      let matrix = html ? this.pvParseHtmlTable(html) : null;
+      if (!matrix) {
+        const lines = String(text).replace(/\r\n?/g, "\n").split("\n");
+        while (lines.length && lines[lines.length - 1].trim() === "") lines.pop();
+        matrix = lines.map((line) => line.split("\t").map((c) => this.pvParsePasted(c)));
+      }
+
+      const days = this.dpDays;
+      let terisi = 0;
+      matrix.forEach((baris, ri) => {
+        const row = DP_ROWS[rowIdx + ri];
+        if (!row) return;             // lewat baris terakhir -> diabaikan
+        baris.forEach((cell, ci) => {
+          const d = day + ci;
+          if (!days.includes(d)) return;  // lewat tanggal terakhir -> diabaikan
+          const n = this.pvNum(cell);     // "1.234,5" -> 1234.5
+          this.dpGrid[row.uniq][d] = n === null ? "" : String(Math.round(n));
+          terisi++;
+        });
+      });
+      if (terisi) this.flash(terisi + " sel terisi. Jangan lupa Simpan.");
+    },
+    // ---- Blok & hapus banyak sel (sama persis dengan Productivity) ----
+    dpSelA: null,
+    dpSelB: null,
+    dpDrag: false,
+    dpSelStart(ri, d, ev) {
+      if (!this.isLeaderOrAdmin()) return;
+      if (ev.shiftKey && this.dpSelA) { this.dpSelB = { r: ri, d }; ev.preventDefault(); return; }
+      this.dpSelA = { r: ri, d };
+      this.dpSelB = { r: ri, d };
+      this.dpDrag = true;
+    },
+    dpSelEnter(ri, d) {
+      if (!this.dpDrag) return;
+      if (this.dpSelB && this.dpSelB.r === ri && this.dpSelB.d === d) return;
+      this.dpSelB = { r: ri, d };
+      if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    },
+    dpSelEnd() { this.dpDrag = false; },
+    dpSelClear() { this.dpSelA = null; this.dpSelB = null; this.dpDrag = false; },
+    dpSelBox() {
+      if (!this.dpSelA || !this.dpSelB) return null;
+      return {
+        r1: Math.min(this.dpSelA.r, this.dpSelB.r), r2: Math.max(this.dpSelA.r, this.dpSelB.r),
+        d1: Math.min(this.dpSelA.d, this.dpSelB.d), d2: Math.max(this.dpSelA.d, this.dpSelB.d),
+      };
+    },
+    dpSelHas(ri, d) {
+      const b = this.dpSelBox();
+      return !!b && ri >= b.r1 && ri <= b.r2 && d >= b.d1 && d <= b.d2;
+    },
+    dpSelCount() {
+      const b = this.dpSelBox();
+      return b ? (b.r2 - b.r1 + 1) * (b.d2 - b.d1 + 1) : 0;
+    },
+    dpSelKey(ev) {
+      if (this.activeTab !== "delivery") return;
+      if (ev.key !== "Delete" && ev.key !== "Backspace") return;
+      if (this.dpSelCount() < 2) return;
+      ev.preventDefault();
+      this.dpSelDelete();
+    },
+    dpSelDelete() {
+      if (!this.isLeaderOrAdmin()) return;
+      const b = this.dpSelBox();
+      if (!b) return;
+      const days = this.dpDays;
+      let n = 0;
+      for (let ri = b.r1; ri <= b.r2; ri++) {
+        const row = DP_ROWS[ri];
+        if (!row) continue;
+        for (let d = b.d1; d <= b.d2; d++) {
+          if (!days.includes(d)) continue;
+          if (this.dpGrid[row.uniq][d] !== "") n++;
+          this.dpGrid[row.uniq][d] = "";
+        }
+      }
+      this.flash(n + " sel dikosongkan. Tekan Simpan supaya perubahannya tersimpan.");
+    },
+    dpClearMonth() {
+      if (!this.isLeaderOrAdmin()) return;
+      const nm = this.BULAN_LABELS[this.dpMonth - 1] + " " + this.dpYear;
+      if (!window.confirm("Kosongkan SEMUA delivery plan di " + nm + "?\n\nData di server baru benar-benar terhapus setelah kamu menekan Simpan.")) return;
+      this.dpGrid = dpBlankGrid();
+      this.dpSelClear();
+      this.flash("Semua sel " + nm + " dikosongkan. Tekan Simpan untuk menghapusnya di server.");
+    },
+    async fetchDeliveryPlan() {
+      this.dpLoading = true;
+      this.dpGrid = dpBlankGrid();
+      this.dpSelClear();
+      try {
+        const lastDay = new Date(this.dpYear, this.dpMonth, 0).getDate();
+        const start = localDateStr(new Date(this.dpYear, this.dpMonth - 1, 1));
+        const end = localDateStr(new Date(this.dpYear, this.dpMonth - 1, lastDay));
+        const { data, error } = await supabaseClient.from("delivery_plan")
+          .select("uniq,tanggal,qty")
+          .in("uniq", DP_ROWS.map((r) => r.uniq))
+          .gte("tanggal", start).lte("tanggal", end);
+        if (error) {
+          this.flash(/does not exist|schema cache|relation/i.test(error.message)
+            ? "Tabel delivery_plan belum ada di database. Jalankan dulu SQL pembuat tabelnya."
+            : "Gagal memuat delivery plan: " + error.message, true);
+          return;
+        }
+        for (const row of (data || [])) {
+          // Ambil tanggal langsung dari string "YYYY-MM-DD" -- jangan lewat
+          // new Date(), supaya tidak bergeser gara-gara UTC.
+          const d = Number(String(row.tanggal).slice(8, 10));
+          if (!d || !this.dpGrid[row.uniq]) continue;
+          this.dpGrid[row.uniq][d] = row.qty === null || row.qty === undefined ? "" : String(row.qty);
+        }
+        this.dpLoadedKey = this.dpYear + "-" + this.dpMonth;
+      } finally {
+        this.dpLoading = false;
+      }
+    },
+    async saveDeliveryPlan() {
+      if (!this.isLeaderOrAdmin()) { this.flash("Hanya admin/leader yang bisa menyimpan.", true); return; }
+      this.dpSaving = true;
+      try {
+        const payload = [];
+        // Sel yang dikosongkan -> barisnya dihapus di server, dikelompokkan
+        // per UNIQ supaya hapusnya cukup 1 permintaan per part.
+        const hapus = {};
+        for (const r of DP_ROWS) {
+          for (const d of this.dpDays) {
+            const tanggal = localDateStr(new Date(this.dpYear, this.dpMonth - 1, d));
+            const n = this.dpNum(this.dpGrid[r.uniq][d]);
+            if (n === null) {
+              (hapus[r.uniq] || (hapus[r.uniq] = [])).push(tanggal);
+            } else {
+              payload.push({ uniq: r.uniq, part_number: r.pn, tanggal, qty: n });
+            }
+          }
+        }
+        if (payload.length) {
+          const { error } = await supabaseClient.from("delivery_plan")
+            .upsert(payload, { onConflict: "uniq,tanggal" });
+          if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
+        }
+        for (const uniq of Object.keys(hapus)) {
+          const { error } = await supabaseClient.from("delivery_plan")
+            .delete().eq("uniq", uniq).in("tanggal", hapus[uniq]);
+          if (error) { this.flash("Gagal hapus sel kosong: " + error.message, true); return; }
+        }
+        this.flash("Delivery plan tersimpan (" + payload.length + " sel).");
+        await this.fetchDeliveryPlan();
+      } finally {
+        this.dpSaving = false;
+      }
+    },
+
+    // =====================================================
+    // Forecast Harian (fc) -- tabel forecast_harian,
+    // forecast_bulanan (Total Forecast) & hari_kerja_bulanan.
+    // Bentuk & cara pakainya sama dengan Delivery Plan di atas.
+    // =====================================================
+    get fcDays() {
+      const n = new Date(this.fcYear, this.fcMonth, 0).getDate();
+      return Array.from({ length: n }, (_, i) => i + 1);
+    },
+    fcIsSunday(d) {
+      return new Date(this.fcYear, this.fcMonth - 1, d).getDay() === 0;
+    },
+    // Tanggal 1 bulan yang sedang dibuka -- dipakai sebagai kunci "periode"
+    // untuk Total Forecast & Hari Kerja.
+    get fcPeriode() {
+      return localDateStr(new Date(this.fcYear, this.fcMonth - 1, 1));
+    },
+    fcBlankTotal() {
+      const t = {};
+      for (const r of DP_ROWS) t[r.uniq] = "";
+      return t;
+    },
+    // Daftar tanggal yang dihitung hari kerja di bulan ini (urut).
+    get fcTanggalKerja() {
+      return this.fcDays.filter((d) => this.fcHariKerjaTgl(d));
+    },
+    // Angka rumus per hari.
+    //
+    // Pembagian biasa menyisakan pecahan: 5.000 / 22 = 227,27 -> dibulatkan
+    // 227, dikali 22 cuma 4.994, kurang 6 dari Total Forecast. Supaya
+    // jumlah sebulan PERSIS sama dengan Total Forecast, sisanya dibagikan
+    // satu-satu ke hari kerja paling awal: 6 hari pertama dapat 228,
+    // sisanya 227 -> jumlahnya pas 5.000.
+    //
+    // urutanKerja = hari ke berapa (mulai 0) tanggal itu di antara hari
+    // kerja bulan ini.
+    fcHarian(uniq, urutanKerja) {
+      const total = this.dpNum(this.fcTotal[uniq]);
+      const hk = this.dpNum(this.fcHariKerja);
+      if (total === null || hk === null || hk === 0) return null;
+      const dasar = Math.floor(total / hk);
+      const sisa = total - dasar * hk;   // 0 .. hk-1
+      if (urutanKerja === undefined || urutanKerja === null) return dasar;
+      return dasar + (urutanKerja < sisa ? 1 : 0);
+    },
+    // Jumlah hari kerja menurut kalender (Sabtu/Minggu & tanggal merah
+    // dibuang). Dipakai buat mengingatkan kalau beda dengan isian Hari
+    // Kerja -- kalau beda, jumlah sebulan tidak akan sama dengan Total
+    // Forecast, dan itu bukan salah hitung tapi memang isiannya beda.
+    get fcHariKerjaKalender() { return this.fcTanggalKerja.length; },
+    get fcHariKerjaBeda() {
+      const hk = this.dpNum(this.fcHariKerja);
+      return hk !== null && hk !== 0 && hk !== this.fcHariKerjaKalender;
+    },
+    // Hari libur TIDAK diisi rumus: Sabtu, Minggu, dan tanggal merah di
+    // tabel hari_libur. Tanggal yang dicatat sebagai "ganti_hari" dihitung
+    // sebagai hari kerja walaupun jatuh di akhir pekan.
+    fcHariKerjaTgl(d) {
+      const tgl = localDateStr(new Date(this.fcYear, this.fcMonth - 1, d));
+      if (this.fcGantiHari.has(tgl)) return true;
+      if (this.fcLibur.has(tgl)) return false;
+      const hari = new Date(this.fcYear, this.fcMonth - 1, d).getDay();
+      return hari !== 0 && hari !== 6;
+    },
+    // Isi bawaan 1 sel: hari kerja -> angka rumus, hari libur -> kosong.
+    fcRumus(uniq, d) {
+      const urutan = this.fcTanggalKerja.indexOf(d);
+      if (urutan === -1) return null;        // hari libur
+      return this.fcHarian(uniq, urutan);
+    },
+    // Ada ketikan manual di sel ini? (dipakai buat menandai warnanya)
+    fcAdaManual(uniq, d) {
+      const v = this.fcGrid[uniq]?.[d];
+      return v !== undefined && v !== "";
+    },
+    // Angka yang benar-benar dipakai sel ini: ketikan manual kalau ada,
+    // kalau tidak ya hasil rumus.
+    fcNilai(uniq, d) {
+      if (this.fcAdaManual(uniq, d)) return this.dpNum(this.fcGrid[uniq][d]);
+      return this.fcRumus(uniq, d);
+    },
+    fcNilaiTeks(uniq, d) {
+      const n = this.fcNilai(uniq, d);
+      return n === null ? "" : String(n);
+    },
+    // Ketikan manual. Dikosongkan = hapus timpaan, sel kembali ikut rumus.
+    fcSetManual(uniq, d, v) {
+      const bersih = String(v ?? "").replace(/[^0-9]/g, "");
+      if (!this.fcGrid[uniq]) this.fcGrid[uniq] = {};
+      this.fcGrid[uniq][d] = bersih;
+    },
+    fcRowTotal(uniq) {
+      let sum = 0, ada = false;
+      for (const d of this.fcDays) {
+        const n = this.fcNilai(uniq, d);
+        if (n !== null) { sum += n; ada = true; }
+      }
+      return ada ? sum.toLocaleString("en-US") : "";
+    },
+    fcColTotal(d) {
+      let sum = 0, ada = false;
+      for (const r of DP_ROWS) {
+        const n = this.fcNilai(r.uniq, d);
+        if (n !== null) { sum += n; ada = true; }
+      }
+      return ada ? sum.toLocaleString("en-US") : "";
+    },
+    fcGrandTotal() {
+      let sum = 0, ada = false;
+      for (const r of DP_ROWS) for (const d of this.fcDays) {
+        const n = this.fcNilai(r.uniq, d);
+        if (n !== null) { sum += n; ada = true; }
+      }
+      return ada ? sum.toLocaleString("en-US") : "";
+    },
+    // ---- Tempel dari Excel & blok sel (sama seperti Delivery Plan) ----
+    fcPaste(ev, rowIdx, day) {
+      if (!this.isLeaderOrAdmin()) return;
+      const cd = ev.clipboardData || window.clipboardData;
+      if (!cd) return;
+      const html = cd.getData ? cd.getData("text/html") : "";
+      const text = cd.getData ? cd.getData("text") : "";
+      if (!html && !text) return;
+      ev.preventDefault();
+      let matrix = html ? this.pvParseHtmlTable(html) : null;
+      if (!matrix) {
+        const lines = String(text).replace(/\r\n?/g, "\n").split("\n");
+        while (lines.length && lines[lines.length - 1].trim() === "") lines.pop();
+        matrix = lines.map((line) => line.split("\t").map((c) => this.pvParsePasted(c)));
+      }
+      const days = this.fcDays;
+      let terisi = 0;
+      matrix.forEach((baris, ri) => {
+        const row = DP_ROWS[rowIdx + ri];
+        if (!row) return;
+        baris.forEach((cell, ci) => {
+          const d = day + ci;
+          if (!days.includes(d)) return;
+          const n = this.pvNum(cell);
+          this.fcSetManual(row.uniq, d, n === null ? "" : String(Math.round(n)));
+          terisi++;
+        });
+      });
+      if (terisi) this.flash(terisi + " sel diisi manual. Jangan lupa Simpan.");
+    },
+    fcSelA: null,
+    fcSelB: null,
+    fcDrag: false,
+    fcSelStart(ri, d, ev) {
+      if (!this.isLeaderOrAdmin()) return;
+      if (ev.shiftKey && this.fcSelA) { this.fcSelB = { r: ri, d }; ev.preventDefault(); return; }
+      this.fcSelA = { r: ri, d };
+      this.fcSelB = { r: ri, d };
+      this.fcDrag = true;
+    },
+    fcSelEnter(ri, d) {
+      if (!this.fcDrag) return;
+      if (this.fcSelB && this.fcSelB.r === ri && this.fcSelB.d === d) return;
+      this.fcSelB = { r: ri, d };
+      if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    },
+    fcSelEnd() { this.fcDrag = false; },
+    fcSelClear() { this.fcSelA = null; this.fcSelB = null; this.fcDrag = false; },
+    fcSelBox() {
+      if (!this.fcSelA || !this.fcSelB) return null;
+      return {
+        r1: Math.min(this.fcSelA.r, this.fcSelB.r), r2: Math.max(this.fcSelA.r, this.fcSelB.r),
+        d1: Math.min(this.fcSelA.d, this.fcSelB.d), d2: Math.max(this.fcSelA.d, this.fcSelB.d),
+      };
+    },
+    fcSelHas(ri, d) {
+      const b = this.fcSelBox();
+      return !!b && ri >= b.r1 && ri <= b.r2 && d >= b.d1 && d <= b.d2;
+    },
+    fcSelCount() {
+      const b = this.fcSelBox();
+      return b ? (b.r2 - b.r1 + 1) * (b.d2 - b.d1 + 1) : 0;
+    },
+    fcSelKey(ev) {
+      if (this.activeTab !== "forecast") return;
+      if (ev.key !== "Delete" && ev.key !== "Backspace") return;
+      if (this.fcSelCount() < 2) return;
+      ev.preventDefault();
+      this.fcSelDelete();
+    },
+    // Hapus ketikan manual di sel yang ke-blok -> selnya balik ikut rumus.
+    fcSelDelete() {
+      if (!this.isLeaderOrAdmin()) return;
+      const b = this.fcSelBox();
+      if (!b) return;
+      const days = this.fcDays;
+      let n = 0;
+      for (let ri = b.r1; ri <= b.r2; ri++) {
+        const row = DP_ROWS[ri];
+        if (!row) continue;
+        for (let d = b.d1; d <= b.d2; d++) {
+          if (!days.includes(d)) continue;
+          if (this.fcAdaManual(row.uniq, d)) n++;
+          this.fcSetManual(row.uniq, d, "");
+        }
+      }
+      this.flash(n + " sel dikembalikan ke rumus. Tekan Simpan supaya tersimpan.");
+    },
+    fcTotalForecastSemua() {
+      let sum = 0, ada = false;
+      for (const r of DP_ROWS) {
+        const n = this.dpNum(this.fcTotal[r.uniq]);
+        if (n !== null) { sum += n; ada = true; }
+      }
+      return ada ? sum.toLocaleString("en-US") : "";
+    },
+    fcClearMonth() {
+      if (!this.isLeaderOrAdmin()) return;
+      const nm = this.BULAN_LABELS[this.fcMonth - 1] + " " + this.fcYear;
+      if (!window.confirm("Kosongkan SEMUA forecast di " + nm + " (termasuk Total Forecast)?\n\nData di server baru benar-benar terhapus setelah kamu menekan Simpan.")) return;
+      this.fcTotal = this.fcBlankTotal();
+      this.fcHariKerja = "";
+      this.fcGrid = {};
+      this.fcSelClear();
+      this.flash("Total Forecast, Hari Kerja & ketikan manual " + nm + " dikosongkan. Tekan Simpan untuk menghapusnya di server.");
+    },
+    async fetchForecast() {
+      this.fcLoading = true;
+      this.fcTotal = this.fcBlankTotal();
+      this.fcHariKerja = "";
+      this.fcGrid = {};
+      this.fcLibur = new Set();
+      this.fcGantiHari = new Set();
+      this.fcSelClear();
+      try {
+        const lastDay = new Date(this.fcYear, this.fcMonth, 0).getDate();
+        const start = localDateStr(new Date(this.fcYear, this.fcMonth - 1, 1));
+        const end = localDateStr(new Date(this.fcYear, this.fcMonth - 1, lastDay));
+        const pns = DP_ROWS.map((r) => r.pn);
+        const [bulanRes, hkRes, liburRes, hariRes] = await Promise.all([
+          supabaseClient.from("forecast_bulanan").select("part_number,total_forecast")
+            .eq("periode", start),
+          supabaseClient.from("hari_kerja_bulanan").select("hari_kerja").eq("periode", start),
+          supabaseClient.from("hari_libur").select("tanggal,jenis")
+            .gte("tanggal", start).lte("tanggal", end),
+          supabaseClient.from("forecast_harian").select("part_number,tanggal,qty")
+            .in("part_number", pns).gte("tanggal", start).lte("tanggal", end),
+        ]);
+        const gagal = bulanRes.error || hkRes.error || hariRes.error;
+        if (gagal) {
+          this.flash(/does not exist|schema cache|relation/i.test(gagal.message)
+            ? "Tabel forecast belum ada di database. Jalankan dulu SQL pembuat tabelnya."
+            : "Gagal memuat forecast: " + gagal.message, true);
+          return;
+        }
+        // Tanggal merah -- kalau tabelnya bermasalah, anggap saja tidak ada
+        // (Sabtu/Minggu tetap dikecualikan), jangan sampai tabnya gagal buka.
+        for (const row of (liburRes.data || [])) {
+          if (row.jenis === "ganti_hari") this.fcGantiHari.add(row.tanggal);
+          else this.fcLibur.add(row.tanggal);
+        }
+        // part_number -> uniq (baris tabel ini dikunci ke DP_ROWS)
+        const keUniq = {};
+        for (const r of DP_ROWS) keUniq[r.pn] = r.uniq;
+        for (const row of (bulanRes.data || [])) {
+          const u = keUniq[row.part_number];
+          if (!u) continue;
+          this.fcTotal[u] = row.total_forecast === null || row.total_forecast === undefined ? "" : String(row.total_forecast);
+        }
+        const hk = (hkRes.data || [])[0];
+        this.fcHariKerja = hk && hk.hari_kerja ? String(hk.hari_kerja) : "";
+        // Angka harian yang tersimpan dibandingkan dengan rumusnya; yang
+        // SAMA dianggap hasil rumus (tidak disimpan sebagai timpaan),
+        // yang BEDA berarti dulu diketik manual -> dipasang lagi sebagai
+        // timpaan. Dengan begitu mengubah Total Forecast / Hari Kerja
+        // tetap menggeser sel-sel yang memang ikut rumus.
+        for (const row of (hariRes.data || [])) {
+          const u = keUniq[row.part_number];
+          const d = Number(String(row.tanggal).slice(8, 10));
+          if (!u || !d) continue;
+          const qty = row.qty === null || row.qty === undefined ? null : Number(row.qty);
+          if (qty === null) continue;
+          if (qty !== this.fcRumus(u, d)) this.fcSetManual(u, d, String(qty));
+        }
+        this.fcLoadedKey = this.fcYear + "-" + this.fcMonth;
+      } finally {
+        this.fcLoading = false;
+      }
+    },
+    async saveForecast() {
+      if (!this.isLeaderOrAdmin()) { this.flash("Hanya admin/leader yang bisa menyimpan.", true); return; }
+      this.fcSaving = true;
+      try {
+        const periode = this.fcPeriode;
+        const tanggalBulanIni = this.fcDays.map((d) => localDateStr(new Date(this.fcYear, this.fcMonth - 1, d)));
+        // 1) angka harian = isi sel apa adanya (hasil rumus di hari kerja,
+        //    atau ketikan manual). Hari libur & sel kosong tidak disimpan,
+        //    barisnya dihapus kalau sebelumnya ada.
+        const isi = [];
+        const hapus = {};   // part_number -> tanggal yang harus dihapus
+        for (const r of DP_ROWS) {
+          this.fcDays.forEach((d, i) => {
+            const tanggal = tanggalBulanIni[i];
+            const n = this.fcNilai(r.uniq, d);
+            if (n === null) (hapus[r.pn] || (hapus[r.pn] = [])).push(tanggal);
+            else isi.push({ part_number: r.pn, uniq: r.uniq, tanggal, qty: n });
+          });
+        }
+        if (isi.length) {
+          const { error } = await supabaseClient.from("forecast_harian")
+            .upsert(isi, { onConflict: "part_number,tanggal" });
+          if (error) { this.flash("Gagal simpan forecast harian: " + error.message, true); return; }
+        }
+        for (const pn of Object.keys(hapus)) {
+          const { error } = await supabaseClient.from("forecast_harian")
+            .delete().eq("part_number", pn).in("tanggal", hapus[pn]);
+          if (error) { this.flash("Gagal hapus forecast kosong: " + error.message, true); return; }
+        }
+        // 2) Total Forecast per part (per bulan)
+        const totalIsi = [], totalHapus = [];
+        for (const r of DP_ROWS) {
+          const n = this.dpNum(this.fcTotal[r.uniq]);
+          if (n === null) totalHapus.push(r.pn);
+          else totalIsi.push({ periode, part_number: r.pn, uniq: r.uniq, total_forecast: n });
+        }
+        if (totalIsi.length) {
+          const { error } = await supabaseClient.from("forecast_bulanan")
+            .upsert(totalIsi, { onConflict: "periode,part_number" });
+          if (error) { this.flash("Gagal simpan Total Forecast: " + error.message, true); return; }
+        }
+        if (totalHapus.length) {
+          const { error } = await supabaseClient.from("forecast_bulanan")
+            .delete().eq("periode", periode).in("part_number", totalHapus);
+          if (error) { this.flash("Gagal hapus Total Forecast kosong: " + error.message, true); return; }
+        }
+        // 3) Hari kerja (1 angka per bulan)
+        const hk = this.dpNum(this.fcHariKerja);
+        if (hk === null) {
+          const { error } = await supabaseClient.from("hari_kerja_bulanan").delete().eq("periode", periode);
+          if (error) { this.flash("Gagal hapus hari kerja: " + error.message, true); return; }
+        } else {
+          const { error } = await supabaseClient.from("hari_kerja_bulanan")
+            .upsert([{ periode, hari_kerja: hk }], { onConflict: "periode" });
+          if (error) { this.flash("Gagal simpan hari kerja: " + error.message, true); return; }
+        }
+        this.flash("Forecast tersimpan untuk " + this.BULAN_LABELS[this.fcMonth - 1] + " " + this.fcYear + ".");
+        await this.fetchForecast();
+      } finally {
+        this.fcSaving = false;
+      }
+    },
+
     // ---- Koefisien (per tahun) ----
     // Rentang tahun dibikin lebih lebar dari tahunOptions (yang cuma
     // 2 tahun ke belakang) karena koefisien lama masih sering dilihat.
@@ -3006,8 +3900,16 @@ function masterDataPage() {
       }
       const head = headRes.data;
       this.fyAktif = head ? !!head.aktif : true;
-      this.fyPrev = head && head.downtime_fy_prev_menit !== null && head.downtime_fy_prev_menit !== undefined
-        ? head.downtime_fy_prev_menit : "";
+      const isiPrev = (nama) => (head && head[nama] !== null && head[nama] !== undefined ? head[nama] : "");
+      this.fyPrev         = isiPrev("downtime_fy_prev_menit");
+      this.fyPrevProd     = isiPrev("productivity_fy_prev");
+      this.fyPrevAvail    = isiPrev("availability_fy_prev");
+      this.fyPrevNgQty    = isiPrev("ng_qty_fy_prev");
+      this.fyPrevNgValue  = isiPrev("ng_value_fy_prev");
+      this.fyPrevSp       = isiPrev("sp_fy_prev");
+      this.fyPrevSpRepair = isiPrev("sp_repair_fy_prev");
+      this.fyPrevNgTrialQty   = isiPrev("ng_trial_qty_fy_prev");
+      this.fyPrevNgTrialValue = isiPrev("ng_trial_value_fy_prev");
       // 12 bulan selalu ditampilkan, walau barisnya belum ada di database
       const KOLOM = ["productivity_actual", "productivity_target", "availability_actual",
         "ng_qty", "ng_value", "sp_actual", "sp_qty", "sp_repair_qty", "downtime_exhaust_menit"];
@@ -3073,7 +3975,19 @@ function masterDataPage() {
       ];
       const [h, b, k] = await Promise.all([
         supabaseClient.from("fy_override").upsert(
-          { fy, aktif: this.fyAktif === true || this.fyAktif === "true", downtime_fy_prev_menit: angka(this.fyPrev) },
+          {
+            fy,
+            aktif: this.fyAktif === true || this.fyAktif === "true",
+            downtime_fy_prev_menit: angka(this.fyPrev),
+            productivity_fy_prev: angka(this.fyPrevProd),
+            availability_fy_prev: angka(this.fyPrevAvail),
+            ng_qty_fy_prev: angka(this.fyPrevNgQty),
+            ng_value_fy_prev: angka(this.fyPrevNgValue),
+            sp_fy_prev: angka(this.fyPrevSp),
+            sp_repair_fy_prev: angka(this.fyPrevSpRepair),
+            ng_trial_qty_fy_prev: angka(this.fyPrevNgTrialQty),
+            ng_trial_value_fy_prev: angka(this.fyPrevNgTrialValue),
+          },
           { onConflict: "fy" }),
         supabaseClient.from("fy_override_bulan").upsert(barisBulan, { onConflict: "fy,bulan" }),
         supabaseClient.from("fy_override_kategori").upsert(barisKat, { onConflict: "fy,jenis,kode,bulan,mesin" }),
