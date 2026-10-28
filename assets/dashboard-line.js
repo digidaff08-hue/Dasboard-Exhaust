@@ -10,7 +10,8 @@
 //                                    (disaring per line); garis %: RPC
 //                                    dashboard_qc_produksi_daily_line (BARU,
 //                                    kosong sampai SQL-nya dijalankan)
-//   Productivity / Perjam / Trend Volume -> kerangka kosong dulu.
+//   Productivity / Trend Volume -> kerangka kosong dulu.
+//   Perjam -> RPC dashboard_dekidaka_production_rows (data Dekidaka), 1 tanggal + 1 shift.
 // =========================================================
 (function () {
   const BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
@@ -101,6 +102,32 @@
   const skalaY = (extra = {}) => ({ ticks: { ...tick, maxTicksLimit: 5 }, grid: { color: "#e2e8f0", drawTicks: false }, beginAtZero: true, ...extra });
   const legenda = (tampil = true) => ({ display: tampil, position: "bottom", labels: { color: "#000", boxWidth: 5, boxHeight: 5, usePointStyle: true, pointStyle: "circle", font: { size: 8 }, padding: 4 } });
 
+
+  // Blok jam Dekidaka (sama dengan DKD_TIME_TABLE di machine-page.js) dan
+  // label sumbu X sesuai format Excel Perjam.
+  const BLOK = [
+    { s1: ["07:15", "08:00"], j1: ["07:15", "08:00"], s2: ["19:45", "20:30"] },
+    { s1: ["08:00", "09:00"], j1: ["08:00", "09:00"], s2: ["20:30", "21:30"] },
+    { s1: ["09:00", "09:30"], j1: ["09:00", "09:30"], s2: ["21:30", "21:40"] },
+    { s1: ["09:40", "11:00"], j1: ["09:40", "11:00"], s2: ["22:40", "23:40"] },
+    { s1: ["11:00", "11:50"], j1: ["11:00", "11:30"], s2: ["00:20", "01:20"] },
+    { s1: ["12:30", "13:30"], j1: ["12:40", "13:30"], s2: ["01:20", "02:20"] },
+    { s1: ["13:30", "14:30"], j1: ["13:30", "14:30"], s2: ["02:30", "03:30"] },
+    { s1: ["14:40", "15:50"], j1: ["14:40", "16:15"], s2: ["03:30", "04:20"] },
+    { s1: ["16:15", "17:15"], j1: ["16:45", "17:15"], s2: ["05:00", "06:00"] },
+    { s1: ["17:15", "18:15"], j1: ["17:15", "18:15"], s2: ["06:00", "07:00"] },
+    { s1: ["18:15", "19:30"], j1: ["18:15", "19:30"], s2: null },
+  ];
+  const LABEL_SHIFT = {
+    "1": ["8,00", "9,00", "9,40", "11,00", "12,30", "13,30", "14,40", "15,45", "17,15", "18,15", "19,30"],
+    "2": ["20,30", "21,40", "22,40", "23,40", "1,20", "2,20", "3,30", "4,15", "6,00", "7,00", "–"],
+  };
+  const KPJ_DEFAULT = { "E-02": 25, "E-03": 32, "E-04": 32, "E-05": 32, "E-06": 32, "E-07": 35 };
+  const menit = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+  const dalam = (x, a, b) => (a === b ? false : b > a ? x >= a && x < b : x >= a || x < b);
+  const tglHariIni = () => { const d = new Date(); return tglStr(d.getFullYear(), d.getMonth() + 1, d.getDate()); };
+  const shiftSekarang = () => { const d = new Date(); const t = d.getHours() * 60 + d.getMinutes(); return t >= 420 && t < 1170 ? "1" : "2"; };
+
   window.dashboardLineData = function () {
     return {
       BULAN_LABELS: BULAN,
@@ -111,6 +138,103 @@
       charts: {},
       // Papan Dekidaka (iframe ke halaman line, lihat machines/e-0X.html?dekidaka=1)
       dekiBuka: false,
+      // ---- Grafik Perjam (1 tanggal, 1 shift, 1 panel per part number) ----
+      perjamTgl: tglHariIni(),
+      perjamShift: shiftSekarang(),
+      perjamManual: false,     // true kalau user memilih sendiri tanggal/shift -> jangan di-otomatis
+      perjamPanels: [],
+      perjamMemuat: false,
+      perjamPesan: "",
+      perjamAuto() {
+        // Ikut jam sekarang (shift 1 07:00-19:30, selebihnya shift 2) selama user belum memilih sendiri.
+        if (this._pjTimer) return;
+        this._pjTimer = setInterval(() => {
+          if (this.perjamManual) return;
+          const sh = shiftSekarang(), tg = tglHariIni();
+          if (sh !== this.perjamShift || tg !== this.perjamTgl) { this.perjamShift = sh; this.perjamTgl = tg; }
+          this.muatPerjam();
+        }, 60000);
+      },
+      pilihShift(sh) { this.perjamManual = true; this.perjamShift = sh; this.muatPerjam(); },
+      async muatPerjam() {
+        if (!this.isAdmin() || typeof Chart === "undefined") return;
+        const token = (this._pjTok = (this._pjTok || 0) + 1);
+        const line = this.activeTab, sh = this.perjamShift;
+        this.perjamMemuat = true; this.perjamPesan = "";
+        const [yy, mm, dd] = String(this.perjamTgl || tglHariIni()).split("-").map(Number);
+        const awal = new Date(yy, mm - 1, dd), akhir = new Date(yy, mm - 1, dd + 1);
+        let rows = [], kph = KPJ_DEFAULT[line] || 0;
+        try {
+          const [pr, cap] = await Promise.all([
+            supabaseClient.rpc("dashboard_dekidaka_production_rows", { p_mesin: line, p_start: awal.toISOString(), p_end: akhir.toISOString(), p_shift: sh }),
+            supabaseClient.from("production_capa_line").select("mesin,kapasitas_per_jam").eq("mesin", line),
+          ]);
+          if (token !== this._pjTok) return;
+          if (pr.error) throw pr.error;
+          rows = pr.data || [];
+          const c = (cap.data || [])[0];
+          if (c && Number(c.kapasitas_per_jam) > 0) kph = Number(c.kapasitas_per_jam);
+        } catch (e) {
+          console.error("Gagal memuat grafik Perjam:", e);
+          this.perjamPesan = "Gagal memuat data Perjam"; this.perjamPanels = []; this.perjamMemuat = false; this.hapusPerjam(); return;
+        }
+        // Kelompokkan per part -> qty per blok jam
+        const jumat = awal.getDay() === 5;
+        const waktuBlok = BLOK.map((b) => (sh === "2" ? b.s2 : jumat ? b.j1 : b.s1));
+        const per = {};
+        rows.forEach((r) => {
+          if (!r.part_number || !r.jam) return;
+          const t = menit(r.jam);
+          const idx = waktuBlok.findIndex((w) => w && dalam(t, menit(w[0]), menit(w[1])));
+          if (idx < 0) return;
+          const p = per[r.part_number] || (per[r.part_number] = { part: r.part_number, qty: Array(11).fill(0), total: 0 });
+          p.qty[idx] += Number(r.qty) || 0; p.total += Number(r.qty) || 0;
+        });
+        const panels = Object.values(per).filter((p) => p.total > 0).sort((a, b) => b.total - a.total).map((p) => ({
+          part: p.part,
+          // % = qty blok / (kapasitas per jam x durasi blok); blok tanpa produksi -> tidak digambar
+          pct: p.qty.map((q, i) => {
+            const w = waktuBlok[i]; if (!w || !kph || q <= 0) return null;
+            let mnt = menit(w[1]) - menit(w[0]); if (mnt < 0) mnt += 1440;
+            return Math.round((q / (kph * mnt / 60)) * 1000) / 10;
+          }),
+          qty: p.qty,
+        }));
+        // Selalu tampil minimal 2 bagan (kosong bila tidak ada produksi), seperti format Excel.
+        while (panels.length < 2) panels.push({ part: "", pct: Array(11).fill(null), qty: Array(11).fill(0) });
+        this.hapusPerjam();
+        this.perjamPanels = panels; this.perjamMemuat = false;
+        await this.$nextTick();
+        if (token !== this._pjTok) return;
+        panels.forEach((pn, i) => this.gambarPerjam(pn, i, sh));
+      },
+      hapusPerjam() { Object.keys(this.charts).filter((k) => /^dlPerjam\d+$/.test(k)).forEach((k) => { try { this.charts[k].destroy(); } catch (e) {} delete this.charts[k]; }); },
+      gambarPerjam(pn, i, sh) {
+        const c = document.getElementById("dlPerjam" + i); if (!c) return;
+        const L = LABEL_SHIFT[sh];
+        const nilai = pn.pct.filter((v) => v != null);
+        const ymin = Math.min(50, nilai.length ? Math.floor(Math.min(...nilai) / 10) * 10 : 50);
+        const ymax = Math.max(100, nilai.length ? Math.ceil(Math.max(...nilai) / 10) * 10 : 100);
+        const kotak = { id: "pjKotak", afterDraw(ch) { const a = ch.chartArea, x = ch.ctx; x.save(); x.strokeStyle = "#000"; x.lineWidth = 1.6; x.strokeRect(a.left, a.top, a.width, a.height); x.restore(); } };
+        const titik = (id) => ({ id, afterDatasetsDraw(ch) {
+          const m = ch.getDatasetMeta(1), ds = ch.data.datasets[1], x = ch.ctx;
+          x.save(); x.font = "700 8px Arial"; x.fillStyle = "#000"; x.textAlign = "center"; x.textBaseline = "bottom";
+          m.data.forEach((p, k) => { if (ds.data[k] == null) return; x.strokeStyle = "#fff"; x.lineWidth = 3; x.strokeText(ds.data[k] + "%", p.x, p.y - 4); x.fillText(ds.data[k] + "%", p.x, p.y - 4); });
+          x.restore(); } });
+        this.charts["dlPerjam" + i] = new Chart(c, {
+          type: "line",
+          data: { labels: L, datasets: [
+            { clip: false, label: "Target", data: L.map((l, k) => (l === "–" ? null : 100)), borderColor: "#dc2626", backgroundColor: "#dc2626", borderWidth: 1.4, pointRadius: 2.5, tension: 0 },
+            { clip: false, label: "Aktual", data: pn.pct, borderColor: "#1d4ed8", backgroundColor: "#1d4ed8", borderWidth: 1.6, pointRadius: 3, tension: 0, spanGaps: true },
+          ] },
+          options: { responsive: true, maintainAspectRatio: false, animation: false, layout: { padding: { top: 12, right: 6 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (it) => it.dataset.label + ": " + it.parsed.y + "%" + (it.datasetIndex === 1 ? " (" + pn.qty[it.dataIndex] + " pcs)" : "") } } },
+            scales: {
+              x: { ticks: { color: "#000", font: { size: 7, weight: "700" }, autoSkip: false, maxRotation: 0, padding: 2 }, border: { dash: [1, 3] }, grid: { color: "#000", drawTicks: false } },
+              y: { min: ymin, max: ymax, ticks: { color: "#000", font: { size: 8.5 }, stepSize: 10 }, border: { dash: [1, 3] }, grid: { color: "#000", drawTicks: false } } } },
+          plugins: [kotak, titik("pjTitik" + i)],
+        });
+      },
+
       get tahunOptions() { const y = new Date().getFullYear(); return [y - 2, y - 1, y, y + 1]; },
       get jumlahHari() { return new Date(this.tahun, this.bulan, 0).getDate(); },
       get labelHari() { return Array.from({ length: this.jumlahHari }, (_, i) => String(i + 1)); },
@@ -119,7 +243,7 @@
       dekiZoom: "",
       dekiAksi(a) { const fr = document.querySelector(".dl-deki iframe"); if (fr && fr.contentWindow) fr.contentWindow.postMessage({ dekidakaAksi: a }, "*"); },
 
-      async setTab(tab) { this.dekiSiap = false; this.activeTab = tab; await this.muat(); },
+      async setTab(tab) { this.dekiSiap = false; this.activeTab = tab; this.muatPerjam(); await this.muat(); },
 
       async muat() {
         if (!this.isAdmin() || typeof Chart === "undefined") return;
@@ -250,12 +374,7 @@
         aman(() => ganda("dlNgInline", COL.ngInline, COL.money, "Qty", "Value (ribu Rp)", false, D.ngQty, D.ngVal, "above"), "ngInline");
         aman(() => ganda("dlStraightpass", COL.straight, "#000000", "Qty Repair", "% Straightpass", true, D.repQty, D.spPct, "base"), "straightpass");
 
-        // Perjam & Trend Volume: kerangka kosong
-        aman(() => {
-          const c = this.kanvas("dlPerjam"); if (!c) return;
-          this.charts.dlPerjam = new Chart(c, { type: "bar", data: { labels: L, datasets: [{ label: "Perjam", data: kosong, backgroundColor: COL.perjam, barPercentage: 0.65, categoryPercentage: 0.75 }] },
-            options: { responsive: true, maintainAspectRatio: false, animation: noAnim, layout: { padding: { top: 20 } }, plugins: { legend: legenda(true) }, scales: { x: skalaX(), y: skalaY() } } });
-        }, "perjam");
+        // Trend Volume: kerangka kosong (Perjam: lihat muatPerjam)
         aman(() => {
           const c = this.kanvas("dlTrend"); if (!c) return;
           this.charts.dlTrend = new Chart(c, { type: "line", data: { labels: L, datasets: [{ label: "Volume", data: kosong, borderColor: COL.trend, backgroundColor: COL.trend + "33", fill: true, borderWidth: 1.2, tension: 0.35, pointRadius: 2 }] },

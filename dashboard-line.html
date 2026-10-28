@@ -32,6 +32,15 @@
   .dl-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 2px; flex: 0 0 auto; }
   .dl-box-title { font-size: 0.6875rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
   .dl-sub { font-size: 0.6875rem; font-weight: 700; color: var(--muted); }
+  .dl-pj-tools { display:flex; gap:4px; align-items:center; }
+  .dl-pj-in { font: 700 0.6875rem inherit; font-family: inherit; padding: 1px 4px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: inherit; }
+  .dl-pj-btn { font: 800 0.625rem inherit; font-family: inherit; padding: 2px 8px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; }
+  .dl-pj-btn.on { background: #0f172a; color: #fff; border-color: #0f172a; }
+  .dl-pj-wrap { flex: 1; min-height: 0; display: flex; gap: 8px; overflow-x: auto; position: relative; }
+  .dl-pj-kosong { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+  .dl-pj-panel { flex: 1 0 46%; min-width: 0; display: flex; min-height: 0; }
+  .dl-pj-judul { writing-mode: vertical-rl; transform: rotate(180deg); font: 700 0.8125rem Arial, sans-serif; letter-spacing: .04em; border-right: 2px solid #1d2fd1; padding: 0 3px 0 4px; text-align: center; white-space: nowrap; }
+  .dl-pj-kanvas { position: relative; flex: 1; min-width: 0; }
   .dl-chart { position: relative; flex: 1; min-height: 0; }
   .dl-deki { grid-column: 2; grid-row: 1 / span 2; padding: 0; flex-direction: row; }
   .dl-deki-tools { flex: 0 0 38px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 4px; border-left: 1px solid var(--border); background: rgba(128,128,128,.05); }
@@ -147,8 +156,23 @@
             </div>
           </section>
           <section class="dl-box">
-            <div class="dl-head"><span class="dl-box-title">Grafik Perjam</span><span class="dl-sub">data menyusul</span></div>
-            <div class="dl-chart"><canvas id="dlPerjam"></canvas></div>
+            <div class="dl-head">
+              <span class="dl-box-title">Grafik Perjam</span>
+              <span class="dl-pj-tools">
+                <input type="date" class="dl-pj-in" x-model="perjamTgl" @change="perjamManual=true; muatPerjam()">
+                <button type="button" class="dl-pj-btn" :class="perjamShift==='1' && 'on'" @click="pilihShift('1')">Shift 1</button>
+                <button type="button" class="dl-pj-btn" :class="perjamShift==='2' && 'on'" @click="pilihShift('2')">Shift 2</button>
+              </span>
+            </div>
+            <div class="dl-pj-wrap">
+              <span class="dl-sub dl-pj-kosong" x-show="!perjamPanels.length" x-text="perjamMemuat ? 'Memuat…' : perjamPesan"></span>
+              <template x-for="(pn, i) in perjamPanels" :key="pn.part + '|' + perjamShift + '|' + i">
+                <div class="dl-pj-panel">
+                  <div class="dl-pj-judul" x-text="pn.part"></div>
+                  <div class="dl-pj-kanvas"><canvas :id="'dlPerjam' + i"></canvas></div>
+                </div>
+              </template>
+            </div>
           </section>
           <section class="dl-box" style="grid-column:1; grid-row:2;">
             <div class="dl-head"><span class="dl-box-title">Grafik Availability</span><span class="dl-sub" x-text="'Rata-rata ' + fmtNum(rataAvail) + '%'"></span></div>
@@ -209,7 +233,7 @@ function dashboardLinePage() {
     dlMenu: ["E-02", "E-03", "E-04", "E-05", "E-06", "E-07"].map((l) => ({ tab: l, label: l })),
     async init() {
       this.pasangPesan();
-      if (await this.initBase()) { await this.$nextTick(); await this.muat(); }
+      if (await this.initBase()) { await this.$nextTick(); this.perjamAuto(); this.muatPerjam(); await this.muat(); }
     },
   };
   // Gabungkan dengan data & grafik (assets/dashboard-line.js) TANPA
