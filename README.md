@@ -23,6 +23,7 @@ direstrukturisasi total untuk Welding (line flat, tanpa sub-stasiun).
 ├── input-attendance.html                         # Absensi harian (admin/leader)
 ├── data-dashboard.html                           # Data Dashboard: Productivity & Dashboard FY (admin/leader)
 ├── data-karyawan.html                            # Data Karyawan: Attendance, Cuti, Data Karyawan, Data Supporting
+├── dashboard-line.html                           # Dashboard Line (kerangka, isi menyusul)
 ├── perencanaan-produksi.html                     # Perencanaan Produksi: Delivery Plan & Forecast
 ├── data-mentah.html                              # Lihat & export data mentah (admin)
 ├── reset-password.html                           # Halaman ganti password (dari link email)

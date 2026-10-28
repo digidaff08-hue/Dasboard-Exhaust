@@ -5,7 +5,7 @@
 // ini cuma men-cache HTML/CSS/JS-nya, bukan data produksi.
 // =========================================================
 // Naikkan versi ini tiap ada perubahan besar supaya cache lama dibuang.
-const CACHE_NAME = "produksi-downtime-shell-v152-pengaturan-lanjutan";
+const CACHE_NAME = "produksi-downtime-shell-v164-dekidaka-print-fix";
 
 const SHELL_FILES = [
   "/login.html",
@@ -15,6 +15,9 @@ const SHELL_FILES = [
   "/input-attendance.html",
   "/data-dashboard.html",
   "/perencanaan-produksi.html",
+  "/dashboard-line.html",
+  "/dekidaka-line.html",
+  "/assets/dashboard-line.js",
   "/data-karyawan.html",
   "/pengaturan.html",
   "/data-mentah.html",
