@@ -439,7 +439,7 @@ function dkdFormatList(items) {
   if (!cleaned.length) return "";
   return cleaned.map((item) => `- ${item}`).join("\n");
 }
-function dkdBuildBlockRowsHTML(blockNo) {
+function dkdBuildBlockRowsHTML(blockNo, nCols) {
   let rowsHTML = "";
   for (let idx = 0; idx < DKD_ROWS_PER_BLOCK; idx++) {
     const descItem = DKD_DESC_ITEMS[idx];
@@ -464,8 +464,10 @@ function dkdBuildBlockRowsHTML(blockNo) {
     // dalam blok: 0 Target, 1 Hasil Aktual, 2 Rasio Dekidaka, 3 Selisih,
     // 4 Akumulasi Selisih, 5 Total Akumulasi Aktual -- dipakai
     // dekidakaApplyProduction() untuk menaruh angka di sel yang tepat.
-    const d1Cell = `<td class="dkd-refcol${isLastRow ? " dkd-gray" : ""}"><div class="dkd-static dkd-val" data-block="${blockNo}" data-col="0" data-row="${idx}"></div></td>`;
-    const d2Cell = `<td class="dkd-refcol${isLastRow ? " dkd-gray" : ""}"><div class="dkd-static dkd-val" data-block="${blockNo}" data-col="1" data-row="${idx}"></div></td>`;
+    let modelCells = "";
+    for (let c = 0; c < nCols; c++) {
+      modelCells += `<td class="dkd-refcol${isLastRow ? " dkd-gray" : ""}"><div class="dkd-static dkd-val" data-block="${blockNo}" data-col="${c}" data-row="${idx}"></div></td>`;
+    }
     const maintCell = `<td><div class="dkd-desc-row"><span class="dkd-lbl">${maintItem}</span></div></td>`;
     // Kolom "Ket" (Ireguller): baris 0 = Abnormality (menit downtime),
     // baris 4 = Dandori (menit), baris 5 = MP. Sisanya belum ada
@@ -480,13 +482,13 @@ function dkdBuildBlockRowsHTML(blockNo) {
       trailCells += `<td rowspan="${DKD_ROWS_PER_BLOCK}"><div class="dkd-static dkd-static-text dkd-pic" data-block="${blockNo}"></div></td>`;
       trailCells += `<td rowspan="${DKD_ROWS_PER_BLOCK}"><div class="dkd-static"></div></td>`;
     }
-    rowsHTML += `<tr data-block="${blockNo}">${leadCells}${descCell}${d1Cell}${d2Cell}${maintCell}${ketCell}${trailCells}</tr>`;
+    rowsHTML += `<tr data-block="${blockNo}">${leadCells}${descCell}${modelCells}${maintCell}${ketCell}${trailCells}</tr>`;
   }
   return rowsHTML;
 }
-function dkdBuildAllBlocksHTML() {
+function dkdBuildAllBlocksHTML(nCols) {
   let html = "";
-  for (let n = 1; n <= DKD_TOTAL_BLOCKS; n++) html += dkdBuildBlockRowsHTML(n);
+  for (let n = 1; n <= DKD_TOTAL_BLOCKS; n++) html += dkdBuildBlockRowsHTML(n, nCols);
   return html;
 }
 function dkdBuildEmptyCycleRows() {
@@ -494,15 +496,152 @@ function dkdBuildEmptyCycleRows() {
   for (let i = 1; i <= DKD_CYCLE_ROWS_COUNT; i++) html += `<tr><td>${i}</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
   return html;
 }
+// Referensi di atas papan Dekidaka (kiri: waktu Cleaning Nozzle / Ganti tip / Tukar box,
+// kanan: CT TARGET). Isi dari Excel per line (E-02 sampai E-07).
+const DKD_REF_DATA = {
+  "E-02": {
+    alat: [
+      ["Cleaning Nozzle (detik)", "30", "1 kali /15 cycle", "2", "detik"],
+      ["Ganti tip (detik)", "120", "1 kali /60 cycle", "2", "detik"],
+      ["Tukar box", "10", "1 kali /30 cycle", "0,33", "detik"],
+    ],
+    ct: [
+      ["1", "", "144", "25", "3", "YHA", "8,33"],
+      ["2", "", "144", "25", "3", "YR9", "8,33"],
+      ["3", "", "144", "25", "3", "K15B", "8,33"],
+      ["4", "", "", "", "", "", ""],
+    ],
+  },
+  "E-03": {
+    alat: [
+      ["Cleaning Nozzle (detik)", "30", "1 kali /15 cycle", "2", "detik"],
+      ["Ganti tip (detik)", "120", "1 kali /60 cycle", "2", "detik"],
+      ["Tukar box", "10", "1 kali /30 cycle", "0,33", "detik"],
+    ],
+    ct: [
+      ["1", "", "109", "33", "4", "D73F", "8,26"],
+      ["2", "", "106", "34", "4", "D13", "8,50"],
+      ["3", "", "106", "34", "4", "D40", "8,50"],
+      ["4", "", "", "", "", "", ""],
+    ],
+  },
+  "E-04": {
+    alat: [
+      ["Cleaning Nozzle (detik)", "30", "1 kali /15 cycle", "2", "detik"],
+      ["Ganti tip (detik)", "120", "1 kali /60 cycle", "2", "detik"],
+      ["Tukar box", "10", "1 kali /30 cycle", "0,33", "detik"],
+    ],
+    ct: [
+      ["1", "", "109", "33", "4", "D40/D41", "8,25"],
+      ["2", "", "", "", "", "", ""],
+      ["3", "", "", "", "", "", ""],
+      ["4", "", "", "", "", "", ""],
+    ],
+  },
+  "E-05": {
+    alat: [
+      ["Cleaning Nozzle (detik)", "30", "1 kali /15 cycle", "1", "detik"],
+      ["Ganti tip (detik)", "120", "1 kali /60 cycle", "1", "detik"],
+      ["Tukar box", "10", "1 kali /30 cycle", "0,33", "detik"],
+    ],
+    ct: [
+      ["1", "", "109", "33", "4", "889F", "8,25"],
+      ["2", "", "109", "33", "4", "D40/D41", "8,25"],
+      ["3", "", "", "", "", "", ""],
+      ["4", "", "", "", "", "", ""],
+    ],
+  },
+  "E-06": {
+    alat: [
+      ["Cleaning Nozzle (detik)", "30", "1 kali /15 cycle", "2", "detik"],
+      ["Ganti tip (detik)", "120", "1 kali /60 cycle", "2", "detik"],
+      ["Tukar box", "10", "1 kali /30 cycle", "0,33", "detik"],
+    ],
+    ct: [
+      ["1", "", "124", "29", "4", "D98E", "7,25"],
+      ["2", "", "109", "33", "4", "D40/D41", "8,25"],
+      ["3", "", "", "", "", "", ""],
+      ["4", "", "", "", "", "", ""],
+    ],
+  },
+  "E-07": {
+    alat: [
+      ["Cleaning Nozzle (detik)", "30", "1 kali /15 cycle", "2", "detik"],
+      ["Ganti tip (detik)", "120", "1 kali /60 cycle", "2", "detik"],
+      ["Tukar box", "10", "1 kali /30 cycle", "0,33", "detik"],
+    ],
+    ct: [
+      ["1", "", "103", "35", "5", "K15C", "7,00"],
+      ["2", "", "109", "33", "4", "D40/D41", "8,25"],
+      ["3", "", "", "", "", "", ""],
+      ["4", "", "", "", "", "", ""],
+    ],
+  },
+};
+function dkdBuildRefHTML(line) {
+  const d = DKD_REF_DATA[line];
+  if (!d) return `<div class="dkd-ref-placeholder">Referensi (Cleaning Nozzle / Ganti tip / Ganti Box) &amp; Cycle Time Target<br>-- menyusul setelah master data-nya diisi --</div>`;
+  const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  const alat = d.alat.map((r) => `<tr><td class="dkd-ref-l">${esc(r[0])}</td><td class="dkd-ref-n">${esc(r[1])}</td><td>${esc(r[2])}</td><td class="dkd-ref-n">${esc(r[3])}</td><td>${esc(r[4])}</td></tr>`).join("");
+  const ct = d.ct.map((r) => `<tr>${r.map((c, i) => `<td${i === 4 || i === 5 ? ' class="dkd-ref-b"' : ""}>${esc(c)}</td>`).join("")}</tr>`).join("");
+  return `<div class="dkd-ref-wrap">
+    <table class="dkd-ref-tbl dkd-ref-alat"><tbody>${alat}</tbody></table>
+    <div class="dkd-ref-ct"><div class="dkd-ref-judul">CT TARGET</div>
+      <table class="dkd-ref-tbl"><thead><tr><th>NO</th><th>Date</th><th>CT</th><th>Out put/Jam</th><th>MP</th><th>MODEL</th><th>PCS/MP</th></tr></thead><tbody>${ct}</tbody></table>
+    </div>
+  </div>`;
+}
+// Kolom model di samping "Desc": dasarnya DKD_COLUMN_LABELS, lalu disesuaikan dengan tabel
+// CT TARGET line itu: (1) kolom gabungan (mis. "D40/D13") dipecah kalau tiap modelnya
+// berdiri sendiri di CT TARGET, (2) model CT TARGET yang belum punya kolom ditambahkan
+// kolom baru, (3) urutan kolom mengikuti urutan baris CT TARGET.
+function dkdTokens(label) {
+  return String(label || "").split("/").map((x) => x.trim().toUpperCase()).filter(Boolean);
+}
+function dkdGetColumns(line) {
+  const base = (DKD_COLUMN_LABELS[line] || ["D73F", "889F"]).slice();
+  const ref = DKD_REF_DATA[line];
+  if (!ref) return base;
+  const ctModels = ref.ct.map((r) => String(r[5] || "").trim()).filter(Boolean);
+  const berdiri = new Set(ctModels.filter((m) => dkdTokens(m).length === 1).map((m) => m.toUpperCase()));
+  let cols = [];
+  base.forEach((lbl) => {
+    const t = dkdTokens(lbl);
+    if (t.length > 1 && t.every((x) => berdiri.has(x))) t.forEach((x) => cols.push(x));
+    else cols.push(lbl);
+  });
+  ctModels.forEach((m) => {
+    const mt = dkdTokens(m);
+    if (!cols.some((c) => dkdTokens(c).some((x) => mt.includes(x)))) cols.push(m);
+  });
+  const urut = (c) => {
+    const ct = dkdTokens(c);
+    const i = ctModels.findIndex((m) => dkdTokens(m).some((x) => ct.includes(x)));
+    return i < 0 ? 999 : i;
+  };
+  return cols.map((c, i) => ({ c, i, k: urut(c) })).sort((a, b) => a.k - b.k || a.i - b.i).map((o) => o.c);
+}
+// Target pcs 1 blok = menit x Out put/Jam / 60, dibulatkan ke atas. "Out put/Jam" diambil dari
+// baris CT TARGET yang modelnya sama dengan kolom. Kosong (null) kalau tidak ketemu.
+function dkdTargetBlok(line, kolomLabel, menit) {
+  const ref = DKD_REF_DATA[line];
+  if (!ref || !(menit > 0)) return null;
+  const ct = dkdTokens(kolomLabel);
+  const row = ref.ct.find((r) => dkdTokens(r[5]).some((x) => ct.includes(x)));
+  if (!row) return null;
+  const out = parseFloat(String(row[3]).replace(",", "."));
+  if (!(out > 0)) return null;
+  return Math.ceil((menit * out) / 60 - 1e-9);
+}
 function dkdBuildBoardHTML(line) {
-  const cols = DKD_COLUMN_LABELS[line] || ["D73F", "889F"];
+  const cols = dkdGetColumns(line);
   const today = new Date();
   const yyyy = today.getFullYear(), mm = String(today.getMonth() + 1).padStart(2, "0"), dd = String(today.getDate()).padStart(2, "0");
   return `
     <div class="dkd-top-row">
       <div class="dkd-big-line">${line}</div>
       <div class="dkd-tables-wrap">
-        <div class="dkd-ref-placeholder">Referensi (Cleaning Nozzle / Ganti tip / Ganti Box) &amp; Cycle Time Target<br>-- menyusul setelah master data-nya diisi --</div>
+        ${dkdBuildRefHTML(line)}
       </div>
     </div>
     <div class="dkd-info-bar">
@@ -525,16 +664,16 @@ function dkdBuildBoardHTML(line) {
       <table class="dkd-main">
         <colgroup>
           <col class="dkd-c-no"><col class="dkd-c-part"><col class="dkd-c-waktu"><col class="dkd-c-desc">
-          <col class="dkd-c-d73f"><col class="dkd-c-889f"><col class="dkd-c-maint"><col class="dkd-c-ket">
+          ${cols.map(() => '<col class="dkd-c-model">').join("")}<col class="dkd-c-maint"><col class="dkd-c-ket">
           <col class="dkd-c-masalah"><col class="dkd-c-penanganan"><col class="dkd-c-pic"><col class="dkd-c-deadline">
         </colgroup>
         <thead>
           <tr>
-            <th>No</th><th>Part<br>Number</th><th>Waktu</th><th>Desc</th><th>${cols[0]}</th><th>${cols[1]}</th>
+            <th>No</th><th>Part<br>Number</th><th>Waktu</th><th>Desc</th>${cols.map((c) => `<th>${c}</th>`).join("")}
             <th colspan="2">Ireguller</th><th>Masalah</th><th>Penanganan</th><th>Pic</th><th>Deadline</th>
           </tr>
         </thead>
-        <tbody class="dkd-tbody">${dkdBuildAllBlocksHTML()}</tbody>
+        <tbody class="dkd-tbody">${dkdBuildAllBlocksHTML(cols.length)}</tbody>
       </table>
       <div class="dkd-summary">
         <div class="dkd-card"><div class="dkd-card-lbl">Jam Produksi</div><div class="dkd-card-val dkd-jam-produksi">0</div></div>
@@ -1603,6 +1742,22 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (inline && window.parent !== window) {
         const kirimZoom = () => { try { window.parent.postMessage({ dekidakaZoom: this.dekidakaModalZoomLabel() }, "*"); } catch (e) {} };
         window.addEventListener("message", (e) => {
+          // Tanggal & shift dari halaman induk -> isi kolom di papan lalu picu "change".
+          const st = e.data && e.data.dekidakaSet;
+          if (st) {
+            // Papan bisa saja belum siap saat pesan datang -> coba lagi sebentar-sebentar.
+            const terapkan = (sisa) => {
+              const c = this._dkdModalContainer;
+              const tg = c && c.querySelector(".dkd-tanggal"), sh = c && c.querySelector(".dkd-shift");
+              if (!tg || !sh) { if (sisa > 0) setTimeout(() => terapkan(sisa - 1), 300); return; }
+              if (st.tanggal && tg.value !== st.tanggal) { tg.value = st.tanggal; tg.dispatchEvent(new Event("change")); }
+              if (st.shift && sh.value !== String(st.shift)) { sh.value = String(st.shift); sh.dispatchEvent(new Event("change")); }
+              try { window.parent.postMessage({ dekidakaSetOk: { tanggal: tg.value, shift: sh.value } }, "*"); } catch (err) {}
+              setTimeout(kirimZoom, 400);
+            };
+            terapkan(15);
+            return;
+          }
           const a = e.data && e.data.dekidakaAksi;
           if (!a) return;
           if (a === "zoomIn") this.dekidakaModalZoomIn();
@@ -1889,8 +2044,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // Model tiap kolom papan: label "YHA/YR9" berarti kolom itu
     // menampung model YHA maupun YR9.
     dekidakaColumnModels(line) {
-      return (DKD_COLUMN_LABELS[line] || []).map((label) =>
-        String(label).split("/").map((s) => s.trim().toUpperCase()).filter(Boolean));
+      return dkdGetColumns(line).map((label) => dkdTokens(label));
     },
     // Kolom (0/1) untuk 1 baris produksi: utamakan model dari master
     // ng_model_parts; kalau part-nya belum terdaftar di master, dicoba
@@ -1970,7 +2124,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const times = this.dekidakaGetTimesForBlock(container, n);
         if (!times) {
           // Blok tidak dipakai di shift ini (mis. blok 11 pada Shift 2).
-          colModels.forEach((_, c) => { setVal(c, 1, ""); setVal(c, 5, ""); });
+          colModels.forEach((_, c) => { setVal(c, 0, ""); setVal(c, 1, ""); setVal(c, 5, ""); });
           if (partEl) partEl.textContent = "";
           if (dandoriEl) dandoriEl.textContent = "";
           continue;
@@ -1989,7 +2143,20 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           dandori += r.dandoriMenit;
         });
         if (dandoriEl) dandoriEl.textContent = dandori > 0 ? String(dandori) : "";
+        const kolomLabels = dkdGetColumns(line);
+        const menitBlok = ((endMin - startMin) + 1440) % 1440;
+        const kolomAktif = new Set(matched.map((r) => this.dekidakaColumnIndexFor(colModels, r)).filter((c) => c >= 0));
+        // Belum ada produksi di blok ini -> Target tetap tampil sebagai patokan, pakai model
+        // baris 1 CT TARGET (di kolom pertama yang cocok).
+        if (!kolomAktif.size && DKD_REF_DATA[line] && DKD_REF_DATA[line].ct.length) {
+          const t1 = dkdTokens(DKD_REF_DATA[line].ct[0][5]);
+          const c1 = colModels.findIndex((m) => m.some((x) => t1.includes(x)));
+          if (c1 >= 0) kolomAktif.add(c1);
+        }
         colModels.forEach((_, c) => {
+          // Target: kolom model yang berjalan di blok ini (dari data produksi), atau patokan model baris 1.
+          const tgt = kolomAktif.has(c) ? dkdTargetBlok(line, kolomLabels[c], menitBlok) : null;
+          setVal(c, 0, tgt != null ? String(tgt) : "");
           const qty = matched.reduce(
             (sum, r) => sum + (this.dekidakaColumnIndexFor(colModels, r) === c ? r.qty : 0), 0);
           if (qty > 0) akum[c] += qty;

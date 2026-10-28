@@ -4,19 +4,28 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dekidaka</title>
-<link rel="stylesheet" href="assets/style.css">
-<script src="assets/pengaturan.js"></script>
+<script>
+  // File lokal dimuat dengan ?v=<versi dari alamat halaman ini>, supaya browser pasti
+  // mengambil file terbaru setiap versi di dashboard-line.js (DEKI_VER) dinaikkan.
+  (function () {
+    var v = new URLSearchParams(location.search).get("v") || String(Date.now());
+    var q = "?v=" + encodeURIComponent(v);
+    document.write('<link rel="stylesheet" href="assets/style.css' + q + '">');
+    document.write('<script src="assets/pengaturan.js' + q + '"><\/script>');
+    window.__dekiLoadLokal = function () {
+      ["supabaseClient", "realtime", "utils", "produksi-join", "machine-page"].forEach(function (f) {
+        document.write('<script src="assets/' + f + '.js' + q + '"><\/script>');
+      });
+    };
+  })();
+</script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <!-- Untuk tombol Export PDF papan Dekidaka -->
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="assets/supabaseClient.js"></script>
-<script src="assets/realtime.js"></script>
-<script src="assets/utils.js"></script>
-<script src="assets/produksi-join.js"></script>
-<script src="assets/machine-page.js"></script>
+<script>window.__dekiLoadLokal();</script>
 <style>html, body { margin: 0; background: transparent; }</style>
 </head>
 <body>

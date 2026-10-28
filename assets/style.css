@@ -1092,6 +1092,17 @@ td.mono, .mono { font-family: var(--font-mono); }
    sementara belum ada master data-nya, satu kotak abu-abu putus-putus
    lebih enak dipandang drpd grid kosong. */
 .dkd-ref-placeholder{ width:680px; height:150px; border:2px dashed #ccc; border-radius:8px; background:#fafafa; display:flex; align-items:center; justify-content:center; text-align:center; color:#999; font-size:0.75rem; font-style:italic; }
+/* Tabel referensi di atas papan (waktu Cleaning Nozzle dkk + CT TARGET) */
+.dkd-ref-wrap{ display:flex; align-items:flex-end; gap:10px; color:#000; }   /* tabel kiri rata bawah dengan CT TARGET */
+.dkd-ref-tbl{ border-collapse:collapse; font-size:0.6875rem; line-height:1.15; background:#fff; }
+.dkd-ref-tbl th, .dkd-ref-tbl td{ border:1px solid #000; padding:2px 6px; text-align:center; white-space:nowrap; font-weight:400; }
+.dkd-board .dkd-ref-tbl th{ font-weight:400; color:#000; background:#fff; text-transform:none; letter-spacing:0; font-family:inherit; font-size:0.6875rem; }
+.dkd-board .dkd-ref-tbl td{ color:#000; background:#fff; font-size:0.6875rem; }
+.dkd-ref-tbl td.dkd-ref-l{ text-align:left; font-weight:700; }
+.dkd-ref-tbl td.dkd-ref-n{ font-weight:700; text-align:right; }
+.dkd-ref-tbl td.dkd-ref-b{ font-weight:700; }
+.dkd-ref-ct{ display:flex; flex-direction:column; align-items:center; }
+.dkd-ref-judul{ font-size:1.125rem; letter-spacing:.12em; font-weight:400; margin-bottom:2px; font-family:"Courier New", monospace; }
 .dkd-info-bar{ display:flex; justify-content:space-between; align-items:center; border:1px solid #222; padding:6px 10px; margin-bottom:10px; font-weight:bold; color:#111; background:#f7f8fa; }
 .dkd-info-bar .dkd-field{ display:flex; align-items:center; gap:6px; }
 .dkd-info-bar .dkd-field-group{ display:flex; align-items:center; gap:20px; }
@@ -1104,7 +1115,7 @@ table.dkd-main thead th{ background:var(--accent-color, #1f4e79); color:#fff; fo
    biar mata gampang ngelompokin per-blok tanpa harus hitung baris. */
 .dkd-tbody tr:nth-child(6n) td{ border-bottom:2px solid #222; }
 .dkd-c-no{width:34px;} .dkd-c-part{width:85px;} .dkd-c-waktu{width:110px;} .dkd-c-desc{width:160px;}
-.dkd-c-d73f{width:40px;} .dkd-c-889f{width:40px;} .dkd-c-maint{width:85px;} .dkd-c-ket{width:40px;}
+.dkd-c-d73f{width:40px;} .dkd-c-889f{width:40px;} .dkd-c-model{width:40px;} .dkd-c-maint{width:85px;} .dkd-c-ket{width:40px;}
 .dkd-c-masalah{width:410px;} .dkd-c-penanganan{width:330px;} .dkd-c-pic{width:80px;} .dkd-c-deadline{width:100px;}
 .dkd-no-label{ font-weight:bold; font-size:0.8125rem; color:#555; }
 .dkd-desc-row{ display:flex; flex-direction:column; align-items:center; justify-content:center; align-content:center; gap:2px; text-align:center; }

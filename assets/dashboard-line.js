@@ -17,6 +17,9 @@
   const BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
   const COL = { productivity: "#0EA5E9", availability: "#10B981", downtime: "#F97316", ngInline: "#F43F5E", money: "#1D4ED8", straight: "#14B8A6", perjam: "#6366F1", trend: "#2563EB" };
 
+  // Naikkan setiap kali file Dekidaka (machine-page.js, style.css, dekidaka-line.html) berubah.
+  const DEKI_VER = "20261028f";
+
   const pad2 = (n) => String(n).padStart(2, "0");
   const tglStr = (y, m, d) => y + "-" + pad2(m) + "-" + pad2(d);
   const fmtNum = (n) => Number(n).toLocaleString("id-ID", { maximumFractionDigits: 1 });
@@ -122,6 +125,16 @@
     "1": ["8,00", "9,00", "9,40", "11,00", "12,30", "13,30", "14,40", "15,45", "17,15", "18,15", "19,30"],
     "2": ["20,30", "21,40", "22,40", "23,40", "1,20", "2,20", "3,30", "4,15", "6,00", "7,00", "–"],
   };
+  // Isi 2 grafik Perjam per line: judul + kode part yang dihitung (dicocokkan
+  // dengan "mengandung" pada part_number, mis. 14110-73R10 mengandung 73R10).
+  const PERJAM_CFG = {
+    "E-02": [{ judul: "73R10/R20/74U00", kode: ["73R10", "73R20", "74U00"] }, { judul: "52P00", kode: ["52P00"] }],
+    "E-03": [{ judul: "BZ060", kode: ["BZ060"] }, { judul: "BZ260", kode: ["BZ260"] }],
+    "E-04": [{ judul: "BZ140", kode: ["BZ140"] }, { judul: "BZ150", kode: ["BZ150"] }],
+    "E-05": [{ judul: "0Y050/60", kode: ["0Y050", "0Y060"] }, { judul: "BZ140/50", kode: ["BZ140", "BZ150"] }],
+    "E-06": [{ judul: "BZ110/010", kode: ["BZ110", "BZ010"] }, { judul: "BZ140/50", kode: ["BZ140", "BZ150"] }],
+    "E-07": [{ judul: "74U50", kode: ["74U50"] }, { judul: "BZ140/50", kode: ["BZ140", "BZ150"] }],
+  };
   const KPJ_DEFAULT = { "E-02": 25, "E-03": 32, "E-04": 32, "E-05": 32, "E-06": 32, "E-07": 35 };
   const menit = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
   const dalam = (x, a, b) => (a === b ? false : b > a ? x >= a && x < b : x >= a || x < b);
@@ -155,10 +168,13 @@
           this.muatPerjam();
         }, 60000);
       },
-      pilihShift(sh) { this.perjamManual = true; this.perjamShift = sh; this.muatPerjam(); },
+      // Manual = user memilih tanggal/shift lain dari yang sedang berjalan. Kalau pilihannya
+      // kembali ke hari ini + shift saat ini, otomatis ikut jam lagi.
+      tandaiManual() { this.perjamManual = !(this.perjamTgl === tglHariIni() && this.perjamShift === shiftSekarang()); },
       async muatPerjam() {
         if (!this.isAdmin() || typeof Chart === "undefined") return;
         const token = (this._pjTok = (this._pjTok || 0) + 1);
+        this.dekiSinkron();
         const line = this.activeTab, sh = this.perjamShift;
         this.perjamMemuat = true; this.perjamPesan = "";
         const [yy, mm, dd] = String(this.perjamTgl || tglHariIni()).split("-").map(Number);
@@ -178,28 +194,28 @@
           console.error("Gagal memuat grafik Perjam:", e);
           this.perjamPesan = "Gagal memuat data Perjam"; this.perjamPanels = []; this.perjamMemuat = false; this.hapusPerjam(); return;
         }
-        // Kelompokkan per part -> qty per blok jam
+        // Kelompokkan per grafik (sesuai PERJAM_CFG line ini) -> qty per blok jam
         const jumat = awal.getDay() === 5;
         const waktuBlok = BLOK.map((b) => (sh === "2" ? b.s2 : jumat ? b.j1 : b.s1));
-        const per = {};
-        rows.forEach((r) => {
-          if (!r.part_number || !r.jam) return;
-          const t = menit(r.jam);
-          const idx = waktuBlok.findIndex((w) => w && dalam(t, menit(w[0]), menit(w[1])));
-          if (idx < 0) return;
-          const p = per[r.part_number] || (per[r.part_number] = { part: r.part_number, qty: Array(11).fill(0), total: 0 });
-          p.qty[idx] += Number(r.qty) || 0; p.total += Number(r.qty) || 0;
+        const cfg = PERJAM_CFG[line] || [{ judul: "", kode: [] }, { judul: "", kode: [] }];
+        const panels = cfg.map((g) => {
+          const qty = Array(11).fill(0);
+          rows.forEach((r) => {
+            if (!r.part_number || !r.jam || !g.kode.some((k) => String(r.part_number).toUpperCase().includes(k))) return;
+            const t = menit(r.jam);
+            const idx = waktuBlok.findIndex((w) => w && dalam(t, menit(w[0]), menit(w[1])));
+            if (idx >= 0) qty[idx] += Number(r.qty) || 0;
+          });
+          return {
+            part: g.judul, qty,
+            // % = qty blok / (kapasitas per jam x durasi blok); blok tanpa produksi -> tidak digambar
+            pct: qty.map((q, i) => {
+              const w = waktuBlok[i]; if (!w || !kph || q <= 0) return null;
+              let mnt = menit(w[1]) - menit(w[0]); if (mnt < 0) mnt += 1440;
+              return Math.round((q / (kph * mnt / 60)) * 1000) / 10;
+            }),
+          };
         });
-        const panels = Object.values(per).filter((p) => p.total > 0).sort((a, b) => b.total - a.total).map((p) => ({
-          part: p.part,
-          // % = qty blok / (kapasitas per jam x durasi blok); blok tanpa produksi -> tidak digambar
-          pct: p.qty.map((q, i) => {
-            const w = waktuBlok[i]; if (!w || !kph || q <= 0) return null;
-            let mnt = menit(w[1]) - menit(w[0]); if (mnt < 0) mnt += 1440;
-            return Math.round((q / (kph * mnt / 60)) * 1000) / 10;
-          }),
-          qty: p.qty,
-        }));
         // Selalu tampil minimal 2 bagan (kosong bila tidak ada produksi), seperti format Excel.
         while (panels.length < 2) panels.push({ part: "", pct: Array(11).fill(null), qty: Array(11).fill(0) });
         this.hapusPerjam();
@@ -238,10 +254,20 @@
       get tahunOptions() { const y = new Date().getFullYear(); return [y - 2, y - 1, y, y + 1]; },
       get jumlahHari() { return new Date(this.tahun, this.bulan, 0).getDate(); },
       get labelHari() { return Array.from({ length: this.jumlahHari }, (_, i) => String(i + 1)); },
-      get dekiUrl() { return "dekidaka-line.html?line=" + this.activeTab + "&solo=1&dekidaka=1&inline=1"; },
+      get dekiUrl() { return "dekidaka-line.html?line=" + this.activeTab + "&solo=1&dekidaka=1&inline=1&v=" + DEKI_VER; },
       dekiSiap: false,
       dekiZoom: "",
-      dekiAksi(a) { const fr = document.querySelector(".dl-deki iframe"); if (fr && fr.contentWindow) fr.contentWindow.postMessage({ dekidakaAksi: a }, "*"); },
+      // Tanggal & shift di bar atas juga dipakai papan Dekidaka (dan nanti Problem Followup).
+      dekiSinkron(tujuan) {
+        if (!this.perjamTgl) return;
+        const frames = tujuan ? [tujuan] : Array.from(document.querySelectorAll(".dl-deki iframe, .dl-besar iframe"));
+        let kecil = false;
+        frames.forEach((fr) => { if (fr && fr.contentWindow) { fr.contentWindow.postMessage({ dekidakaSet: { tanggal: this.perjamTgl, shift: this.perjamShift } }, "*"); if (fr.closest(".dl-deki")) kecil = true; } });
+        if (kecil) { this._dekiAck = false; setTimeout(() => { if (this.dekiSiap && !this._dekiAck) this.pesan = "Papan Dekidaka belum ikut tanggal/shift - tekan Ctrl+F5 sekali."; }, 6000); }
+      },
+      dekiAksi(a, besar) { const fr = document.querySelector(besar ? ".dl-besar iframe" : ".dl-deki iframe"); if (fr && fr.contentWindow) fr.contentWindow.postMessage({ dekidakaAksi: a }, "*"); },
+      dekiBesarSiap: false,
+      dekiZoomBesar: "",
 
       async setTab(tab) { this.dekiSiap = false; this.activeTab = tab; this.muatPerjam(); await this.muat(); },
 
@@ -382,10 +408,18 @@
         }, "trend");
       },
 
-      bukaDekidaka() { this.dekiBuka = true; },
+      bukaDekidaka() { this.dekiBesarSiap = false; this.dekiZoomBesar = ""; this.dekiBuka = true; },
       tutupDekidaka() { this.dekiBuka = false; },
       pasangPesan() {
-        window.addEventListener("message", (e) => { if (e.data && e.data.dekidakaSiap) this.dekiSiap = true; if (e.data && e.data.dekidakaZoom) this.dekiZoom = e.data.dekidakaZoom; });
+        window.addEventListener("message", (e) => {
+          const d = e.data || {};
+          const frBesar = document.querySelector(".dl-besar iframe");
+          const dariBesar = !!(frBesar && frBesar.contentWindow === e.source);
+          if (d.dekidakaSiap) { if (dariBesar) { this.dekiBesarSiap = true; this.dekiSinkron(frBesar); } else { this.dekiSiap = true; this.dekiSinkron(document.querySelector(".dl-deki iframe")); } }
+          if (d.dekidakaZoom) { if (dariBesar) this.dekiZoomBesar = d.dekidakaZoom; else this.dekiZoom = d.dekidakaZoom; }
+          if (d.dekidakaSetOk) { this._dekiAck = true; if (/Dekidaka belum ikut/.test(this.pesan)) this.pesan = ""; }
+        });
+        window.addEventListener("keydown", (e) => { if (e.key === "Escape" && this.dekiBuka) this.tutupDekidaka(); });
         setTimeout(() => { this.dekiSiap = true; }, 8000);   // jaga-jaga kalau sinyal siap tidak datang
       },
       ubahPeriode() { this.muat(); },

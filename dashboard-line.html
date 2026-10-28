@@ -25,6 +25,7 @@
   }
   .dl-bar { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
   .dl-bar label { display: flex; flex-direction: column; gap: 2px; font-size: 0.625rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .dl-bar input[type=date] { font: inherit; font-size: 0.75rem; padding: 5px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); }
   .dl-bar select { font: inherit; font-size: 0.75rem; padding: 5px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); min-width: 120px; }
   .dl-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
   .dl-grid { flex: 1 1 auto; min-height: 560px; display: grid; grid-template-columns: 1fr .72fr 1fr; grid-template-rows: repeat(4, minmax(0, 1fr)); gap: 8px; }
@@ -39,7 +40,7 @@
   .dl-pj-wrap { flex: 1; min-height: 0; display: flex; gap: 8px; overflow-x: auto; position: relative; }
   .dl-pj-kosong { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
   .dl-pj-panel { flex: 1 0 46%; min-width: 0; display: flex; min-height: 0; }
-  .dl-pj-judul { writing-mode: vertical-rl; transform: rotate(180deg); font: 700 0.8125rem Arial, sans-serif; letter-spacing: .04em; border-right: 2px solid #1d2fd1; padding: 0 3px 0 4px; text-align: center; white-space: nowrap; }
+  .dl-pj-judul { writing-mode: vertical-rl; transform: rotate(180deg); font: 700 0.8125rem Arial, sans-serif; letter-spacing: .04em; padding: 0 3px 0 4px; text-align: center; white-space: nowrap; }
   .dl-pj-kanvas { position: relative; flex: 1; min-width: 0; }
   .dl-chart { position: relative; flex: 1; min-height: 0; }
   .dl-deki { grid-column: 2; grid-row: 1 / span 2; padding: 0; flex-direction: row; }
@@ -49,6 +50,9 @@
   .dl-tool-label { font-size: 0.5625rem; }
   .dl-tool-gap { height: 8px; }
   .dl-deki { position: relative; }
+  .dl-besar { position: fixed; inset: 0; z-index: 3000; background: rgba(15,23,42,.72); display: flex; align-items: center; justify-content: center; padding: 14px; }
+  .dl-besar-box { position: relative; background: #fff; border-radius: 12px; overflow: hidden; width: 100%; height: 100%; display: flex; flex-direction: row; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  .dl-besar-box iframe { flex: 1 1 auto; min-width: 0; width: 100%; height: 100%; border: 0; background: transparent; display: block; }
   .dl-deki-muat { position: absolute; top: 50%; left: 0; right: 0; text-align: center; }
   .dl-deki iframe { flex: 1 1 auto; min-width: 0; width: 100%; height: 100%; border: 0; background: transparent; display: block; }
   .dl-wide { grid-column: 2 / span 2; }
@@ -127,6 +131,15 @@
             <template x-for="y in tahunOptions" :key="y"><option :value="y" :selected="y === tahun" x-text="y"></option></template>
           </select>
         </label>
+        <label>Tanggal
+          <input type="date" x-model="perjamTgl" @change="tandaiManual(); muatPerjam()">
+        </label>
+        <label>Shift
+          <select x-model="perjamShift" @change="tandaiManual(); muatPerjam()">
+            <option value="1">Shift 1</option>
+            <option value="2">Shift 2</option>
+          </select>
+        </label>
       </div>
     </div>
     <template x-if="!isAdmin() && profile">
@@ -134,6 +147,26 @@
     </template>
     <template x-if="isAdmin()">
       <div class="dl-body">
+        <!-- Dekidaka versi besar (layar penuh) -->
+        <div class="dl-besar" x-show="dekiBuka" x-cloak @click.self="tutupDekidaka()">
+          <div class="dl-besar-box">
+            <span class="dl-sub dl-deki-muat" x-show="!dekiBesarSiap">Memuat Dekidaka…</span>
+            <template x-if="dekiBuka">
+              <iframe :src="dekiUrl" title="Dekidaka besar" :style="dekiBesarSiap ? '' : 'opacity:0'"></iframe>
+            </template>
+            <div class="dl-deki-tools" x-show="dekiBesarSiap">
+              <button type="button" class="dl-tool" title="Tutup (Esc)" @click="tutupDekidaka()">✕</button>
+              <span class="dl-tool-gap"></span>
+              <button type="button" class="dl-tool" title="Perbesar" @click="dekiAksi('zoomIn', true)">+</button>
+              <button type="button" class="dl-tool dl-tool-label" title="Paskan ke layar" @click="dekiAksi('fit', true)" x-text="dekiZoomBesar"></button>
+              <button type="button" class="dl-tool" title="Perkecil" @click="dekiAksi('zoomOut', true)">&minus;</button>
+              <span class="dl-tool-gap"></span>
+              <button type="button" class="dl-tool" title="Print" @click="dekiAksi('print', true)">🖨</button>
+              <button type="button" class="dl-tool" title="Export PDF" @click="dekiAksi('pdf', true)">📄</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Kategori dipilih lewat submenu di sidebar (dlMenu di JS: E-02 sampai E-07). -->
         <div class="dl-grid">
           <section class="dl-box">
@@ -153,16 +186,12 @@
               <span class="dl-tool-gap"></span>
               <button type="button" class="dl-tool" title="Print" @click="dekiAksi('print')">🖨</button>
               <button type="button" class="dl-tool" title="Export PDF" @click="dekiAksi('pdf')">📄</button>
+              <button type="button" class="dl-tool" title="Lihat versi besar" @click="bukaDekidaka()"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
             </div>
           </section>
           <section class="dl-box">
             <div class="dl-head">
               <span class="dl-box-title">Grafik Perjam</span>
-              <span class="dl-pj-tools">
-                <input type="date" class="dl-pj-in" x-model="perjamTgl" @change="perjamManual=true; muatPerjam()">
-                <button type="button" class="dl-pj-btn" :class="perjamShift==='1' && 'on'" @click="pilihShift('1')">Shift 1</button>
-                <button type="button" class="dl-pj-btn" :class="perjamShift==='2' && 'on'" @click="pilihShift('2')">Shift 2</button>
-              </span>
             </div>
             <div class="dl-pj-wrap">
               <span class="dl-sub dl-pj-kosong" x-show="!perjamPanels.length" x-text="perjamMemuat ? 'Memuat…' : perjamPesan"></span>
