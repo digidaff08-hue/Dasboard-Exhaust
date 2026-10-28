@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dekidaka</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/pengaturan.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<!-- Untuk tombol Export PDF papan Dekidaka -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="assets/supabaseClient.js"></script>
+<script src="assets/realtime.js"></script>
+<script src="assets/utils.js"></script>
+<script src="assets/produksi-join.js"></script>
+<script src="assets/machine-page.js"></script>
+<style>html, body { margin: 0; background: transparent; }</style>
+</head>
+<body>
+<!-- Halaman KHUSUS papan Dekidaka satu line (dipakai Dashboard Line lewat iframe).
+     Dipisah dari halaman line supaya yang dimuat cuma papan Dekidaka,
+     tidak ada tampilan halaman line / Dashboard Exhaust yang sempat berkedip.
+     Pakai: dekidaka-line.html?line=E-05 -->
+<div x-data='machinePage((new URLSearchParams(location.search).get("line") || "E-02").toUpperCase(), (new URLSearchParams(location.search).get("line") || "E-02").toUpperCase(), [], 0, ["MACHINE", "MATERIAL", "METHODE", "MAN"], {"mode": "none"})'>
+            <!-- Modal "Lihat Dekidaka" -- 1 board saja, dibangun via
+                 buildDekidakaModalBoard() (assets/machine-page.js). -->
+            <template x-if="dekidakaModalOpen">
+              <div class="dkd-modal-overlay" @click.self="closeDekidakaModal()">
+                <div class="dkd-modal-box">
+                  <div class="dkd-modal-head">
+                    <span class="dkd-modal-title">Dekidaka</span>
+                    <div class="dkd-modal-head-actions">
+                      <!-- Zoom papan Dekidaka. Papannya lebar (~1760px) jadi otomatis
+                           dikecilkan agar pas layar; tombol ini untuk memperbesar
+                           supaya tulisannya kebaca. Bisa juga Ctrl + scroll, atau
+                           klik 2x di papannya (pas layar <-> 100%). -->
+                      <div class="dkd-zoom">
+                        <button type="button" class="dkd-zoom-btn" title="Perkecil (Ctrl + scroll)" @click="dekidakaModalZoomOut()">&minus;</button>
+                        <button type="button" class="dkd-zoom-label" title="Klik untuk paskan ke layar" @click="dekidakaModalZoomFit()" x-text="dekidakaModalZoomLabel()"></button>
+                        <button type="button" class="dkd-zoom-btn" title="Perbesar (Ctrl + scroll)" @click="dekidakaModalZoomIn()">+</button>
+                      </div>
+                      <button type="button" class="dkd-btn" title="Print" @click="printDekidakaModalBoard()">🖨</button>
+                      <button type="button" class="dkd-btn" title="Export PDF" @click="exportDekidakaModalBoardPDF()">📄</button>
+                      <button type="button" class="btn-secondary btn-sm" @click="closeDekidakaModal()">✕ Tutup</button>
+                    </div>
+                  </div>
+                  <div class="dkd-modal-body">
+                    <div id="dkdModalBoardWrap" class="dkd-modal-board-wrap"></div>
+                  </div>
+                </div>
+              </div>
+            </template>
+</div>
+</body>
+</html>

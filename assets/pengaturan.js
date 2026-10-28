@@ -58,6 +58,7 @@
     l.id = id; l.rel = "stylesheet";
     l.href = "https://fonts.googleapis.com/css2?family=" + f.gf + "&display=swap";
     (document.head || document.documentElement).appendChild(l);
+    try { if (document.fonts && document.fonts.load) document.fonts.load("16px '" + f.label + "'"); } catch (e) {}
   }
 
   function apply(p) {
@@ -75,7 +76,9 @@
     if (p.font === "inter") {          // bawaan: kembalikan ke nilai di style.css
       root.style.removeProperty("--font-body");
       root.style.removeProperty("--font-display");
+      root.style.removeProperty("--font-ui");
     } else {
+      root.style.setProperty("--font-ui", f.stack);
       root.style.setProperty("--font-body", f.stack);
       root.style.setProperty("--font-display", f.stack);
     }

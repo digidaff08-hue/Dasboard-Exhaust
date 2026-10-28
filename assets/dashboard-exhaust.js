@@ -263,6 +263,7 @@ function dashboardExhaust() {
       if (this.activeTab === "kualitas" && tab !== "kualitas") this.destroyKualitasCharts();
       if (this.activeTab === "attendance" && tab !== "attendance") this.destroyAttendanceCharts();
       this.activeTab = tab;
+      if (tab === "performance") { this.perfDilihat[this.perfLine] = true; this.$nextTick(() => this.perfComputeIframeHeight()); return; }
       if (tab === "plan_harian") { await this.fetchPlanHarian(); return; }
       // Tab langsung digambar pakai data yang sudah ada di memori (hasil
       // prefetch di init() / kunjungan sebelumnya), baru kemudian fetch
@@ -1423,6 +1424,7 @@ function dashboardExhaust() {
     // kosong di bawah card) -- px pasti dari window.innerHeight supaya
     // tidak nebak-nebak tinggi header/nav di atasnya.
     perfIframeHeight: 560,
+    perfDilihat: {},   // line yang iframe-nya sudah dibuka (tetap hidup)
     // CATATAN: pernah dicoba tinggi iframe mengikuti tinggi ISI-nya
     // (diukur dari luar + ResizeObserver) supaya tidak ada ruang kosong
     // menggantung di tab Tahunan. DIBATALKAN: saat file dibuka langsung

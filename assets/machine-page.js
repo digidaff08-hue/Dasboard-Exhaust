@@ -728,6 +728,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.session = await requireAuth();
       if (!await requireStaff(this.session)) return;
       if (!this.session) return;
+      // Mode "solo" (halaman dekidaka-line.html): HANYA papan Dekidaka. Tidak
+      // memuat data produksi / repair / 3D / realtime halaman line sama sekali.
+      if (new URLSearchParams(location.search).get("solo") === "1") {
+        this.loading = false;
+        this.dekidakaMulaiInline();
+        return;
+      }
       window.addEventListener("online", () => { this.isOnline = true; this.syncNow(); });
       window.addEventListener("offline", () => { this.isOnline = false; });
       setInterval(() => this.syncNow(), 20000);
@@ -814,6 +821,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         try {
           const wantTab = new URLSearchParams(location.search).get("tab");
           if (wantTab === "performance") this.openPerformanceTab();
+          // ?dekidaka=1 -> dipakai halaman Dashboard Line: papan Dekidaka
+          // langsung terbuka, halaman line di belakangnya disembunyikan, dan
+          // tombol Tutup memberi tahu halaman induk (postMessage).
+          if (new URLSearchParams(location.search).get("dekidaka") === "1") this.dekidakaMulaiInline();
         } catch (e) { /* noop -- URL aneh, biarin default */ }
       } catch (err) {
         this.flash("Gagal memuat halaman: " + (err.message || err), true);
@@ -1573,8 +1584,41 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         }
       });
     },
+    // Dipakai halaman Dashboard Line (?dekidaka=1[&inline=1]): papan Dekidaka
+    // langsung terbuka dan halaman di belakangnya disembunyikan.
+    dekidakaMulaiInline() {
+        const st = document.createElement("style");
+        // inline=1 -> papan menempel penuh di dalam kotak Dashboard Line
+        // (tanpa latar gelap, tanpa tombol Tutup).
+        const inline = new URLSearchParams(location.search).get("inline") === "1";
+        const solo = new URLSearchParams(location.search).get("solo") === "1";
+        // Mode solo: isi halaman memang hanya papan Dekidaka, jadi body TIDAK
+        // boleh disembunyikan (visibility diwariskan ke salinan yang dipakai
+        // Print/PDF -> hasilnya kosong).
+        st.textContent = "html,body{background:transparent!important}" + (solo ? "" : " body{visibility:hidden} .dkd-modal-overlay,.dkd-modal-overlay *{visibility:visible}")
+          + (inline ? " .dkd-modal-overlay{background:transparent!important;padding:0!important;align-items:stretch!important;justify-content:stretch!important} .dkd-modal-box{width:100%!important;min-width:0!important;max-width:none!important;max-height:none!important;height:100%!important;border-radius:0!important;box-shadow:none!important} .dkd-modal-head-actions .btn-secondary{display:none!important} .dkd-modal-title,.dkd-big-line{display:none!important} .dkd-board{border-left:none!important} .dkd-modal-body{overflow:auto!important} .dkd-modal-body{padding:0!important;background:#fff!important} html,body{overflow:hidden!important} .dkd-modal-head{display:none!important}" : "");
+        document.head.appendChild(st);
+      // Tombol zoom / print / PDF ada di halaman induk (di samping kotak
+      // Dekidaka) -- perintahnya masuk lewat postMessage, label zoom dikirim balik.
+      if (inline && window.parent !== window) {
+        const kirimZoom = () => { try { window.parent.postMessage({ dekidakaZoom: this.dekidakaModalZoomLabel() }, "*"); } catch (e) {} };
+        window.addEventListener("message", (e) => {
+          const a = e.data && e.data.dekidakaAksi;
+          if (!a) return;
+          if (a === "zoomIn") this.dekidakaModalZoomIn();
+          else if (a === "zoomOut") this.dekidakaModalZoomOut();
+          else if (a === "fit") this.dekidakaModalZoomFit();
+          else if (a === "print") this.printDekidakaModalBoard();
+          else if (a === "pdf") this.exportDekidakaModalBoardPDF();
+          setTimeout(kirimZoom, 60);
+        });
+        setTimeout(kirimZoom, 600);
+      }
+      this.$nextTick(() => setTimeout(() => this.openDekidakaModal(), 100));
+    },
     closeDekidakaModal() {
       this.dekidakaModalOpen = false;
+      try { if (window.parent !== window && new URLSearchParams(location.search).get("dekidaka") === "1") window.parent.postMessage({ dekidakaTutup: true }, "*"); } catch (e) {}
       if (this._dkdModalResizeHandler) window.removeEventListener("resize", this._dkdModalResizeHandler);
       if (this._dkdModalBodyEl) {
         if (this._dkdWheelHandler) this._dkdModalBodyEl.removeEventListener("wheel", this._dkdWheelHandler);
@@ -1629,6 +1673,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       container.querySelector(".dkd-btn-print").addEventListener("click", () => this.dekidakaPrintBoard(container));
       container.querySelector(".dkd-btn-pdf").addEventListener("click", () => this.dekidakaExportBoardPDF(container, line));
       requestAnimationFrame(() => this.scaleDekidakaModalBoard());
+      // Dashboard Line (iframe inline): kabari halaman induk bahwa papan sudah siap tampil.
+      try { if (window.parent !== window && new URLSearchParams(location.search).get("inline") === "1") setTimeout(() => window.parent.postMessage({ dekidakaSiap: true }, "*"), 350); } catch (e) {}
     },
     // Sama pola dgn dekidakaComputeScale() di dashboard-exhaust.html: skala
     // px pasti dihitung sekali (bukan ResizeObserver) tiap modal dibuka /
@@ -1687,9 +1733,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // yang ukurannya justru di-set fungsi ini) -- lihat catatan di CSS
       // .dkd-modal-board-wrap. Angka2 ini cocok dgn CSS: overlay padding
       // 20px x2, modal max 96vw/96vh, body padding 10px x2.
-      const PAD_OVERLAY = 40, PAD_BODY = 20;
-      const availW = Math.max(320, Math.min(window.innerWidth * 0.96, window.innerWidth - PAD_OVERLAY) - PAD_BODY);
-      const availH = Math.max(240, Math.min(window.innerHeight * 0.96, window.innerHeight - PAD_OVERLAY) - headH - PAD_BODY - 4);
+      // Mode inline (kotak Dashboard Line): tanpa bingkai & padding, papan
+      // memenuhi seluruh kotak.
+      const inlineMode = new URLSearchParams(location.search).get("inline") === "1";
+      const PAD_OVERLAY = inlineMode ? 0 : 40, PAD_BODY = inlineMode ? 0 : 20;
+      const kapW = inlineMode ? 1 : 0.96, kapH = inlineMode ? 1 : 0.96;
+      const availW = Math.max(inlineMode ? 100 : 320, Math.min(window.innerWidth * kapW, window.innerWidth - PAD_OVERLAY) - PAD_BODY);
+      const availH = Math.max(inlineMode ? 100 : 240, Math.min(window.innerHeight * kapH, window.innerHeight - PAD_OVERLAY) - headH - PAD_BODY - (inlineMode ? 1 : 4));
 
       // Skala "pas layar". Disimpan supaya tombol zoom bisa menghitung
       // kelipatannya, dan supaya saat jendela diubah ukurannya zoom
@@ -1719,6 +1769,11 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // ruang yang ada, perataan tengah DILEPAS -- kalau tidak, sisi kiri
       // papan terpotong dan tidak bisa dicapai walau di-scroll.
       wrap.style.margin = lebar <= availW ? "0 auto" : "0";
+      // Mode inline: kabari halaman induk angka zoom terbaru (dipakai juga
+      // saat zoom lewat Ctrl + scroll / klik 2x di papan).
+      if (inlineMode && window.parent !== window) {
+        try { window.parent.postMessage({ dekidakaZoom: this.dekidakaModalZoomLabel() }, "*"); } catch (e) {}
+      }
     },
     dekidakaGetTimesForBlock(container, blockNo) {
       const schedule = DKD_TIME_TABLE[blockNo];

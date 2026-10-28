@@ -288,7 +288,7 @@ function loginPage() {
       try {
         const pref = (JSON.parse(localStorage.getItem("app_pref_v1")) || {}).halamanAwal;
         const boleh = admin
-          ? ["dashboard-exhaust.html","input-produksi.html","input-attendance.html","andon.html","perencanaan-produksi.html","data-mentah.html","data-karyawan.html","data-dashboard.html"]
+          ? ["dashboard-exhaust.html","dashboard-line.html","input-produksi.html","input-attendance.html","andon.html","perencanaan-produksi.html","data-mentah.html","data-karyawan.html","data-dashboard.html"]
           : leader ? ["dashboard-exhaust.html","input-produksi.html","input-attendance.html","andon.html"] : [];
         if (pref && pref !== "auto" && boleh.indexOf(pref) >= 0) return pref;
       } catch (e) { /* abaikan -> pakai aturan otomatis */ }
