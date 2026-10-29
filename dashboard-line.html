@@ -67,6 +67,9 @@
   .dl-foto-tools .dl-pj-btn { font-family: inherit; font-size: 0.625rem; font-weight: 800; padding: 2px 8px; line-height: 1.3; }
   .dl-foto-tools { display: flex; gap: 4px; align-items: center; }
   .dl-foto { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--border); border-radius: 8px; overflow: hidden; background: rgba(128,128,128,.04); }
+  .dl-foto-besar { align-items: center; justify-content: center; background: #fff; }
+  .dl-foto-besar img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+  .dl-foto-tutup { position: absolute; top: 10px; right: 10px; }
   .dl-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .dl-sheet { width: 100%; border-collapse: collapse; font-size: 0.6875rem; table-layout: fixed; }
   .dl-sheet th, .dl-sheet td { border: 1px solid var(--border); padding: 4px 3px; text-align: center; }
@@ -164,6 +167,12 @@
     </template>
     <template x-if="bolehLihat()">
       <div class="dl-wrap">
+      <div class="dl-besar" x-show="fotoBesar" x-cloak @click.self="fotoBesar = false">
+        <div class="dl-besar-box dl-foto-besar">
+          <img :src="fotoUrl" alt="TSK">
+          <button type="button" class="dl-tool dl-foto-tutup" title="Tutup (Esc)" @click="fotoBesar = false">&#10005;</button>
+        </div>
+      </div>
       <iframe class="dl-perf" x-show="tampil !== 'dashboard'" x-cloak :src="perfUrl" title="Performance"></iframe>
       <div class="dl-body" x-show="tampil === 'dashboard'">
         <!-- Dekidaka versi besar (layar penuh) -->
@@ -237,6 +246,9 @@
                 <span class="dl-foto-tools" x-show="isAdmin()">
                   <label class="dl-pj-btn" :style="fotoBusy ? 'opacity:.5;pointer-events:none' : ''"><span x-text="fotoBusy ? 'Mengunggah…' : (fotoUrl ? 'Ganti' : 'Unggah')"></span><input type="file" accept="image/*" hidden @change="unggahFoto($event)"></label>
                   <button type="button" class="dl-pj-btn" x-show="fotoUrl" @click="hapusFoto()">Hapus</button>
+                </span>
+                <span class="dl-foto-tools" x-show="fotoUrl">
+                  <button type="button" class="dl-pj-btn" title="Lihat layar besar" @click="fotoBesar = true">&#128065; Besar</button>
                 </span>
               </div>
               <div class="dl-foto">

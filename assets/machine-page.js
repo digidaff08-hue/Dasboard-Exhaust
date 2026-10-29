@@ -411,7 +411,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261029s";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261029t";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:45", "20:30"] },
@@ -2031,9 +2031,19 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       try {
         const jumlahHari = new Date(tahun, bulan, 0).getDate();
         const pad = (n) => String(n).padStart(2, "0");
-        const { data, error } = await supabaseClient.rpc("dashboard_dekidaka_production_month", {
-          p_mesin: line, p_dari: `${tahun}-${pad(bulan)}-01`, p_sampai: `${tahun}-${pad(bulan)}-${pad(jumlahHari)}`,
-        });
+        // Diambil per minggu (potongan kecil, paralel) supaya tiap permintaan ringan.
+        const offset0 = (new Date(tahun, bulan - 1, 1).getDay() + 6) % 7;
+        const nPotong = Math.floor((jumlahHari - 1 + offset0) / 7) + 1;
+        const potongan = [];
+        for (let w = 0; w < nPotong; w++) {
+          const d1 = Math.max(1, w * 7 - offset0 + 1), d2 = Math.min(jumlahHari, w * 7 - offset0 + 7);
+          potongan.push(supabaseClient.rpc("dashboard_dekidaka_production_month", {
+            p_mesin: line, p_dari: `${tahun}-${pad(bulan)}-${pad(d1)}`, p_sampai: `${tahun}-${pad(bulan)}-${pad(d2)}`,
+          }));
+        }
+        const balasan = await Promise.all(potongan);
+        const error = (balasan.find((b) => b.error) || {}).error || null;
+        const data = [].concat(...balasan.map((b) => b.data || []));
         const offset = (new Date(tahun, bulan - 1, 1).getDay() + 6) % 7;
         const nMinggu = Math.floor((jumlahHari - 1 + offset) / 7) + 1;
         const aktual = Array(nMinggu).fill(0), target = Array(nMinggu).fill(0);

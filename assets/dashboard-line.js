@@ -18,7 +18,7 @@
   const COL = { productivity: "#0EA5E9", availability: "#10B981", downtime: "#F97316", ngInline: "#F43F5E", money: "#1D4ED8", straight: "#14B8A6", perjam: "#6366F1", trend: "#2563EB" };
 
   // Naikkan setiap kali file Dekidaka (machine-page.js, style.css, dekidaka-line.html) berubah.
-  const DEKI_VER = "20261029s";
+  const DEKI_VER = "20261029t";
 
   const pad2 = (n) => String(n).padStart(2, "0");
   const tglStr = (y, m, d) => y + "-" + pad2(m) + "-" + pad2(d);
@@ -442,6 +442,7 @@
 
       // ---------- Kotak foto (1 foto per line, disimpan di Supabase Storage bucket "line-foto") ----------
       fotoUrl: "",
+      fotoBesar: false,
       fotoPesan: "",
       fotoBusy: false,
       async muatFoto() {
@@ -516,7 +517,7 @@
           if (d.dekidakaData && !dariBesar) { this.dekiData = d.dekidakaData; this.bangunPerjam(); }
           if (d.dekidakaSetOk) { this._dekiAck = true; if (/Dekidaka belum ikut/.test(this.pesan)) this.pesan = ""; }
         });
-        window.addEventListener("keydown", (e) => { if (e.key === "Escape" && this.dekiBuka) this.tutupDekidaka(); });
+        window.addEventListener("keydown", (e) => { if (e.key === "Escape") { if (this.fotoBesar) this.fotoBesar = false; else if (this.dekiBuka) this.tutupDekidaka(); } });
         setTimeout(() => { this.dekiSiap = true; }, 8000);   // jaga-jaga kalau sinyal siap tidak datang
       },
       ubahPeriode() { this.muat(); },
