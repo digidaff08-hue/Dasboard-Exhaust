@@ -411,7 +411,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261029v";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261029w";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:45", "20:30"] },
@@ -1826,7 +1826,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           // Minta hitung Aktual/Target per minggu untuk 1 bulan (Grafik Trend Volume di Dashboard Line).
           const mg = e.data && e.data.dekidakaMingguan;
           if (mg) {
-            this.dekidakaHitungMingguan(mg).then((r) => {
+            // Satu perhitungan per (line,bulan) pada satu waktu -- ulangan dari induk memakai janji yang sama (tidak membanjiri jaringan).
+            const kunci = `${mg.line}|${mg.tahun}|${mg.bulan}`;
+            this._mgJanji = this._mgJanji || {};
+            if (!this._mgJanji[kunci]) {
+              this._mgJanji[kunci] = this.dekidakaHitungMingguan(mg).then((r) => { if (r.error) delete this._mgJanji[kunci]; return r; });
+            }
+            this._mgJanji[kunci].then((r) => {
               try { window.parent.postMessage({ dekidakaMingguanHasil: r }, "*"); } catch (err) {}
             });
             return;
@@ -2038,10 +2044,15 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const pekerja = async () => {
           while (idx < tugas.length && !error) {
             const t = tugas[idx++];
-            const res = await supabaseClient.rpc("dashboard_dekidaka_production_rows", {
-              p_mesin: line, p_start: new Date(tahun, bulan - 1, t.d).toISOString(),
-              p_end: new Date(tahun, bulan - 1, t.d + 1).toISOString(), p_shift: t.sh,
-            });
+            let res = null;
+            for (let coba = 0; coba < 3; coba++) {   // ulangi bila jaringan putus sesaat
+              res = await supabaseClient.rpc("dashboard_dekidaka_production_rows", {
+                p_mesin: line, p_start: new Date(tahun, bulan - 1, t.d).toISOString(),
+                p_end: new Date(tahun, bulan - 1, t.d + 1).toISOString(), p_shift: t.sh,
+              });
+              if (!res.error) break;
+              await new Promise((ok) => setTimeout(ok, 600 * (coba + 1)));
+            }
             if (res.error) { error = res.error; return; }
             (res.data || []).forEach((r) => data.push({ ...r, tanggal: `${tahun}-${pad(bulan)}-${pad(t.d)}`, shift: t.sh }));
           }
@@ -2052,7 +2063,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const aktual = Array(nMinggu).fill(0), target = Array(nMinggu).fill(0);
         const hariA = {}, hariT = {}, pctHari = {};
         if (error) {
-          hasil.error = "Gagal memuat data bulanan: " + (error.message || "");
+          hasil.error = "Gagal memuat data bulanan: " + (error.message || "") + " (tgl produksi ke-" + (tugas[Math.max(0, idx - 1)] || {}).d + ")";
         } else {
           const colModels = this.dekidakaColumnModels(line), labels = dkdGetColumns(line);
           const grup = new Map();
