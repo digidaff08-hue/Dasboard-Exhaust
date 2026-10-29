@@ -18,7 +18,7 @@
   const COL = { productivity: "#0EA5E9", availability: "#10B981", downtime: "#F97316", ngInline: "#F43F5E", money: "#1D4ED8", straight: "#14B8A6", perjam: "#6366F1", trend: "#2563EB" };
 
   // Naikkan setiap kali file Dekidaka (machine-page.js, style.css, dekidaka-line.html) berubah.
-  const DEKI_VER = "20261028f";
+  const DEKI_VER = "20261029n";
 
   const pad2 = (n) => String(n).padStart(2, "0");
   const tglStr = (y, m, d) => y + "-" + pad2(m) + "-" + pad2(d);
@@ -171,52 +171,34 @@
       // Manual = user memilih tanggal/shift lain dari yang sedang berjalan. Kalau pilihannya
       // kembali ke hari ini + shift saat ini, otomatis ikut jam lagi.
       tandaiManual() { this.perjamManual = !(this.perjamTgl === tglHariIni() && this.perjamShift === shiftSekarang()); },
+      // Grafik Perjam = Rasio Dekidaka per blok (Hasil Aktual / Target x 100), diambil dari papan Dekidaka
+      // (iframe mengirim data per blok lewat pesan "dekidakaData"), dikelompokkan per part (PERJAM_CFG).
       async muatPerjam() {
         if (!this.isAdmin() || typeof Chart === "undefined") return;
+        this.dekiSinkron();           // minta papan Dekidaka ikut tanggal & shift ini -> papan mengirim data baru
+        this.bangunPerjam();
+      },
+      async bangunPerjam() {
+        if (!this.isAdmin() || typeof Chart === "undefined") return;
         const token = (this._pjTok = (this._pjTok || 0) + 1);
-        this.dekiSinkron();
         const line = this.activeTab, sh = this.perjamShift;
-        this.perjamMemuat = true; this.perjamPesan = "";
-        const [yy, mm, dd] = String(this.perjamTgl || tglHariIni()).split("-").map(Number);
-        const awal = new Date(yy, mm - 1, dd), akhir = new Date(yy, mm - 1, dd + 1);
-        let rows = [], kph = KPJ_DEFAULT[line] || 0;
-        try {
-          const [pr, cap] = await Promise.all([
-            supabaseClient.rpc("dashboard_dekidaka_production_rows", { p_mesin: line, p_start: awal.toISOString(), p_end: akhir.toISOString(), p_shift: sh }),
-            supabaseClient.from("production_capa_line").select("mesin,kapasitas_per_jam").eq("mesin", line),
-          ]);
-          if (token !== this._pjTok) return;
-          if (pr.error) throw pr.error;
-          rows = pr.data || [];
-          const c = (cap.data || [])[0];
-          if (c && Number(c.kapasitas_per_jam) > 0) kph = Number(c.kapasitas_per_jam);
-        } catch (e) {
-          console.error("Gagal memuat grafik Perjam:", e);
-          this.perjamPesan = "Gagal memuat data Perjam"; this.perjamPanels = []; this.perjamMemuat = false; this.hapusPerjam(); return;
-        }
-        // Kelompokkan per grafik (sesuai PERJAM_CFG line ini) -> qty per blok jam
-        const jumat = awal.getDay() === 5;
-        const waktuBlok = BLOK.map((b) => (sh === "2" ? b.s2 : jumat ? b.j1 : b.s1));
+        const dd = this.dekiData;
+        const cocok = dd && dd.line === line && dd.tanggal === this.perjamTgl && String(dd.shift) === String(sh);
+        const baris = cocok ? (dd.baris || []) : [];
         const cfg = PERJAM_CFG[line] || [{ judul: "", kode: [] }, { judul: "", kode: [] }];
         const panels = cfg.map((g) => {
-          const qty = Array(11).fill(0);
-          rows.forEach((r) => {
-            if (!r.part_number || !r.jam || !g.kode.some((k) => String(r.part_number).toUpperCase().includes(k))) return;
-            const t = menit(r.jam);
-            const idx = waktuBlok.findIndex((w) => w && dalam(t, menit(w[0]), menit(w[1])));
-            if (idx >= 0) qty[idx] += Number(r.qty) || 0;
-          });
-          return {
-            part: g.judul, qty,
-            // % = qty blok / (kapasitas per jam x durasi blok); blok tanpa produksi -> tidak digambar
-            pct: qty.map((q, i) => {
-              const w = waktuBlok[i]; if (!w || !kph || q <= 0) return null;
-              let mnt = menit(w[1]) - menit(w[0]); if (mnt < 0) mnt += 1440;
-              return Math.round((q / (kph * mnt / 60)) * 1000) / 10;
-            }),
-          };
+          const pct = Array(11).fill(null), qty = Array(11).fill(0);
+          for (let i = 0; i < 11; i++) {
+            const rs = baris.filter((r) => r.blok === i + 1 && r.part && g.kode.some((k) => String(r.part).toUpperCase().includes(k)));
+            if (!rs.length) continue;
+            const q = rs.reduce((t, r) => t + (Number(r.qty) || 0), 0);
+            const kols = [...new Set(rs.map((r) => r.kol))];
+            const tg = kols.reduce((t, c) => t + (Number(((dd.target || [])[i] || [])[c]) || 0), 0);
+            qty[i] = q;
+            if (q > 0 && tg > 0) pct[i] = Math.round((q / tg) * 1000) / 10;
+          }
+          return { part: g.judul, qty, pct };
         });
-        // Selalu tampil minimal 2 bagan (kosong bila tidak ada produksi), seperti format Excel.
         while (panels.length < 2) panels.push({ part: "", pct: Array(11).fill(null), qty: Array(11).fill(0) });
         this.hapusPerjam();
         this.perjamPanels = panels; this.perjamMemuat = false;
@@ -224,6 +206,7 @@
         if (token !== this._pjTok) return;
         panels.forEach((pn, i) => this.gambarPerjam(pn, i, sh));
       },
+      dekiData: null,
       hapusPerjam() { Object.keys(this.charts).filter((k) => /^dlPerjam\d+$/.test(k)).forEach((k) => { try { this.charts[k].destroy(); } catch (e) {} delete this.charts[k]; }); },
       gambarPerjam(pn, i, sh) {
         const c = document.getElementById("dlPerjam" + i); if (!c) return;
@@ -417,6 +400,13 @@
           const dariBesar = !!(frBesar && frBesar.contentWindow === e.source);
           if (d.dekidakaSiap) { if (dariBesar) { this.dekiBesarSiap = true; this.dekiSinkron(frBesar); } else { this.dekiSiap = true; this.dekiSinkron(document.querySelector(".dl-deki iframe")); } }
           if (d.dekidakaZoom) { if (dariBesar) this.dekiZoomBesar = d.dekidakaZoom; else this.dekiZoom = d.dekidakaZoom; }
+          if (d.dekidakaBuild) {
+            const b = d.dekidakaBuild, salah = [];
+            if (b.js !== DEKI_VER) salah.push("assets/machine-page.js");
+            if (b.css !== DEKI_VER) salah.push("assets/style.css");
+            this.pesan = salah.length ? "File belum versi terbaru: " + salah.join(", ") + " - timpa dari zip lalu Ctrl+F5." : (/File belum versi terbaru/.test(this.pesan) ? "" : this.pesan);
+          }
+          if (d.dekidakaData && !dariBesar) { this.dekiData = d.dekidakaData; this.bangunPerjam(); }
           if (d.dekidakaSetOk) { this._dekiAck = true; if (/Dekidaka belum ikut/.test(this.pesan)) this.pesan = ""; }
         });
         window.addEventListener("keydown", (e) => { if (e.key === "Escape" && this.dekiBuka) this.tutupDekidaka(); });

@@ -411,6 +411,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
+const DKD_BUILD = "20261029n";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:45", "20:30"] },
@@ -633,6 +634,64 @@ function dkdTargetBlok(line, kolomLabel, menit) {
   if (!(out > 0)) return null;
   return Math.ceil((menit * out) / 60 - 1e-9);
 }
+// Mode ringkas (papan di kotak kecil Dashboard Line): kolom dirapatkan supaya papan jauh lebih
+// sempit. Print/PDF selalu memakai ukuran penuh -> salinan dikembalikan ke penuh.
+function dkdKembalikanPenuh(el) {
+  el.classList.remove("dkd-ringkas");
+  const t = el.querySelector("table.dkd-main");
+  if (t) { t.style.width = ""; t.style.flex = ""; delete t.dataset.baseW; t.querySelectorAll("col").forEach((c) => { c.style.width = ""; }); }
+}
+function dkdTerapkanRingkas(board) {
+  board.classList.add("dkd-ringkas");
+  const t = board.querySelector("table.dkd-main");
+  if (!t) return;
+  // Tabel fixed-layout yang lebarnya dipaksa 1px akan melebar sendiri sebesar jumlah lebar kolom.
+  t.style.width = "1px"; t.style.flex = "0 0 auto";
+  const w = t.offsetWidth;
+  t.style.width = w ? w + "px" : "";
+}
+// Mode ringkas: lebarkan kolom Masalah & Penanganan sampai papan memenuhi lebar kotak
+// (tidak ada area kosong kiri-kanan). Dipanggil sebelum menghitung skala pas-layar.
+function dkdIsiLebar(board, availW, availH) {
+  if (!board.classList.contains("dkd-ringkas")) return;
+  const t = board.querySelector("table.dkd-main");
+  const cm = t && t.querySelector("col.dkd-c-masalah"), cp = t && t.querySelector("col.dkd-c-penanganan");
+  if (!cm || !cp) return;
+  if (!t.dataset.baseW) {
+    t.dataset.baseW = parseFloat(t.style.width) || t.offsetWidth;
+    t.dataset.baseM = cm.offsetWidth || 110; t.dataset.baseP = cp.offsetWidth || 100;
+  }
+  const baseW = +t.dataset.baseW, baseM = +t.dataset.baseM, baseP = +t.dataset.baseP;
+  const pasang = (extra) => {
+    cm.style.width = (baseM + extra * 0.55) + "px"; cp.style.width = (baseP + extra * 0.45) + "px";
+    t.style.width = (baseW + extra) + "px";
+  };
+  let extra = 0; pasang(0);
+  for (let i = 0; i < 4; i++) {
+    const bw = board.offsetWidth, bh = board.offsetHeight;
+    if (!bw || !bh) break;
+    const want = availW * bh / availH;          // lebar papan agar rasionya sama dengan kotak
+    const next = Math.max(0, extra + (want - bw));
+    if (Math.abs(next - extra) < 2) break;
+    extra = next; pasang(extra);
+  }
+}
+// Cetak/PDF potret: tinggikan baris tabel sampai papan mengisi halaman A4 (rasio lebar:tinggi area cetak).
+function dkdIsiTinggi(clone, rasio) {
+  const t = clone.querySelector("table.dkd-main");
+  if (!t) return;
+  const cells = t.querySelectorAll("tbody td");
+  const n = Math.max(1, t.querySelectorAll("tbody tr").length);
+  let pad = 0;
+  for (let i = 0; i < 4; i++) {
+    const w = clone.offsetWidth, h = clone.offsetHeight;
+    if (!w || !h) return;
+    const sisa = w / rasio - h;
+    if (Math.abs(sisa) < 4) break;
+    pad = Math.max(0, pad + sisa / n / 2);
+    t.style.setProperty("--dkd-pad-fill", pad.toFixed(2) + "px");
+  }
+}
 function dkdBuildBoardHTML(line) {
   const cols = dkdGetColumns(line);
   const today = new Date();
@@ -676,7 +735,7 @@ function dkdBuildBoardHTML(line) {
         <tbody class="dkd-tbody">${dkdBuildAllBlocksHTML(cols.length)}</tbody>
       </table>
       <div class="dkd-summary">
-        <div class="dkd-card"><div class="dkd-card-lbl">Jam Produksi</div><div class="dkd-card-val dkd-jam-produksi">0</div></div>
+        <div class="dkd-card"><div class="dkd-card-lbl">Jam Produksi (Menit)</div><div class="dkd-card-val dkd-jam-produksi">0</div></div>
         <div class="dkd-card"><div class="dkd-card-lbl">Qty Produksi</div><div class="dkd-card-val dkd-qty-produksi">0</div></div>
         <div class="dkd-card"><div class="dkd-card-lbl">Downtime (Menit)</div><div class="dkd-card-val dkd-downtime-menit">0</div></div>
         <div class="dkd-card"><div class="dkd-card-lbl">Downtime Rasio</div><div class="dkd-card-val dkd-downtime-rasio">0.0%</div></div>
@@ -1802,6 +1861,15 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       wrap.appendChild(scaleBox);
       const container = scaleBox.querySelector(".dkd-board");
       this._dkdModalContainer = container;
+      { const q = new URLSearchParams(location.search);
+        if (q.get("inline") === "1") container.classList.add("dkd-kartu-bawah");
+        if (q.get("inline") === "1" && q.get("penuh") !== "1") dkdTerapkanRingkas(container);
+        // Lapor versi file ke halaman induk (dipakai untuk mendeteksi file yang belum ikut tertimpa).
+        if (q.get("inline") === "1" && window.parent !== window) {
+          let css = "";
+          try { css = getComputedStyle(container).getPropertyValue("--dkd-css-build").trim().replace(/["']/g, ""); } catch (e) {}
+          try { window.parent.postMessage({ dekidakaBuild: { js: DKD_BUILD, css } }, "*"); } catch (e) {}
+        } }
       this.dekidakaUpdateAllWaktu(container);
       this.dekidakaFillMp(container, line);
       this.dekidakaLoadDowntime(container, line);
@@ -1880,7 +1948,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (!scaleBox || !board) return;
       // offsetWidth/offsetHeight TIDAK terpengaruh transform, jadi ini tetap
       // ukuran asli board walau sudah pernah diskalakan sebelumnya.
-      const boardW = board.offsetWidth, boardH = board.offsetHeight;
+      let boardW = board.offsetWidth, boardH = board.offsetHeight;
       if (!boardW || !boardH) return;
       const head = document.querySelector(".dkd-modal-head");
       const headH = head ? head.offsetHeight : 52;
@@ -1899,6 +1967,17 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // Skala "pas layar". Disimpan supaya tombol zoom bisa menghitung
       // kelipatannya, dan supaya saat jendela diubah ukurannya zoom
       // pilihan user TIDAK hilang (dia pengali di atas fit).
+      if (inlineMode && Math.abs((this.dkdModalZoom || 1) - 1) < 0.01) {
+        dkdIsiLebar(board, availW, availH);
+        boardW = board.offsetWidth; boardH = board.offsetHeight;
+      }
+      if (inlineMode && new URLSearchParams(location.search).get("penuh") === "1" && Math.abs((this.dkdModalZoom || 1) - 1) < 0.01) {
+        // Tampilan besar: bentuk potret A4 yang sama persis dengan hasil Print/PDF.
+        board.style.width = "";
+        board.classList.add("dkd-print-compact");
+        dkdIsiTinggi(board, 194 / 281);
+        boardW = board.offsetWidth; boardH = board.offsetHeight;
+      }
       const fit = Math.min(1, availW / boardW, availH / boardH);
       this.dkdModalFit = fit;
       const scale = Math.min(Math.max(fit * (this.dkdModalZoom || 1), fit), this.DKD_ZOOM_MAKS);
@@ -2114,6 +2193,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // baris part dengan dandori_menit yang sama -> dihitung sekali
       // saja, perlakuan sama dengan performance_aggregate.
       const seenDandori = new Set();
+      let whMenitProduksi = 0;
       for (let n = 1; n <= DKD_TOTAL_BLOCKS; n++) {
         const setVal = (col, rowIdx, text) => {
           const el = container.querySelector(`.dkd-val[data-block="${n}"][data-col="${col}"][data-row="${rowIdx}"]`);
@@ -2124,7 +2204,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const times = this.dekidakaGetTimesForBlock(container, n);
         if (!times) {
           // Blok tidak dipakai di shift ini (mis. blok 11 pada Shift 2).
-          colModels.forEach((_, c) => { setVal(c, 0, ""); setVal(c, 1, ""); setVal(c, 5, ""); });
+          colModels.forEach((_, c) => { setVal(c, 0, ""); setVal(c, 1, ""); setVal(c, 2, ""); setVal(c, 5, ""); });
           if (partEl) partEl.textContent = "";
           if (dandoriEl) dandoriEl.textContent = "";
           continue;
@@ -2145,6 +2225,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         if (dandoriEl) dandoriEl.textContent = dandori > 0 ? String(dandori) : "";
         const kolomLabels = dkdGetColumns(line);
         const menitBlok = ((endMin - startMin) + 1440) % 1440;
+        if (matched.length) whMenitProduksi += menitBlok;
         const kolomAktif = new Set(matched.map((r) => this.dekidakaColumnIndexFor(colModels, r)).filter((c) => c >= 0));
         // Belum ada produksi di blok ini -> Target tetap tampil sebagai patokan, pakai model
         // baris 1 CT TARGET (di kolom pertama yang cocok).
@@ -2161,9 +2242,35 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
             (sum, r) => sum + (this.dekidakaColumnIndexFor(colModels, r) === c ? r.qty : 0), 0);
           if (qty > 0) akum[c] += qty;
           setVal(c, 1, qty > 0 ? String(qty) : "");
+          // Rasio Dekidaka = Hasil Aktual / Target x 100 (dibulatkan, hanya kalau ada produksi & target).
+          setVal(c, 2, (qty > 0 && tgt > 0) ? Math.round((qty / tgt) * 100) + "%" : "");
           setVal(c, 5, qty > 0 ? String(akum[c]) : "");
         });
       }
+      // Kirim data per blok ke halaman induk (Grafik Perjam di Dashboard Line = Rasio Dekidaka per blok).
+      if (new URLSearchParams(location.search).get("inline") === "1" && window.parent !== window) {
+        try {
+          const target = [], baris = [];
+          for (let n = 1; n <= DKD_TOTAL_BLOCKS; n++) {
+            target.push(colModels.map((_, c) => {
+              const el = container.querySelector(`.dkd-val[data-block="${n}"][data-col="${c}"][data-row="0"]`);
+              return el && el.textContent ? Number(el.textContent) || 0 : 0;
+            }));
+            const tt = this.dekidakaGetTimesForBlock(container, n);
+            if (!tt) continue;
+            const sm = dkdTimeToMinutes(tt[0]), em = dkdTimeToMinutes(tt[1]);
+            rows.filter((r) => r.jam && dkdIsMinuteInRange(dkdTimeToMinutes(r.jam), sm, em)).forEach((r) => {
+              const kol = this.dekidakaColumnIndexFor(colModels, r);
+              if (kol >= 0 && r.qty > 0) baris.push({ blok: n, kol, part: r.partNumber, qty: r.qty });
+            });
+          }
+          window.parent.postMessage({ dekidakaData: {
+            line, tanggal: container.querySelector(".dkd-tanggal").value, shift: container.querySelector(".dkd-shift").value, target, baris,
+          } }, "*");
+        } catch (e) { console.error("Gagal kirim data Dekidaka ke induk:", e); }
+      }
+      container._dkdWhMenit = whMenitProduksi;
+      this.dekidakaUpdateKartuJam(container);
     },
     // Kartu ringkasan kanan papan (Jam Produksi, Qty Produksi, Downtime
     // Rasio, Straight Pass Rasio). Kartu Downtime (Menit) & Repair Qty
@@ -2173,6 +2280,16 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     //   Straight Pass Rasio = (produksi - repair) / produksi * 100
     //                         (rumus sama dgn kartu Straightpass
     //                          dashboard, di sini satuannya pcs)
+    // Jam Produksi = jumlah menit blok (kolom Waktu) yang ADA produksinya saja.
+    // Downtime Rasio = downtime / Jam Produksi x 100.
+    dekidakaUpdateKartuJam(container) {
+      const whMenit = container._dkdWhMenit || 0;
+      const downtime = container._dkdDowntimeRingkas || 0;
+      const a = container.querySelector(".dkd-jam-produksi");
+      if (a) a.textContent = String(whMenit);
+      const b = container.querySelector(".dkd-downtime-rasio");
+      if (b) b.textContent = whMenit > 0 ? ((downtime / whMenit) * 100).toFixed(1) + "%" : "0.0%";
+    },
     async dekidakaLoadSummary(container, line) {
       const range = this.dekidakaDayRange(container);
       if (!range) return;
@@ -2182,7 +2299,6 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       });
       if (error) { console.error(`Gagal ambil ringkasan Dekidaka ${line}:`, error); return; }
       const row = Array.isArray(data) ? data[0] : data;
-      const whMenit = Number(row && row.jam_produksi_menit) || 0;
       const qty = Number(row && row.qty_produksi) || 0;
       const repair = Number(row && row.repair_qty) || 0;
       const downtime = Number(row && row.downtime_menit) || 0;
@@ -2190,9 +2306,9 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const el = container.querySelector(cls);
         if (el) el.textContent = text;
       };
-      put(".dkd-jam-produksi", whMenit > 0 ? (whMenit / 60).toFixed(1) : "0");
+      container._dkdDowntimeRingkas = downtime;
+      this.dekidakaUpdateKartuJam(container);
       put(".dkd-qty-produksi", String(qty));
-      put(".dkd-downtime-rasio", whMenit > 0 ? ((downtime / whMenit) * 100).toFixed(1) + "%" : "0.0%");
       put(".dkd-straightpass", qty > 0 ? (((qty - repair) / qty) * 100).toFixed(1) + "%" : "0");
     },
     // ---- Print & Export PDF 1 board (tombol 🖨/📄, skrg di header modal
@@ -2238,11 +2354,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // adanya, diperkecil pakai zoom (zoom ikut mengecilkan LAYOUT, beda
       // dgn transform yang cuma mengecilkan tampilan). ---
       const clone = container.cloneNode(true);
+      dkdKembalikanPenuh(clone);
       clone.classList.add("dkd-print-compact");
       area.appendChild(clone);
       const naturalW = clone.offsetWidth || clone.scrollWidth || 1760;
       const naturalH = clone.offsetHeight || clone.scrollHeight || 1137;
-      clone.style.zoom = Math.min(1, 1040 / naturalW, 715 / naturalH);
+      clone.style.zoom = Math.min(1, 715 / naturalW, 1040 / naturalH);
       document.body.classList.add("dkd-printing");
       window.print();
       window.addEventListener("afterprint", cleanup);
@@ -2259,6 +2376,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     async dekidakaRenderBoardCanvas(container) {
       if (typeof html2canvas === "undefined") return null;
       const clone = container.cloneNode(true);
+      dkdKembalikanPenuh(clone);
       clone.classList.add("dkd-print-compact");
       clone.style.position = "fixed";
       clone.style.left = "-99999px";
@@ -2266,6 +2384,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       clone.style.transform = "none";
       clone.style.zoom = "";
       document.body.appendChild(clone);
+      dkdIsiTinggi(clone, 194 / 281);
       try {
         return await html2canvas(clone, { scale: 2, backgroundColor: "#ffffff" });
       } catch (e) {
@@ -2285,10 +2404,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // JPEG kualitas 0.92 -- hasil PDF ~1MB; dulu PNG bikin file ~30MB.
       const imgData = canvas.toDataURL("image/jpeg", 0.92);
       const { jsPDF } = window.jspdf;
-      // Halaman A4 mendatar beneran (bukan halaman custom seukuran piksel
+      // Halaman A4 potret beneran (bukan halaman custom seukuran piksel
       // gambar spt dulu) -- gambarnya diskalakan proporsional & ditaruh di
       // tengah, jadi PDF-nya enak dibuka maupun dicetak ulang.
-      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pageW = pdf.internal.pageSize.getWidth();
       const pageH = pdf.internal.pageSize.getHeight();
       const margin = 8;

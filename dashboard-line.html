@@ -43,7 +43,7 @@
   .dl-pj-judul { writing-mode: vertical-rl; transform: rotate(180deg); font: 700 0.8125rem Arial, sans-serif; letter-spacing: .04em; padding: 0 3px 0 4px; text-align: center; white-space: nowrap; }
   .dl-pj-kanvas { position: relative; flex: 1; min-width: 0; }
   .dl-chart { position: relative; flex: 1; min-height: 0; }
-  .dl-deki { grid-column: 2; grid-row: 1 / span 2; padding: 0; flex-direction: row; }
+  .dl-deki { grid-column: 2; grid-row: 1 / span 3; padding: 0; flex-direction: row; }
   .dl-deki-tools { flex: 0 0 38px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 4px; border-left: 1px solid var(--border); background: rgba(128,128,128,.05); }
   .dl-tool { width: 30px; height: 30px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); font: inherit; font-size: 0.9375rem; font-weight: 700; line-height: 1; cursor: pointer; padding: 0; }
   .dl-tool:hover { border-color: #4f5fe0; color: #4f5fe0; }
@@ -152,7 +152,7 @@
           <div class="dl-besar-box">
             <span class="dl-sub dl-deki-muat" x-show="!dekiBesarSiap">Memuat Dekidaka…</span>
             <template x-if="dekiBuka">
-              <iframe :src="dekiUrl" title="Dekidaka besar" :style="dekiBesarSiap ? '' : 'opacity:0'"></iframe>
+              <iframe :src="dekiUrl + '&penuh=1'" title="Dekidaka besar" :style="dekiBesarSiap ? '' : 'opacity:0'"></iframe>
             </template>
             <div class="dl-deki-tools" x-show="dekiBesarSiap">
               <button type="button" class="dl-tool" title="Tutup (Esc)" @click="tutupDekidaka()">✕</button>
@@ -215,7 +215,7 @@
             <div class="dl-head"><span class="dl-box-title">Grafik NG Inline</span></div>
             <div class="dl-chart"><canvas id="dlNgInline"></canvas></div>
           </section>
-          <section class="dl-box dl-wide" style="grid-row:3;">
+          <section class="dl-box" style="grid-column:3; grid-row:3;">
             <div class="dl-head"><span class="dl-box-title">Downtime Harian</span><span class="dl-sub" x-text="'Total ' + fmtNum(totalDowntime) + ' menit'"></span></div>
             <div class="dl-chart"><canvas id="dlDowntime"></canvas></div>
           </section>

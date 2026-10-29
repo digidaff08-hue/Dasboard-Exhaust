@@ -1017,7 +1017,7 @@ td.mono, .mono { font-family: var(--font-mono); }
 .dkd-cell .dkd-scale{ position:absolute; top:0; left:0; transform-origin:top left; }
 /* border-left aksen warna per line (lihat DKD_LINE_COLORS / dkdBuildBoardHTML)
    -- biar pas digeser ke samping gampang kebaca lagi board line yang mana. */
-.dkd-board{ width:1720px; background:#fff; padding:14px 14px 14px 18px; font-size:0.75rem; color:#111; font-family: Arial, Helvetica, sans-serif; border-left:8px solid var(--dkd-accent, #1f4e79); }
+.dkd-board{ --dkd-css-build:20261029n; width:1720px; background:#fff; padding:14px 14px 14px 18px; font-size:0.75rem; color:#111; font-family: Arial, Helvetica, sans-serif; border-left:8px solid var(--dkd-accent, #1f4e79); }
 /* Tombol kecil Print/Export PDF per board (muncul di dkd-info-bar, lihat
    dkdBuildBoardHTML) -- dipakai baik di tab Dekidaka ini maupun di modal
    "Lihat Dekidaka" (halaman line, assets/machine-page.js + assets/style.css
@@ -1030,12 +1030,12 @@ td.mono, .mono { font-family: var(--font-mono); }
    #dkdPrintArea yang ditampilkan. Lebih simpel & aman drpd window baru
    (tidak perlu urus base URL/stylesheet terpisah). */
 #dkdPrintArea{ display:none; }
-/* Ukuran halaman cetak ditulis EKSPLISIT dalam mm (A4 mendatar), bukan
+/* Ukuran halaman cetak ditulis EKSPLISIT dalam mm (A4 potret), bukan
    cuma kata kunci "landscape" -- browser lebih patuh ke ukuran eksplisit,
-   jadi hasil cetak tetap mendatar walau radio "Potret/Lanskap" di dialog
+   jadi hasil cetak tetap potret walau radio "Potret/Lanskap" di dialog
    tidak diubah. @page sengaja di luar @media print (memang cuma berlaku
    saat mencetak). */
-@page { size: 297mm 210mm; margin: 8mm; }
+@page { size: 210mm 297mm; margin: 8mm; }
 @media print {
   body.dkd-printing > *:not(#dkdPrintArea){ display:none !important; }
   body.dkd-printing #dkdPrintArea{ display:block !important; margin:0 !important; padding:0 !important; }
@@ -1051,7 +1051,7 @@ td.mono, .mono { font-family: var(--font-mono); }
      width:100% tidak bisa dipecah: dia selalu selebar halaman, tingginya
      ikut rasio, dan rasio board sudah dibuat lebih lebar dari rasio kertas
      (lihat .dkd-print-compact) supaya dijamin muat 1 halaman. */
-  #dkdPrintArea img{ display:block; width:100%; height:auto; max-height:100vh; break-inside: avoid; page-break-inside: avoid; }
+  #dkdPrintArea img{ display:block; width:100%; height:auto; max-height:100vh; object-fit:contain; object-position:top center; break-inside: avoid; page-break-inside: avoid; }
   /* Jalur cadangan kalau html2canvas belum termuat & board dicetak sbg
      HTML biasa (lihat fallback di dekidakaPrintBoard). */
   #dkdPrintArea .dkd-board{ break-inside: avoid; page-break-inside: avoid; }
@@ -1079,11 +1079,31 @@ td.mono, .mono { font-family: var(--font-mono); }
 .dkd-board.dkd-print-compact table.dkd-main th,
 .dkd-board.dkd-print-compact table.dkd-main td{ padding:1.5px 3px; }
 .dkd-board.dkd-print-compact table.dkd-main thead th{ padding:3px; }
+.dkd-board.dkd-print-compact table.dkd-main tbody td{ padding-top:calc(1.5px + var(--dkd-pad-fill, 0px)); padding-bottom:calc(1.5px + var(--dkd-pad-fill, 0px)); }
 .dkd-board.dkd-print-compact .dkd-static{ min-height:0; }
 .dkd-board.dkd-print-compact .dkd-static.dkd-static-text{ min-height:0; }
 .dkd-board.dkd-print-compact .dkd-waktu-box{ gap:0; }
 .dkd-board.dkd-print-compact .dkd-summary{ gap:5px; }
 .dkd-board.dkd-print-compact .dkd-summary .dkd-card{ height:58px; padding:4px; }
+/* ---- Mode ringkas: papan Dekidaka di kotak kecil Dashboard Line (dkdTerapkanRingkas).
+   Kolom dirapatkan (tulisan tetap utuh), kartu ringkasan dikecilkan -> papan jauh lebih sempit
+   sehingga bisa diperbesar. Versi besar (tombol mata), Print & PDF tetap ukuran penuh. */
+.dkd-board.dkd-ringkas{ width:max-content; padding:8px 8px 8px 10px; border-left-width:6px; }
+.dkd-ringkas .dkd-c-no{width:22px;} .dkd-ringkas .dkd-c-part{width:80px;} .dkd-ringkas .dkd-c-waktu{width:84px;} .dkd-ringkas .dkd-c-desc{width:118px;}
+.dkd-ringkas .dkd-c-model{width:46px;} .dkd-ringkas .dkd-c-maint{width:84px;} .dkd-ringkas .dkd-c-ket{width:30px;}
+.dkd-ringkas .dkd-c-masalah{width:110px;} .dkd-ringkas .dkd-c-penanganan{width:100px;} .dkd-ringkas .dkd-c-pic{width:42px;} .dkd-ringkas .dkd-c-deadline{width:64px;}
+.dkd-ringkas table.dkd-main th, .dkd-ringkas table.dkd-main td{ padding:2px 2px; }
+.dkd-ringkas table.dkd-main thead th{ font-size:0.5938rem; padding:4px 1px; }
+.dkd-ringkas .dkd-table-with-summary,.dkd-kartu-bawah .dkd-table-with-summary{ flex-direction:column; align-items:stretch; gap:6px; }
+.dkd-ringkas .dkd-summary,.dkd-kartu-bawah .dkd-summary{ width:auto; flex-direction:row; align-self:stretch; gap:6px; }
+.dkd-ringkas .dkd-summary .dkd-card,.dkd-kartu-bawah .dkd-summary .dkd-card{ flex:1 1 0; min-width:0; height:50px; padding:3px 2px; }
+.dkd-ringkas .dkd-summary .dkd-card .dkd-card-lbl,.dkd-kartu-bawah .dkd-summary .dkd-card .dkd-card-lbl{ font-size:0.5625rem; text-align:center; line-height:1.1; }
+.dkd-ringkas .dkd-summary .dkd-card .dkd-card-val,.dkd-kartu-bawah .dkd-summary .dkd-card .dkd-card-val{ font-size:1.125rem; }
+.dkd-kartu-bawah:not(.dkd-ringkas) .dkd-summary{ gap:10px; }
+.dkd-kartu-bawah:not(.dkd-ringkas) .dkd-summary .dkd-card{ height:70px; padding:5px 4px; }
+.dkd-kartu-bawah:not(.dkd-ringkas) .dkd-summary .dkd-card .dkd-card-lbl{ font-size:0.75rem; }
+.dkd-kartu-bawah:not(.dkd-ringkas) .dkd-summary .dkd-card .dkd-card-val{ font-size:1.5rem; }
+.dkd-ringkas .dkd-info-bar{ padding:4px 6px; }
 .dkd-top-row{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
 .dkd-big-line{ font-size:5.625rem; font-weight:900; line-height:1; color:var(--dkd-accent, #111); letter-spacing:-2px; white-space:nowrap; }
 .dkd-tables-wrap{ display:flex; align-items:flex-start; gap:28px; margin-left:auto; }
@@ -4293,3 +4313,10 @@ html[data-ukuran="besar"] { font-size: 17.6px; }
 }
 
 /* ---------- Panel ---------- */
+
+/* Dekidaka di Dashboard Line (tampilan kotak, besar, Print, PDF): label & waktu rata kiri */
+.dkd-kartu-bawah .dkd-desc-row{ align-items:flex-start; text-align:left; padding-left:4px; }
+.dkd-kartu-bawah .dkd-desc-row .dkd-lbl{ text-align:left; }
+.dkd-kartu-bawah .dkd-waktu-box{ align-items:flex-start; text-align:left; padding-left:4px; }
+.dkd-kartu-bawah .dkd-jam, .dkd-kartu-bawah .dkd-durasi{ text-align:left; }
+.dkd-kartu-bawah input.dkd-tanggal{ text-align:left; }
