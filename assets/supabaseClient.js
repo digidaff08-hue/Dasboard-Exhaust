@@ -68,11 +68,11 @@ async function requireAuth() {
     window.location.href = getBasePath() + "login.html";
     return null;
   }
-  // Akun GUEST hanya boleh membuka Dashboard Exhaust. Halaman lain
+  // Akun GUEST hanya boleh membuka Dashboard Exhaust & Dashboard Line. Halaman lain
   // (Input Produksi, Attendance, halaman mesin, dst) langsung dipantulkan
   // ke Dashboard Exhaust -- termasuk kalau alamatnya diketik manual.
   const myRole = await getMyRole(session);
-  if (!isDashboardExhaustPage() && !isEmbeddedPerformanceView() && myRole === "guest") {
+  if (!isDashboardExhaustPage() && !isDashboardLinePage() && !isEmbeddedPerformanceView() && !isDekidakaEmbed() && myRole === "guest") {
     window.location.href = getBasePath() + "dashboard-exhaust.html";
     return null;
   }
@@ -119,6 +119,16 @@ function isEmbeddedPerformanceView() {
   catch (e) { return false; }
 }
 
+// Dashboard Line (dibuka admin & guest) dan papan Dekidaka yang dipasang di dalamnya lewat iframe
+// (?dekidaka=1 -> dekidaka-line.html / machines/e-0X.html).
+function isDashboardLinePage() {
+  return window.location.pathname.toLowerCase().includes("dashboard-line");
+}
+function isDekidakaEmbed() {
+  try { return new URLSearchParams(window.location.search).get("dekidaka") === "1"; }
+  catch (e) { return false; }
+}
+
 function isAndonPage() {
   return window.location.pathname.toLowerCase().includes("andon");
 }
@@ -138,10 +148,10 @@ async function requireStaff(session) {
     .from("profiles").select("role,jabatan").eq("id", session.user.id).maybeSingle();
   const r = ((data && data.role) || "").toLowerCase();
   const j = ((data && data.jabatan) || "").toLowerCase();
-  // GUEST: boleh HANYA di Dashboard Exhaust (lihat saja), halaman lain
+  // GUEST: boleh HANYA di Dashboard Exhaust & Dashboard Line (lihat saja), halaman lain
   // dipantulkan ke Dashboard Exhaust.
   if (r === "guest") {
-    if (isDashboardExhaustPage() || isEmbeddedPerformanceView()) return true;
+    if (isDashboardExhaustPage() || isDashboardLinePage() || isEmbeddedPerformanceView() || isDekidakaEmbed()) return true;
     window.location.href = getBasePath() + "dashboard-exhaust.html";
     return false;
   }

@@ -18,7 +18,7 @@
   const COL = { productivity: "#0EA5E9", availability: "#10B981", downtime: "#F97316", ngInline: "#F43F5E", money: "#1D4ED8", straight: "#14B8A6", perjam: "#6366F1", trend: "#2563EB" };
 
   // Naikkan setiap kali file Dekidaka (machine-page.js, style.css, dekidaka-line.html) berubah.
-  const DEKI_VER = "20261029n";
+  const DEKI_VER = "20261029p";
 
   const pad2 = (n) => String(n).padStart(2, "0");
   const tglStr = (y, m, d) => y + "-" + pad2(m) + "-" + pad2(d);
@@ -174,12 +174,12 @@
       // Grafik Perjam = Rasio Dekidaka per blok (Hasil Aktual / Target x 100), diambil dari papan Dekidaka
       // (iframe mengirim data per blok lewat pesan "dekidakaData"), dikelompokkan per part (PERJAM_CFG).
       async muatPerjam() {
-        if (!this.isAdmin() || typeof Chart === "undefined") return;
+        if (!this.bolehLihat() || typeof Chart === "undefined") return;
         this.dekiSinkron();           // minta papan Dekidaka ikut tanggal & shift ini -> papan mengirim data baru
         this.bangunPerjam();
       },
       async bangunPerjam() {
-        if (!this.isAdmin() || typeof Chart === "undefined") return;
+        if (!this.bolehLihat() || typeof Chart === "undefined") return;
         const token = (this._pjTok = (this._pjTok || 0) + 1);
         const line = this.activeTab, sh = this.perjamShift;
         const dd = this.dekiData;
@@ -207,6 +207,17 @@
         panels.forEach((pn, i) => this.gambarPerjam(pn, i, sh));
       },
       dekiData: null,
+      // Tampilan utama: dashboard (grid) atau Performance Tahunan/Bulanan/Harian (halaman mesin di iframe).
+      tampil: "dashboard",
+      get perfUrl() {
+        if (this.tampil === "dashboard") return "about:blank";
+        return "machines/" + this.activeTab.toLowerCase() + ".html?tab=performance&bagian=" + this.tampil + "&v=" + DEKI_VER;
+      },
+      setTampil(t) {
+        this.tampil = t;
+        // Kembali ke grid: grafik & papan Dekidaka perlu menghitung ulang ukuran setelah tampil lagi.
+        if (t === "dashboard") this.$nextTick(() => { window.dispatchEvent(new Event("resize")); setTimeout(() => window.dispatchEvent(new Event("resize")), 150); });
+      },
       hapusPerjam() { Object.keys(this.charts).filter((k) => /^dlPerjam\d+$/.test(k)).forEach((k) => { try { this.charts[k].destroy(); } catch (e) {} delete this.charts[k]; }); },
       gambarPerjam(pn, i, sh) {
         const c = document.getElementById("dlPerjam" + i); if (!c) return;
@@ -255,7 +266,7 @@
       async setTab(tab) { this.dekiSiap = false; this.activeTab = tab; this.muatPerjam(); await this.muat(); },
 
       async muat() {
-        if (!this.isAdmin() || typeof Chart === "undefined") return;
+        if (!this.bolehLihat() || typeof Chart === "undefined") return;
         const token = (this._tok = (this._tok || 0) + 1);
         this.memuat = true; this.pesan = "";
         const line = this.activeTab;

@@ -20,7 +20,6 @@
 // Untuk mengunci betulan, aturan di database yang harus diubah.
 // =========================================================
 const TAB_UNTUK_SEMUA = {
-  performance: false,
   plan_harian: false,
 };
 
@@ -263,7 +262,6 @@ function dashboardExhaust() {
       if (this.activeTab === "kualitas" && tab !== "kualitas") this.destroyKualitasCharts();
       if (this.activeTab === "attendance" && tab !== "attendance") this.destroyAttendanceCharts();
       this.activeTab = tab;
-      if (tab === "performance") { this.perfDilihat[this.perfLine] = true; this.$nextTick(() => this.perfComputeIframeHeight()); return; }
       if (tab === "plan_harian") { await this.fetchPlanHarian(); return; }
       // Tab langsung digambar pakai data yang sudah ada di memori (hasil
       // prefetch di init() / kunjungan sebelumnya), baru kemudian fetch
@@ -1416,30 +1414,6 @@ function dashboardExhaust() {
     qcHasData: false,       // sudah pernah sukses load minimal sekali
     _qcLoadToken: 0,
     attendanceCharts: {},
-    // Tab Performance: line yang lagi ditampilkan di <iframe> (lihat
-    // template x-if="activeTab === 'performance'").
-    perfLine: AppPref.lineFavorit() || "E-02",
-    // Tinggi <iframe> tab Performance, DIHITUNG LANGSUNG via JS sebagai
-    // px pasti (bukan calc(100vh - Npx) yg gampang meleset & nyisain area
-    // kosong di bawah card) -- px pasti dari window.innerHeight supaya
-    // tidak nebak-nebak tinggi header/nav di atasnya.
-    perfIframeHeight: 560,
-    perfDilihat: {},   // line yang iframe-nya sudah dibuka (tetap hidup)
-    // CATATAN: pernah dicoba tinggi iframe mengikuti tinggi ISI-nya
-    // (diukur dari luar + ResizeObserver) supaya tidak ada ruang kosong
-    // menggantung di tab Tahunan. DIBATALKAN: saat file dibuka langsung
-    // dari komputer (file://), isi iframe tidak boleh diukur dari halaman
-    // induk, jadi ukurannya terkunci di angka pertama (saat isinya masih
-    // kosong) dan panelnya malah kepotong. Jangan diulang tanpa cara ukur
-    // yang tidak bergantung akses lintas-dokumen (mis. postMessage dari
-    // machines/e-0X.html sendiri).
-    perfComputeIframeHeight() {
-      const nav = document.getElementById("perfSubNav");
-      if (!nav) return;
-      const top = nav.getBoundingClientRect().bottom;
-      const h = Math.max(560, Math.floor(window.innerHeight - top - 16));
-      this.perfIframeHeight = h;
-    },
     // Print & Export PDF Dekidaka (dulu di sini) sudah dihapus --
     // tombol itu sekarang cuma ada di modal "Lihat Dekidaka"
     // (assets/machine-page.js), tidak diduplikat lagi di sini.
@@ -1473,11 +1447,6 @@ function dashboardExhaust() {
       if (this.activeTab === "tahunan") await this.setTab("tahunan");
       if (this.activeTab === "plan_harian") await this.setTab("plan_harian");
       this.initRealtime();
-      // Tab Performance: iframe-nya pakai tinggi px pasti (lihat
-      // perfComputeIframeHeight) supaya gak nyisain area kosong di bawah
-      // card putih -- dihitung ulang tiap window di-resize, tapi CUMA
-      // kalau tab Performance lagi aktif.
-      window.addEventListener("resize", () => { if (this.activeTab === "performance") this.perfComputeIframeHeight(); });
       // Masuk/keluar layar penuh (F11) mengubah 100vh, tapi browser kadang
       // belum selesai menata ulang saat event-nya tiba -- grafik Plan Harian
       // bisa tertinggal memakai ukuran canvas yang lama. Digambar ulang satu

@@ -119,7 +119,7 @@
     <div class="sidebar-brand" x-show="!sidebarCollapsed"><span class="sb-brand-title">WELDING EXHAUST</span><span class="sb-brand-sub">PT Futaba Industrial Indonesia</span></div>
     <nav class="sidebar-nav" @click="mobileNavOpen = false">
       <a href="dashboard-exhaust.html" class="sidebar-link active" title="Dashboard Exhaust"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M3 13h4v8H3zM10 3h4v18h-4zM17 8h4v13h-4z"/></svg></span><span x-show="!sidebarCollapsed">Dashboard Exhaust</span></a>
-      <a href="dashboard-line.html" class="sidebar-link" title="Dashboard Line" x-show="isAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg></span><span x-show="!sidebarCollapsed">Dashboard Line</span></a>
+      <a href="dashboard-line.html" class="sidebar-link" title="Dashboard Line" x-show="isAdmin() || isGuest()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg></span><span x-show="!sidebarCollapsed">Dashboard Line</span></a>
       <a href="input-produksi.html" class="sidebar-link" title="Input Produksi" x-show="!isGuest() && !isViewer()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
       <a href="input-attendance.html" class="sidebar-link" title="Input Attendance" x-show="isLeaderOrAdmin() || isViewer()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></span><span x-show="!sidebarCollapsed">Input Attendance</span></a>
       <a href="andon.html" class="sidebar-link" title="Andon" x-show="!isGuest()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm7-6V11c0-3.07-1.64-5.64-4.5-6.32V4a1.5 1.5 0 0 0-3 0v.68C8.63 5.36 7 7.92 7 11v5l-2 2v1h14v-1l-2-2z"/></svg></span><span x-show="!sidebarCollapsed">Andon</span></a>
@@ -173,7 +173,6 @@
       <button class="btn-secondary btn-sm" :class="activeTab==='bulanan' ? 'btn-primary' : ''" @click="setTab('bulanan')">Kontrol Downtime</button>
       <button class="btn-secondary btn-sm" :class="activeTab==='kualitas' ? 'btn-primary' : ''" @click="setTab('kualitas')">Kontrol Kualitas</button>
       <button class="btn-secondary btn-sm" :class="activeTab==='attendance' ? 'btn-primary' : ''" @click="setTab('attendance')">Kontrol Attendance</button>
-      <button class="btn-secondary btn-sm" x-show="bolehLihatTab('performance')" :class="activeTab==='performance' ? 'btn-primary' : ''" @click="setTab('performance')">Performance</button>
       <button class="btn-secondary btn-sm" x-show="bolehLihatTab('plan_harian')" :class="activeTab==='plan_harian' ? 'btn-primary' : ''" @click="setTab('plan_harian')">Plan Harian</button>
     </div>
 
@@ -1066,49 +1065,6 @@
         </div>
       </div>
     </template>
-
-    <!-- ===== TAB: PERFORMANCE -- nampilin tab "Performance" halaman tiap
-         line (OEE, Perjam Target vs Aktual, Produksi Hari Itu, 5 Downtime
-         Terburuk, Downtime per Kategori) langsung lewat <iframe> ke
-         machines/e-0X.html?tab=performance, BUKAN ditulis ulang di sini.
-         Sengaja begitu: logika OEE/chart Performance sudah kompleks &
-         sudah benar di halaman line masing-masing (assets/machine-page.js)
-         -- kalau diduplikat ke sini, 2 tempat harus selalu dijaga sinkron
-         & gampang beda hasil. Dengan iframe, datanya DIJAMIN identik
-         persis sama yang operator lihat di halaman line-nya sendiri.
-         iframe cuma dibuat (x-if) saat tab ini aktif, dan cuma utk LINE
-         yang lagi dipilih -- supaya tidak sekaligus memuat 6 halaman
-         mesin yang berat. ===== -->
-    <!-- Div + x-show (BUKAN x-if) dan iframe dipertahankan setelah dibuka
-         sekali, supaya balik ke tab ini tidak memuat ulang data. -->
-    <div x-show="activeTab === 'performance' && bolehLihatTab('performance')">
-      <div class="dxy-fill">
-        <div class="dash-subtab-nav" id="perfSubNav" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
-          <template x-for="ln in ['E-02','E-03','E-04','E-05','E-06','E-07']" :key="ln">
-            <button class="btn-secondary btn-sm" :class="perfLine===ln ? 'btn-primary' : ''" @click="perfLine = ln; perfDilihat[ln] = true; $nextTick(() => perfComputeIframeHeight())">
-              <span x-text="ln"></span>
-            </button>
-          </template>
-        </div>
-        <!-- Tombol "Lihat Dekidaka" SENGAJA TIDAK di sini -- dipindah ke
-             dalam halaman line-nya sendiri (card Performance Harian,
-             sebelum field tanggal), lihat machines/e-0X.html + assets/
-             machine-page.js. Supaya tombolnya tampil di lokasi yang sama
-             persis walau tab Performance ini dibuka LANGSUNG di halaman
-             line (bukan cuma lewat iframe dashboard). -->
-        <!-- Tanpa garis tepi & latar transparan. Dulu kotaknya bergaris
-             dan berlatar putih; karena tingginya selalu sebesar sisa
-             layar, di tab yang isinya pendek (Tahunan) garis bawahnya
-             menggantung jauh di bawah isi dan terlihat seperti garis
-             nyasar. Dibuat menyatu dengan halaman dashboard -- sisa ruang
-             di bawahnya jadi sekadar latar, bukan kotak kosong. -->
-        <template x-for="ln in ['E-02','E-03','E-04','E-05','E-06','E-07'].filter(l => perfDilihat[l] || l === perfLine)" :key="ln">
-          <iframe x-show="perfLine === ln" :src="'machines/' + ln.toLowerCase() + '.html?tab=performance'"
-                  :style="'width:100%; height:' + perfIframeHeight + 'px; min-height:560px; border:0; background:transparent; display:block;'"
-                  title="Performance"></iframe>
-        </template>
-      </div>
-    </div>
 
     <!-- ===== TAB: PLAN HARIAN ===== -->
     <template x-if="activeTab === 'plan_harian' && bolehLihatTab('plan_harian')">

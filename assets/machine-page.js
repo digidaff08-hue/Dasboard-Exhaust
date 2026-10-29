@@ -411,7 +411,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261029n";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261029p";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:45", "20:30"] },
@@ -1018,6 +1018,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         // dobel dipelihara di 2 tempat).
         try {
           const wantTab = new URLSearchParams(location.search).get("tab");
+          // &bagian=tahunan|bulanan|harian -> dipakai Dashboard Line: langsung ke bagian itu, tombol pilih bagian disembunyikan.
+          const bagian = new URLSearchParams(location.search).get("bagian");
+          if (wantTab === "performance" && ["tahunan", "bulanan", "harian"].includes(bagian)) {
+            this.activePerfSection = bagian;
+            document.documentElement.classList.add("perf-tanpa-chip");
+          }
           if (wantTab === "performance") this.openPerformanceTab();
           // ?dekidaka=1 -> dipakai halaman Dashboard Line: papan Dekidaka
           // langsung terbuka, halaman line di belakangnya disembunyikan, dan
@@ -2235,8 +2241,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           if (c1 >= 0) kolomAktif.add(c1);
         }
         colModels.forEach((_, c) => {
-          // Target: kolom model yang berjalan di blok ini (dari data produksi), atau patokan model baris 1.
-          const tgt = kolomAktif.has(c) ? dkdTargetBlok(line, kolomLabels[c], menitBlok) : null;
+          // Target: tiap kolom model, dari Out put/Jam model itu di tabel CT TARGET.
+          const tgt = dkdTargetBlok(line, kolomLabels[c], menitBlok);   // Target tampil di SEMUA kolom model (tanpa menunggu produksi)
           setVal(c, 0, tgt != null ? String(tgt) : "");
           const qty = matched.reduce(
             (sum, r) => sum + (this.dekidakaColumnIndexFor(colModels, r) === c ? r.qty : 0), 0);
