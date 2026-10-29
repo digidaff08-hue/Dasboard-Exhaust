@@ -18,8 +18,9 @@
   const COL = { productivity: "#0EA5E9", availability: "#10B981", downtime: "#F97316", ngInline: "#F43F5E", money: "#1D4ED8", straight: "#14B8A6", perjam: "#6366F1", trend: "#2563EB" };
 
   // Naikkan setiap kali file Dekidaka (machine-page.js, style.css, dekidaka-line.html) berubah.
-  const DEKI_VER = "20261029w";
+  const DEKI_VER = "20261029x";
 
+  const mgCache = {};   // hasil Trend Volume per line|tahun|bulan -> tidak hitung ulang saat pindah line (berlaku 10 menit)
   const pad2 = (n) => String(n).padStart(2, "0");
   const tglStr = (y, m, d) => y + "-" + pad2(m) + "-" + pad2(d);
   const fmtNum = (n) => Number(n).toLocaleString("id-ID", { maximumFractionDigits: 1 });
@@ -406,6 +407,8 @@
       mintaMingguan() {
         const fr = document.querySelector(".dl-deki iframe");
         const line = this.activeTab, tahun = this.tahun, bulan = this.bulan;
+        const kc = `${line}|${tahun}|${bulan}`, ada = mgCache[kc];
+        if (ada && Date.now() - ada.t < 600000) { this.mingguHasil = ada.r; this.mingguPesan = ""; this.gambarTrend(); return; }
         this.mingguHasil = null; this.mingguPesan = "Menghitung…";
         this.gambarTrend();
         if (!fr || !fr.contentWindow) { this.mingguPesan = ""; return; }
@@ -512,7 +515,7 @@
           }
           if (d.dekidakaMingguanHasil && !dariBesar) {
             const r = d.dekidakaMingguanHasil;
-            if (r.line === this.activeTab && r.tahun === this.tahun && r.bulan === this.bulan) { this.mingguHasil = r; this.mingguPesan = r.error || ""; this.gambarTrend(); }
+            if (r.line === this.activeTab && r.tahun === this.tahun && r.bulan === this.bulan) { this.mingguHasil = r; this.mingguPesan = r.error || ""; if (!r.error) mgCache[`${r.line}|${r.tahun}|${r.bulan}`] = { r, t: Date.now() }; this.gambarTrend(); }
           }
           if (d.dekidakaData && !dariBesar) { this.dekiData = d.dekidakaData; this.bangunPerjam(); }
           if (d.dekidakaSetOk) { this._dekiAck = true; if (/Dekidaka belum ikut/.test(this.pesan)) this.pesan = ""; }
