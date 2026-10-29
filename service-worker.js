@@ -5,7 +5,7 @@
 // ini cuma men-cache HTML/CSS/JS-nya, bukan data produksi.
 // =========================================================
 // Naikkan versi ini tiap ada perubahan besar supaya cache lama dibuang.
-const CACHE_NAME = "produksi-downtime-shell-v202-tsk-besar";
+const CACHE_NAME = "produksi-downtime-shell-v204-trend-rata2";
 
 const SHELL_FILES = [
   "/login.html",
