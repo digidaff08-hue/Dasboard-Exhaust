@@ -18,7 +18,7 @@
   const COL = { productivity: "#0EA5E9", availability: "#10B981", downtime: "#F97316", ngInline: "#F43F5E", money: "#1D4ED8", straight: "#14B8A6", perjam: "#6366F1", trend: "#2563EB" };
 
   // Naikkan setiap kali file Dekidaka (machine-page.js, style.css, dekidaka-line.html) berubah.
-  const DEKI_VER = "20261029p";
+  const DEKI_VER = "20261029s";
 
   const pad2 = (n) => String(n).padStart(2, "0");
   const tglStr = (y, m, d) => y + "-" + pad2(m) + "-" + pad2(d);
@@ -263,13 +263,14 @@
       dekiBesarSiap: false,
       dekiZoomBesar: "",
 
-      async setTab(tab) { this.dekiSiap = false; this.activeTab = tab; this.muatPerjam(); await this.muat(); },
+      async setTab(tab) { this.dekiSiap = false; this.activeTab = tab; this.muatPerjam(); this.muatFoto(); await this.muat(); },
 
       async muat() {
         if (!this.bolehLihat() || typeof Chart === "undefined") return;
         const token = (this._tok = (this._tok || 0) + 1);
         this.memuat = true; this.pesan = "";
         const line = this.activeTab;
+        this.mintaMingguan();
         const y = this.tahun, m = this.bulan, n = this.jumlahHari;
         const awal = new Date(y, m - 1, 1), akhir = new Date(y, m, 1);
         const sAwal = tglStr(y, m, 1);
@@ -394,12 +395,103 @@
         aman(() => ganda("dlNgInline", COL.ngInline, COL.money, "Qty", "Value (ribu Rp)", false, D.ngQty, D.ngVal, "above"), "ngInline");
         aman(() => ganda("dlStraightpass", COL.straight, "#000000", "Qty Repair", "% Straightpass", true, D.repQty, D.spPct, "base"), "straightpass");
 
-        // Trend Volume: kerangka kosong (Perjam: lihat muatPerjam)
-        aman(() => {
-          const c = this.kanvas("dlTrend"); if (!c) return;
-          this.charts.dlTrend = new Chart(c, { type: "line", data: { labels: L, datasets: [{ label: "Volume", data: kosong, borderColor: COL.trend, backgroundColor: COL.trend + "33", fill: true, borderWidth: 1.2, tension: 0.35, pointRadius: 2 }] },
-            options: { responsive: true, maintainAspectRatio: false, animation: noAnim, layout: { padding: { top: 20 } }, plugins: { legend: legenda(true) }, scales: { x: skalaX(), y: skalaY() } } });
-        }, "trend");
+        // Trend Volume: W1..Wn per bulan (lihat gambarTrend / mintaMingguan)
+        aman(() => this.gambarTrend(), "trend");
+      },
+
+      // ---------- Trend Volume (per minggu) ----------
+      // Nilai per minggu = Total Aktual / Total Target x 100, dihitung oleh papan Dekidaka (rumus Target yang sama).
+      mingguHasil: null,
+      mingguPesan: "",
+      mintaMingguan() {
+        const fr = document.querySelector(".dl-deki iframe");
+        const line = this.activeTab, tahun = this.tahun, bulan = this.bulan;
+        this.mingguHasil = null; this.mingguPesan = "Menghitung…";
+        this.gambarTrend();
+        if (!fr || !fr.contentWindow) { this.mingguPesan = ""; return; }
+        const kirim = () => { try { fr.contentWindow.postMessage({ dekidakaMingguan: { line, tahun, bulan } }, "*"); } catch (e) {} };
+        kirim();
+        // Papan bisa belum siap: ulangi sampai ada jawaban (maks. beberapa kali).
+        let sisa = 6;
+        const ulang = () => {
+          if (this.mingguHasil || line !== this.activeTab || tahun !== this.tahun || bulan !== this.bulan) return;
+          if (sisa-- <= 0) { this.mingguPesan = "Papan Dekidaka belum menjawab"; return; }
+          kirim(); setTimeout(ulang, 2500);
+        };
+        setTimeout(ulang, 2500);
+      },
+      gambarTrend() {
+        const c = this.kanvas("dlTrend"); if (!c || typeof Chart === "undefined") return;
+        const h = this.mingguHasil;
+        const offset = (new Date(this.tahun, this.bulan - 1, 1).getDay() + 6) % 7;
+        const nMinggu = Math.floor((this.jumlahHari - 1 + offset) / 7) + 1;
+        const labels = Array.from({ length: nMinggu }, (_, i) => "W" + (i + 1));
+        const nilai = labels.map((_, i) => (h && h.minggu[i] ? h.minggu[i].pct : null));
+        const ada = nilai.filter((v) => v != null);
+        const ymin = Math.min(50, ada.length ? Math.floor(Math.min(...ada) / 10) * 10 : 50);
+        const ymax = Math.max(100, ada.length ? Math.ceil(Math.max(...ada) / 10) * 10 : 100);
+        this.charts.dlTrend = new Chart(c, { type: "line",
+          data: { labels, datasets: [
+            { label: "Target", data: labels.map(() => 100), borderColor: "#dc2626", backgroundColor: "#dc2626", borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0, tension: 0 },
+            { label: "Aktual ÷ Target", data: nilai, borderColor: COL.trend, backgroundColor: COL.trend, borderWidth: 2, pointRadius: 4, tension: 0, spanGaps: true, clip: false },
+          ] },
+          options: { responsive: true, maintainAspectRatio: false, animation: { duration: 0 }, layout: { padding: { top: 22, right: 14, left: 4 } }, plugins: { legend: legenda(true), tooltip: { callbacks: { label: (it) => it.dataset.label + ": " + it.formattedValue + "%" } } },
+            scales: { x: { ...skalaX(), offset: true, ticks: { color: "#000", font: { size: 11, weight: "700" }, autoSkip: false, maxRotation: 0 } }, y: { ...skalaY(), min: ymin, max: ymax, ticks: { ...tick, stepSize: 10, callback: (v) => v + "%" } } } },
+          plugins: [labelGaris((v) => v + "%", 1)] });
+      },
+
+      // ---------- Kotak foto (1 foto per line, disimpan di Supabase Storage bucket "line-foto") ----------
+      fotoUrl: "",
+      fotoPesan: "",
+      fotoBusy: false,
+      async muatFoto() {
+        const line = this.activeTab;
+        this.fotoPesan = "";
+        try {
+          const st = supabaseClient.storage.from("line-foto");
+          const { data, error } = await st.list("", { search: line });
+          if (line !== this.activeTab) return;
+          if (error) throw error;
+          const f = (data || []).find((x) => x.name === line + ".jpg");
+          this.fotoUrl = f ? st.getPublicUrl(f.name).data.publicUrl + "?v=" + encodeURIComponent(f.updated_at || f.created_at || "") : (this._fotoLokal && this._fotoLokal[line]) || "";
+        } catch (e) {
+          console.error("Gagal memuat foto line:", e);
+          this.fotoUrl = (this._fotoLokal && this._fotoLokal[line]) || "";
+        }
+      },
+      async unggahFoto(ev) {
+        const file = ev.target.files && ev.target.files[0]; ev.target.value = "";
+        if (!file || !this.isAdmin()) return;
+        const line = this.activeTab;
+        this.fotoBusy = true; this.fotoPesan = "";
+        try {
+          // Perkecil dulu (maks. 1600px) supaya ringan.
+          const bmp = await createImageBitmap(file);
+          const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+          const cv = document.createElement("canvas"); cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k);
+          cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
+          const blob = await new Promise((res) => cv.toBlob(res, "image/jpeg", 0.85));
+          const st = supabaseClient.storage.from("line-foto");
+          const { error } = await st.upload(line + ".jpg", blob, { upsert: true, contentType: "image/jpeg" });
+          if (error) throw error;
+          this._fotoLokal = this._fotoLokal || {}; this._fotoLokal[line] = URL.createObjectURL(blob);
+          await this.muatFoto();
+        } catch (e) {
+          console.error("Gagal unggah TSK:", e);
+          this.fotoPesan = "Gagal unggah TSK: " + (e.message || e) + " (sudah menjalankan SQL 'Trend Volume + Foto'?)";
+        }
+        this.fotoBusy = false;
+      },
+      async hapusFoto() {
+        if (!this.isAdmin() || !this.fotoUrl) return;
+        if (!confirm("Hapus TSK " + this.activeTab + "?")) return;
+        const line = this.activeTab;
+        try {
+          const { error } = await supabaseClient.storage.from("line-foto").remove([line + ".jpg"]);
+          if (error) throw error;
+          if (this._fotoLokal) delete this._fotoLokal[line];
+          this.fotoUrl = "";
+        } catch (e) { this.fotoPesan = "Gagal hapus TSK: " + (e.message || e); }
       },
 
       bukaDekidaka() { this.dekiBesarSiap = false; this.dekiZoomBesar = ""; this.dekiBuka = true; },
@@ -409,13 +501,17 @@
           const d = e.data || {};
           const frBesar = document.querySelector(".dl-besar iframe");
           const dariBesar = !!(frBesar && frBesar.contentWindow === e.source);
-          if (d.dekidakaSiap) { if (dariBesar) { this.dekiBesarSiap = true; this.dekiSinkron(frBesar); } else { this.dekiSiap = true; this.dekiSinkron(document.querySelector(".dl-deki iframe")); } }
+          if (d.dekidakaSiap) { if (dariBesar) { this.dekiBesarSiap = true; this.dekiSinkron(frBesar); } else { this.dekiSiap = true; this.dekiSinkron(document.querySelector(".dl-deki iframe")); if (!this.mingguHasil) this.mintaMingguan(); } }
           if (d.dekidakaZoom) { if (dariBesar) this.dekiZoomBesar = d.dekidakaZoom; else this.dekiZoom = d.dekidakaZoom; }
           if (d.dekidakaBuild) {
             const b = d.dekidakaBuild, salah = [];
             if (b.js !== DEKI_VER) salah.push("assets/machine-page.js");
             if (b.css !== DEKI_VER) salah.push("assets/style.css");
             this.pesan = salah.length ? "File belum versi terbaru: " + salah.join(", ") + " - timpa dari zip lalu Ctrl+F5." : (/File belum versi terbaru/.test(this.pesan) ? "" : this.pesan);
+          }
+          if (d.dekidakaMingguanHasil && !dariBesar) {
+            const r = d.dekidakaMingguanHasil;
+            if (r.line === this.activeTab && r.tahun === this.tahun && r.bulan === this.bulan) { this.mingguHasil = r; this.mingguPesan = r.error || ""; this.gambarTrend(); }
           }
           if (d.dekidakaData && !dariBesar) { this.dekiData = d.dekidakaData; this.bangunPerjam(); }
           if (d.dekidakaSetOk) { this._dekiAck = true; if (/Dekidaka belum ikut/.test(this.pesan)) this.pesan = ""; }

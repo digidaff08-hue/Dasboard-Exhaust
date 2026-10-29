@@ -61,6 +61,13 @@
   .dl-deki-muat { position: absolute; top: 50%; left: 0; right: 0; text-align: center; }
   .dl-deki iframe { flex: 1 1 auto; min-width: 0; width: 100%; height: 100%; border: 0; background: transparent; display: block; }
   .dl-wide { grid-column: 2 / span 2; }
+  .dl-split { display: flex; gap: 8px; min-width: 0; min-height: 0; }
+  .dl-split-chart { flex: 1 1 0; }
+  .dl-split-foto { flex: 1 1 0; }
+  .dl-foto-tools .dl-pj-btn { font-family: inherit; font-size: 0.625rem; font-weight: 800; padding: 2px 8px; line-height: 1.3; }
+  .dl-foto-tools { display: flex; gap: 4px; align-items: center; }
+  .dl-foto { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--border); border-radius: 8px; overflow: hidden; background: rgba(128,128,128,.04); }
+  .dl-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .dl-sheet { width: 100%; border-collapse: collapse; font-size: 0.6875rem; table-layout: fixed; }
   .dl-sheet th, .dl-sheet td { border: 1px solid var(--border); padding: 4px 3px; text-align: center; }
   .dl-sheet th { font-weight: 800; background: rgba(128,128,128,.08); font-size: 0.625rem; letter-spacing: 0; white-space: normal; padding: 4px 2px; }
@@ -125,7 +132,7 @@
       <h1 class="dl-title">PERFORMANCE <span x-text="activeTab"></span></h1>
       <div class="dl-bar">
         <div class="dl-modes">
-          <template x-for="m in [['dashboard','Dashboard'],['tahunan','Tahunan'],['bulanan','Bulanan'],['harian','Harian']]" :key="m[0]">
+          <template x-for="m in [['dashboard','Control Board'],['harian','Harian'],['bulanan','Bulanan'],['tahunan','Tahunan']]" :key="m[0]">
             <button type="button" class="dl-mode" :class="tampil === m[0] ? 'on' : ''" @click="setTampil(m[0])" x-text="m[1]"></button>
           </template>
         </div>
@@ -219,10 +226,26 @@
             <div class="dl-head"><span class="dl-box-title">Grafik Availability</span><span class="dl-sub" x-text="'Rata-rata ' + fmtNum(rataAvail) + '%'"></span></div>
             <div class="dl-chart"><canvas id="dlAvailability"></canvas></div>
           </section>
-          <section class="dl-box" style="grid-column:3; grid-row:2;">
-            <div class="dl-head"><span class="dl-box-title">Grafik Trend Volume</span><span class="dl-sub">data menyusul</span></div>
-            <div class="dl-chart"><canvas id="dlTrend"></canvas></div>
-          </section>
+          <div class="dl-split" style="grid-column:3; grid-row:2;">
+            <section class="dl-box dl-split-chart">
+              <div class="dl-head"><span class="dl-box-title">Grafik Trend Volume</span><span class="dl-sub" x-text="mingguPesan"></span></div>
+              <div class="dl-chart"><canvas id="dlTrend"></canvas></div>
+            </section>
+            <section class="dl-box dl-split-foto">
+              <div class="dl-head">
+                <span class="dl-box-title">TSK</span>
+                <span class="dl-foto-tools" x-show="isAdmin()">
+                  <label class="dl-pj-btn" :style="fotoBusy ? 'opacity:.5;pointer-events:none' : ''"><span x-text="fotoBusy ? 'Mengunggah…' : (fotoUrl ? 'Ganti' : 'Unggah')"></span><input type="file" accept="image/*" hidden @change="unggahFoto($event)"></label>
+                  <button type="button" class="dl-pj-btn" x-show="fotoUrl" @click="hapusFoto()">Hapus</button>
+                </span>
+              </div>
+              <div class="dl-foto">
+                <img x-show="fotoUrl" :src="fotoUrl" alt="Foto line">
+                <span class="dl-sub" x-show="!fotoUrl" x-text="isAdmin() ? 'Belum ada TSK — klik Unggah' : 'Belum ada TSK'"></span>
+              </div>
+              <span class="error-msg" x-show="fotoPesan" x-text="fotoPesan"></span>
+            </section>
+          </div>
           <section class="dl-box" style="grid-column:1; grid-row:3;">
             <div class="dl-head"><span class="dl-box-title">Grafik NG Inline</span></div>
             <div class="dl-chart"><canvas id="dlNgInline"></canvas></div>
@@ -238,7 +261,7 @@
           <section class="dl-box dl-wide" style="grid-row:4;">
             <div class="dl-head"><span class="dl-box-title">Problem Followup Sheets</span><span class="dl-sub">terisi otomatis dari data downtime — tahap berikutnya</span></div>
             <table class="dl-sheet">
-              <thead><tr><th style="width:4%">No</th><th style="width:6%">Line</th><th style="width:15%">Problem</th><th style="width:8%">Date</th><th style="width:6%">Shift</th><th style="width:20%">Cause (5W+1H)</th><th style="width:19%">Penanganan</th><th style="width:6%">Waktu</th><th style="width:7%">Tgl Selesai</th><th style="width:5%">PIC</th><th style="width:6%">Hasil</th></tr></thead>
+              <thead><tr><th style="width:4%">No</th><th style="width:26%">Problem</th><th style="width:10%">Date</th><th style="width:8%">Shift</th><th style="width:28%">Penanganan</th><th style="width:8%">Waktu</th><th style="width:8%">Tgl Selesai</th><th style="width:8%">PIC</th></tr></thead>
             </table>
           </section>
         </div>
@@ -278,7 +301,7 @@ function dashboardLinePage() {
     dlMenu: ["E-02", "E-03", "E-04", "E-05", "E-06", "E-07"].map((l) => ({ tab: l, label: l })),
     async init() {
       this.pasangPesan();
-      if (await this.initBase()) { await this.$nextTick(); this.perjamAuto(); this.muatPerjam(); await this.muat(); }
+      if (await this.initBase()) { await this.$nextTick(); this.perjamAuto(); this.muatPerjam(); this.muatFoto(); await this.muat(); }
     },
   };
   // Gabungkan dengan data & grafik (assets/dashboard-line.js) TANPA

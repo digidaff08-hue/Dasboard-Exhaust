@@ -411,7 +411,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261029p";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261029s";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:45", "20:30"] },
@@ -1823,6 +1823,14 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
             terapkan(15);
             return;
           }
+          // Minta hitung Aktual/Target per minggu untuk 1 bulan (Grafik Trend Volume di Dashboard Line).
+          const mg = e.data && e.data.dekidakaMingguan;
+          if (mg) {
+            this.dekidakaHitungMingguan(mg).then((r) => {
+              try { window.parent.postMessage({ dekidakaMingguanHasil: r }, "*"); } catch (err) {}
+            });
+            return;
+          }
           const a = e.data && e.data.dekidakaAksi;
           if (!a) return;
           if (a === "zoomIn") this.dekidakaModalZoomIn();
@@ -2014,6 +2022,63 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (inlineMode && window.parent !== window) {
         try { window.parent.postMessage({ dekidakaZoom: this.dekidakaModalZoomLabel() }, "*"); } catch (e) {}
       }
+    },
+    // Aktual & Target per minggu (kalender Senin-Minggu, W1 = minggu yang memuat tanggal 1) untuk 1 bulan.
+    // Sama dengan Rasio Dekidaka: per (hari produksi, shift, blok) -> Aktual = qty part yang dikenali kolom model,
+    // Target = jumlah Target kolom model yang berproduksi di blok itu. Shift 1 + 2 digabung.
+    async dekidakaHitungMingguan({ line, tahun, bulan }) {
+      const hasil = { line, tahun, bulan, minggu: [], error: "" };
+      try {
+        const jumlahHari = new Date(tahun, bulan, 0).getDate();
+        const pad = (n) => String(n).padStart(2, "0");
+        const { data, error } = await supabaseClient.rpc("dashboard_dekidaka_production_month", {
+          p_mesin: line, p_dari: `${tahun}-${pad(bulan)}-01`, p_sampai: `${tahun}-${pad(bulan)}-${pad(jumlahHari)}`,
+        });
+        const offset = (new Date(tahun, bulan - 1, 1).getDay() + 6) % 7;
+        const nMinggu = Math.floor((jumlahHari - 1 + offset) / 7) + 1;
+        const aktual = Array(nMinggu).fill(0), target = Array(nMinggu).fill(0);
+        if (error) {
+          hasil.error = (error.code === "PGRST202" || /Could not find the function/i.test(String(error.message || "")))
+            ? "Fungsi data bulanan belum ada - jalankan SQL 'Trend Volume + Foto' (dari chat) di Supabase SQL Editor."
+            : "Gagal memuat data bulanan: " + (error.message || "");
+        } else {
+          const colModels = this.dekidakaColumnModels(line), labels = dkdGetColumns(line);
+          const grup = new Map();
+          (data || []).forEach((r) => {
+            const t = dkdTimeToMinutes(r.jam), q = Number(r.qty) || 0;
+            const kol = this.dekidakaColumnIndexFor(colModels, { model: r.model, partNumber: r.part_number });
+            if (kol < 0 || q <= 0) return;
+            const [y, m, d] = String(r.tanggal).split("-").map(Number);
+            const jumat = new Date(y, m - 1, d).getDay() === 5;
+            for (let n = 1; n <= DKD_TOTAL_BLOCKS; n++) {
+              const sch = DKD_TIME_TABLE[n];
+              const w = String(r.shift) === "2" ? sch.shift2 : (jumat ? sch.jumat1 : sch.senKam1);
+              if (!w) continue;
+              const sm = dkdTimeToMinutes(w[0]), em = dkdTimeToMinutes(w[1]);
+              if (!dkdIsMinuteInRange(t, sm, em)) continue;
+              const key = r.tanggal + "|" + r.shift + "|" + n;
+              const g = grup.get(key) || { d, menit: ((em - sm) + 1440) % 1440, qty: 0, kols: new Set() };
+              g.qty += q; g.kols.add(kol); grup.set(key, g);
+              break;
+            }
+          });
+          grup.forEach((g) => {
+            const w = Math.floor((g.d - 1 + offset) / 7);
+            aktual[w] += g.qty;
+            g.kols.forEach((c) => { target[w] += dkdTargetBlok(line, labels[c], g.menit) || 0; });
+          });
+        }
+        for (let i = 0; i < nMinggu; i++) {
+          hasil.minggu.push({
+            label: "W" + (i + 1), aktual: aktual[i], target: target[i],
+            pct: (aktual[i] > 0 && target[i] > 0) ? Math.round((aktual[i] / target[i]) * 1000) / 10 : null,
+          });
+        }
+      } catch (e) {
+        console.error("Gagal hitung mingguan Dekidaka:", e);
+        hasil.error = "Gagal menghitung data mingguan";
+      }
+      return hasil;
     },
     dekidakaGetTimesForBlock(container, blockNo) {
       const schedule = DKD_TIME_TABLE[blockNo];
