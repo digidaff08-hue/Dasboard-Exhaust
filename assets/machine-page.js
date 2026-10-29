@@ -411,7 +411,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261029t";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261029v";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:45", "20:30"] },
@@ -2031,26 +2031,28 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       try {
         const jumlahHari = new Date(tahun, bulan, 0).getDate();
         const pad = (n) => String(n).padStart(2, "0");
-        // Diambil per minggu (potongan kecil, paralel) supaya tiap permintaan ringan.
-        const offset0 = (new Date(tahun, bulan - 1, 1).getDay() + 6) % 7;
-        const nPotong = Math.floor((jumlahHari - 1 + offset0) / 7) + 1;
-        const potongan = [];
-        for (let w = 0; w < nPotong; w++) {
-          const d1 = Math.max(1, w * 7 - offset0 + 1), d2 = Math.min(jumlahHari, w * 7 - offset0 + 7);
-          potongan.push(supabaseClient.rpc("dashboard_dekidaka_production_month", {
-            p_mesin: line, p_dari: `${tahun}-${pad(bulan)}-${pad(d1)}`, p_sampai: `${tahun}-${pad(bulan)}-${pad(d2)}`,
-          }));
-        }
-        const balasan = await Promise.all(potongan);
-        const error = (balasan.find((b) => b.error) || {}).error || null;
-        const data = [].concat(...balasan.map((b) => b.data || []));
+        // Pakai fungsi yang sama dengan papan Dekidaka (sudah terbukti jalan), per hari & shift, 4 permintaan paralel.
+        const tugas = [];
+        for (let d = 1; d <= jumlahHari; d++) for (const sh of ["1", "2"]) tugas.push({ d, sh });
+        const data = []; let error = null, idx = 0;
+        const pekerja = async () => {
+          while (idx < tugas.length && !error) {
+            const t = tugas[idx++];
+            const res = await supabaseClient.rpc("dashboard_dekidaka_production_rows", {
+              p_mesin: line, p_start: new Date(tahun, bulan - 1, t.d).toISOString(),
+              p_end: new Date(tahun, bulan - 1, t.d + 1).toISOString(), p_shift: t.sh,
+            });
+            if (res.error) { error = res.error; return; }
+            (res.data || []).forEach((r) => data.push({ ...r, tanggal: `${tahun}-${pad(bulan)}-${pad(t.d)}`, shift: t.sh }));
+          }
+        };
+        await Promise.all([pekerja(), pekerja(), pekerja(), pekerja()]);
         const offset = (new Date(tahun, bulan - 1, 1).getDay() + 6) % 7;
         const nMinggu = Math.floor((jumlahHari - 1 + offset) / 7) + 1;
         const aktual = Array(nMinggu).fill(0), target = Array(nMinggu).fill(0);
+        const hariA = {}, hariT = {}, pctHari = {};
         if (error) {
-          hasil.error = (error.code === "PGRST202" || /Could not find the function/i.test(String(error.message || "")))
-            ? "Fungsi data bulanan belum ada - jalankan SQL 'Trend Volume + Foto' (dari chat) di Supabase SQL Editor."
-            : "Gagal memuat data bulanan: " + (error.message || "");
+          hasil.error = "Gagal memuat data bulanan: " + (error.message || "");
         } else {
           const colModels = this.dekidakaColumnModels(line), labels = dkdGetColumns(line);
           const grup = new Map();
@@ -2075,13 +2077,19 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           grup.forEach((g) => {
             const w = Math.floor((g.d - 1 + offset) / 7);
             aktual[w] += g.qty;
-            g.kols.forEach((c) => { target[w] += dkdTargetBlok(line, labels[c], g.menit) || 0; });
+            hariA[g.d] = (hariA[g.d] || 0) + g.qty;
+            g.kols.forEach((c) => { const tb = dkdTargetBlok(line, labels[c], g.menit) || 0; target[w] += tb; hariT[g.d] = (hariT[g.d] || 0) + tb; });
+          });
+          // Persen minggu = rata-rata persen harian (Rasio Dekidaka per hari = Aktual / Target, shift 1+2) hari yang berproduksi.
+          Object.keys(hariA).forEach((k) => {
+            const d = Number(k);
+            if (hariA[d] > 0 && hariT[d] > 0) { const w = Math.floor((d - 1 + offset) / 7); (pctHari[w] = pctHari[w] || []).push(hariA[d] / hariT[d] * 100); }
           });
         }
         for (let i = 0; i < nMinggu; i++) {
           hasil.minggu.push({
             label: "W" + (i + 1), aktual: aktual[i], target: target[i],
-            pct: (aktual[i] > 0 && target[i] > 0) ? Math.round((aktual[i] / target[i]) * 1000) / 10 : null,
+            pct: pctHari[i] && pctHari[i].length ? Math.round(pctHari[i].reduce((a, b) => a + b, 0) / pctHari[i].length * 10) / 10 : null,
           });
         }
       } catch (e) {
