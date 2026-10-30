@@ -18,7 +18,7 @@
   const COL = { productivity: "#0EA5E9", availability: "#10B981", downtime: "#F97316", ngInline: "#F43F5E", money: "#1D4ED8", straight: "#14B8A6", perjam: "#6366F1", trend: "#2563EB" };
 
   // Naikkan setiap kali file Dekidaka (machine-page.js, style.css, dekidaka-line.html) berubah.
-  const DEKI_VER = "20261030b";
+  const DEKI_VER = "20261030g";
 
   const mgCache = {};   // hasil Trend Volume per line|tahun|bulan -> tidak hitung ulang saat pindah line (berlaku 10 menit)
   const pad2 = (n) => String(n).padStart(2, "0");
@@ -178,6 +178,37 @@
         if (!this.bolehLihat() || typeof Chart === "undefined") return;
         this.dekiSinkron();           // minta papan Dekidaka ikut tanggal & shift ini -> papan mengirim data baru
         this.bangunPerjam();
+        this.muatProblem();
+      },
+      // Problem Followup Sheets: downtime hari produksi terpilih (07:00-07:00), Shift 1 + 2 digabung.
+      problemRows: [],
+      async muatProblem() {
+        if (!this.bolehLihat()) return;
+        const tok = (this._pfTok = (this._pfTok || 0) + 1);
+        const line = this.activeTab, tgl = this.perjamTgl;
+        if (!tgl) return;
+        const [y, m, d] = tgl.split("-").map(Number);
+        const awal = new Date(y, m - 1, d, 7, 0), akhir = new Date(y, m - 1, d + 1, 7, 0);
+        try {
+          const { data, error } = await supabaseClient.from("downtime_log")
+            .select("waktu_awal,waktu_akhir,problem,area,countermeasure,pic")
+            .eq("mesin", line).gte("waktu_awal", awal.toISOString()).lt("waktu_awal", akhir.toISOString()).order("waktu_awal");
+          if (error) throw error;
+          if (tok !== this._pfTok) return;
+          const f = (t) => { const x = new Date(t); return pad2(x.getDate()) + "/" + pad2(x.getMonth() + 1) + "/" + x.getFullYear() + " " + pad2(x.getHours()) + ":" + pad2(x.getMinutes()); };
+          this.problemRows = (data || []).map((r) => {
+            const a = new Date(r.waktu_awal), mnt = a.getHours() * 60 + a.getMinutes();
+            return {
+              problem: r.problem || r.area || "(tanpa keterangan)",
+              tanggal: pad2(d) + "/" + pad2(m) + "/" + y,
+              shift: mnt >= 420 && mnt < 1170 ? "1" : "2",
+              penanganan: r.countermeasure || "",
+              waktu: Math.round((new Date(r.waktu_akhir) - a) / 60000),
+              selesai: f(r.waktu_akhir),
+              pic: r.pic || "",
+            };
+          });
+        } catch (e) { console.error("Gagal memuat Problem Followup:", e); if (tok === this._pfTok) this.problemRows = []; }
       },
       async bangunPerjam() {
         if (!this.bolehLihat() || typeof Chart === "undefined") return;
@@ -235,12 +266,12 @@
         this.charts["dlPerjam" + i] = new Chart(c, {
           type: "line",
           data: { labels: L, datasets: [
-            { clip: false, label: "Target", data: L.map((l, k) => (l === "–" ? null : 100)), borderColor: "#dc2626", backgroundColor: "#dc2626", borderWidth: 1.4, pointRadius: 2.5, tension: 0 },
-            { clip: false, label: "Aktual", data: pn.pct, borderColor: "#1d4ed8", backgroundColor: "#1d4ed8", borderWidth: 1.6, pointRadius: 3, tension: 0, spanGaps: true },
+            { clip: false, label: "Target", data: L.map((l, k) => (l === "–" ? null : 100)), borderColor: "#dc2626", backgroundColor: "#dc2626", borderWidth: 1.4, pointRadius: 1, tension: 0 },
+            { clip: false, label: "Aktual", data: pn.pct, borderColor: "#1d4ed8", backgroundColor: "#1d4ed8", borderWidth: 1.6, pointRadius: 1, tension: 0, spanGaps: true },
           ] },
           options: { responsive: true, maintainAspectRatio: false, animation: false, layout: { padding: { top: 14, right: 10, left: 2 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (it) => it.dataset.label + ": " + it.parsed.y + "%" + (it.datasetIndex === 1 ? " (" + pn.qty[it.dataIndex] + " pcs)" : "") } } },
             scales: {
-              x: { offset: true, ticks: { color: "#000", font: { size: 7, weight: "700" }, autoSkip: false, maxRotation: 0, padding: 2 }, border: { dash: [1, 3] }, grid: { color: "#000", drawTicks: false } },
+              x: { offset: true, ticks: { color: "#000", font: { size: 6, weight: "700" }, autoSkip: false, maxRotation: 0, padding: 2 }, border: { dash: [1, 3] }, grid: { color: "#000", drawTicks: false } },
               y: { min: ymin, max: ymax, ticks: { color: "#000", font: { size: 8.5 }, stepSize: 10 }, border: { dash: [1, 3] }, grid: { color: "#000", drawTicks: false } } } },
           plugins: [kotak, titik("pjTitik" + i)],
         });
@@ -365,7 +396,6 @@
             plugins: [labelBatang((v) => v + "%")],
           });
         };
-        aman(() => batangPersen("dlProductivity", kosong, COL.productivity, D.target), "productivity");
         aman(() => batangPersen("dlAvailability", D.avail, COL.availability, null), "availability");
 
         // Downtime harian (area)
@@ -373,7 +403,7 @@
           const c = this.kanvas("dlDowntime"); if (!c) return;
           this.charts.dlDowntime = new Chart(c, {
             type: "line",
-            data: { labels: L, datasets: [{ label: "Downtime (menit)", data: D.downtime, fill: true, backgroundColor: COL.downtime + "33", borderColor: COL.downtime, borderWidth: 1.2, tension: 0.35, cubicInterpolationMode: "monotone", pointRadius: 2, pointBackgroundColor: COL.downtime }] },
+            data: { labels: L, datasets: [{ label: "Downtime (menit)", data: D.downtime, fill: true, backgroundColor: COL.downtime + "33", borderColor: COL.downtime, borderWidth: 1.2, tension: 0.35, cubicInterpolationMode: "monotone", pointRadius: 1, pointBackgroundColor: COL.downtime }] },
             options: { responsive: true, maintainAspectRatio: false, animation: noAnim, layout: { padding: { top: 22 } }, plugins: { legend: legenda(true) }, scales: { x: skalaX(), y: skalaY() } },
             plugins: [labelGaris((v) => fmtNum(v), 0)],
           });
@@ -435,7 +465,7 @@
         this.charts.dlTrend = new Chart(c, { type: "line",
           data: { labels, datasets: [
             { label: "Target", data: labels.map(() => 100), borderColor: "#dc2626", backgroundColor: "#dc2626", borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0, tension: 0 },
-            { label: "Rata-rata Rasio", data: nilai, borderColor: COL.trend, backgroundColor: COL.trend, borderWidth: 2, pointRadius: 4, tension: 0, spanGaps: true, clip: false },
+            { label: "Rata-rata Rasio", data: nilai, borderColor: COL.trend, backgroundColor: COL.trend, borderWidth: 2, pointRadius: 1, tension: 0, spanGaps: true, clip: false },
           ] },
           options: { responsive: true, maintainAspectRatio: false, animation: { duration: 0 }, layout: { padding: { top: 22, right: 14, left: 4 } }, plugins: { legend: legenda(true), tooltip: { callbacks: { label: (it) => it.dataset.label + ": " + it.formattedValue + "%" } } },
             scales: { x: { ...skalaX(), offset: true, ticks: { color: "#000", font: { size: 11, weight: "700" }, autoSkip: false, maxRotation: 0 } }, y: { ...skalaY(), min: ymin, max: ymax, ticks: { ...tick, stepSize: 10, callback: (v) => v + "%" } } } },
@@ -557,6 +587,7 @@
           Object.keys(mgCache).forEach((k) => { if (k.indexOf(line + "|") === 0) delete mgCache[k]; });
           const fr = document.querySelector(".dl-deki iframe");
           try { if (fr && fr.contentWindow) fr.contentWindow.postMessage({ dekidakaSegarkan: true }, "*"); } catch (e) {}
+          this.muatProblem();
           this.muat(true);
         }, 900);
       },

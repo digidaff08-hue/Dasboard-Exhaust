@@ -1017,7 +1017,7 @@ td.mono, .mono { font-family: var(--font-mono); }
 .dkd-cell .dkd-scale{ position:absolute; top:0; left:0; transform-origin:top left; }
 /* border-left aksen warna per line (lihat DKD_LINE_COLORS / dkdBuildBoardHTML)
    -- biar pas digeser ke samping gampang kebaca lagi board line yang mana. */
-.dkd-board{ --dkd-css-build:20261030b; width:1720px; background:#fff; padding:14px 14px 14px 18px; font-size:0.75rem; color:#111; font-family: Arial, Helvetica, sans-serif; border-left:8px solid var(--dkd-accent, #1f4e79); }
+.dkd-board{ --dkd-css-build:20261030g; width:1720px; background:#fff; padding:14px 14px 14px 18px; font-size:0.75rem; color:#111; font-family: Arial, Helvetica, sans-serif; border-left:8px solid var(--dkd-accent, #1f4e79); }
 /* Tombol kecil Print/Export PDF per board (muncul di dkd-info-bar, lihat
    dkdBuildBoardHTML) -- dipakai baik di tab Dekidaka ini maupun di modal
    "Lihat Dekidaka" (halaman line, assets/machine-page.js + assets/style.css
