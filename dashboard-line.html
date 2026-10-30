@@ -28,7 +28,7 @@
   .dl-bar input[type=date] { font: inherit; font-size: 0.75rem; padding: 5px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); }
   .dl-bar select { font: inherit; font-size: 0.75rem; padding: 5px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); min-width: 120px; }
   .dl-modes { display: flex; gap: 4px; align-self: flex-end; }
-  .dl-mode { font: 800 0.6875rem inherit; font-family: inherit; padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--muted); cursor: pointer; }
+  .dl-mode { font: 800 0.6875rem inherit; font-family: inherit; padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: #000; cursor: pointer; }
   .dl-mode.on { background: #0f172a; color: #fff; border-color: #0f172a; }
   .dl-wrap { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
   .dl-perf { flex: 1 1 auto; min-height: 560px; width: 100%; border: 0; background: transparent; display: block; }
@@ -68,9 +68,9 @@
   .dl-foto-tools { display: flex; gap: 4px; align-items: center; }
   .dl-foto { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--border); border-radius: 8px; overflow: hidden; background: rgba(128,128,128,.04); }
   .dl-foto-besar { align-items: center; justify-content: center; background: #fff; }
-  .dl-foto-besar img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+  .dl-foto-besar img, .dl-foto-besar video { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
   .dl-foto-tutup { position: absolute; top: 10px; right: 10px; }
-  .dl-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .dl-foto img, .dl-foto video { width: 100%; height: 100%; object-fit: contain; display: block; background: #fff; }
   .dl-sheet { width: 100%; border-collapse: collapse; font-size: 0.6875rem; table-layout: fixed; }
   .dl-sheet th, .dl-sheet td { border: 1px solid var(--border); padding: 4px 3px; text-align: center; }
   .dl-sheet th { font-weight: 800; background: rgba(128,128,128,.08); font-size: 0.625rem; letter-spacing: 0; white-space: normal; padding: 4px 2px; }
@@ -87,6 +87,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="assets/supabaseClient.js"></script>
+<script src="assets/realtime.js"></script>
 <script src="assets/dashboard-line.js"></script>
 </head>
 <body>
@@ -169,7 +170,8 @@
       <div class="dl-wrap">
       <div class="dl-besar" x-show="fotoBesar" x-cloak @click.self="fotoBesar = false">
         <div class="dl-besar-box dl-foto-besar">
-          <img :src="fotoUrl" alt="TSK">
+          <template x-if="fotoBesar && fotoJenis==='gambar'"><img :src="fotoUrl" alt="TSK"></template>
+          <template x-if="fotoBesar && fotoJenis==='video'"><video :src="fotoUrl" autoplay loop playsinline controls></video></template>
           <button type="button" class="dl-tool dl-foto-tutup" title="Tutup (Esc)" @click="fotoBesar = false">&#10005;</button>
         </div>
       </div>
@@ -244,7 +246,7 @@
               <div class="dl-head">
                 <span class="dl-box-title">TSK</span>
                 <span class="dl-foto-tools" x-show="isAdmin()">
-                  <label class="dl-pj-btn" :style="fotoBusy ? 'opacity:.5;pointer-events:none' : ''"><span x-text="fotoBusy ? 'Mengunggah…' : (fotoUrl ? 'Ganti' : 'Unggah')"></span><input type="file" accept="image/*" hidden @change="unggahFoto($event)"></label>
+                  <label class="dl-pj-btn" :style="fotoBusy ? 'opacity:.5;pointer-events:none' : ''"><span x-text="fotoBusy ? 'Mengunggah…' : (fotoUrl ? 'Ganti' : 'Unggah')"></span><input type="file" accept="image/*,video/*" hidden @change="unggahFoto($event)"></label>
                   <button type="button" class="dl-pj-btn" x-show="fotoUrl" @click="hapusFoto()">Hapus</button>
                 </span>
                 <span class="dl-foto-tools" x-show="fotoUrl">
@@ -252,7 +254,8 @@
                 </span>
               </div>
               <div class="dl-foto">
-                <img x-show="fotoUrl" :src="fotoUrl" alt="Foto line">
+                <img x-show="fotoUrl && fotoJenis==='gambar'" :src="fotoJenis==='gambar' ? fotoUrl : ''" alt="TSK">
+                <video x-show="fotoUrl && fotoJenis==='video'" :src="fotoJenis==='video' ? fotoUrl : ''" autoplay muted loop playsinline controls></video>
                 <span class="dl-sub" x-show="!fotoUrl" x-text="isAdmin() ? 'Belum ada TSK — klik Unggah' : 'Belum ada TSK'"></span>
               </div>
               <span class="error-msg" x-show="fotoPesan" x-text="fotoPesan"></span>
@@ -313,7 +316,7 @@ function dashboardLinePage() {
     dlMenu: ["E-02", "E-03", "E-04", "E-05", "E-06", "E-07"].map((l) => ({ tab: l, label: l })),
     async init() {
       this.pasangPesan();
-      if (await this.initBase()) { await this.$nextTick(); this.perjamAuto(); this.muatPerjam(); this.muatFoto(); await this.muat(); }
+      if (await this.initBase()) { await this.$nextTick(); this.perjamAuto(); this.muatPerjam(); this.muatFoto(); this.mulaiRealtime(); await this.muat(); }
     },
   };
   // Gabungkan dengan data & grafik (assets/dashboard-line.js) TANPA
