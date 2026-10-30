@@ -1017,7 +1017,7 @@ td.mono, .mono { font-family: var(--font-mono); }
 .dkd-cell .dkd-scale{ position:absolute; top:0; left:0; transform-origin:top left; }
 /* border-left aksen warna per line (lihat DKD_LINE_COLORS / dkdBuildBoardHTML)
    -- biar pas digeser ke samping gampang kebaca lagi board line yang mana. */
-.dkd-board{ --dkd-css-build:20261029x; width:1720px; background:#fff; padding:14px 14px 14px 18px; font-size:0.75rem; color:#111; font-family: Arial, Helvetica, sans-serif; border-left:8px solid var(--dkd-accent, #1f4e79); }
+.dkd-board{ --dkd-css-build:20261030b; width:1720px; background:#fff; padding:14px 14px 14px 18px; font-size:0.75rem; color:#111; font-family: Arial, Helvetica, sans-serif; border-left:8px solid var(--dkd-accent, #1f4e79); }
 /* Tombol kecil Print/Export PDF per board (muncul di dkd-info-bar, lihat
    dkdBuildBoardHTML) -- dipakai baik di tab Dekidaka ini maupun di modal
    "Lihat Dekidaka" (halaman line, assets/machine-page.js + assets/style.css
@@ -1137,9 +1137,9 @@ table.dkd-main thead th{ background:var(--accent-color, #1f4e79); color:#fff; fo
 .dkd-c-no{width:34px;} .dkd-c-part{width:85px;} .dkd-c-waktu{width:110px;} .dkd-c-desc{width:160px;}
 .dkd-c-d73f{width:40px;} .dkd-c-889f{width:40px;} .dkd-c-model{width:40px;} .dkd-c-maint{width:85px;} .dkd-c-ket{width:40px;}
 .dkd-c-masalah{width:410px;} .dkd-c-penanganan{width:330px;} .dkd-c-pic{width:80px;} .dkd-c-deadline{width:100px;}
-.dkd-no-label{ font-weight:bold; font-size:0.8125rem; color:#555; }
+.dkd-no-label{ font-weight:bold; font-size:0.8125rem; color:#000; }
 .dkd-desc-row{ display:flex; flex-direction:column; align-items:center; justify-content:center; align-content:center; gap:2px; text-align:center; }
-.dkd-desc-row .dkd-lbl{ font-weight:600; font-size:0.5938rem; white-space:normal; line-height:1.15; color:#888; }
+.dkd-desc-row .dkd-lbl{ font-weight:600; font-size:0.5938rem; white-space:normal; line-height:1.15; color:#000; }
 td.dkd-gray{ background:transparent; }
 /* Kolom referensi (dulu "D73F"/"889F" dkk) belum ada datanya -- dikasih
    fill abu-abu sangat muda, biar area yang masih kosong keliatan beda
