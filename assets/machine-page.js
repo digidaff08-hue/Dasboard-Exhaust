@@ -411,7 +411,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261029x";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261030b";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:45", "20:30"] },
@@ -1835,6 +1835,14 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
             this._mgJanji[kunci].then((r) => {
               try { window.parent.postMessage({ dekidakaMingguanHasil: r }, "*"); } catch (err) {}
             });
+            return;
+          }
+          if (e.data && e.data.dekidakaSegarkan) {   // data baru masuk -> ambil ulang diam-diam
+            const c = this._dkdModalContainer, ln = c && c.getAttribute("data-line");
+            if (c && ln) {
+              this.dekidakaLoadDowntime(c, ln); this.dekidakaLoadRepairQty(c, ln);
+              this.dekidakaLoadProduction(c, ln); this.dekidakaLoadSummary(c, ln);
+            }
             return;
           }
           const a = e.data && e.data.dekidakaAksi;
