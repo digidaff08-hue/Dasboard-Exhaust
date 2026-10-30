@@ -1,529 +1,329 @@
-// =========================================================
-// Dashboard Line -- data & grafik per line (E-02 .. E-07).
-// Dipakai dashboard-line.html lewat dashboardLineData() (digabung ke
-// objek Alpine halaman itu).
-//
-// Sumber data SAMA dengan Dashboard Exhaust:
-//   Availability, Downtime Harian -> RPC dashboard_harian_produksi (p_mesin)
-//   NG Inline harian              -> RPC dashboard_qc_ng_detail_range (disaring per line)
-//   Straightpass harian           -> bar Qty Repair: dashboard_qc_repair_detail_range
-//                                    (disaring per line); garis %: RPC
-//                                    dashboard_qc_produksi_daily_line (BARU,
-//                                    kosong sampai SQL-nya dijalankan)
-//   Productivity / Trend Volume -> kerangka kosong dulu.
-//   Perjam -> RPC dashboard_dekidaka_production_rows (data Dekidaka), 1 tanggal + 1 shift.
-// =========================================================
-(function () {
-  const BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-  const COL = { productivity: "#0EA5E9", availability: "#10B981", downtime: "#F97316", ngInline: "#F43F5E", money: "#1D4ED8", straight: "#14B8A6", perjam: "#6366F1", trend: "#2563EB" };
-
-  // Naikkan setiap kali file Dekidaka (machine-page.js, style.css, dekidaka-line.html) berubah.
-  const DEKI_VER = "20261029x";
-
-  const mgCache = {};   // hasil Trend Volume per line|tahun|bulan -> tidak hitung ulang saat pindah line (berlaku 10 menit)
-  const pad2 = (n) => String(n).padStart(2, "0");
-  const tglStr = (y, m, d) => y + "-" + pad2(m) + "-" + pad2(d);
-  const fmtNum = (n) => Number(n).toLocaleString("id-ID", { maximumFractionDigits: 1 });
-
-  // Ambil SEMUA baris RPC (Supabase membatasi 1000 baris per request).
-  async function ambilSemua(rpcName, params, pageSize = 1000) {
-    let semua = [], dari = 0, err = null;
-    while (true) {
-      const { data, error } = await supabaseClient.rpc(rpcName, params).range(dari, dari + pageSize - 1);
-      if (error) { err = error; break; }
-      const rows = data || [];
-      semua = semua.concat(rows);
-      if (rows.length < pageSize) break;
-      dari += pageSize;
-    }
-    return { data: semua, error: err };
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Line</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Luckiest+Guy&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .dl-main { height: 100vh; overflow: auto; padding: 12px 20px 14px !important; gap: 8px !important; }
+  .dl-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; flex-wrap: wrap; flex: 0 0 auto; }
+  .dl-title {
+    margin: 0; padding: 0; line-height: 1.1;
+    font-family: 'Luckiest Guy', cursive; font-weight: 400; font-size: 2.1rem; letter-spacing: 1px;
+    color: #4FD3EF; -webkit-text-stroke: 2px #1B2A4A; paint-order: stroke fill;
+    text-shadow: 2px 2px 0 #1B2A4A;
+    animation: dlTitleGlow 2.6s ease-in-out infinite;
   }
+  @keyframes dlTitleGlow {
+    0%, 100% { text-shadow: 2px 2px 0 #1B2A4A, 0 0 6px rgba(79, 211, 239, 0.15); }
+    50%      { text-shadow: 2px 2px 0 #1B2A4A, 0 0 16px rgba(79, 211, 239, 0.65); }
+  }
+  .dl-bar { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+  .dl-bar label { display: flex; flex-direction: column; gap: 2px; font-size: 0.625rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .dl-bar input[type=date] { font: inherit; font-size: 0.75rem; padding: 5px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); }
+  .dl-bar select { font: inherit; font-size: 0.75rem; padding: 5px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); min-width: 120px; }
+  .dl-modes { display: flex; gap: 4px; align-self: flex-end; }
+  .dl-mode { font: 800 0.6875rem inherit; font-family: inherit; padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: #000; cursor: pointer; }
+  .dl-mode.on { background: #0f172a; color: #fff; border-color: #0f172a; }
+  .dl-wrap { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  .dl-perf { flex: 1 1 auto; min-height: 560px; width: 100%; border: 0; background: transparent; display: block; }
+  .dl-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  .dl-grid { flex: 1 1 auto; min-height: 560px; display: grid; grid-template-columns: 1fr .72fr 1fr; grid-template-rows: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .dl-box { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px 4px; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+  .dl-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 2px; flex: 0 0 auto; }
+  .dl-box-title { font-size: 0.6875rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+  .dl-sub { font-size: 0.6875rem; font-weight: 700; color: var(--muted); }
+  .dl-pj-tools { display:flex; gap:4px; align-items:center; }
+  .dl-pj-in { font: 700 0.6875rem inherit; font-family: inherit; padding: 1px 4px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: inherit; }
+  .dl-pj-btn { font: 800 0.625rem inherit; font-family: inherit; padding: 2px 8px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; }
+  .dl-pj-btn.on { background: #0f172a; color: #fff; border-color: #0f172a; }
+  .dl-pj-wrap { flex: 1; min-height: 0; display: flex; gap: 8px; overflow-x: auto; position: relative; }
+  .dl-pj-kosong { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+  .dl-pj-panel { flex: 1 0 46%; min-width: 0; display: flex; min-height: 0; }
+  .dl-pj-judul { writing-mode: vertical-rl; transform: rotate(180deg); font: 700 0.8125rem Arial, sans-serif; letter-spacing: .04em; padding: 0 3px 0 4px; text-align: center; white-space: nowrap; }
+  .dl-pj-kanvas { position: relative; flex: 1; min-width: 0; }
+  .dl-chart { position: relative; flex: 1; min-height: 0; }
+  .dl-deki { grid-column: 2; grid-row: 1 / span 3; padding: 0; flex-direction: row; }
+  .dl-deki-tools { flex: 0 0 38px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 4px; border-left: 1px solid var(--border); background: rgba(128,128,128,.05); }
+  .dl-tool { width: 30px; height: 30px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); font: inherit; font-size: 0.9375rem; font-weight: 700; line-height: 1; cursor: pointer; padding: 0; }
+  .dl-tool:hover { border-color: #4f5fe0; color: #4f5fe0; }
+  .dl-tool-label { font-size: 0.5625rem; }
+  .dl-tool-gap { height: 8px; }
+  .dl-deki { position: relative; }
+  .dl-besar { position: fixed; inset: 0; z-index: 3000; background: rgba(15,23,42,.72); display: flex; align-items: center; justify-content: center; padding: 14px; }
+  .dl-besar-box { position: relative; background: #fff; border-radius: 12px; overflow: hidden; width: 100%; height: 100%; display: flex; flex-direction: row; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  .dl-besar-box iframe { flex: 1 1 auto; min-width: 0; width: 100%; height: 100%; border: 0; background: transparent; display: block; }
+  .dl-deki-muat { position: absolute; top: 50%; left: 0; right: 0; text-align: center; }
+  .dl-deki iframe { flex: 1 1 auto; min-width: 0; width: 100%; height: 100%; border: 0; background: transparent; display: block; }
+  .dl-wide { grid-column: 2 / span 2; }
+  .dl-split { display: flex; gap: 8px; min-width: 0; min-height: 0; }
+  .dl-split-chart { flex: 1 1 0; }
+  .dl-split-foto { flex: 1 1 0; }
+  .dl-foto-tools .dl-pj-btn { font-family: inherit; font-size: 0.625rem; font-weight: 800; padding: 2px 8px; line-height: 1.3; }
+  .dl-foto-tools { display: flex; gap: 4px; align-items: center; }
+  .dl-foto { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--border); border-radius: 8px; overflow: hidden; background: rgba(128,128,128,.04); }
+  .dl-foto-besar { align-items: center; justify-content: center; background: #fff; }
+  .dl-foto-besar img, .dl-foto-besar video { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+  .dl-foto-tutup { position: absolute; top: 10px; right: 10px; }
+  .dl-foto img, .dl-foto video { width: 100%; height: 100%; object-fit: contain; display: block; background: #fff; }
+  .dl-sheet { width: 100%; border-collapse: collapse; font-size: 0.6875rem; table-layout: fixed; }
+  .dl-sheet th, .dl-sheet td { border: 1px solid var(--border); padding: 4px 3px; text-align: center; }
+  .dl-sheet th { font-weight: 800; background: rgba(128,128,128,.08); font-size: 0.625rem; letter-spacing: 0; white-space: normal; padding: 4px 2px; }
+  @media (max-width: 1100px) {
+    .dl-main { height: auto; overflow: visible; }
+    .dl-grid { grid-template-columns: 1fr; grid-template-rows: none; grid-auto-rows: 290px; }
+    .dl-deki, .dl-wide { grid-column: auto !important; grid-row: auto !important; }
+    .dl-deki { height: 520px; }
+  }
+</style>
 
-  // Label angka di atas batang (diputar tegak kalau tidak muat).
-  const labelBatang = (formatter, datasetIndex = 0, pos = "above") => ({
-    id: "dlBarLabels" + datasetIndex,
-    afterDatasetsDraw(chart) {
-      const { ctx, chartArea } = chart;
-      const meta = chart.getDatasetMeta(datasetIndex);
-      const ds = chart.data.datasets[datasetIndex];
-      if (!meta || !ds || meta.type !== "bar" || !meta.data || !chartArea) return;
-      const slot = chartArea.width / (meta.data.length || 1);
-      const fs = slot < 18 ? 6.5 : slot < 26 ? 7.5 : slot < 40 ? 8.5 : 9.5;
-      ctx.save();
-      ctx.font = "700 " + fs + "px Inter, sans-serif";
-      ctx.fillStyle = "#000"; ctx.textAlign = "center";
-      let terlebar = 0;
-      meta.data.forEach((b, i) => {
-        const v = Number(ds.data[i]);
-        if (ds.data[i] == null || Number.isNaN(v) || v === 0) return;
-        terlebar = Math.max(terlebar, ctx.measureText(formatter(v)).width);
-      });
-      const putar = terlebar > slot - 2;
-      meta.data.forEach((b, i) => {
-        const v = Number(ds.data[i]);
-        if (ds.data[i] == null || Number.isNaN(v) || v === 0) return;
-        const { x, y } = b.getProps(["x", "y"], true);
-        const yy = pos === "base" ? chartArea.bottom - 4 : y - 4;
-        if (putar) {
-          ctx.save(); ctx.translate(x, yy); ctx.rotate(-Math.PI / 2);
-          ctx.textAlign = "left"; ctx.textBaseline = "middle";
-          ctx.fillText(formatter(v), 0, 0); ctx.restore();
-        } else {
-          ctx.textBaseline = "bottom"; ctx.fillText(formatter(v), x, yy);
-        }
-      });
-      ctx.restore();
+<script src="assets/pengaturan.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="assets/supabaseClient.js"></script>
+<script src="assets/realtime.js"></script>
+<script src="assets/dashboard-line.js"></script>
+</head>
+<body>
+
+<div class="app-shell" x-data="dashboardLinePage()">
+  <div class="mobile-topbar">
+    <button class="hamburger" @click="mobileNavOpen = true"><svg class="sb-svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
+  </div>
+
+  <div class="sidebar-overlay" x-show="mobileNavOpen" @click="mobileNavOpen = false" x-cloak></div>
+  <aside class="sidebar" :class="[mobileNavOpen ? 'sidebar-open' : '', sidebarCollapsed ? 'sidebar-collapsed' : '']">
+    <button class="sidebar-collapse-btn" @click="sidebarCollapsed = !sidebarCollapsed">
+      <span x-show="!sidebarCollapsed">‹</span><span x-show="sidebarCollapsed">›</span>
+    </button>
+    <div class="sidebar-brand" x-show="!sidebarCollapsed"><span class="sb-brand-title">WELDING EXHAUST</span><span class="sb-brand-sub">PT Futaba Industrial Indonesia</span></div>
+    <nav class="sidebar-nav" @click="mobileNavOpen = false">
+      <a href="dashboard-exhaust.html" class="sidebar-link" title="Dashboard Exhaust"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M3 13h4v8H3zM10 3h4v18h-4zM17 8h4v13h-4z"/></svg></span><span x-show="!sidebarCollapsed">Dashboard Exhaust</span></a>
+      <a href="#" class="sidebar-link active" title="Dashboard Line" x-show="bolehLihat()" @click.prevent.stop="sidebarCollapsed = false"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg></span><span x-show="!sidebarCollapsed">Dashboard Line</span><span class="sb-chev" role="button" tabindex="0" x-show="!sidebarCollapsed" :class="dlMenuOpen ? 'sb-chev-buka' : ''" :title="dlMenuOpen ? 'Sembunyikan sub-menu' : 'Tampilkan sub-menu'" :aria-expanded="dlMenuOpen" @click.prevent.stop="dlMenuOpen = !dlMenuOpen" @keydown.enter.prevent.stop="dlMenuOpen = !dlMenuOpen">›</span></a>
+      <div class="sb-submenu" x-show="bolehLihat() && dlMenuOpen && !sidebarCollapsed" x-cloak>
+        <template x-for="m in dlMenu" :key="m.tab">
+          <a href="#" class="sidebar-sublink" :class="activeTab === m.tab ? 'active' : ''" @click.prevent="setTab(m.tab)" x-text="m.label"></a>
+        </template>
+      </div>
+      <a href="input-produksi.html" class="sidebar-link" title="Input Produksi" x-show="!isGuest()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></span><span x-show="!sidebarCollapsed">Input Produksi</span></a>
+      <a href="input-attendance.html" class="sidebar-link" title="Input Attendance" x-show="isLeaderOrAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></span><span x-show="!sidebarCollapsed">Input Attendance</span></a>
+      <a href="andon.html" class="sidebar-link" title="Andon" x-show="!isGuest()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm7-6V11c0-3.07-1.64-5.64-4.5-6.32V4a1.5 1.5 0 0 0-3 0v.68C8.63 5.36 7 7.92 7 11v5l-2 2v1h14v-1l-2-2z"/></svg></span><span x-show="!sidebarCollapsed">Andon</span></a>
+      <a href="perencanaan-produksi.html" class="sidebar-link" title="Perencanaan Produksi" x-show="isAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5zm2 4h4v4H7z"/></svg></span><span x-show="!sidebarCollapsed">Perencanaan Produksi</span></a>
+      <a href="data-mentah.html" class="sidebar-link" title="Data Mentah" x-show="isAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 7.6V12c0 1.66 3.58 3 8 3s8-1.34 8-3V7.6C18.4 8.9 15.3 9.6 12 9.6S5.6 8.9 4 7.6z"/><path d="M4 14.6V19c0 1.66 3.58 3 8 3s8-1.34 8-3v-4.4c-1.6 1.3-4.7 2-8 2s-6.4-.7-8-2z"/></svg></span><span x-show="!sidebarCollapsed">Data Mentah</span></a>
+      <a href="data-karyawan.html" class="sidebar-link" title="Data Karyawan" x-show="isLeaderOrAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM9 7a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zm5 10H4v-.5C4 14.6 7 14 9 14s5 .6 5 2.5V17zm6-2h-4v-2h4v2zm0-4h-4V9h4v2z"/></svg></span><span x-show="!sidebarCollapsed">Data Karyawan</span></a>
+      <a href="data-dashboard.html" class="sidebar-link" title="Data Dashboard" x-show="isLeaderOrAdmin()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg></span><span x-show="!sidebarCollapsed">Data Dashboard</span></a>
+    </nav>
+    <div class="sidebar-settings">
+      <a href="pengaturan.html" class="sidebar-link" title="Pengaturan" x-show="!isGuest()"><span class="sb-ico"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.61.22L2.71 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.07.63-.07.94s.03.63.07.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.31.61.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.26.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.23.09.48 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg></span><span x-show="!sidebarCollapsed">Pengaturan</span></a>
+    </div>
+    <div class="sidebar-foot" x-show="!sidebarCollapsed">
+      <div class="sb-av" x-text="((profile?.full_name || session?.user?.email || '?').trim().charAt(0) || '?').toUpperCase()"></div>
+      <div class="sb-user"><div class="who" x-text="profile?.full_name || session?.user?.email || '...'"></div>
+      <span class="badge" :class="profile?.role === 'admin' ? 'role-admin' : ''" x-text="profile?.jabatan || profile?.role || '...'"></span></div>
+      <button class="btn-ghost btn-sm" @click="logout()">Keluar</button>
+    </div>
+    <button class="sidebar-logout-collapsed" x-show="sidebarCollapsed" @click="logout()" title="Keluar"><svg class="sb-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M13 3h-2v10h2V3zm4.83 2.17-1.42 1.42A6.92 6.92 0 0 1 19 12a7 7 0 1 1-11.42-5.42L6.17 5.17A8.93 8.93 0 0 0 3 12a9 9 0 0 0 18 0c0-2.74-1.23-5.18-3.17-6.83z"/></svg></button>
+  </aside>
+
+  <main class="main dl-main">
+    <div class="dl-top">
+      <h1 class="dl-title">PERFORMANCE <span x-text="activeTab"></span></h1>
+      <div class="dl-bar">
+        <div class="dl-modes">
+          <template x-for="m in [['dashboard','Control Board'],['harian','Harian'],['bulanan','Bulanan'],['tahunan','Tahunan']]" :key="m[0]">
+            <button type="button" class="dl-mode" :class="tampil === m[0] ? 'on' : ''" @click="setTampil(m[0])" x-text="m[1]"></button>
+          </template>
+        </div>
+        <span class="dl-sub" x-show="memuat">Memuat…</span>
+        <span class="error-msg" x-show="pesan" x-text="pesan"></span>
+        <label x-show="tampil === 'dashboard'">Bulan
+          <select x-model.number="bulan" @change="ubahPeriode()">
+            <template x-for="(nm, i) in BULAN_LABELS" :key="i"><option :value="i + 1" :selected="i + 1 === bulan" x-text="nm"></option></template>
+          </select>
+        </label>
+        <label x-show="tampil === 'dashboard'">Tahun
+          <select x-model.number="tahun" @change="ubahPeriode()">
+            <template x-for="y in tahunOptions" :key="y"><option :value="y" :selected="y === tahun" x-text="y"></option></template>
+          </select>
+        </label>
+        <label x-show="tampil === 'dashboard'">Tanggal
+          <input type="date" x-model="perjamTgl" @change="tandaiManual(); muatPerjam()">
+        </label>
+        <label x-show="tampil === 'dashboard'">Shift
+          <select x-model="perjamShift" @change="tandaiManual(); muatPerjam()">
+            <option value="1">Shift 1</option>
+            <option value="2">Shift 2</option>
+          </select>
+        </label>
+      </div>
+    </div>
+    <template x-if="!bolehLihat() && profile">
+      <div class="error-msg">Halaman ini khusus admin.</div>
+    </template>
+    <template x-if="bolehLihat()">
+      <div class="dl-wrap">
+      <div class="dl-besar" x-show="fotoBesar" x-cloak @click.self="fotoBesar = false">
+        <div class="dl-besar-box dl-foto-besar">
+          <template x-if="fotoBesar && fotoJenis==='gambar'"><img :src="fotoUrl" alt="TSK"></template>
+          <template x-if="fotoBesar && fotoJenis==='video'"><video :src="fotoUrl" autoplay loop playsinline controls></video></template>
+          <button type="button" class="dl-tool dl-foto-tutup" title="Tutup (Esc)" @click="fotoBesar = false">&#10005;</button>
+        </div>
+      </div>
+      <iframe class="dl-perf" x-show="tampil !== 'dashboard'" x-cloak :src="perfUrl" title="Performance"></iframe>
+      <div class="dl-body" x-show="tampil === 'dashboard'">
+        <!-- Dekidaka versi besar (layar penuh) -->
+        <div class="dl-besar" x-show="dekiBuka" x-cloak @click.self="tutupDekidaka()">
+          <div class="dl-besar-box">
+            <span class="dl-sub dl-deki-muat" x-show="!dekiBesarSiap">Memuat Dekidaka…</span>
+            <template x-if="dekiBuka">
+              <iframe :src="dekiUrl + '&penuh=1'" title="Dekidaka besar" :style="dekiBesarSiap ? '' : 'opacity:0'"></iframe>
+            </template>
+            <div class="dl-deki-tools" x-show="dekiBesarSiap">
+              <button type="button" class="dl-tool" title="Tutup (Esc)" @click="tutupDekidaka()">✕</button>
+              <span class="dl-tool-gap"></span>
+              <button type="button" class="dl-tool" title="Perbesar" @click="dekiAksi('zoomIn', true)">+</button>
+              <button type="button" class="dl-tool dl-tool-label" title="Paskan ke layar" @click="dekiAksi('fit', true)" x-text="dekiZoomBesar"></button>
+              <button type="button" class="dl-tool" title="Perkecil" @click="dekiAksi('zoomOut', true)">&minus;</button>
+              <span class="dl-tool-gap"></span>
+              <button type="button" class="dl-tool" title="Print" @click="dekiAksi('print', true)">🖨</button>
+              <button type="button" class="dl-tool" title="Export PDF" @click="dekiAksi('pdf', true)">📄</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Kategori dipilih lewat submenu di sidebar (dlMenu di JS: E-02 sampai E-07). -->
+        <div class="dl-grid">
+          <section class="dl-box">
+            <div class="dl-head"><span class="dl-box-title">Grafik Productivity</span><span class="dl-sub">menyusul</span></div>
+            <div class="dl-chart"><canvas id="dlProductivity"></canvas></div>
+          </section>
+          <section class="dl-box dl-deki">
+            <span class="dl-sub dl-deki-muat" x-show="!dekiSiap">Memuat Dekidaka…</span>
+            <template x-if="bolehLihat()">
+              <iframe :src="dekiUrl" title="Dekidaka" :style="dekiSiap ? '' : 'opacity:0'" @load="dekiSiap = dekiSiap"></iframe>
+            </template>
+            <!-- Tombol zoom, print, PDF di samping papan (dikirim ke halaman Dekidaka lewat postMessage) -->
+            <div class="dl-deki-tools" x-show="dekiSiap">
+              <button type="button" class="dl-tool" title="Perbesar" @click="dekiAksi('zoomIn')">+</button>
+              <button type="button" class="dl-tool dl-tool-label" title="Paskan ke kotak" @click="dekiAksi('fit')" x-text="dekiZoom"></button>
+              <button type="button" class="dl-tool" title="Perkecil" @click="dekiAksi('zoomOut')">&minus;</button>
+              <span class="dl-tool-gap"></span>
+              <button type="button" class="dl-tool" title="Print" @click="dekiAksi('print')">🖨</button>
+              <button type="button" class="dl-tool" title="Export PDF" @click="dekiAksi('pdf')">📄</button>
+              <button type="button" class="dl-tool" title="Lihat versi besar" @click="bukaDekidaka()"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            </div>
+          </section>
+          <section class="dl-box">
+            <div class="dl-head">
+              <span class="dl-box-title">Grafik Perjam</span>
+            </div>
+            <div class="dl-pj-wrap">
+              <span class="dl-sub dl-pj-kosong" x-show="!perjamPanels.length" x-text="perjamMemuat ? 'Memuat…' : perjamPesan"></span>
+              <template x-for="(pn, i) in perjamPanels" :key="pn.part + '|' + perjamShift + '|' + i">
+                <div class="dl-pj-panel">
+                  <div class="dl-pj-judul" x-text="pn.part"></div>
+                  <div class="dl-pj-kanvas"><canvas :id="'dlPerjam' + i"></canvas></div>
+                </div>
+              </template>
+            </div>
+          </section>
+          <section class="dl-box" style="grid-column:1; grid-row:2;">
+            <div class="dl-head"><span class="dl-box-title">Grafik Availability</span><span class="dl-sub" x-text="'Rata-rata ' + fmtNum(rataAvail) + '%'"></span></div>
+            <div class="dl-chart"><canvas id="dlAvailability"></canvas></div>
+          </section>
+          <div class="dl-split" style="grid-column:3; grid-row:2;">
+            <section class="dl-box dl-split-chart">
+              <div class="dl-head"><span class="dl-box-title">Grafik Trend Volume</span><span class="dl-sub" x-text="mingguPesan"></span></div>
+              <div class="dl-chart"><canvas id="dlTrend"></canvas></div>
+            </section>
+            <section class="dl-box dl-split-foto">
+              <div class="dl-head">
+                <span class="dl-box-title">TSK</span>
+                <span class="dl-foto-tools" x-show="isAdmin()">
+                  <label class="dl-pj-btn" :style="fotoBusy ? 'opacity:.5;pointer-events:none' : ''"><span x-text="fotoBusy ? 'Mengunggah…' : (fotoUrl ? 'Ganti' : 'Unggah')"></span><input type="file" accept="image/*,video/*" hidden @change="unggahFoto($event)"></label>
+                  <button type="button" class="dl-pj-btn" x-show="fotoUrl" @click="hapusFoto()">Hapus</button>
+                </span>
+                <span class="dl-foto-tools" x-show="fotoUrl">
+                  <button type="button" class="dl-pj-btn" title="Lihat layar besar" @click="fotoBesar = true">&#128065; Besar</button>
+                </span>
+              </div>
+              <div class="dl-foto">
+                <img x-show="fotoUrl && fotoJenis==='gambar'" :src="fotoJenis==='gambar' ? fotoUrl : ''" alt="TSK">
+                <video x-show="fotoUrl && fotoJenis==='video'" :src="fotoJenis==='video' ? fotoUrl : ''" autoplay muted loop playsinline controls></video>
+                <span class="dl-sub" x-show="!fotoUrl" x-text="isAdmin() ? 'Belum ada TSK — klik Unggah' : 'Belum ada TSK'"></span>
+              </div>
+              <span class="error-msg" x-show="fotoPesan" x-text="fotoPesan"></span>
+            </section>
+          </div>
+          <section class="dl-box" style="grid-column:1; grid-row:3;">
+            <div class="dl-head"><span class="dl-box-title">Grafik NG Inline</span></div>
+            <div class="dl-chart"><canvas id="dlNgInline"></canvas></div>
+          </section>
+          <section class="dl-box" style="grid-column:3; grid-row:3;">
+            <div class="dl-head"><span class="dl-box-title">Downtime Harian</span><span class="dl-sub" x-text="'Total ' + fmtNum(totalDowntime) + ' menit'"></span></div>
+            <div class="dl-chart"><canvas id="dlDowntime"></canvas></div>
+          </section>
+          <section class="dl-box" style="grid-column:1; grid-row:4;">
+            <div class="dl-head"><span class="dl-box-title">Grafik Straightpass</span></div>
+            <div class="dl-chart"><canvas id="dlStraightpass"></canvas></div>
+          </section>
+          <section class="dl-box dl-wide" style="grid-row:4;">
+            <div class="dl-head"><span class="dl-box-title">Problem Followup Sheets</span><span class="dl-sub">terisi otomatis dari data downtime — tahap berikutnya</span></div>
+            <table class="dl-sheet">
+              <thead><tr><th style="width:4%">No</th><th style="width:26%">Problem</th><th style="width:10%">Date</th><th style="width:8%">Shift</th><th style="width:28%">Penanganan</th><th style="width:8%">Waktu</th><th style="width:8%">Tgl Selesai</th><th style="width:8%">PIC</th></tr></thead>
+            </table>
+          </section>
+        </div>
+      </div>
+      </div>
+    </template>
+  </main>
+</div>
+<script>
+function baseInputPage() {
+  return {
+    session: null, profile: null, mobileNavOpen: false, sidebarCollapsed: true,
+    isAdmin() { return this.profile?.role === "admin"; },
+    isGuest() { return (this.profile?.role || "").toLowerCase() === "guest"; },
+    // Dashboard Line boleh dilihat admin & guest (guest hanya melihat).
+    bolehLihat() { return this.isAdmin() || this.isGuest(); },
+    isLeaderOrAdmin() { if (!this.profile) return false; const r = (this.profile.role||"").toLowerCase(); const j = (this.profile.jabatan||"").toLowerCase(); return ["admin","leader"].includes(r) || ["admin","leader"].includes(j); },
+    async initBase() {
+      this.session = await requireAuth();
+      if (!this.session) return false;
+      if (!await requireStaff(this.session)) return false;
+      const { data } = await supabaseClient.from("profiles").select("*").eq("id", this.session.user.id).maybeSingle();
+      this.profile = data;
+      return true;
     },
-  });
-
-  // Label angka di atas titik garis.
-  const labelGaris = (formatter, datasetIndex) => ({
-    id: "dlLineLabels" + datasetIndex,
-    afterDatasetsDraw(chart) {
-      const { ctx, chartArea } = chart;
-      const meta = chart.getDatasetMeta(datasetIndex);
-      const ds = chart.data.datasets[datasetIndex];
-      if (!meta || !ds || !meta.data || !chartArea) return;
-      const slot = chartArea.width / (meta.data.length || 1);
-      const fs = slot < 18 ? 6.5 : slot < 26 ? 7.5 : slot < 40 ? 8.5 : 9.5;
-      ctx.save();
-      ctx.font = "700 " + fs + "px Inter, sans-serif";
-      ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillStyle = "#000";
-      meta.data.forEach((p, i) => {
-        const v = Number(ds.data[i]);
-        if (ds.data[i] == null || Number.isNaN(v) || v === 0) return;
-        const { x, y } = p.getProps(["x", "y"], true);
-        const yy = Math.max(y - 6, chartArea.top + fs);
-        ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.lineJoin = "round";
-        ctx.strokeText(formatter(v), x, yy); ctx.fillText(formatter(v), x, yy);
-      });
-      ctx.restore();
+    logout,
+  };
+}
+function dashboardLinePage() {
+  const o = {
+    ...baseInputPage(),
+    // Sidebar dibuka dari awal di halaman ini (pindah kategori lewat submenu).
+    sidebarCollapsed: AppPref.sidebarAwal(false),
+    activeTab: AppPref.lineFavorit() || "E-02",
+    dlMenuOpen: false,   // sub-menu baru muncul setelah panah diklik
+    // Submenu = daftar line. activeTab = line yang sedang dipilih.
+    dlMenu: ["E-02", "E-03", "E-04", "E-05", "E-06", "E-07"].map((l) => ({ tab: l, label: l })),
+    async init() {
+      this.pasangPesan();
+      if (await this.initBase()) { await this.$nextTick(); this.perjamAuto(); this.muatPerjam(); this.muatFoto(); this.mulaiRealtime(); await this.muat(); }
     },
-  });
-
-  const tick = { color: "#000", font: { size: 9 } };
-  const skalaX = () => ({ ticks: { color: "#000", font: { size: 8.5 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false } });
-  const skalaY = (extra = {}) => ({ ticks: { ...tick, maxTicksLimit: 5 }, grid: { color: "#e2e8f0", drawTicks: false }, beginAtZero: true, ...extra });
-  const legenda = (tampil = true) => ({ display: tampil, position: "bottom", labels: { color: "#000", boxWidth: 5, boxHeight: 5, usePointStyle: true, pointStyle: "circle", font: { size: 8 }, padding: 4 } });
-
-
-  // Blok jam Dekidaka (sama dengan DKD_TIME_TABLE di machine-page.js) dan
-  // label sumbu X sesuai format Excel Perjam.
-  const BLOK = [
-    { s1: ["07:15", "08:00"], j1: ["07:15", "08:00"], s2: ["19:45", "20:30"] },
-    { s1: ["08:00", "09:00"], j1: ["08:00", "09:00"], s2: ["20:30", "21:30"] },
-    { s1: ["09:00", "09:30"], j1: ["09:00", "09:30"], s2: ["21:30", "21:40"] },
-    { s1: ["09:40", "11:00"], j1: ["09:40", "11:00"], s2: ["22:40", "23:40"] },
-    { s1: ["11:00", "11:50"], j1: ["11:00", "11:30"], s2: ["00:20", "01:20"] },
-    { s1: ["12:30", "13:30"], j1: ["12:40", "13:30"], s2: ["01:20", "02:20"] },
-    { s1: ["13:30", "14:30"], j1: ["13:30", "14:30"], s2: ["02:30", "03:30"] },
-    { s1: ["14:40", "15:50"], j1: ["14:40", "16:15"], s2: ["03:30", "04:20"] },
-    { s1: ["16:15", "17:15"], j1: ["16:45", "17:15"], s2: ["05:00", "06:00"] },
-    { s1: ["17:15", "18:15"], j1: ["17:15", "18:15"], s2: ["06:00", "07:00"] },
-    { s1: ["18:15", "19:30"], j1: ["18:15", "19:30"], s2: null },
-  ];
-  const LABEL_SHIFT = {
-    "1": ["8,00", "9,00", "9,40", "11,00", "12,30", "13,30", "14,40", "15,45", "17,15", "18,15", "19,30"],
-    "2": ["20,30", "21,40", "22,40", "23,40", "1,20", "2,20", "3,30", "4,15", "6,00", "7,00", "–"],
   };
-  // Isi 2 grafik Perjam per line: judul + kode part yang dihitung (dicocokkan
-  // dengan "mengandung" pada part_number, mis. 14110-73R10 mengandung 73R10).
-  const PERJAM_CFG = {
-    "E-02": [{ judul: "73R10/R20/74U00", kode: ["73R10", "73R20", "74U00"] }, { judul: "52P00", kode: ["52P00"] }],
-    "E-03": [{ judul: "BZ060", kode: ["BZ060"] }, { judul: "BZ260", kode: ["BZ260"] }],
-    "E-04": [{ judul: "BZ140", kode: ["BZ140"] }, { judul: "BZ150", kode: ["BZ150"] }],
-    "E-05": [{ judul: "0Y050/60", kode: ["0Y050", "0Y060"] }, { judul: "BZ140/50", kode: ["BZ140", "BZ150"] }],
-    "E-06": [{ judul: "BZ110/010", kode: ["BZ110", "BZ010"] }, { judul: "BZ140/50", kode: ["BZ140", "BZ150"] }],
-    "E-07": [{ judul: "74U50", kode: ["74U50"] }, { judul: "BZ140/50", kode: ["BZ140", "BZ150"] }],
-  };
-  const KPJ_DEFAULT = { "E-02": 25, "E-03": 32, "E-04": 32, "E-05": 32, "E-06": 32, "E-07": 35 };
-  const menit = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
-  const dalam = (x, a, b) => (a === b ? false : b > a ? x >= a && x < b : x >= a || x < b);
-  const tglHariIni = () => { const d = new Date(); return tglStr(d.getFullYear(), d.getMonth() + 1, d.getDate()); };
-  const shiftSekarang = () => { const d = new Date(); const t = d.getHours() * 60 + d.getMinutes(); return t >= 420 && t < 1170 ? "1" : "2"; };
-
-  window.dashboardLineData = function () {
-    return {
-      BULAN_LABELS: BULAN,
-      bulan: new Date().getMonth() + 1,
-      tahun: new Date().getFullYear(),
-      memuat: false,
-      pesan: "",
-      charts: {},
-      // Papan Dekidaka (iframe ke halaman line, lihat machines/e-0X.html?dekidaka=1)
-      dekiBuka: false,
-      // ---- Grafik Perjam (1 tanggal, 1 shift, 1 panel per part number) ----
-      perjamTgl: tglHariIni(),
-      perjamShift: shiftSekarang(),
-      perjamManual: false,     // true kalau user memilih sendiri tanggal/shift -> jangan di-otomatis
-      perjamPanels: [],
-      perjamMemuat: false,
-      perjamPesan: "",
-      perjamAuto() {
-        // Ikut jam sekarang (shift 1 07:00-19:30, selebihnya shift 2) selama user belum memilih sendiri.
-        if (this._pjTimer) return;
-        this._pjTimer = setInterval(() => {
-          if (this.perjamManual) return;
-          const sh = shiftSekarang(), tg = tglHariIni();
-          if (sh !== this.perjamShift || tg !== this.perjamTgl) { this.perjamShift = sh; this.perjamTgl = tg; }
-          this.muatPerjam();
-        }, 60000);
-      },
-      // Manual = user memilih tanggal/shift lain dari yang sedang berjalan. Kalau pilihannya
-      // kembali ke hari ini + shift saat ini, otomatis ikut jam lagi.
-      tandaiManual() { this.perjamManual = !(this.perjamTgl === tglHariIni() && this.perjamShift === shiftSekarang()); },
-      // Grafik Perjam = Rasio Dekidaka per blok (Hasil Aktual / Target x 100), diambil dari papan Dekidaka
-      // (iframe mengirim data per blok lewat pesan "dekidakaData"), dikelompokkan per part (PERJAM_CFG).
-      async muatPerjam() {
-        if (!this.bolehLihat() || typeof Chart === "undefined") return;
-        this.dekiSinkron();           // minta papan Dekidaka ikut tanggal & shift ini -> papan mengirim data baru
-        this.bangunPerjam();
-      },
-      async bangunPerjam() {
-        if (!this.bolehLihat() || typeof Chart === "undefined") return;
-        const token = (this._pjTok = (this._pjTok || 0) + 1);
-        const line = this.activeTab, sh = this.perjamShift;
-        const dd = this.dekiData;
-        const cocok = dd && dd.line === line && dd.tanggal === this.perjamTgl && String(dd.shift) === String(sh);
-        const baris = cocok ? (dd.baris || []) : [];
-        const cfg = PERJAM_CFG[line] || [{ judul: "", kode: [] }, { judul: "", kode: [] }];
-        const panels = cfg.map((g) => {
-          const pct = Array(11).fill(null), qty = Array(11).fill(0);
-          for (let i = 0; i < 11; i++) {
-            const rs = baris.filter((r) => r.blok === i + 1 && r.part && g.kode.some((k) => String(r.part).toUpperCase().includes(k)));
-            if (!rs.length) continue;
-            const q = rs.reduce((t, r) => t + (Number(r.qty) || 0), 0);
-            const kols = [...new Set(rs.map((r) => r.kol))];
-            const tg = kols.reduce((t, c) => t + (Number(((dd.target || [])[i] || [])[c]) || 0), 0);
-            qty[i] = q;
-            if (q > 0 && tg > 0) pct[i] = Math.round((q / tg) * 1000) / 10;
-          }
-          return { part: g.judul, qty, pct };
-        });
-        while (panels.length < 2) panels.push({ part: "", pct: Array(11).fill(null), qty: Array(11).fill(0) });
-        this.hapusPerjam();
-        this.perjamPanels = panels; this.perjamMemuat = false;
-        await this.$nextTick();
-        if (token !== this._pjTok) return;
-        panels.forEach((pn, i) => this.gambarPerjam(pn, i, sh));
-      },
-      dekiData: null,
-      // Tampilan utama: dashboard (grid) atau Performance Tahunan/Bulanan/Harian (halaman mesin di iframe).
-      tampil: "dashboard",
-      get perfUrl() {
-        if (this.tampil === "dashboard") return "about:blank";
-        return "machines/" + this.activeTab.toLowerCase() + ".html?tab=performance&bagian=" + this.tampil + "&v=" + DEKI_VER;
-      },
-      setTampil(t) {
-        this.tampil = t;
-        // Kembali ke grid: grafik & papan Dekidaka perlu menghitung ulang ukuran setelah tampil lagi.
-        if (t === "dashboard") this.$nextTick(() => { window.dispatchEvent(new Event("resize")); setTimeout(() => window.dispatchEvent(new Event("resize")), 150); });
-      },
-      hapusPerjam() { Object.keys(this.charts).filter((k) => /^dlPerjam\d+$/.test(k)).forEach((k) => { try { this.charts[k].destroy(); } catch (e) {} delete this.charts[k]; }); },
-      gambarPerjam(pn, i, sh) {
-        const c = document.getElementById("dlPerjam" + i); if (!c) return;
-        const L = LABEL_SHIFT[sh];
-        const nilai = pn.pct.filter((v) => v != null);
-        const ymin = Math.min(50, nilai.length ? Math.floor(Math.min(...nilai) / 10) * 10 : 50);
-        const ymax = Math.max(100, nilai.length ? Math.ceil(Math.max(...nilai) / 10) * 10 : 100);
-        const kotak = { id: "pjKotak", afterDraw(ch) { const a = ch.chartArea, x = ch.ctx; x.save(); x.strokeStyle = "#000"; x.lineWidth = 1.6; x.strokeRect(a.left, a.top, a.width, a.height); x.restore(); } };
-        const titik = (id) => ({ id, afterDatasetsDraw(ch) {
-          const m = ch.getDatasetMeta(1), ds = ch.data.datasets[1], x = ch.ctx;
-          x.save(); x.font = "700 8px Arial"; x.fillStyle = "#000"; x.textAlign = "center"; x.textBaseline = "bottom";
-          m.data.forEach((p, k) => { if (ds.data[k] == null) return; x.strokeStyle = "#fff"; x.lineWidth = 3; x.strokeText(ds.data[k] + "%", p.x, p.y - 4); x.fillText(ds.data[k] + "%", p.x, p.y - 4); });
-          x.restore(); } });
-        this.charts["dlPerjam" + i] = new Chart(c, {
-          type: "line",
-          data: { labels: L, datasets: [
-            { clip: false, label: "Target", data: L.map((l, k) => (l === "–" ? null : 100)), borderColor: "#dc2626", backgroundColor: "#dc2626", borderWidth: 1.4, pointRadius: 2.5, tension: 0 },
-            { clip: false, label: "Aktual", data: pn.pct, borderColor: "#1d4ed8", backgroundColor: "#1d4ed8", borderWidth: 1.6, pointRadius: 3, tension: 0, spanGaps: true },
-          ] },
-          options: { responsive: true, maintainAspectRatio: false, animation: false, layout: { padding: { top: 12, right: 6 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (it) => it.dataset.label + ": " + it.parsed.y + "%" + (it.datasetIndex === 1 ? " (" + pn.qty[it.dataIndex] + " pcs)" : "") } } },
-            scales: {
-              x: { ticks: { color: "#000", font: { size: 7, weight: "700" }, autoSkip: false, maxRotation: 0, padding: 2 }, border: { dash: [1, 3] }, grid: { color: "#000", drawTicks: false } },
-              y: { min: ymin, max: ymax, ticks: { color: "#000", font: { size: 8.5 }, stepSize: 10 }, border: { dash: [1, 3] }, grid: { color: "#000", drawTicks: false } } } },
-          plugins: [kotak, titik("pjTitik" + i)],
-        });
-      },
-
-      get tahunOptions() { const y = new Date().getFullYear(); return [y - 2, y - 1, y, y + 1]; },
-      get jumlahHari() { return new Date(this.tahun, this.bulan, 0).getDate(); },
-      get labelHari() { return Array.from({ length: this.jumlahHari }, (_, i) => String(i + 1)); },
-      get dekiUrl() { return "dekidaka-line.html?line=" + this.activeTab + "&solo=1&dekidaka=1&inline=1&v=" + DEKI_VER; },
-      dekiSiap: false,
-      dekiZoom: "",
-      // Tanggal & shift di bar atas juga dipakai papan Dekidaka (dan nanti Problem Followup).
-      dekiSinkron(tujuan) {
-        if (!this.perjamTgl) return;
-        const frames = tujuan ? [tujuan] : Array.from(document.querySelectorAll(".dl-deki iframe, .dl-besar iframe"));
-        let kecil = false;
-        frames.forEach((fr) => { if (fr && fr.contentWindow) { fr.contentWindow.postMessage({ dekidakaSet: { tanggal: this.perjamTgl, shift: this.perjamShift } }, "*"); if (fr.closest(".dl-deki")) kecil = true; } });
-        if (kecil) { this._dekiAck = false; setTimeout(() => { if (this.dekiSiap && !this._dekiAck) this.pesan = "Papan Dekidaka belum ikut tanggal/shift - tekan Ctrl+F5 sekali."; }, 6000); }
-      },
-      dekiAksi(a, besar) { const fr = document.querySelector(besar ? ".dl-besar iframe" : ".dl-deki iframe"); if (fr && fr.contentWindow) fr.contentWindow.postMessage({ dekidakaAksi: a }, "*"); },
-      dekiBesarSiap: false,
-      dekiZoomBesar: "",
-
-      async setTab(tab) { this.dekiSiap = false; this.activeTab = tab; this.muatPerjam(); this.muatFoto(); await this.muat(); },
-
-      async muat() {
-        if (!this.bolehLihat() || typeof Chart === "undefined") return;
-        const token = (this._tok = (this._tok || 0) + 1);
-        this.memuat = true; this.pesan = "";
-        const line = this.activeTab;
-        this.mintaMingguan();
-        const y = this.tahun, m = this.bulan, n = this.jumlahHari;
-        const awal = new Date(y, m - 1, 1), akhir = new Date(y, m, 1);
-        const sAwal = tglStr(y, m, 1);
-        const sAkhir = tglStr(m === 12 ? y + 1 : y, m === 12 ? 1 : m + 1, 1);
-        const hariIni = new Date(); hariIni.setHours(0, 0, 0, 0);
-        const lewat = (d) => new Date(y, m - 1, d) > hariIni;   // hari yang belum tiba
-
-        const hasil = { avail: Array(n).fill(null), downtime: Array(n).fill(0), ngQty: Array(n).fill(0), ngVal: Array(n).fill(0), repQty: Array(n).fill(0), spPct: Array(n).fill(null), target: 100 };
-        try {
-          const [prodRes, ngRes, repRes, spRes, tgRes] = await Promise.all([
-            supabaseClient.rpc("dashboard_harian_produksi", { p_start: awal.toISOString(), p_end: akhir.toISOString(), p_mesin: line }),
-            ambilSemua("dashboard_qc_ng_detail_range", { p_type_ng: "NG PRODUKSI", p_start: sAwal, p_end: sAkhir }),
-            ambilSemua("dashboard_qc_repair_detail_range", { p_start: sAwal, p_end: sAkhir }),
-            supabaseClient.rpc("dashboard_qc_produksi_daily_line", { p_start: awal.toISOString(), p_end: akhir.toISOString(), p_mesin: line }),
-            supabaseClient.from("productivity_target").select("tahun,bulan,target").eq("tahun", y).eq("bulan", m),
-          ]);
-          if (token !== this._tok) return;   // sudah ganti line/bulan lagi -> abaikan hasil lama
-
-          // Availability & Downtime harian
-          const rows = prodRes.data || [];
-          for (let d = 1; d <= n; d++) {
-            const r = rows.find((x) => x.tanggal === tglStr(y, m, d));
-            if (r && r.wh_menit) hasil.avail[d - 1] = Number((((r.wh_menit - r.downtime_menit) / r.wh_menit) * 100).toFixed(1));
-            hasil.downtime[d - 1] = r ? Math.round(Number(r.downtime_menit) || 0) : 0;
-          }
-          // NG Inline & Repair per hari, disaring line ini
-          const hariDari = (tgl) => parseInt((tgl || "").slice(8, 10), 10);
-          (ngRes.data || []).forEach((r) => {
-            if (r.mesin !== line) return;
-            const d = hariDari(r.tanggal);
-            if (d >= 1 && d <= n) { hasil.ngQty[d - 1] += Number(r.qty) || 0; hasil.ngVal[d - 1] += Number(r.value) || 0; }
-          });
-          (repRes.data || []).forEach((r) => {
-            if (r.mesin !== line) return;
-            const d = hariDari(r.tanggal);
-            if (d >= 1 && d <= n) hasil.repQty[d - 1] += Number(r.qty) || 0;
-          });
-          // % Straightpass harian = (stroke - repair) / stroke
-          if (spRes.error) {
-            console.info("dashboard_qc_produksi_daily_line belum ada di Supabase -> garis % Straightpass dikosongkan.", spRes.error.message);
-          } else {
-            for (let d = 1; d <= n; d++) {
-              if (lewat(d)) continue;
-              const r = (spRes.data || []).find((x) => x.tanggal === tglStr(y, m, d));
-              if (r && Number(r.stroke)) hasil.spPct[d - 1] = Number((((Number(r.stroke) - hasil.repQty[d - 1]) / Number(r.stroke)) * 100).toFixed(1));
-            }
-          }
-          const t = (tgRes.data || [])[0];
-          if (t && Number.isFinite(Number(t.target))) hasil.target = Number(t.target);
-          for (let d = 1; d <= n; d++) if (lewat(d)) { hasil.avail[d - 1] = null; }
-        } catch (e) {
-          console.error("Gagal memuat Dashboard Line:", e);
-          this.pesan = "Gagal memuat data: " + (e.message || e);
-        }
-        if (token !== this._tok) return;
-        this.data = hasil;
-        this.memuat = false;
-        this.$nextTick(() => this.gambar());
-      },
-
-      data: null,
-      get totalDowntime() { return this.data ? this.data.downtime.reduce((a, b) => a + b, 0) : 0; },
-      get rataAvail() {
-        if (!this.data) return 0;
-        const v = this.data.avail.filter((x) => x !== null);
-        return v.length ? Number((v.reduce((a, b) => a + b, 0) / v.length).toFixed(1)) : 0;
-      },
-      fmtNum,
-
-      hancur(id) { if (this.charts[id]) { this.charts[id].destroy(); delete this.charts[id]; } },
-      kanvas(id) { this.hancur(id); return document.getElementById(id); },
-
-      gambar() {
-        if (typeof Chart === "undefined") return;
-        const L = this.labelHari;
-        const D = this.data || { avail: [], downtime: [], ngQty: [], ngVal: [], repQty: [], spPct: [], target: 100 };
-        const aman = (fn, nama) => { try { fn(); } catch (e) { console.error("Gagal gambar", nama, e); } };
-        const kosong = L.map(() => null);
-        const noAnim = { duration: 0 };
-
-        // Batang persen + garis target (Productivity kosong; Availability tanpa target)
-        const batangPersen = (id, data, hex, target) => {
-          const c = this.kanvas(id); if (!c) return;
-          this.charts[id] = new Chart(c, {
-            data: { labels: L, datasets: [
-              { order: 2, type: "bar", label: "Actual", data, backgroundColor: hex, borderRadius: 0, barPercentage: 0.65, categoryPercentage: 0.75, borderSkipped: false },
-              ...(target == null ? [] : [{ order: 1, type: "line", label: "Target", data: L.map(() => target), borderColor: "#EF4444", borderDash: [4, 3], borderWidth: 1.2, pointRadius: 0, tension: 0 }]),
-            ] },
-            options: { responsive: true, maintainAspectRatio: false, animation: noAnim, layout: { padding: { top: 34 } },
-              plugins: { legend: legenda(true) }, scales: { x: skalaX(), y: skalaY({ suggestedMax: 100, ticks: { ...tick, maxTicksLimit: 5, callback: (v) => v + "%" } }) } },
-            plugins: [labelBatang((v) => v + "%")],
-          });
-        };
-        aman(() => batangPersen("dlProductivity", kosong, COL.productivity, D.target), "productivity");
-        aman(() => batangPersen("dlAvailability", D.avail, COL.availability, null), "availability");
-
-        // Downtime harian (area)
-        aman(() => {
-          const c = this.kanvas("dlDowntime"); if (!c) return;
-          this.charts.dlDowntime = new Chart(c, {
-            type: "line",
-            data: { labels: L, datasets: [{ label: "Downtime (menit)", data: D.downtime, fill: true, backgroundColor: COL.downtime + "33", borderColor: COL.downtime, borderWidth: 1.2, tension: 0.35, cubicInterpolationMode: "monotone", pointRadius: 2, pointBackgroundColor: COL.downtime }] },
-            options: { responsive: true, maintainAspectRatio: false, animation: noAnim, layout: { padding: { top: 22 } }, plugins: { legend: legenda(true) }, scales: { x: skalaX(), y: skalaY() } },
-            plugins: [labelGaris((v) => fmtNum(v), 0)],
-          });
-        }, "downtime");
-
-        // Dua sumbu: batang (Qty) + garis (Value Rp ribuan / % Straightpass)
-        const ganda = (id, hexBar, hexLine, lblBar, lblLine, persen, dBar, dLine, posBar) => {
-          const c = this.kanvas(id); if (!c) return;
-          this.charts[id] = new Chart(c, {
-            data: { labels: L, datasets: [
-              { order: 2, type: "bar", label: lblBar, data: dBar, backgroundColor: hexBar, yAxisID: "y", borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.75 },
-              { order: 1, type: "line", label: lblLine, data: dLine, borderColor: hexLine, backgroundColor: persen ? hexLine : "rgba(29,78,216,0.1)", fill: !persen, borderWidth: 1.2, yAxisID: "y1", pointRadius: 1, tension: 0.3, spanGaps: true },
-            ] },
-            options: { responsive: true, maintainAspectRatio: false, animation: noAnim, layout: { padding: { top: 30 } }, plugins: { legend: legenda(true) },
-              scales: { x: skalaX(), y: skalaY({ position: "left", grace: "12%" }),
-                y1: { position: "right", ticks: { ...tick, callback: (v) => (persen ? v + "%" : fmtNum(Math.round(v / 1000))) }, grid: { display: false }, beginAtZero: true, grace: persen ? "8%" : "12%", ...(persen ? { suggestedMax: 100 } : {}) } } },
-            plugins: [labelBatang((v) => fmtNum(v), 0, posBar), labelGaris((v) => (persen ? v + "%" : fmtNum(Math.round(v / 1000))), 1)],
-          });
-        };
-        aman(() => ganda("dlNgInline", COL.ngInline, COL.money, "Qty", "Value (ribu Rp)", false, D.ngQty, D.ngVal, "above"), "ngInline");
-        aman(() => ganda("dlStraightpass", COL.straight, "#000000", "Qty Repair", "% Straightpass", true, D.repQty, D.spPct, "base"), "straightpass");
-
-        // Trend Volume: W1..Wn per bulan (lihat gambarTrend / mintaMingguan)
-        aman(() => this.gambarTrend(), "trend");
-      },
-
-      // ---------- Trend Volume (per minggu) ----------
-      // Nilai per minggu = Total Aktual / Total Target x 100, dihitung oleh papan Dekidaka (rumus Target yang sama).
-      mingguHasil: null,
-      mingguPesan: "",
-      mintaMingguan() {
-        const fr = document.querySelector(".dl-deki iframe");
-        const line = this.activeTab, tahun = this.tahun, bulan = this.bulan;
-        const kc = `${line}|${tahun}|${bulan}`, ada = mgCache[kc];
-        if (ada && Date.now() - ada.t < 600000) { this.mingguHasil = ada.r; this.mingguPesan = ""; this.gambarTrend(); return; }
-        this.mingguHasil = null; this.mingguPesan = "Menghitung…";
-        this.gambarTrend();
-        if (!fr || !fr.contentWindow) { this.mingguPesan = ""; return; }
-        const kirim = () => { try { fr.contentWindow.postMessage({ dekidakaMingguan: { line, tahun, bulan } }, "*"); } catch (e) {} };
-        kirim();
-        // Papan bisa belum siap: ulangi sampai ada jawaban (maks. beberapa kali).
-        let sisa = 6;
-        const ulang = () => {
-          if (this.mingguHasil || line !== this.activeTab || tahun !== this.tahun || bulan !== this.bulan) return;
-          if (sisa-- <= 0) { this.mingguPesan = "Papan Dekidaka belum menjawab"; return; }
-          kirim(); setTimeout(ulang, 2500);
-        };
-        setTimeout(ulang, 2500);
-      },
-      gambarTrend() {
-        const c = this.kanvas("dlTrend"); if (!c || typeof Chart === "undefined") return;
-        const h = this.mingguHasil;
-        const offset = (new Date(this.tahun, this.bulan - 1, 1).getDay() + 6) % 7;
-        const nMinggu = Math.floor((this.jumlahHari - 1 + offset) / 7) + 1;
-        const labels = Array.from({ length: nMinggu }, (_, i) => "W" + (i + 1));
-        const nilai = labels.map((_, i) => (h && h.minggu[i] ? h.minggu[i].pct : null));
-        const ada = nilai.filter((v) => v != null);
-        const ymin = Math.min(50, ada.length ? Math.floor(Math.min(...ada) / 10) * 10 : 50);
-        const ymax = Math.max(100, ada.length ? Math.ceil(Math.max(...ada) / 10) * 10 : 100);
-        this.charts.dlTrend = new Chart(c, { type: "line",
-          data: { labels, datasets: [
-            { label: "Target", data: labels.map(() => 100), borderColor: "#dc2626", backgroundColor: "#dc2626", borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0, tension: 0 },
-            { label: "Rata-rata Rasio", data: nilai, borderColor: COL.trend, backgroundColor: COL.trend, borderWidth: 2, pointRadius: 4, tension: 0, spanGaps: true, clip: false },
-          ] },
-          options: { responsive: true, maintainAspectRatio: false, animation: { duration: 0 }, layout: { padding: { top: 22, right: 14, left: 4 } }, plugins: { legend: legenda(true), tooltip: { callbacks: { label: (it) => it.dataset.label + ": " + it.formattedValue + "%" } } },
-            scales: { x: { ...skalaX(), offset: true, ticks: { color: "#000", font: { size: 11, weight: "700" }, autoSkip: false, maxRotation: 0 } }, y: { ...skalaY(), min: ymin, max: ymax, ticks: { ...tick, stepSize: 10, callback: (v) => v + "%" } } } },
-          plugins: [labelGaris((v) => v + "%", 1)] });
-      },
-
-      // ---------- Kotak foto (1 foto per line, disimpan di Supabase Storage bucket "line-foto") ----------
-      fotoUrl: "",
-      fotoBesar: false,
-      fotoPesan: "",
-      fotoBusy: false,
-      async muatFoto() {
-        const line = this.activeTab;
-        this.fotoPesan = "";
-        try {
-          const st = supabaseClient.storage.from("line-foto");
-          const { data, error } = await st.list("", { search: line });
-          if (line !== this.activeTab) return;
-          if (error) throw error;
-          const f = (data || []).find((x) => x.name === line + ".jpg");
-          this.fotoUrl = f ? st.getPublicUrl(f.name).data.publicUrl + "?v=" + encodeURIComponent(f.updated_at || f.created_at || "") : (this._fotoLokal && this._fotoLokal[line]) || "";
-        } catch (e) {
-          console.error("Gagal memuat foto line:", e);
-          this.fotoUrl = (this._fotoLokal && this._fotoLokal[line]) || "";
-        }
-      },
-      async unggahFoto(ev) {
-        const file = ev.target.files && ev.target.files[0]; ev.target.value = "";
-        if (!file || !this.isAdmin()) return;
-        const line = this.activeTab;
-        this.fotoBusy = true; this.fotoPesan = "";
-        try {
-          // Perkecil dulu (maks. 1600px) supaya ringan.
-          const bmp = await createImageBitmap(file);
-          const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
-          const cv = document.createElement("canvas"); cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k);
-          cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
-          const blob = await new Promise((res) => cv.toBlob(res, "image/jpeg", 0.85));
-          const st = supabaseClient.storage.from("line-foto");
-          const { error } = await st.upload(line + ".jpg", blob, { upsert: true, contentType: "image/jpeg" });
-          if (error) throw error;
-          this._fotoLokal = this._fotoLokal || {}; this._fotoLokal[line] = URL.createObjectURL(blob);
-          await this.muatFoto();
-        } catch (e) {
-          console.error("Gagal unggah TSK:", e);
-          this.fotoPesan = "Gagal unggah TSK: " + (e.message || e) + " (sudah menjalankan SQL 'Trend Volume + Foto'?)";
-        }
-        this.fotoBusy = false;
-      },
-      async hapusFoto() {
-        if (!this.isAdmin() || !this.fotoUrl) return;
-        if (!confirm("Hapus TSK " + this.activeTab + "?")) return;
-        const line = this.activeTab;
-        try {
-          const { error } = await supabaseClient.storage.from("line-foto").remove([line + ".jpg"]);
-          if (error) throw error;
-          if (this._fotoLokal) delete this._fotoLokal[line];
-          this.fotoUrl = "";
-        } catch (e) { this.fotoPesan = "Gagal hapus TSK: " + (e.message || e); }
-      },
-
-      bukaDekidaka() { this.dekiBesarSiap = false; this.dekiZoomBesar = ""; this.dekiBuka = true; },
-      tutupDekidaka() { this.dekiBuka = false; },
-      pasangPesan() {
-        window.addEventListener("message", (e) => {
-          const d = e.data || {};
-          const frBesar = document.querySelector(".dl-besar iframe");
-          const dariBesar = !!(frBesar && frBesar.contentWindow === e.source);
-          if (d.dekidakaSiap) { if (dariBesar) { this.dekiBesarSiap = true; this.dekiSinkron(frBesar); } else { this.dekiSiap = true; this.dekiSinkron(document.querySelector(".dl-deki iframe")); if (!this.mingguHasil) this.mintaMingguan(); } }
-          if (d.dekidakaZoom) { if (dariBesar) this.dekiZoomBesar = d.dekidakaZoom; else this.dekiZoom = d.dekidakaZoom; }
-          if (d.dekidakaBuild) {
-            const b = d.dekidakaBuild, salah = [];
-            if (b.js !== DEKI_VER) salah.push("assets/machine-page.js");
-            if (b.css !== DEKI_VER) salah.push("assets/style.css");
-            this.pesan = salah.length ? "File belum versi terbaru: " + salah.join(", ") + " - timpa dari zip lalu Ctrl+F5." : (/File belum versi terbaru/.test(this.pesan) ? "" : this.pesan);
-          }
-          if (d.dekidakaMingguanHasil && !dariBesar) {
-            const r = d.dekidakaMingguanHasil;
-            if (r.line === this.activeTab && r.tahun === this.tahun && r.bulan === this.bulan) { this.mingguHasil = r; this.mingguPesan = r.error || ""; if (!r.error) mgCache[`${r.line}|${r.tahun}|${r.bulan}`] = { r, t: Date.now() }; this.gambarTrend(); }
-          }
-          if (d.dekidakaData && !dariBesar) { this.dekiData = d.dekidakaData; this.bangunPerjam(); }
-          if (d.dekidakaSetOk) { this._dekiAck = true; if (/Dekidaka belum ikut/.test(this.pesan)) this.pesan = ""; }
-        });
-        window.addEventListener("keydown", (e) => { if (e.key === "Escape") { if (this.fotoBesar) this.fotoBesar = false; else if (this.dekiBuka) this.tutupDekidaka(); } });
-        setTimeout(() => { this.dekiSiap = true; }, 8000);   // jaga-jaga kalau sinyal siap tidak datang
-      },
-      ubahPeriode() { this.muat(); },
-    };
-  };
-})();
+  // Gabungkan dengan data & grafik (assets/dashboard-line.js) TANPA
+  // menghitung getter-nya lebih dulu (spread akan membekukan nilainya).
+  Object.defineProperties(o, Object.getOwnPropertyDescriptors(dashboardLineData()));
+  return o;
+}
+</script>
+</body>
+</html>
