@@ -18,7 +18,7 @@
   const COL = { productivity: "#0EA5E9", availability: "#10B981", downtime: "#F97316", ngInline: "#F43F5E", money: "#1D4ED8", straight: "#14B8A6", perjam: "#6366F1", trend: "#2563EB" };
 
   // Naikkan setiap kali file Dekidaka (machine-page.js, style.css, dekidaka-line.html) berubah.
-  const DEKI_VER = "20261030g";
+  const DEKI_VER = "20261031a";
 
   const mgCache = {};   // hasil Trend Volume per line|tahun|bulan -> tidak hitung ulang saat pindah line (berlaku 10 menit)
   const pad2 = (n) => String(n).padStart(2, "0");
@@ -241,12 +241,19 @@
       dekiData: null,
       // Tampilan utama: dashboard (grid) atau Performance Tahunan/Bulanan/Harian (halaman mesin di iframe).
       tampil: "dashboard",
-      get perfUrl() {
-        if (this.tampil === "dashboard") return "about:blank";
-        return "machines/" + this.activeTab.toLowerCase() + ".html?tab=performance&bagian=" + this.tampil + "&v=" + DEKI_VER;
+      // Tiap tampilan Performance (Harian/Bulanan/Tahunan) punya iframe sendiri yang DIPERTAHANKAN: pindah tab bolak-balik
+      // tidak memuat ulang. Baru dimuat saat pertama dibuka; ganti line -> dimuat ulang saat dibuka lagi.
+      perfSrc: { harian: "", bulanan: "", tahunan: "" },
+      perfUrlFor(m) { return "machines/" + this.activeTab.toLowerCase() + ".html?tab=performance&bagian=" + m + "&v=" + DEKI_VER; },
+      perfSegarkan() {
+        ["harian", "bulanan", "tahunan"].forEach((m) => {
+          if (m === this.tampil) { if (this.perfSrc[m] !== this.perfUrlFor(m)) this.perfSrc[m] = this.perfUrlFor(m); }
+          else if (this.perfSrc[m] && this.perfSrc[m] !== this.perfUrlFor(m)) this.perfSrc[m] = "";   // line lain: lepas, muat lagi nanti
+        });
       },
       setTampil(t) {
         this.tampil = t;
+        this.perfSegarkan();
         // Kembali ke grid: grafik & papan Dekidaka perlu menghitung ulang ukuran setelah tampil lagi.
         if (t === "dashboard") this.$nextTick(() => { window.dispatchEvent(new Event("resize")); setTimeout(() => window.dispatchEvent(new Event("resize")), 150); });
       },
@@ -295,12 +302,13 @@
       dekiBesarSiap: false,
       dekiZoomBesar: "",
 
-      async setTab(tab) { this.dekiSiap = false; this.activeTab = tab; this.muatPerjam(); this.muatFoto(); this.mulaiRealtime(); await this.muat(); },
+      async setTab(tab) { this.dekiSiap = false; this.activeTab = tab; this.perfSegarkan(); this.muatPerjam(); this.muatFoto(); this.mulaiRealtime(); await this.muat(); },
 
       async muat(senyap) {
         if (!this.bolehLihat() || typeof Chart === "undefined") return;
         const token = (this._tok = (this._tok || 0) + 1);
-        this.memuat = true; this.pesan = "";
+        if (!senyap) this.memuat = true;
+        this.pesan = "";
         const line = this.activeTab;
         this.mintaMingguan(senyap);
         const y = this.tahun, m = this.bulan, n = this.jumlahHari;
@@ -582,7 +590,7 @@
       segarkanData() {
         clearTimeout(this._segTimer);
         this._segTimer = setTimeout(() => {
-          if (!this.bolehLihat() || document.hidden) return;
+          if (!this.bolehLihat() || document.hidden || this.tampil !== "dashboard") return;
           const line = this.activeTab;
           Object.keys(mgCache).forEach((k) => { if (k.indexOf(line + "|") === 0) delete mgCache[k]; });
           const fr = document.querySelector(".dl-deki iframe");
