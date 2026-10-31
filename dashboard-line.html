@@ -180,7 +180,9 @@
           <button type="button" class="dl-tool dl-foto-tutup" title="Tutup (Esc)" @click="fotoBesar = false">&#10005;</button>
         </div>
       </div>
-      <iframe class="dl-perf" x-show="tampil !== 'dashboard'" x-cloak :src="perfUrl" title="Performance"></iframe>
+      <template x-for="m in ['harian','bulanan','tahunan']" :key="m">
+        <iframe class="dl-perf" x-show="tampil === m" x-cloak :src="perfSrc[m] || 'about:blank'" title="Performance"></iframe>
+      </template>
       <div class="dl-body" x-show="tampil === 'dashboard'">
         <!-- Dekidaka versi besar (layar penuh) -->
         <div class="dl-besar" x-show="dekiBuka" x-cloak @click.self="tutupDekidaka()">

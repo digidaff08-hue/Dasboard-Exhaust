@@ -5,7 +5,7 @@
 // ini cuma men-cache HTML/CSS/JS-nya, bukan data produksi.
 // =========================================================
 // Naikkan versi ini tiap ada perubahan besar supaya cache lama dibuang.
-const CACHE_NAME = "produksi-downtime-shell-v213-kanan-2baris";
+const CACHE_NAME = "produksi-downtime-shell-v214-tab-tetap";
 
 const SHELL_FILES = [
   "/login.html",
