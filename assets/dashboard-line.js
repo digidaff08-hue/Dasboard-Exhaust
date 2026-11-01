@@ -18,7 +18,7 @@
   const COL = { productivity: "#0EA5E9", availability: "#10B981", downtime: "#F97316", ngInline: "#F43F5E", money: "#1D4ED8", straight: "#14B8A6", perjam: "#6366F1", trend: "#2563EB" };
 
   // Naikkan setiap kali file Dekidaka (machine-page.js, style.css, dekidaka-line.html) berubah.
-  const DEKI_VER = "20261101h";
+  const DEKI_VER = "20261101i";
 
   const mgCache = {};   // hasil Trend Volume per line|tahun|bulan -> tidak hitung ulang saat pindah line (berlaku 10 menit)
   const pad2 = (n) => String(n).padStart(2, "0");
@@ -180,6 +180,35 @@
         this.bangunPerjam();
         this.muatProblem();
       },
+      // Problem Terbanyak: rangkuman downtime 1 bulan (Bulan/Tahun terpilih) per Problem -> mana yang paling sering & lama.
+      topRows: [],
+      async muatTop() {
+        if (!this.bolehLihat()) return;
+        const tok = (this._topTok = (this._topTok || 0) + 1);
+        const line = this.activeTab, y = this.tahun, m = this.bulan;
+        const awal = new Date(y, m - 1, 1, 7, 0), akhir = new Date(y, m, 1, 7, 0);
+        try {
+          const { data, error } = await supabaseClient.from("downtime_log")
+            .select("waktu_awal,waktu_akhir,problem,area,penyebab,countermeasure")
+            .eq("mesin", line).gte("waktu_awal", awal.toISOString()).lt("waktu_awal", akhir.toISOString()).order("waktu_awal");
+          if (error) throw error;
+          if (tok !== this._topTok) return;
+          const g = new Map();
+          (data || []).forEach((r) => {
+            const k = r.problem || r.area || "(tanpa keterangan)";
+            const o = g.get(k) || { problem: k, kali: 0, menit: 0, sebab: new Map(), tindak: "" };
+            o.kali += 1;
+            o.menit += Math.max(0, Math.round((new Date(r.waktu_akhir) - new Date(r.waktu_awal)) / 60000));
+            if (r.penyebab) o.sebab.set(r.penyebab, (o.sebab.get(r.penyebab) || 0) + 1);
+            if (r.countermeasure) o.tindak = r.countermeasure;   // data urut waktu -> yang terakhir = penanganan terbaru
+            g.set(k, o);
+          });
+          this.topRows = [...g.values()].sort((a, b) => b.kali - a.kali || b.menit - a.menit).slice(0, 10).map((o) => ({
+            problem: o.problem, kali: o.kali, menit: o.menit, tindak: o.tindak,
+            sebab: [...o.sebab.entries()].sort((a, b) => b[1] - a[1]).map((x) => x[0])[0] || "",
+          }));
+        } catch (e) { console.error("Gagal memuat Problem Terbanyak:", e); if (tok === this._topTok) this.topRows = []; }
+      },
       // Problem Followup Sheets: downtime hari produksi terpilih (07:00-07:00), Shift 1 + 2 digabung.
       problemRows: [],
       async muatProblem() {
@@ -191,7 +220,7 @@
         const awal = new Date(y, m - 1, d, 7, 0), akhir = new Date(y, m - 1, d + 1, 7, 0);
         try {
           const { data, error } = await supabaseClient.from("downtime_log")
-            .select("waktu_awal,waktu_akhir,problem,area,countermeasure,pic")
+            .select("waktu_awal,waktu_akhir,problem,area,penyebab,countermeasure,pic")
             .eq("mesin", line).gte("waktu_awal", awal.toISOString()).lt("waktu_awal", akhir.toISOString()).order("waktu_awal");
           if (error) throw error;
           if (tok !== this._pfTok) return;
@@ -199,7 +228,7 @@
           this.problemRows = (data || []).map((r) => {
             const a = new Date(r.waktu_awal), mnt = a.getHours() * 60 + a.getMinutes();
             return {
-              problem: r.problem || r.area || "(tanpa keterangan)",
+              problem: r.penyebab || r.problem || r.area || "(tanpa keterangan)",
               tanggal: pad2(d) + "/" + pad2(m) + "/" + y,
               shift: mnt >= 420 && mnt < 1170 ? "1" : "2",
               penanganan: r.countermeasure || "",
@@ -311,6 +340,7 @@
         this.pesan = "";
         const line = this.activeTab;
         this.mintaMingguan(senyap);
+        this.muatTop();
         const y = this.tahun, m = this.bulan, n = this.jumlahHari;
         const awal = new Date(y, m - 1, 1), akhir = new Date(y, m, 1);
         const sAwal = tglStr(y, m, 1);
