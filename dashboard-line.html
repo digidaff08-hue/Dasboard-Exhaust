@@ -73,13 +73,21 @@
   .dl-foto-tutup { position: absolute; top: 10px; right: 10px; }
   .dl-foto img, .dl-foto video { width: 100%; height: 100%; object-fit: contain; display: block; background: #fff; }
   .dl-sheet tr.dl-top1 td { background: rgba(220,38,38,.10); font-weight: 800; }
+  .dl-sheet td.dl-klik { cursor: pointer; text-decoration: underline dotted; }
+  .dl-sheet td.dl-klik:hover { background: rgba(37,99,235,.10); }
+  .dl-pop { position: fixed; inset: 0; z-index: 3500; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .dl-pop-box { background: var(--panel); color: #000; border-radius: 12px; width: min(620px, 100%); max-height: 75vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,.5); overflow: hidden; }
+  .dl-pop-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--border); font-weight: 800; font-size: 0.8125rem; }
+  .dl-pop-list { overflow: auto; padding: 8px 14px 12px; margin: 0; list-style: none; }
+  .dl-pop-list li { padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 0.75rem; display: flex; gap: 10px; justify-content: space-between; }
+  .dl-pop-list li small { white-space: nowrap; font-weight: 700; }
   .dl-sheet-wrap { flex: 1; min-height: 0; overflow: auto; }
   .dl-sheet td.dl-kiri { text-align: left; }
   .dl-sheet td { color: #000; white-space: nowrap; overflow: hidden; text-overflow: clip; max-width: 0; height: 17px; padding: 1px 3px; line-height: 1.2; cursor: default; }
   .dl-sheet thead th { position: sticky; top: 0; z-index: 1; background-color: var(--panel); background-image: linear-gradient(rgba(128,128,128,.08), rgba(128,128,128,.08)); }
   .dl-sheet { width: 100%; border-collapse: collapse; font-size: 0.6875rem; table-layout: fixed; }
   .dl-sheet th, .dl-sheet td { border: 1px solid var(--border); padding: 4px 3px; text-align: center; }
-  .dl-sheet th { font-weight: 800; background: rgba(128,128,128,.08); font-size: 0.625rem; letter-spacing: 0; white-space: normal; padding: 4px 2px; }
+  .dl-sheet th { color: #000; font-weight: 800; background: rgba(128,128,128,.08); font-size: 0.625rem; letter-spacing: 0; white-space: normal; padding: 4px 2px; }
   @media (max-width: 1100px) {
     .dl-main { height: auto; overflow: visible; }
     .dl-grid { grid-template-columns: 1fr; grid-template-rows: none; grid-auto-rows: 290px; }
@@ -175,6 +183,17 @@
     </template>
     <template x-if="bolehLihat()">
       <div class="dl-wrap">
+      <div class="dl-pop" x-show="topDetail" x-cloak @click.self="topDetail = null">
+        <div class="dl-pop-box" x-show="topDetail">
+          <div class="dl-pop-head"><span x-text="topDetail && topDetail.judul"></span><button type="button" class="dl-pj-btn" style="color:#000" @click="topDetail = null">&#10005; Tutup</button></div>
+          <ul class="dl-pop-list">
+            <template x-for="(it, i) in (topDetail ? topDetail.items : [])" :key="i">
+              <li><span x-text="(i + 1) + '. ' + it.teks"></span><small x-text="(it.kali > 1 ? it.kali + 'x' : '') + (it.info ? (it.kali > 1 ? ' · ' : '') + it.info : '')"></small></li>
+            </template>
+            <li x-show="topDetail && !topDetail.items.length">Tidak ada data</li>
+          </ul>
+        </div>
+      </div>
       <div class="dl-besar" x-show="fotoBesar" x-cloak @click.self="fotoBesar = false">
         <div class="dl-besar-box dl-foto-besar">
           <template x-if="fotoBesar && fotoJenis==='gambar'"><img :src="fotoUrl" alt="TSK"></template>
@@ -268,10 +287,10 @@
             <div class="dl-head"><span class="dl-box-title">Problem Terbanyak</span><span class="dl-sub" x-text="BULAN_LABELS[bulan - 1] + ' ' + tahun + ' — urut paling sering'"></span></div>
             <div class="dl-sheet-wrap">
               <table class="dl-sheet">
-                <thead><tr><th style="width:5%">#</th><th style="width:23%">Problem</th><th style="width:23%">Penyebab Utama</th><th style="width:8%">Kali</th><th style="width:9%">Menit</th><th style="width:32%">Penanganan Terakhir</th></tr></thead>
+                <thead><tr><th style="width:6%">No</th><th style="width:22%">Problem</th><th style="width:23%">Penyebab Utama</th><th style="width:8%">Kali</th><th style="width:9%">Menit</th><th style="width:32%">Penanganan Terakhir</th></tr></thead>
                 <tbody>
                   <template x-for="(r, i) in topRows" :key="r.problem">
-                    <tr :class="i === 0 ? 'dl-top1' : ''"><td x-text="i + 1"></td><td class="dl-kiri" :title="r.problem" x-text="r.problem"></td><td class="dl-kiri" :title="r.sebab" x-text="r.sebab || '-'"></td><td x-text="r.kali"></td><td x-text="r.menit"></td><td class="dl-kiri" :title="r.tindak" x-text="r.tindak || '-'"></td></tr>
+                    <tr :class="i === 0 ? 'dl-top1' : ''"><td x-text="i + 1"></td><td class="dl-kiri" :title="r.problem" x-text="r.problem"></td><td class="dl-kiri dl-klik" :title="'Klik: lihat semua penyebab'" @click="bukaDetail(r, 'sebab')" x-text="r.sebab || '-'"></td><td x-text="r.kali"></td><td x-text="r.menit"></td><td class="dl-kiri dl-klik" :title="'Klik: lihat semua penanganan'" @click="bukaDetail(r, 'tindak')" x-text="r.tindak || '-'"></td></tr>
                   </template>
                   <template x-for="k in Math.max(0, 5 - topRows.length)" :key="'tk' + k">
                     <tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>
