@@ -6,6 +6,62 @@
 // pakai jam sistem, tidak bisa diketik manual (kecuali mode edit koreksi).
 // =========================================================
 
+// ---------- Bevel batang (sama persis dgn dashboard) ----------
+// Di dashboard-exhaust.html plugin ini dipasang di <head>, jadi semua
+// grafik batang di sana (Downtime Exhaust dll) terlihat timbul. Halaman
+// mesin punya <head> sendiri yang tidak memuatnya, makanya batangnya
+// dulu terlihat rata. Didaftarkan di sini supaya ikut semua halaman
+// mesin tanpa harus mengubah 6 file HTML satu-satu.
+//
+// Tiap batang diberi 4 sisi miring:
+//   atas & kiri   -> kilap terang (kesan kena cahaya)
+//   bawah & kanan -> bayangan gelap
+// Atur lewat BEVEL_STYLE:
+//   size  : lebar sisi bevel (px), otomatis mengecil di batang tipis
+//   light : kekuatan kilap sisi atas/kiri
+//   dark  : kekuatan bayangan sisi bawah/kanan
+// Matikan untuk chart tertentu dengan
+//   options.plugins.dxBarBevel = { enabled: false }
+if (typeof Chart !== "undefined" && !window.__dxBarBevelTerpasang) {
+  window.__dxBarBevelTerpasang = true;
+  const BEVEL_STYLE = { size: 3, lightTop: 0.45, lightLeft: 0.30, darkRight: 0.22, darkBottom: 0.30 };
+  const bevelPoly = (ctx, pts, color) => {
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let k = 1; k < pts.length; k++) ctx.lineTo(pts[k][0], pts[k][1]);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+  };
+  Chart.register({
+    id: "dxBarBevel",
+    afterDatasetsDraw(chart, args, opts) {
+      if (opts && opts.enabled === false) return;
+      const horizontal = chart.options.indexAxis === "y";
+      const { ctx } = chart;
+      (chart.data.datasets || []).forEach((ds, i) => {
+        const meta = chart.getDatasetMeta(i);
+        if (!meta || meta.type !== "bar" || !meta.data || !chart.isDatasetVisible(i)) return;
+        meta.data.forEach((bar) => {
+          const p = bar.getProps(["x", "y", "base", "width", "height"], true);
+          let L, T, W, H;
+          if (horizontal) { L = Math.min(p.x, p.base); W = Math.abs(p.x - p.base); T = p.y - p.height / 2; H = p.height; }
+          else { T = Math.min(p.y, p.base); H = Math.abs(p.y - p.base); L = p.x - p.width / 2; W = p.width; }
+          if (!(W > 2) || !(H > 2)) return;
+          const b = Math.min(BEVEL_STYLE.size, W / 4, H / 4);
+          const R = L + W, B = T + H;
+          ctx.save();
+          bevelPoly(ctx, [[L, T], [R, T], [R - b, T + b], [L + b, T + b]], `rgba(255,255,255,${BEVEL_STYLE.lightTop})`);
+          bevelPoly(ctx, [[L, T], [L + b, T + b], [L + b, B - b], [L, B]], `rgba(255,255,255,${BEVEL_STYLE.lightLeft})`);
+          bevelPoly(ctx, [[R, T], [R, B], [R - b, B - b], [R - b, T + b]], `rgba(0,0,0,${BEVEL_STYLE.darkRight})`);
+          bevelPoly(ctx, [[L, B], [R, B], [R - b, B - b], [L + b, B - b]], `rgba(0,0,0,${BEVEL_STYLE.darkBottom})`);
+          ctx.restore();
+        });
+      });
+    },
+  });
+}
+
 // ---------- Offline queue (localStorage) ----------
 const OFFLINE_QUEUE_KEY = "offline_queue_v2";
 function loadOfflineQueue() {
@@ -51,7 +107,7 @@ async function runOfflineQueueSync() {
   for (const items of phases) {
     if (!items.length) continue;
     const results = await Promise.allSettled(
-      items.map((item) => supabaseClient.from(item.table).insert(item.payload))
+      items.map((item) => insertIdempotent(item.table, item.payload))
     );
     results.forEach((res, i) => {
       const item = items[i];
@@ -95,6 +151,42 @@ async function trySyncOfflineQueue() {
 function isNetworkError(err) {
   if (!navigator.onLine) return true;
   return /fetch|network|failed to fetch/i.test((err && err.message) || String(err));
+}
+
+// ---------- Insert anti-dobel (client_ref) ----------
+// Kenapa perlu ini: kalau request INSERT yang pertama sebenarnya SUKSES
+// di server, tapi balasannya hilang di tengah jalan (sinyal wifi pabrik
+// putus-putus pas lagi nunggu respons -- sering terjadi operator shift
+// pagi), kode di atas menyangka gagal (isNetworkError = true) lalu
+// mengantrekan payload yang SAMA utk dikirim ulang lewat offline queue.
+// Hasilnya: 2 baris identik di database (production_log/downtime_log/
+// dandori_log/production_log_new), walau sumber aslinya cuma 1 kejadian.
+// Itu sebabnya "Rekap Downtime" bisa tampil dobel padahal spreadsheet
+// cuma 1 baris -- bug-nya ada di SINI, bukan di query tampilannya.
+//
+// Perbaikan: tiap insert BARU (bukan update) dibekali client_ref (UUID
+// dibuat sekali di HP, ikut nebeng kalau payload-nya diantrekan & dikirim
+// ulang). Kolom client_ref diberi UNIQUE constraint di database (lihat
+// migration_fix_insert_duplikat.sql). Kalau pengiriman ulang kena
+// constraint itu, artinya baris itu MEMANG sudah pernah berhasil
+// tersimpan dari percobaan sebelumnya -- dianggap sukses (ambil baris
+// yang sudah ada), BUKAN bikin baris baru lagi.
+function genClientRef() {
+  if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+  // Fallback kalau browser sangat lama tidak punya crypto.randomUUID.
+  return "cr-" + Date.now() + "-" + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+}
+function isUniqueViolation(err) {
+  return !!(err && (err.code === "23505" || /duplicate key value|already exists/i.test((err && err.message) || String(err))));
+}
+async function insertIdempotent(table, payload) {
+  const res = await supabaseClient.from(table).insert(payload).select().single();
+  if (!res.error) return { data: res.data, error: null, duplicate: false };
+  if (payload && payload.client_ref && isUniqueViolation(res.error)) {
+    const existing = await supabaseClient.from(table).select().eq("client_ref", payload.client_ref).maybeSingle();
+    if (!existing.error && existing.data) return { data: existing.data, error: null, duplicate: true };
+  }
+  return { data: null, error: res.error, duplicate: false };
 }
 
 const MACHINE_OPTIONS = [
@@ -158,9 +250,6 @@ function computeBreakMinutes(waIso, wkIso) {
   return Math.round(total);
 }
 
-function cssVar(name) {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-}
 function fmtNum(n) {
   if (n === null || n === undefined || n === "") return "-";
   const num = Number(n);
@@ -192,10 +281,6 @@ function toLocalInput(iso) {
 // PENTING: date.toISOString().slice(0,10) mengonversi ke UTC dulu -- karena
 // WIB = UTC+7, tengah malam lokal jadi jam 17:00 hari sebelumnya di UTC,
 // sehingga tanggalnya terpotong mundur 1 hari. Pakai ini untuk tanggal lokal.
-function localDateStr(d) {
-  const p = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
 // Jam lokal 'HH:MM' -- dipakai sebagai default field Jam di form NG Inline & Repair.
 function localTimeStr(d) {
   const p = (n) => String(n).padStart(2, "0");
@@ -210,118 +295,13 @@ function tanggalJamToIso(tanggal, jam) {
   return d.toISOString();
 }
 
-// =========================================================
-// NG INLINE: 1 aturan dipakai bersama (lihat migration_ng_hari_produksi.sql)
-// =========================================================
-// Titik waktu kejadian sebuah baris NG Inline:
-//   waktu_kejadian -> kalau kosong: tanggal + jam -> kalau jam juga
-//   kosong (data lama): tanggal jam 12:00, supaya hari produksinya sama
-//   persis dengan perilaku lama yang cuma memakai kolom tanggal.
-// Kembar persis dengan fungsi SQL public.ng_waktu_kejadian().
-function ngWaktuKejadian(n) {
-  if (!n) return null;
-  if (n.waktu_kejadian) {
-    const d = new Date(n.waktu_kejadian);
-    if (!Number.isNaN(d.getTime())) return d;
-  }
-  if (!n.tanggal) return null;
-  const jam = String(n.jam || "12:00").slice(0, 5); // kolom `time` bisa balik 'HH:MM:SS'
-  const d = new Date(`${n.tanggal}T${jam}:00`);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
-// "Hari produksi" sebuah baris NG Inline, format 'YYYY-MM-DD'.
-// Hari produksi mulai jam 07:00 WIB, jadi NG yang dicatat jam 00:00-06:59
-// MILIK HARI SEBELUMNYA -- ini yang bikin NG shift 2 (atau NG yang
-// diinput pagi-pagi) tidak lagi "pindah hari" dari baris produksinya.
-// Kembar persis dengan fungsi SQL public.ng_hari_produksi().
-function ngHariProduksi(n) {
-  const w = ngWaktuKejadian(n);
-  if (!w) return n && n.tanggal ? String(n.tanggal) : null;
-  return localDateStr(new Date(w.getTime() - 7 * 60 * 60 * 1000));
-}
-
-// Tempelkan baris-baris NG Inline ke baris produksi, bertingkat:
-//   1) production_log_id -- dipakai HANYA kalau menunjuk ke baris yang
-//      memang ada di daftar `rows` (link bisa menunjuk ke hari lain).
-//   2) jam kejadian jatuh di dalam jendela waktu salah satu baris.
-//   3) part number yang sama; kalau dipakai beberapa baris, ditempel ke
-//      baris dengan Qty terbesar (run utamanya).
-// Balikannya: { byRow: {idProduksi: qty}, takTerpasang: qty }
-function cocokkanNgKeBarisProduksi(ngRows, rows) {
-  const byRow = {};
-  let takTerpasang = 0;
-  const daftar = rows || [];
-  const idSet = new Set(daftar.map((r) => r.id));
-  const normPart = (v) => String(v || "").trim().toUpperCase();
-
-  (ngRows || []).forEach((n) => {
-    const qty = Number(n.qty) || 0;
-    if (!qty) return;
-
-    if (n.production_log_id && idSet.has(n.production_log_id)) {
-      byRow[n.production_log_id] = (byRow[n.production_log_id] || 0) + qty;
-      return;
-    }
-
-    const w = ngWaktuKejadian(n);
-    if (w) {
-      const t = w.getTime();
-      const row = daftar.find((r) => {
-        const mulai = new Date(r.waktu_awal).getTime();
-        const selesai = new Date(r.waktu_akhir).getTime();
-        return t >= mulai && t < selesai;
-      });
-      if (row) { byRow[row.id] = (byRow[row.id] || 0) + qty; return; }
-    }
-
-    const part = normPart(n.part_number);
-    if (part) {
-      const kandidat = daftar.filter((r) => normPart(r.part_number) === part);
-      if (kandidat.length) {
-        const row = kandidat.reduce((a, b) => ((Number(b.qty) || 0) > (Number(a.qty) || 0) ? b : a));
-        byRow[row.id] = (byRow[row.id] || 0) + qty;
-        return;
-      }
-    }
-
-    takTerpasang += qty;
-  });
-
-  return { byRow, takTerpasang };
-}
-
-// Ambil baris NG Inline 1 mesin untuk rentang HARI PRODUKSI tertentu.
-//
-// Catatan penting soal cara ambilnya: query-nya menyaring pakai kolom
-// `tanggal` saja -- kolom yang PASTI ada sejak schema_ng_inline.sql.
-// Kolom jam/waktu_kejadian/production_log_id TIDAK boleh disebut di
-// filter maupun di daftar select, karena kalau salah satunya belum ada
-// di database (migration_ng_repair_link_produksi.sql belum dijalankan),
-// PostgREST menolak SELURUH query dan datanya balik kosong TANPA pesan
-// error -- itu yang dulu bikin kolom "NG INLINE" selalu 0.
-// Makanya: select("*") + rentang tanggal dilebarkan 1 hari di kedua
-// ujung (NG jam 01:30 milik hari produksi kemarin, tanggalnya hari ini),
-// lalu penyaringan hari produksinya dikerjakan di sini.
-async function ambilNgInlineHariProduksi(client, mesin, dariStr, sampaiStr) {
-  const geser = (s, hari) => {
-    const d = new Date(`${s}T00:00:00`);
-    d.setDate(d.getDate() + hari);
-    return localDateStr(d);
-  };
-  const res = await client.from("ng_inline_log").select("*")
-    .eq("mesin", mesin)
-    .gte("tanggal", geser(dariStr, -1))
-    .lte("tanggal", geser(sampaiStr, 1));
-  if (res.error) {
-    console.error("Gagal memuat NG Inline:", res.error);
-    return [];
-  }
-  return (res.data || []).filter((n) => {
-    const h = ngHariProduksi(n);
-    return h && h >= dariStr && h <= sampaiStr;
-  });
-}
+// CATATAN: fungsi bantu NG Inline & Downtime (ngHariProduksi,
+// cocokkanNgKeBarisProduksi, ambilNgInlineHariProduksi,
+// cocokkanDowntimeKeBaris, ambilDowntimeUntukBaris) SEKARANG ADA DI
+// assets/produksi-join.js -- dimuat lewat <script> sebelum file ini.
+// Dipindah ke sana supaya halaman Data Mentah memakai aturan yang SAMA
+// PERSIS; dulu tiap halaman punya caranya sendiri dan satu perbaikan
+// tidak pernah ikut ke halaman lain.
 
 // =========================================================
 // Export Excel -- dipakai bareng oleh semua tab (Riwayat Produksi,
@@ -431,6 +411,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
+const DKD_BUILD = "20261101b";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:45", "20:30"] },
@@ -459,7 +440,7 @@ function dkdFormatList(items) {
   if (!cleaned.length) return "";
   return cleaned.map((item) => `- ${item}`).join("\n");
 }
-function dkdBuildBlockRowsHTML(blockNo) {
+function dkdBuildBlockRowsHTML(blockNo, nCols) {
   let rowsHTML = "";
   for (let idx = 0; idx < DKD_ROWS_PER_BLOCK; idx++) {
     const descItem = DKD_DESC_ITEMS[idx];
@@ -484,8 +465,10 @@ function dkdBuildBlockRowsHTML(blockNo) {
     // dalam blok: 0 Target, 1 Hasil Aktual, 2 Rasio Dekidaka, 3 Selisih,
     // 4 Akumulasi Selisih, 5 Total Akumulasi Aktual -- dipakai
     // dekidakaApplyProduction() untuk menaruh angka di sel yang tepat.
-    const d1Cell = `<td class="dkd-refcol${isLastRow ? " dkd-gray" : ""}"><div class="dkd-static dkd-val" data-block="${blockNo}" data-col="0" data-row="${idx}"></div></td>`;
-    const d2Cell = `<td class="dkd-refcol${isLastRow ? " dkd-gray" : ""}"><div class="dkd-static dkd-val" data-block="${blockNo}" data-col="1" data-row="${idx}"></div></td>`;
+    let modelCells = "";
+    for (let c = 0; c < nCols; c++) {
+      modelCells += `<td class="dkd-refcol${isLastRow ? " dkd-gray" : ""}"><div class="dkd-static dkd-val" data-block="${blockNo}" data-col="${c}" data-row="${idx}"></div></td>`;
+    }
     const maintCell = `<td><div class="dkd-desc-row"><span class="dkd-lbl">${maintItem}</span></div></td>`;
     // Kolom "Ket" (Ireguller): baris 0 = Abnormality (menit downtime),
     // baris 4 = Dandori (menit), baris 5 = MP. Sisanya belum ada
@@ -500,13 +483,13 @@ function dkdBuildBlockRowsHTML(blockNo) {
       trailCells += `<td rowspan="${DKD_ROWS_PER_BLOCK}"><div class="dkd-static dkd-static-text dkd-pic" data-block="${blockNo}"></div></td>`;
       trailCells += `<td rowspan="${DKD_ROWS_PER_BLOCK}"><div class="dkd-static"></div></td>`;
     }
-    rowsHTML += `<tr data-block="${blockNo}">${leadCells}${descCell}${d1Cell}${d2Cell}${maintCell}${ketCell}${trailCells}</tr>`;
+    rowsHTML += `<tr data-block="${blockNo}">${leadCells}${descCell}${modelCells}${maintCell}${ketCell}${trailCells}</tr>`;
   }
   return rowsHTML;
 }
-function dkdBuildAllBlocksHTML() {
+function dkdBuildAllBlocksHTML(nCols) {
   let html = "";
-  for (let n = 1; n <= DKD_TOTAL_BLOCKS; n++) html += dkdBuildBlockRowsHTML(n);
+  for (let n = 1; n <= DKD_TOTAL_BLOCKS; n++) html += dkdBuildBlockRowsHTML(n, nCols);
   return html;
 }
 function dkdBuildEmptyCycleRows() {
@@ -514,15 +497,210 @@ function dkdBuildEmptyCycleRows() {
   for (let i = 1; i <= DKD_CYCLE_ROWS_COUNT; i++) html += `<tr><td>${i}</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
   return html;
 }
+// Referensi di atas papan Dekidaka (kiri: waktu Cleaning Nozzle / Ganti tip / Tukar box,
+// kanan: CT TARGET). Isi dari Excel per line (E-02 sampai E-07).
+const DKD_REF_DATA = {
+  "E-02": {
+    alat: [
+      ["Cleaning Nozzle (detik)", "30", "1 kali /15 cycle", "2", "detik"],
+      ["Ganti tip (detik)", "120", "1 kali /60 cycle", "2", "detik"],
+      ["Tukar box", "10", "1 kali /30 cycle", "0,33", "detik"],
+    ],
+    ct: [
+      ["1", "", "144", "25", "3", "YHA", "8,33"],
+      ["2", "", "144", "25", "3", "YR9", "8,33"],
+      ["3", "", "144", "25", "3", "K15B", "8,33"],
+      ["4", "", "", "", "", "", ""],
+    ],
+  },
+  "E-03": {
+    alat: [
+      ["Cleaning Nozzle (detik)", "30", "1 kali /15 cycle", "2", "detik"],
+      ["Ganti tip (detik)", "120", "1 kali /60 cycle", "2", "detik"],
+      ["Tukar box", "10", "1 kali /30 cycle", "0,33", "detik"],
+    ],
+    ct: [
+      ["1", "", "109", "33", "4", "D73F", "8,26"],
+      ["2", "", "106", "34", "4", "D13", "8,50"],
+      ["3", "", "106", "34", "4", "D40", "8,50"],
+      ["4", "", "", "", "", "", ""],
+    ],
+  },
+  "E-04": {
+    alat: [
+      ["Cleaning Nozzle (detik)", "30", "1 kali /15 cycle", "2", "detik"],
+      ["Ganti tip (detik)", "120", "1 kali /60 cycle", "2", "detik"],
+      ["Tukar box", "10", "1 kali /30 cycle", "0,33", "detik"],
+    ],
+    ct: [
+      ["1", "", "109", "33", "4", "D40/D41", "8,25"],
+      ["2", "", "", "", "", "", ""],
+      ["3", "", "", "", "", "", ""],
+      ["4", "", "", "", "", "", ""],
+    ],
+  },
+  "E-05": {
+    alat: [
+      ["Cleaning Nozzle (detik)", "30", "1 kali /15 cycle", "1", "detik"],
+      ["Ganti tip (detik)", "120", "1 kali /60 cycle", "1", "detik"],
+      ["Tukar box", "10", "1 kali /30 cycle", "0,33", "detik"],
+    ],
+    ct: [
+      ["1", "", "109", "33", "4", "889F", "8,25"],
+      ["2", "", "109", "33", "4", "D40/D41", "8,25"],
+      ["3", "", "", "", "", "", ""],
+      ["4", "", "", "", "", "", ""],
+    ],
+  },
+  "E-06": {
+    alat: [
+      ["Cleaning Nozzle (detik)", "30", "1 kali /15 cycle", "2", "detik"],
+      ["Ganti tip (detik)", "120", "1 kali /60 cycle", "2", "detik"],
+      ["Tukar box", "10", "1 kali /30 cycle", "0,33", "detik"],
+    ],
+    ct: [
+      ["1", "", "124", "29", "4", "D98E", "7,25"],
+      ["2", "", "109", "33", "4", "D40/D41", "8,25"],
+      ["3", "", "", "", "", "", ""],
+      ["4", "", "", "", "", "", ""],
+    ],
+  },
+  "E-07": {
+    alat: [
+      ["Cleaning Nozzle (detik)", "30", "1 kali /15 cycle", "2", "detik"],
+      ["Ganti tip (detik)", "120", "1 kali /60 cycle", "2", "detik"],
+      ["Tukar box", "10", "1 kali /30 cycle", "0,33", "detik"],
+    ],
+    ct: [
+      ["1", "", "103", "35", "5", "K15C", "7,00"],
+      ["2", "", "109", "33", "4", "D40/D41", "8,25"],
+      ["3", "", "", "", "", "", ""],
+      ["4", "", "", "", "", "", ""],
+    ],
+  },
+};
+function dkdBuildRefHTML(line) {
+  const d = DKD_REF_DATA[line];
+  if (!d) return `<div class="dkd-ref-placeholder">Referensi (Cleaning Nozzle / Ganti tip / Ganti Box) &amp; Cycle Time Target<br>-- menyusul setelah master data-nya diisi --</div>`;
+  const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  const alat = d.alat.map((r) => `<tr><td class="dkd-ref-l">${esc(r[0])}</td><td class="dkd-ref-n">${esc(r[1])}</td><td>${esc(r[2])}</td><td class="dkd-ref-n">${esc(r[3])}</td><td>${esc(r[4])}</td></tr>`).join("");
+  const ct = d.ct.map((r) => `<tr>${r.map((c, i) => `<td${i === 4 || i === 5 ? ' class="dkd-ref-b"' : ""}>${esc(c)}</td>`).join("")}</tr>`).join("");
+  return `<div class="dkd-ref-wrap">
+    <table class="dkd-ref-tbl dkd-ref-alat"><tbody>${alat}</tbody></table>
+    <div class="dkd-ref-ct"><div class="dkd-ref-judul">CT TARGET</div>
+      <table class="dkd-ref-tbl"><thead><tr><th>NO</th><th>Date</th><th>CT</th><th>Out put/Jam</th><th>MP</th><th>MODEL</th><th>PCS/MP</th></tr></thead><tbody>${ct}</tbody></table>
+    </div>
+  </div>`;
+}
+// Kolom model di samping "Desc": dasarnya DKD_COLUMN_LABELS, lalu disesuaikan dengan tabel
+// CT TARGET line itu: (1) kolom gabungan (mis. "D40/D13") dipecah kalau tiap modelnya
+// berdiri sendiri di CT TARGET, (2) model CT TARGET yang belum punya kolom ditambahkan
+// kolom baru, (3) urutan kolom mengikuti urutan baris CT TARGET.
+function dkdTokens(label) {
+  return String(label || "").split("/").map((x) => x.trim().toUpperCase()).filter(Boolean);
+}
+function dkdGetColumns(line) {
+  const base = (DKD_COLUMN_LABELS[line] || ["D73F", "889F"]).slice();
+  const ref = DKD_REF_DATA[line];
+  if (!ref) return base;
+  const ctModels = ref.ct.map((r) => String(r[5] || "").trim()).filter(Boolean);
+  const berdiri = new Set(ctModels.filter((m) => dkdTokens(m).length === 1).map((m) => m.toUpperCase()));
+  let cols = [];
+  base.forEach((lbl) => {
+    const t = dkdTokens(lbl);
+    if (t.length > 1 && t.every((x) => berdiri.has(x))) t.forEach((x) => cols.push(x));
+    else cols.push(lbl);
+  });
+  ctModels.forEach((m) => {
+    const mt = dkdTokens(m);
+    if (!cols.some((c) => dkdTokens(c).some((x) => mt.includes(x)))) cols.push(m);
+  });
+  const urut = (c) => {
+    const ct = dkdTokens(c);
+    const i = ctModels.findIndex((m) => dkdTokens(m).some((x) => ct.includes(x)));
+    return i < 0 ? 999 : i;
+  };
+  return cols.map((c, i) => ({ c, i, k: urut(c) })).sort((a, b) => a.k - b.k || a.i - b.i).map((o) => o.c);
+}
+// Target pcs 1 blok = menit x Out put/Jam / 60, dibulatkan ke atas. "Out put/Jam" diambil dari
+// baris CT TARGET yang modelnya sama dengan kolom. Kosong (null) kalau tidak ketemu.
+function dkdTargetBlok(line, kolomLabel, menit) {
+  const ref = DKD_REF_DATA[line];
+  if (!ref || !(menit > 0)) return null;
+  const ct = dkdTokens(kolomLabel);
+  const row = ref.ct.find((r) => dkdTokens(r[5]).some((x) => ct.includes(x)));
+  if (!row) return null;
+  const out = parseFloat(String(row[3]).replace(",", "."));
+  if (!(out > 0)) return null;
+  return Math.ceil((menit * out) / 60 - 1e-9);
+}
+// Mode ringkas (papan di kotak kecil Dashboard Line): kolom dirapatkan supaya papan jauh lebih
+// sempit. Print/PDF selalu memakai ukuran penuh -> salinan dikembalikan ke penuh.
+function dkdKembalikanPenuh(el) {
+  el.classList.remove("dkd-ringkas");
+  const t = el.querySelector("table.dkd-main");
+  if (t) { t.style.width = ""; t.style.flex = ""; delete t.dataset.baseW; t.querySelectorAll("col").forEach((c) => { c.style.width = ""; }); }
+}
+function dkdTerapkanRingkas(board) {
+  board.classList.add("dkd-ringkas");
+  const t = board.querySelector("table.dkd-main");
+  if (!t) return;
+  // Tabel fixed-layout yang lebarnya dipaksa 1px akan melebar sendiri sebesar jumlah lebar kolom.
+  t.style.width = "1px"; t.style.flex = "0 0 auto";
+  const w = t.offsetWidth;
+  t.style.width = w ? w + "px" : "";
+}
+// Mode ringkas: lebarkan kolom Masalah & Penanganan sampai papan memenuhi lebar kotak
+// (tidak ada area kosong kiri-kanan). Dipanggil sebelum menghitung skala pas-layar.
+function dkdIsiLebar(board, availW, availH) {
+  if (!board.classList.contains("dkd-ringkas")) return;
+  const t = board.querySelector("table.dkd-main");
+  const cm = t && t.querySelector("col.dkd-c-masalah"), cp = t && t.querySelector("col.dkd-c-penanganan");
+  if (!cm || !cp) return;
+  if (!t.dataset.baseW) {
+    t.dataset.baseW = parseFloat(t.style.width) || t.offsetWidth;
+    t.dataset.baseM = cm.offsetWidth || 110; t.dataset.baseP = cp.offsetWidth || 100;
+  }
+  const baseW = +t.dataset.baseW, baseM = +t.dataset.baseM, baseP = +t.dataset.baseP;
+  const pasang = (extra) => {
+    cm.style.width = (baseM + extra * 0.55) + "px"; cp.style.width = (baseP + extra * 0.45) + "px";
+    t.style.width = (baseW + extra) + "px";
+  };
+  let extra = 0; pasang(0);
+  for (let i = 0; i < 4; i++) {
+    const bw = board.offsetWidth, bh = board.offsetHeight;
+    if (!bw || !bh) break;
+    const want = availW * bh / availH;          // lebar papan agar rasionya sama dengan kotak
+    const next = Math.max(0, extra + (want - bw));
+    if (Math.abs(next - extra) < 2) break;
+    extra = next; pasang(extra);
+  }
+}
+// Cetak/PDF potret: tinggikan baris tabel sampai papan mengisi halaman A4 (rasio lebar:tinggi area cetak).
+function dkdIsiTinggi(clone, rasio) {
+  const t = clone.querySelector("table.dkd-main");
+  if (!t) return;
+  const cells = t.querySelectorAll("tbody td");
+  const n = Math.max(1, t.querySelectorAll("tbody tr").length);
+  let pad = 0;
+  for (let i = 0; i < 4; i++) {
+    const w = clone.offsetWidth, h = clone.offsetHeight;
+    if (!w || !h) return;
+    const sisa = w / rasio - h;
+    if (Math.abs(sisa) < 4) break;
+    pad = Math.max(0, pad + sisa / n / 2);
+    t.style.setProperty("--dkd-pad-fill", pad.toFixed(2) + "px");
+  }
+}
 function dkdBuildBoardHTML(line) {
-  const cols = DKD_COLUMN_LABELS[line] || ["D73F", "889F"];
+  const cols = dkdGetColumns(line);
   const today = new Date();
   const yyyy = today.getFullYear(), mm = String(today.getMonth() + 1).padStart(2, "0"), dd = String(today.getDate()).padStart(2, "0");
   return `
     <div class="dkd-top-row">
       <div class="dkd-big-line">${line}</div>
       <div class="dkd-tables-wrap">
-        <div class="dkd-ref-placeholder">Referensi (Cleaning Nozzle / Ganti tip / Ganti Box) &amp; Cycle Time Target<br>-- menyusul setelah master data-nya diisi --</div>
+        ${dkdBuildRefHTML(line)}
       </div>
     </div>
     <div class="dkd-info-bar">
@@ -545,19 +723,19 @@ function dkdBuildBoardHTML(line) {
       <table class="dkd-main">
         <colgroup>
           <col class="dkd-c-no"><col class="dkd-c-part"><col class="dkd-c-waktu"><col class="dkd-c-desc">
-          <col class="dkd-c-d73f"><col class="dkd-c-889f"><col class="dkd-c-maint"><col class="dkd-c-ket">
+          ${cols.map(() => '<col class="dkd-c-model">').join("")}<col class="dkd-c-maint"><col class="dkd-c-ket">
           <col class="dkd-c-masalah"><col class="dkd-c-penanganan"><col class="dkd-c-pic"><col class="dkd-c-deadline">
         </colgroup>
         <thead>
           <tr>
-            <th>No</th><th>Part<br>Number</th><th>Waktu</th><th>Desc</th><th>${cols[0]}</th><th>${cols[1]}</th>
+            <th>No</th><th>Part<br>Number</th><th>Waktu</th><th>Desc</th>${cols.map((c) => `<th>${c}</th>`).join("")}
             <th colspan="2">Ireguller</th><th>Masalah</th><th>Penanganan</th><th>Pic</th><th>Deadline</th>
           </tr>
         </thead>
-        <tbody class="dkd-tbody">${dkdBuildAllBlocksHTML()}</tbody>
+        <tbody class="dkd-tbody">${dkdBuildAllBlocksHTML(cols.length)}</tbody>
       </table>
       <div class="dkd-summary">
-        <div class="dkd-card"><div class="dkd-card-lbl">Jam Produksi</div><div class="dkd-card-val dkd-jam-produksi">0</div></div>
+        <div class="dkd-card"><div class="dkd-card-lbl">Jam Produksi (Menit)</div><div class="dkd-card-val dkd-jam-produksi">0</div></div>
         <div class="dkd-card"><div class="dkd-card-lbl">Qty Produksi</div><div class="dkd-card-val dkd-qty-produksi">0</div></div>
         <div class="dkd-card"><div class="dkd-card-lbl">Downtime (Menit)</div><div class="dkd-card-val dkd-downtime-menit">0</div></div>
         <div class="dkd-card"><div class="dkd-card-lbl">Downtime Rasio</div><div class="dkd-card-val dkd-downtime-rasio">0.0%</div></div>
@@ -621,7 +799,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     stationConfig: stationConfig || { mode: "none" },
     tandemVariant: null,
     mobileNavOpen: false,
-    sidebarCollapsed: true,
+    sidebarCollapsed: AppPref.sidebarAwal(true),
     // true kalau halaman ini dibuka via Dashboard Exhaust -> tab "Performance"
     // (lewat <iframe src="machines/e-0X.html?tab=performance">). Dihitung
     // langsung di sini (bukan di init()) supaya dari awal render chrome
@@ -719,8 +897,17 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
 
     // ---- Performance dashboard (3 seksi independen) ----
     perf: {
-      tahunan: { anchor: localDateStr(new Date()), loading: false, loaded: false, data: null, trend: [], chart: null, pieChart: null, top5: [], byCategory: [] },
-      bulanan: { anchor: localDateStr(new Date()), loading: false, loaded: false, data: null, trend: [], chart: null, pieChart: null, top5: [], byCategory: [] },
+      // downtimeRows (Tahunan) -- isi tabel "5 Downtime Terburuk", sekarang
+      // 5 BARIS DOWNTIME TERLAMA (kolom PIC / Problem Detail / Total
+      // Losstime), bukan lagi ringkasan kategori+problem. Diambil lewat
+      // fetchPerfYearDowntimeRows(). Field top5 di bawah dibiarkan karena
+      // masih dipakai seksi lain.
+      tahunan: { anchor: localDateStr(new Date()), loading: false, loaded: false, data: null, trend: [], chart: null, pieChart: null, top5: [], byCategory: [], downtimeRows: [] },
+      // downtimeRows -- "Rekap Downtime" mentah sebulan penuh, strukturnya
+      // disamakan dengan perfDowntimeRows punya Harian (lihat
+      // fetchPerfMonthDowntimeRows), GANTI dari "5 Downtime Terburuk" + pie
+      // "Downtime per Kategori" yang dulu dipakai di sini.
+      bulanan: { anchor: localDateStr(new Date()), loading: false, loaded: false, data: null, trend: [], chart: null, pieChart: null, top5: [], byCategory: [], downtimeRows: [] },
       harian: { anchor: localDateStr(new Date()), loading: false, loaded: false, data: null, trend: [], chart: null, pieChart: null, top5: [], byCategory: [] },
     },
 
@@ -739,6 +926,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.session = await requireAuth();
       if (!await requireStaff(this.session)) return;
       if (!this.session) return;
+      // Mode "solo" (halaman dekidaka-line.html): HANYA papan Dekidaka. Tidak
+      // memuat data produksi / repair / 3D / realtime halaman line sama sekali.
+      if (new URLSearchParams(location.search).get("solo") === "1") {
+        this.loading = false;
+        this.dekidakaMulaiInline();
+        return;
+      }
       window.addEventListener("online", () => { this.isOnline = true; this.syncNow(); });
       window.addEventListener("offline", () => { this.isOnline = false; });
       setInterval(() => this.syncNow(), 20000);
@@ -824,7 +1018,17 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         // dobel dipelihara di 2 tempat).
         try {
           const wantTab = new URLSearchParams(location.search).get("tab");
+          // &bagian=tahunan|bulanan|harian -> dipakai Dashboard Line: langsung ke bagian itu, tombol pilih bagian disembunyikan.
+          const bagian = new URLSearchParams(location.search).get("bagian");
+          if (wantTab === "performance" && ["tahunan", "bulanan", "harian"].includes(bagian)) {
+            this.activePerfSection = bagian;
+            document.documentElement.classList.add("perf-tanpa-chip");
+          }
           if (wantTab === "performance") this.openPerformanceTab();
+          // ?dekidaka=1 -> dipakai halaman Dashboard Line: papan Dekidaka
+          // langsung terbuka, halaman line di belakangnya disembunyikan, dan
+          // tombol Tutup memberi tahu halaman induk (postMessage).
+          if (new URLSearchParams(location.search).get("dekidaka") === "1") this.dekidakaMulaiInline();
         } catch (e) { /* noop -- URL aneh, biarin default */ }
       } catch (err) {
         this.flash("Gagal memuat halaman: " + (err.message || err), true);
@@ -837,9 +1041,9 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // REALTIME — biar semua tab/HP yang lagi buka line yang sama otomatis
     // ke-update begitu ADA SIAPA SAJA (device manapun) simpan/ubah/hapus
     // data Produksi/Downtime/Non-Produksi/NG Inline/Repair, TANPA reload.
-    // Pakai Supabase Realtime (postgres_changes) -- perlu tabelnya sudah
-    // didaftarkan ke publication `supabase_realtime` (lihat
-    // migration_enable_realtime.sql, jalankan sekali di Supabase).
+    // Lewat RealtimeHub (assets/realtime.js): Supabase Realtime (perlu tabelnya
+    // sudah didaftarkan ke publication `supabase_realtime`, lihat
+    // migration_enable_realtime.sql) ATAU Pusher (lihat PUSHER.md).
     // =========================================================
     _rtChannel: null,
     _rtDebounceTimers: {},
@@ -861,26 +1065,24 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         repair_log: () => this.fetchRepairLog(),
         repair_views: () => this.fetchRepairViews(),
       };
-      let channel = supabaseClient.channel("rt_machine_" + machineKey);
-      Object.keys(REALTIME_TABLE_FETCHERS).forEach((table) => {
-        channel = channel.on(
-          "postgres_changes",
-          { event: "*", schema: "public", table, filter: mesinFilter },
-          () => {
-            this.debouncedRealtimeFetch(table, REALTIME_TABLE_FETCHERS[table]);
-            // Data berubah -> angka di tab Performance yang sudah pernah
-            // dibuka user jadi basi, refresh juga (di-debounce terpisah).
-            this.debouncedRealtimeFetch("perf_after_" + table, () => this.refreshLoadedPerf(), 800);
-          }
-        );
-      });
+      // Lewat RealtimeHub (assets/realtime.js): bisa Supabase Realtime atau
+      // Pusher, isi handler di bawah sama untuk keduanya.
+      const specs = Object.keys(REALTIME_TABLE_FETCHERS).map((table) => ({
+        table,
+        filter: mesinFilter,
+        onChange: () => {
+          this.debouncedRealtimeFetch(table, REALTIME_TABLE_FETCHERS[table]);
+          // Data berubah -> angka di tab Performance yang sudah pernah
+          // dibuka user jadi basi, refresh juga (di-debounce terpisah).
+          this.debouncedRealtimeFetch("perf_after_" + table, () => this.refreshLoadedPerf(), 800);
+        },
+      }));
       // repair_points tidak punya kolom "mesin" langsung (nempel ke
       // view_id -> repair_views.mesin), jadi difilter manual di JS: cuma
       // proses kalau view_id-nya memang salah satu part 3D milik line ini.
-      channel = channel.on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "repair_points" },
-        (payload) => {
+      specs.push({
+        table: "repair_points",
+        onChange: (payload) => {
           const viewId = (payload.new && payload.new.view_id) || (payload.old && payload.old.view_id);
           if (!viewId) return;
           if (!this.repairViews.some((v) => v.id === viewId)) return; // bukan part 3D milik line ini
@@ -890,12 +1092,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
               this.rebuildRepairMarkers();
             }
           });
-        }
-      );
-      this._rtChannel = channel.subscribe();
+        },
+      });
+      this._rtChannel = RealtimeHub.subscribe("rt_machine_" + machineKey, specs);
       // Tutup koneksi realtime rapi-rapi kalau tab ditutup/pindah halaman.
       window.addEventListener("beforeunload", () => {
-        if (this._rtChannel) supabaseClient.removeChannel(this._rtChannel);
+        if (this._rtChannel) RealtimeHub.close(this._rtChannel);
       });
     },
 
@@ -1268,7 +1470,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           const { error } = await supabaseClient.from("production_log").update(payload).eq("id", line._productionLogId);
           if (error) throw error;
         } else {
-          const { error } = await supabaseClient.from("production_log").insert(payload);
+          payload.client_ref = genClientRef();
+          const { error } = await insertIdempotent("production_log", payload);
           if (error) throw error;
         }
         this.flash("Data produksi tersimpan.");
@@ -1308,7 +1511,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
 
       try {
         if (!navigator.onLine) throw new Error("offline");
-        const { error } = await supabaseClient.from("production_log").insert(payload);
+        payload.client_ref = genClientRef();
+        const { error } = await insertIdempotent("production_log", payload);
         if (error) throw error;
         if (snap._planningId) {
           await supabaseClient.from("production_planning").update({ status: "selesai" }).eq("id", snap._planningId);
@@ -1362,7 +1566,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
 
       try {
         if (!navigator.onLine) throw new Error("offline");
-        const { error } = await supabaseClient.from("production_log").insert(payload);
+        payload.client_ref = genClientRef();
+        const { error } = await insertIdempotent("production_log", payload);
         if (error) throw error;
         if (line._planningId) {
           await supabaseClient.from("production_planning").update({ status: "selesai" }).eq("id", line._planningId);
@@ -1386,7 +1591,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       try {
         if (!navigator.onLine) throw new Error("offline");
         payload.created_by = this.session.user.id;
-        const { error } = await supabaseClient.from("dandori_log").insert(payload);
+        payload.client_ref = genClientRef();
+        const { error } = await insertIdempotent("dandori_log", payload);
         if (error) throw error;
         await this.fetchNonProduksi();
       } catch (err) {
@@ -1404,25 +1610,36 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     async fetchProduction() {
       const { data, error } = await supabaseClient.from("production_log").select("*").eq("mesin", machineKey).order("waktu_awal", { ascending: false }).limit(500);
       if (error) { this.flash("Gagal memuat data produksi: " + error.message, true); return; }
-      // NG Inline per baris: pakai aturan yang sama dengan tab Performance
-      // (lihat cocokkanNgKeBarisProduksi + ambilNgInlineHariProduksi).
-      // DULU di sini pakai .select("production_log_id, qty").in("production_log_id", ids):
+      // NG Inline & Downtime per baris: aturan yang sama dengan tab
+      // Performance (lihat assets/produksi-join.js).
+      // DULU di sini NG pakai .select("production_log_id, qty").in("production_log_id", ids):
       // kalau kolom production_log_id belum ada di database, SELURUH query
-      // ditolak dan kolom NG Inline diam-diam jadi 0 semua. Sekarang tidak
-      // ada lagi nama kolom hasil migrasi yang disebut di query.
+      // ditolak dan kolom NG Inline diam-diam jadi 0 semua.
+      // Kolom "Downtime" di tabel Riwayat DULU dibaca langsung dari
+      // production_log.downtime_menit -- kolom mati yang selalu 0, jadi
+      // Riwayat selalu menampilkan 0 mnt walau Rekap Downtime ada isinya.
       const rows = data || [];
       let ngInlineByRow = {};
+      let downtimeByRow = {};
       if (rows.length) {
         const waktuList = rows.map((r) => new Date(r.waktu_awal).getTime()).filter((t) => !Number.isNaN(t));
         if (waktuList.length) {
           // Rentang hari produksi yang tercakup 500 baris terakhir.
           const dari = localDateStr(new Date(Math.min(...waktuList) - 7 * 60 * 60 * 1000));
           const sampai = localDateStr(new Date(Math.max(...waktuList) - 7 * 60 * 60 * 1000));
-          const ngRows = await ambilNgInlineHariProduksi(supabaseClient, machineKey, dari, sampai);
+          const [ngRows, dtRows] = await Promise.all([
+            ambilNgInlineHariProduksi(supabaseClient, machineKey, dari, sampai),
+            ambilDowntimeUntukBaris(supabaseClient, machineKey, rows),
+          ]);
           ngInlineByRow = cocokkanNgKeBarisProduksi(ngRows, rows).byRow;
+          downtimeByRow = cocokkanDowntimeKeBaris(rows, dtRows);
         }
       }
-      this.productionRows = rows.map((r) => ({ ...r, ngInlineQty: ngInlineByRow[r.id] || 0 }));
+      this.productionRows = rows.map((r) => ({
+        ...r,
+        ngInlineQty: ngInlineByRow[r.id] || 0,
+        downtime_menit: Math.round(totalMenitDowntime(downtimeByRow[r.id])),
+      }));
     },
     // Diklik dari angka Downtime di tabel Riwayat — loncat ke tab Downtime,
     // difilter cuma nampilin downtime yang nempel di baris produksi itu.
@@ -1490,24 +1707,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // selalu 0 walau Rekap Downtime jelas ada isinya.
       // Dengan dihitung dari downtime_log, kolom DT, kartu Downtime, dan
       // tabel Rekap Downtime jadi satu sumber yang sama.
-      const dtRes = await supabaseClient.from("downtime_log")
-        .select("stasiun, waktu_awal, waktu_akhir")
-        .eq("mesin", machineKey)
-        .gte("waktu_awal", shiftedStart.toISOString())
-        .lt("waktu_awal", shiftedEnd.toISOString());
-      const dtRows = (dtRes.data || []).filter(
-        (d) => !stasiunList || stasiunList.includes(d.stasiun));
-      const downtimeFor = (row) => {
-        const mulai = new Date(row.waktu_awal).getTime();
-        const selesai = new Date(row.waktu_akhir).getTime();
-        return dtRows.reduce((sum, d) => {
-          if (row.stasiun && d.stasiun && d.stasiun !== row.stasiun) return sum;
-          const t = new Date(d.waktu_awal).getTime();
-          if (!(t >= mulai && t < selesai)) return sum;
-          const menit = (new Date(d.waktu_akhir).getTime() - t) / 60000;
-          return sum + (menit > 0 ? menit : 0);
-        }, 0);
-      };
+      const dtSemua = await ambilDowntimeUntukBaris(supabaseClient, machineKey, data || []);
+      const dtRows = dtSemua.filter((d) => !stasiunList || stasiunList.includes(d.stasiun));
+      const downtimeByRow = cocokkanDowntimeKeBaris(data || [], dtRows);
+      const downtimeFor = (row) => totalMenitDowntime(downtimeByRow[row.id]);
 
       this.perfDayRows = (data || [])
         .map((r) => ({
@@ -1559,17 +1762,111 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     _dkdModalContainer: null,
     openDekidakaModal() {
       this.dekidakaModalOpen = true;
+      this.dkdModalZoom = 1; // tiap buka selalu mulai dari "pas layar"
+      this._dkdHeadHTerpakai = null; // paksa hitung ulang 2-tahap (lihat scaleDekidakaModalBoard)
       this.$nextTick(() => {
         this.buildDekidakaModalBoard();
         if (!this._dkdModalResizeHandler) {
           this._dkdModalResizeHandler = () => { if (this.dekidakaModalOpen) this.scaleDekidakaModalBoard(); };
         }
         window.addEventListener("resize", this._dkdModalResizeHandler);
+
+        // Ctrl + scroll = zoom (scroll biasa tetap untuk menggeser papan),
+        // klik 2x = bolak-balik pas layar <-> 100%.
+        const body = document.querySelector(".dkd-modal-body");
+        if (body) {
+          this._dkdWheelHandler = (e) => {
+            if (!e.ctrlKey) return;
+            e.preventDefault();
+            if (e.deltaY < 0) this.dekidakaModalZoomIn();
+            else this.dekidakaModalZoomOut();
+          };
+          this._dkdDblHandler = () => this.dekidakaModalZoomToggle();
+          body.addEventListener("wheel", this._dkdWheelHandler, { passive: false });
+          body.addEventListener("dblclick", this._dkdDblHandler);
+          this._dkdModalBodyEl = body;
+        }
       });
+    },
+    // Dipakai halaman Dashboard Line (?dekidaka=1[&inline=1]): papan Dekidaka
+    // langsung terbuka dan halaman di belakangnya disembunyikan.
+    dekidakaMulaiInline() {
+        const st = document.createElement("style");
+        // inline=1 -> papan menempel penuh di dalam kotak Dashboard Line
+        // (tanpa latar gelap, tanpa tombol Tutup).
+        const inline = new URLSearchParams(location.search).get("inline") === "1";
+        const solo = new URLSearchParams(location.search).get("solo") === "1";
+        // Mode solo: isi halaman memang hanya papan Dekidaka, jadi body TIDAK
+        // boleh disembunyikan (visibility diwariskan ke salinan yang dipakai
+        // Print/PDF -> hasilnya kosong).
+        st.textContent = "html,body{background:transparent!important}" + (solo ? "" : " body{visibility:hidden} .dkd-modal-overlay,.dkd-modal-overlay *{visibility:visible}")
+          + (inline ? " .dkd-modal-overlay{background:transparent!important;padding:0!important;align-items:stretch!important;justify-content:stretch!important} .dkd-modal-box{width:100%!important;min-width:0!important;max-width:none!important;max-height:none!important;height:100%!important;border-radius:0!important;box-shadow:none!important} .dkd-modal-head-actions .btn-secondary{display:none!important} .dkd-modal-title,.dkd-big-line{display:none!important} .dkd-board{border-left:none!important} .dkd-modal-body{overflow:auto!important} .dkd-modal-body{padding:0!important;background:#fff!important} html,body{overflow:hidden!important} .dkd-modal-head{display:none!important}" : "");
+        document.head.appendChild(st);
+      // Tombol zoom / print / PDF ada di halaman induk (di samping kotak
+      // Dekidaka) -- perintahnya masuk lewat postMessage, label zoom dikirim balik.
+      if (inline && window.parent !== window) {
+        const kirimZoom = () => { try { window.parent.postMessage({ dekidakaZoom: this.dekidakaModalZoomLabel() }, "*"); } catch (e) {} };
+        window.addEventListener("message", (e) => {
+          // Tanggal & shift dari halaman induk -> isi kolom di papan lalu picu "change".
+          const st = e.data && e.data.dekidakaSet;
+          if (st) {
+            // Papan bisa saja belum siap saat pesan datang -> coba lagi sebentar-sebentar.
+            const terapkan = (sisa) => {
+              const c = this._dkdModalContainer;
+              const tg = c && c.querySelector(".dkd-tanggal"), sh = c && c.querySelector(".dkd-shift");
+              if (!tg || !sh) { if (sisa > 0) setTimeout(() => terapkan(sisa - 1), 300); return; }
+              if (st.tanggal && tg.value !== st.tanggal) { tg.value = st.tanggal; tg.dispatchEvent(new Event("change")); }
+              if (st.shift && sh.value !== String(st.shift)) { sh.value = String(st.shift); sh.dispatchEvent(new Event("change")); }
+              try { window.parent.postMessage({ dekidakaSetOk: { tanggal: tg.value, shift: sh.value } }, "*"); } catch (err) {}
+              setTimeout(kirimZoom, 400);
+            };
+            terapkan(15);
+            return;
+          }
+          // Minta hitung Aktual/Target per minggu untuk 1 bulan (Grafik Trend Volume di Dashboard Line).
+          const mg = e.data && e.data.dekidakaMingguan;
+          if (mg) {
+            // Satu perhitungan per (line,bulan) pada satu waktu -- ulangan dari induk memakai janji yang sama (tidak membanjiri jaringan).
+            const kunci = `${mg.line}|${mg.tahun}|${mg.bulan}`;
+            this._mgJanji = this._mgJanji || {};
+            if (!this._mgJanji[kunci]) {
+              this._mgJanji[kunci] = this.dekidakaHitungMingguan(mg).then((r) => { if (r.error) delete this._mgJanji[kunci]; return r; });
+            }
+            this._mgJanji[kunci].then((r) => {
+              try { window.parent.postMessage({ dekidakaMingguanHasil: r }, "*"); } catch (err) {}
+            });
+            return;
+          }
+          if (e.data && e.data.dekidakaSegarkan) {   // data baru masuk -> ambil ulang diam-diam
+            const c = this._dkdModalContainer, ln = c && c.getAttribute("data-line");
+            if (c && ln) {
+              this.dekidakaLoadDowntime(c, ln); this.dekidakaLoadRepairQty(c, ln);
+              this.dekidakaLoadProduction(c, ln); this.dekidakaLoadSummary(c, ln);
+            }
+            return;
+          }
+          const a = e.data && e.data.dekidakaAksi;
+          if (!a) return;
+          if (a === "zoomIn") this.dekidakaModalZoomIn();
+          else if (a === "zoomOut") this.dekidakaModalZoomOut();
+          else if (a === "fit") this.dekidakaModalZoomFit();
+          else if (a === "print") this.printDekidakaModalBoard();
+          else if (a === "pdf") this.exportDekidakaModalBoardPDF();
+          setTimeout(kirimZoom, 60);
+        });
+        setTimeout(kirimZoom, 600);
+      }
+      this.$nextTick(() => setTimeout(() => this.openDekidakaModal(), 100));
     },
     closeDekidakaModal() {
       this.dekidakaModalOpen = false;
+      try { if (window.parent !== window && new URLSearchParams(location.search).get("dekidaka") === "1") window.parent.postMessage({ dekidakaTutup: true }, "*"); } catch (e) {}
       if (this._dkdModalResizeHandler) window.removeEventListener("resize", this._dkdModalResizeHandler);
+      if (this._dkdModalBodyEl) {
+        if (this._dkdWheelHandler) this._dkdModalBodyEl.removeEventListener("wheel", this._dkdWheelHandler);
+        if (this._dkdDblHandler) this._dkdModalBodyEl.removeEventListener("dblclick", this._dkdDblHandler);
+        this._dkdModalBodyEl = null;
+      }
       const wrap = document.getElementById("dkdModalBoardWrap");
       if (wrap) wrap.innerHTML = "";
       this._dkdModalContainer = null;
@@ -1592,6 +1889,15 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       wrap.appendChild(scaleBox);
       const container = scaleBox.querySelector(".dkd-board");
       this._dkdModalContainer = container;
+      { const q = new URLSearchParams(location.search);
+        if (q.get("inline") === "1") container.classList.add("dkd-kartu-bawah");
+        if (q.get("inline") === "1" && q.get("penuh") !== "1") dkdTerapkanRingkas(container);
+        // Lapor versi file ke halaman induk (dipakai untuk mendeteksi file yang belum ikut tertimpa).
+        if (q.get("inline") === "1" && window.parent !== window) {
+          let css = "";
+          try { css = getComputedStyle(container).getPropertyValue("--dkd-css-build").trim().replace(/["']/g, ""); } catch (e) {}
+          try { window.parent.postMessage({ dekidakaBuild: { js: DKD_BUILD, css } }, "*"); } catch (e) {}
+        } }
       this.dekidakaUpdateAllWaktu(container);
       this.dekidakaFillMp(container, line);
       this.dekidakaLoadDowntime(container, line);
@@ -1618,6 +1924,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       container.querySelector(".dkd-btn-print").addEventListener("click", () => this.dekidakaPrintBoard(container));
       container.querySelector(".dkd-btn-pdf").addEventListener("click", () => this.dekidakaExportBoardPDF(container, line));
       requestAnimationFrame(() => this.scaleDekidakaModalBoard());
+      // Dashboard Line (iframe inline): kabari halaman induk bahwa papan sudah siap tampil.
+      try { if (window.parent !== window && new URLSearchParams(location.search).get("inline") === "1") setTimeout(() => window.parent.postMessage({ dekidakaSiap: true }, "*"), 350); } catch (e) {}
     },
     // Sama pola dgn dekidakaComputeScale() di dashboard-exhaust.html: skala
     // px pasti dihitung sekali (bukan ResizeObserver) tiap modal dibuka /
@@ -1626,6 +1934,40 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // lebar, jadi tingginya kelebihan & board harus di-scroll (bagian bawah
     // tidak kelihatan). Skalanya SAMA utk X & Y (uniform) supaya tulisan
     // tidak gepeng.
+    // ===== ZOOM papan Dekidaka di dalam modal =====
+    // Papan ini lebarnya ~1760px, jadi supaya SELURUHNYA kelihatan dia
+    // dikecilkan otomatis ("fit") -- akibatnya tulisannya jadi kecil.
+    // Zoom browser (Ctrl + scroll) tidak menolong, karena fungsi fit di
+    // bawah ikut menghitung ulang dan mengecilkan papannya lagi.
+    // Jadi zoom-nya harus di dalam modal: dkdModalZoom adalah pengali di
+    // ATAS skala fit, dan kalau hasilnya lebih besar dari ruang yang ada,
+    // isi modal tinggal digeser (scroll) seperti peta.
+    dkdModalZoom: 1,        // 1 = pas layar (fit)
+    dkdModalFit: 1,         // skala fit hasil hitungan terakhir
+    DKD_ZOOM_MAKS: 3,       // 300% dari ukuran asli papan
+    dekidakaModalSkalaEfektif() {
+      return (this.dkdModalFit || 1) * (this.dkdModalZoom || 1);
+    },
+    dekidakaModalZoomLabel() {
+      return Math.round(this.dekidakaModalSkalaEfektif() * 100) + "%";
+    },
+    // Set zoom dari skala efektif yang diinginkan, dijaga antara "pas
+    // layar" dan DKD_ZOOM_MAKS.
+    dekidakaModalSetSkala(efektif) {
+      const fit = this.dkdModalFit || 1;
+      const batas = Math.min(Math.max(efektif, fit), this.DKD_ZOOM_MAKS);
+      this.dkdModalZoom = batas / fit;
+      this.scaleDekidakaModalBoard();
+    },
+    dekidakaModalZoomIn() { this.dekidakaModalSetSkala(this.dekidakaModalSkalaEfektif() * 1.25); },
+    dekidakaModalZoomOut() { this.dekidakaModalSetSkala(this.dekidakaModalSkalaEfektif() / 1.25); },
+    dekidakaModalZoomFit() { this.dkdModalZoom = 1; this.scaleDekidakaModalBoard(); },
+    // Klik 2x: bolak-balik antara "pas layar" dan ukuran asli 100%.
+    dekidakaModalZoomToggle() {
+      const fit = this.dkdModalFit || 1;
+      if (Math.abs(this.dkdModalZoom - 1) < 0.01) this.dekidakaModalSetSkala(1);
+      else this.dekidakaModalZoomFit();
+    },
     scaleDekidakaModalBoard() {
       const wrap = document.getElementById("dkdModalBoardWrap");
       if (!wrap) return;
@@ -1634,7 +1976,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (!scaleBox || !board) return;
       // offsetWidth/offsetHeight TIDAK terpengaruh transform, jadi ini tetap
       // ukuran asli board walau sudah pernah diskalakan sebelumnya.
-      const boardW = board.offsetWidth, boardH = board.offsetHeight;
+      let boardW = board.offsetWidth, boardH = board.offsetHeight;
       if (!boardW || !boardH) return;
       const head = document.querySelector(".dkd-modal-head");
       const headH = head ? head.offsetHeight : 52;
@@ -1642,13 +1984,138 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // yang ukurannya justru di-set fungsi ini) -- lihat catatan di CSS
       // .dkd-modal-board-wrap. Angka2 ini cocok dgn CSS: overlay padding
       // 20px x2, modal max 96vw/96vh, body padding 10px x2.
-      const PAD_OVERLAY = 40, PAD_BODY = 20;
-      const availW = Math.max(320, Math.min(window.innerWidth * 0.96, window.innerWidth - PAD_OVERLAY) - PAD_BODY);
-      const availH = Math.max(240, Math.min(window.innerHeight * 0.96, window.innerHeight - PAD_OVERLAY) - headH - PAD_BODY - 4);
-      const scale = Math.min(1, availW / boardW, availH / boardH);
+      // Mode inline (kotak Dashboard Line): tanpa bingkai & padding, papan
+      // memenuhi seluruh kotak.
+      const inlineMode = new URLSearchParams(location.search).get("inline") === "1";
+      const PAD_OVERLAY = inlineMode ? 0 : 40, PAD_BODY = inlineMode ? 0 : 20;
+      const kapW = inlineMode ? 1 : 0.96, kapH = inlineMode ? 1 : 0.96;
+      const availW = Math.max(inlineMode ? 100 : 320, Math.min(window.innerWidth * kapW, window.innerWidth - PAD_OVERLAY) - PAD_BODY);
+      const availH = Math.max(inlineMode ? 100 : 240, Math.min(window.innerHeight * kapH, window.innerHeight - PAD_OVERLAY) - headH - PAD_BODY - (inlineMode ? 1 : 4));
+
+      // Skala "pas layar". Disimpan supaya tombol zoom bisa menghitung
+      // kelipatannya, dan supaya saat jendela diubah ukurannya zoom
+      // pilihan user TIDAK hilang (dia pengali di atas fit).
+      if (inlineMode && Math.abs((this.dkdModalZoom || 1) - 1) < 0.01) {
+        dkdIsiLebar(board, availW, availH);
+        boardW = board.offsetWidth; boardH = board.offsetHeight;
+      }
+      if (inlineMode && new URLSearchParams(location.search).get("penuh") === "1" && Math.abs((this.dkdModalZoom || 1) - 1) < 0.01) {
+        // Tampilan besar: bentuk potret A4 yang sama persis dengan hasil Print/PDF.
+        board.style.width = "";
+        board.classList.add("dkd-print-compact");
+        dkdIsiTinggi(board, 194 / 281);
+        boardW = board.offsetWidth; boardH = board.offsetHeight;
+      }
+      const fit = Math.min(1, availW / boardW, availH / boardH);
+      this.dkdModalFit = fit;
+      const scale = Math.min(Math.max(fit * (this.dkdModalZoom || 1), fit), this.DKD_ZOOM_MAKS);
+      this.dkdModalZoom = scale / fit; // dirapikan kalau kena batas
+
       scaleBox.style.transform = `scale(${scale})`;
-      wrap.style.width = Math.floor(boardW * scale) + "px";
-      wrap.style.height = Math.floor(boardH * scale) + "px";
+      const lebar = Math.floor(boardW * scale), tinggi = Math.floor(boardH * scale);
+      wrap.style.width = lebar + "px";
+      wrap.style.height = tinggi + "px";
+
+      // Tinggi header (headH) baru pasti SETELAH modal selesai di-layout.
+      // Saat modal baru dibuka, pengukuran pertama bisa meleset beberapa
+      // belas px -- dan karena tinggi papan dihitung dari situ, papannya
+      // jadi sedikit lebih tinggi dari ruang yang ada. Jadi kalau tinggi
+      // header yang terpakai berbeda dari hitungan sebelumnya, hitung
+      // ulang SEKALI di frame berikutnya. Pasti berhenti: pada hitungan
+      // kedua headH-nya sudah sama, jadi tidak menjadwalkan ulang.
+      if (this._dkdHeadHTerpakai !== headH) {
+        this._dkdHeadHTerpakai = headH;
+        requestAnimationFrame(() => { if (this.dekidakaModalOpen) this.scaleDekidakaModalBoard(); });
+      }
+      // Saat masih pas layar papannya ditengahkan. Begitu di-zoom melebihi
+      // ruang yang ada, perataan tengah DILEPAS -- kalau tidak, sisi kiri
+      // papan terpotong dan tidak bisa dicapai walau di-scroll.
+      wrap.style.margin = lebar <= availW ? "0 auto" : "0";
+      // Mode inline: kabari halaman induk angka zoom terbaru (dipakai juga
+      // saat zoom lewat Ctrl + scroll / klik 2x di papan).
+      if (inlineMode && window.parent !== window) {
+        try { window.parent.postMessage({ dekidakaZoom: this.dekidakaModalZoomLabel() }, "*"); } catch (e) {}
+      }
+    },
+    // Aktual & Target per minggu (kalender Senin-Minggu, W1 = minggu yang memuat tanggal 1) untuk 1 bulan.
+    // Sama dengan Rasio Dekidaka: per (hari produksi, shift, blok) -> Aktual = qty part yang dikenali kolom model,
+    // Target = jumlah Target kolom model yang berproduksi di blok itu. Shift 1 + 2 digabung.
+    async dekidakaHitungMingguan({ line, tahun, bulan }) {
+      const hasil = { line, tahun, bulan, minggu: [], error: "" };
+      try {
+        const jumlahHari = new Date(tahun, bulan, 0).getDate();
+        const pad = (n) => String(n).padStart(2, "0");
+        // Pakai fungsi yang sama dengan papan Dekidaka (sudah terbukti jalan), per hari & shift, 4 permintaan paralel.
+        const tugas = [];
+        for (let d = 1; d <= jumlahHari; d++) for (const sh of ["1", "2"]) tugas.push({ d, sh });
+        const data = []; let error = null, idx = 0;
+        const pekerja = async () => {
+          while (idx < tugas.length && !error) {
+            const t = tugas[idx++];
+            let res = null;
+            for (let coba = 0; coba < 3; coba++) {   // ulangi bila jaringan putus sesaat
+              res = await supabaseClient.rpc("dashboard_dekidaka_production_rows", {
+                p_mesin: line, p_start: new Date(tahun, bulan - 1, t.d).toISOString(),
+                p_end: new Date(tahun, bulan - 1, t.d + 1).toISOString(), p_shift: t.sh,
+              });
+              if (!res.error) break;
+              await new Promise((ok) => setTimeout(ok, 600 * (coba + 1)));
+            }
+            if (res.error) { error = res.error; return; }
+            (res.data || []).forEach((r) => data.push({ ...r, tanggal: `${tahun}-${pad(bulan)}-${pad(t.d)}`, shift: t.sh }));
+          }
+        };
+        await Promise.all([pekerja(), pekerja(), pekerja(), pekerja()]);
+        const offset = (new Date(tahun, bulan - 1, 1).getDay() + 6) % 7;
+        const nMinggu = Math.floor((jumlahHari - 1 + offset) / 7) + 1;
+        const aktual = Array(nMinggu).fill(0), target = Array(nMinggu).fill(0);
+        const hariA = {}, hariT = {}, pctHari = {};
+        if (error) {
+          hasil.error = "Gagal memuat data bulanan: " + (error.message || "") + " (tgl produksi ke-" + (tugas[Math.max(0, idx - 1)] || {}).d + ")";
+        } else {
+          const colModels = this.dekidakaColumnModels(line), labels = dkdGetColumns(line);
+          const grup = new Map();
+          (data || []).forEach((r) => {
+            const t = dkdTimeToMinutes(r.jam), q = Number(r.qty) || 0;
+            const kol = this.dekidakaColumnIndexFor(colModels, { model: r.model, partNumber: r.part_number });
+            if (kol < 0 || q <= 0) return;
+            const [y, m, d] = String(r.tanggal).split("-").map(Number);
+            const jumat = new Date(y, m - 1, d).getDay() === 5;
+            for (let n = 1; n <= DKD_TOTAL_BLOCKS; n++) {
+              const sch = DKD_TIME_TABLE[n];
+              const w = String(r.shift) === "2" ? sch.shift2 : (jumat ? sch.jumat1 : sch.senKam1);
+              if (!w) continue;
+              const sm = dkdTimeToMinutes(w[0]), em = dkdTimeToMinutes(w[1]);
+              if (!dkdIsMinuteInRange(t, sm, em)) continue;
+              const key = r.tanggal + "|" + r.shift + "|" + n;
+              const g = grup.get(key) || { d, menit: ((em - sm) + 1440) % 1440, qty: 0, kols: new Set() };
+              g.qty += q; g.kols.add(kol); grup.set(key, g);
+              break;
+            }
+          });
+          grup.forEach((g) => {
+            const w = Math.floor((g.d - 1 + offset) / 7);
+            aktual[w] += g.qty;
+            hariA[g.d] = (hariA[g.d] || 0) + g.qty;
+            g.kols.forEach((c) => { const tb = dkdTargetBlok(line, labels[c], g.menit) || 0; target[w] += tb; hariT[g.d] = (hariT[g.d] || 0) + tb; });
+          });
+          // Persen minggu = rata-rata persen harian (Rasio Dekidaka per hari = Aktual / Target, shift 1+2) hari yang berproduksi.
+          Object.keys(hariA).forEach((k) => {
+            const d = Number(k);
+            if (hariA[d] > 0 && hariT[d] > 0) { const w = Math.floor((d - 1 + offset) / 7); (pctHari[w] = pctHari[w] || []).push(hariA[d] / hariT[d] * 100); }
+          });
+        }
+        for (let i = 0; i < nMinggu; i++) {
+          hasil.minggu.push({
+            label: "W" + (i + 1), aktual: aktual[i], target: target[i],
+            pct: pctHari[i] && pctHari[i].length ? Math.round(pctHari[i].reduce((a, b) => a + b, 0) / pctHari[i].length * 10) / 10 : null,
+          });
+        }
+      } catch (e) {
+        console.error("Gagal hitung mingguan Dekidaka:", e);
+        hasil.error = "Gagal menghitung data mingguan";
+      }
+      return hasil;
     },
     dekidakaGetTimesForBlock(container, blockNo) {
       const schedule = DKD_TIME_TABLE[blockNo];
@@ -1764,8 +2231,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // Model tiap kolom papan: label "YHA/YR9" berarti kolom itu
     // menampung model YHA maupun YR9.
     dekidakaColumnModels(line) {
-      return (DKD_COLUMN_LABELS[line] || []).map((label) =>
-        String(label).split("/").map((s) => s.trim().toUpperCase()).filter(Boolean));
+      return dkdGetColumns(line).map((label) => dkdTokens(label));
     },
     // Kolom (0/1) untuk 1 baris produksi: utamakan model dari master
     // ng_model_parts; kalau part-nya belum terdaftar di master, dicoba
@@ -1835,6 +2301,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // baris part dengan dandori_menit yang sama -> dihitung sekali
       // saja, perlakuan sama dengan performance_aggregate.
       const seenDandori = new Set();
+      let whMenitProduksi = 0;
       for (let n = 1; n <= DKD_TOTAL_BLOCKS; n++) {
         const setVal = (col, rowIdx, text) => {
           const el = container.querySelector(`.dkd-val[data-block="${n}"][data-col="${col}"][data-row="${rowIdx}"]`);
@@ -1845,7 +2312,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const times = this.dekidakaGetTimesForBlock(container, n);
         if (!times) {
           // Blok tidak dipakai di shift ini (mis. blok 11 pada Shift 2).
-          colModels.forEach((_, c) => { setVal(c, 1, ""); setVal(c, 5, ""); });
+          colModels.forEach((_, c) => { setVal(c, 0, ""); setVal(c, 1, ""); setVal(c, 2, ""); setVal(c, 5, ""); });
           if (partEl) partEl.textContent = "";
           if (dandoriEl) dandoriEl.textContent = "";
           continue;
@@ -1864,14 +2331,54 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           dandori += r.dandoriMenit;
         });
         if (dandoriEl) dandoriEl.textContent = dandori > 0 ? String(dandori) : "";
+        const kolomLabels = dkdGetColumns(line);
+        const menitBlok = ((endMin - startMin) + 1440) % 1440;
+        if (matched.length) whMenitProduksi += menitBlok;
+        const kolomAktif = new Set(matched.map((r) => this.dekidakaColumnIndexFor(colModels, r)).filter((c) => c >= 0));
+        // Belum ada produksi di blok ini -> Target tetap tampil sebagai patokan, pakai model
+        // baris 1 CT TARGET (di kolom pertama yang cocok).
+        if (!kolomAktif.size && DKD_REF_DATA[line] && DKD_REF_DATA[line].ct.length) {
+          const t1 = dkdTokens(DKD_REF_DATA[line].ct[0][5]);
+          const c1 = colModels.findIndex((m) => m.some((x) => t1.includes(x)));
+          if (c1 >= 0) kolomAktif.add(c1);
+        }
         colModels.forEach((_, c) => {
+          // Target: tiap kolom model, dari Out put/Jam model itu di tabel CT TARGET.
+          const tgt = dkdTargetBlok(line, kolomLabels[c], menitBlok);   // Target tampil di SEMUA kolom model (tanpa menunggu produksi)
+          setVal(c, 0, tgt != null ? String(tgt) : "");
           const qty = matched.reduce(
             (sum, r) => sum + (this.dekidakaColumnIndexFor(colModels, r) === c ? r.qty : 0), 0);
           if (qty > 0) akum[c] += qty;
           setVal(c, 1, qty > 0 ? String(qty) : "");
+          // Rasio Dekidaka = Hasil Aktual / Target x 100 (dibulatkan, hanya kalau ada produksi & target).
+          setVal(c, 2, (qty > 0 && tgt > 0) ? Math.round((qty / tgt) * 100) + "%" : "");
           setVal(c, 5, qty > 0 ? String(akum[c]) : "");
         });
       }
+      // Kirim data per blok ke halaman induk (Grafik Perjam di Dashboard Line = Rasio Dekidaka per blok).
+      if (new URLSearchParams(location.search).get("inline") === "1" && window.parent !== window) {
+        try {
+          const target = [], baris = [];
+          for (let n = 1; n <= DKD_TOTAL_BLOCKS; n++) {
+            target.push(colModels.map((_, c) => {
+              const el = container.querySelector(`.dkd-val[data-block="${n}"][data-col="${c}"][data-row="0"]`);
+              return el && el.textContent ? Number(el.textContent) || 0 : 0;
+            }));
+            const tt = this.dekidakaGetTimesForBlock(container, n);
+            if (!tt) continue;
+            const sm = dkdTimeToMinutes(tt[0]), em = dkdTimeToMinutes(tt[1]);
+            rows.filter((r) => r.jam && dkdIsMinuteInRange(dkdTimeToMinutes(r.jam), sm, em)).forEach((r) => {
+              const kol = this.dekidakaColumnIndexFor(colModels, r);
+              if (kol >= 0 && r.qty > 0) baris.push({ blok: n, kol, part: r.partNumber, qty: r.qty });
+            });
+          }
+          window.parent.postMessage({ dekidakaData: {
+            line, tanggal: container.querySelector(".dkd-tanggal").value, shift: container.querySelector(".dkd-shift").value, target, baris,
+          } }, "*");
+        } catch (e) { console.error("Gagal kirim data Dekidaka ke induk:", e); }
+      }
+      container._dkdWhMenit = whMenitProduksi;
+      this.dekidakaUpdateKartuJam(container);
     },
     // Kartu ringkasan kanan papan (Jam Produksi, Qty Produksi, Downtime
     // Rasio, Straight Pass Rasio). Kartu Downtime (Menit) & Repair Qty
@@ -1881,6 +2388,16 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     //   Straight Pass Rasio = (produksi - repair) / produksi * 100
     //                         (rumus sama dgn kartu Straightpass
     //                          dashboard, di sini satuannya pcs)
+    // Jam Produksi = jumlah menit blok (kolom Waktu) yang ADA produksinya saja.
+    // Downtime Rasio = downtime / Jam Produksi x 100.
+    dekidakaUpdateKartuJam(container) {
+      const whMenit = container._dkdWhMenit || 0;
+      const downtime = container._dkdDowntimeRingkas || 0;
+      const a = container.querySelector(".dkd-jam-produksi");
+      if (a) a.textContent = String(whMenit);
+      const b = container.querySelector(".dkd-downtime-rasio");
+      if (b) b.textContent = whMenit > 0 ? ((downtime / whMenit) * 100).toFixed(1) + "%" : "0.0%";
+    },
     async dekidakaLoadSummary(container, line) {
       const range = this.dekidakaDayRange(container);
       if (!range) return;
@@ -1890,7 +2407,6 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       });
       if (error) { console.error(`Gagal ambil ringkasan Dekidaka ${line}:`, error); return; }
       const row = Array.isArray(data) ? data[0] : data;
-      const whMenit = Number(row && row.jam_produksi_menit) || 0;
       const qty = Number(row && row.qty_produksi) || 0;
       const repair = Number(row && row.repair_qty) || 0;
       const downtime = Number(row && row.downtime_menit) || 0;
@@ -1898,9 +2414,9 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const el = container.querySelector(cls);
         if (el) el.textContent = text;
       };
-      put(".dkd-jam-produksi", whMenit > 0 ? (whMenit / 60).toFixed(1) : "0");
+      container._dkdDowntimeRingkas = downtime;
+      this.dekidakaUpdateKartuJam(container);
       put(".dkd-qty-produksi", String(qty));
-      put(".dkd-downtime-rasio", whMenit > 0 ? ((downtime / whMenit) * 100).toFixed(1) + "%" : "0.0%");
       put(".dkd-straightpass", qty > 0 ? (((qty - repair) / qty) * 100).toFixed(1) + "%" : "0");
     },
     // ---- Print & Export PDF 1 board (tombol 🖨/📄, skrg di header modal
@@ -1946,11 +2462,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // adanya, diperkecil pakai zoom (zoom ikut mengecilkan LAYOUT, beda
       // dgn transform yang cuma mengecilkan tampilan). ---
       const clone = container.cloneNode(true);
+      dkdKembalikanPenuh(clone);
       clone.classList.add("dkd-print-compact");
       area.appendChild(clone);
       const naturalW = clone.offsetWidth || clone.scrollWidth || 1760;
       const naturalH = clone.offsetHeight || clone.scrollHeight || 1137;
-      clone.style.zoom = Math.min(1, 1040 / naturalW, 715 / naturalH);
+      clone.style.zoom = Math.min(1, 715 / naturalW, 1040 / naturalH);
       document.body.classList.add("dkd-printing");
       window.print();
       window.addEventListener("afterprint", cleanup);
@@ -1967,6 +2484,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     async dekidakaRenderBoardCanvas(container) {
       if (typeof html2canvas === "undefined") return null;
       const clone = container.cloneNode(true);
+      dkdKembalikanPenuh(clone);
       clone.classList.add("dkd-print-compact");
       clone.style.position = "fixed";
       clone.style.left = "-99999px";
@@ -1974,6 +2492,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       clone.style.transform = "none";
       clone.style.zoom = "";
       document.body.appendChild(clone);
+      dkdIsiTinggi(clone, 194 / 281);
       try {
         return await html2canvas(clone, { scale: 2, backgroundColor: "#ffffff" });
       } catch (e) {
@@ -1993,10 +2512,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // JPEG kualitas 0.92 -- hasil PDF ~1MB; dulu PNG bikin file ~30MB.
       const imgData = canvas.toDataURL("image/jpeg", 0.92);
       const { jsPDF } = window.jspdf;
-      // Halaman A4 mendatar beneran (bukan halaman custom seukuran piksel
+      // Halaman A4 potret beneran (bukan halaman custom seukuran piksel
       // gambar spt dulu) -- gambarnya diskalakan proporsional & ditaruh di
       // tengah, jadi PDF-nya enak dibuka maupun dicetak ulang.
-      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pageW = pdf.internal.pageSize.getWidth();
       const pageH = pdf.internal.pageSize.getHeight();
       const margin = 8;
@@ -2044,27 +2563,32 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       harian: { unit: "day" },
     },
     // Susun daftar periode utk grafik, sesuai mode:
-    //  - tahunan : 3 tahun terakhir + PEMBATAS + Jan..Des tahun terpilih
+    //  - tahunan : FY sebelumnya + FY berjalan + PEMBATAS + Apr..Mar FY berjalan
     //  - bulanan : tiap hari dlm bulan terpilih
     //  - harian  : hanya hari itu (Target vs Aktual)
     buildPerfPeriods(section, anchorStr) {
       const d = new Date(anchorStr + "T00:00:00");
       const out = [];
       if (section === "tahunan") {
+        // Tahun fiskal: April sampai Maret. Tahun yang dipilih menentukan
+        // FY berjalan; misalnya 2026 berarti Apr 2026 .. Mar 2027, dan
+        // ditulis "FY 2026" -- sama dengan patokan di Dashboard Exhaust.
         const y = d.getFullYear();
-        for (let i = 2; i >= 0; i--) {
-          const yy = y - i;
+        const fyAwal = d.getMonth() >= 3 ? y : y - 1;
+        [fyAwal - 1, fyAwal].forEach((th) => {
           out.push({
-            start: new Date(yy, 0, 1), end: new Date(yy + 1, 0, 1),
-            label: String(yy), kind: "year",
+            start: new Date(th, 3, 1), end: new Date(th + 1, 3, 1),
+            label: ["FY", "'" + String(th).slice(-2)], kind: "year",
           });
-        }
+        });
         out.push({ separator: true, label: "", kind: "sep" });
         const NAMA_BULAN = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
-        for (let m = 0; m < 12; m++) {
+        // 12 bulan FY berjalan, urut April dulu sampai Maret.
+        for (let i = 0; i < 12; i++) {
+          const t = new Date(fyAwal, 3 + i, 1);
           out.push({
-            start: new Date(y, m, 1), end: new Date(y, m + 1, 1),
-            label: NAMA_BULAN[m], kind: "month",
+            start: t, end: new Date(fyAwal, 3 + i + 1, 1),
+            label: NAMA_BULAN[t.getMonth()], kind: "month",
           });
         }
         return out;
@@ -2162,18 +2686,21 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
                 p_start: p.start.toISOString(), p_end: p.end.toISOString(),
               })
         )),
-        supabaseClient.rpc("downtime_top_problems", {
-          p_mesin: machineKey, p_stasiun_list: stasiunList,
-          p_start: currentBounds.start.toISOString(), p_end: currentBounds.end.toISOString(),
-          // Dipakai Tahunan/Bulanan ("Downtime Terburuk") -- Harian sekarang
-          // pakai perfDowntimeRows (lihat fetchPerfDowntimeRows), jadi di
-          // sini limit 5 biasa aja, gak perlu dibikin besar lagi.
-          p_limit: 5,
-        }),
-        supabaseClient.rpc("downtime_by_category", {
-          p_mesin: machineKey, p_stasiun_list: stasiunList,
-          p_start: currentBounds.start.toISOString(), p_end: currentBounds.end.toISOString(),
-        }),
+        // downtime_top_problems (ringkasan kategori+problem) SUDAH TIDAK
+        // DIPAKAI lagi oleh tampilan mana pun: Harian pakai
+        // perfDowntimeRows, Bulanan pakai fetchPerfMonthDowntimeRows, dan
+        // Tahunan sekarang pakai fetchPerfYearDowntimeRows (kolom PIC /
+        // Problem Detail / Total Losstime). Jadi panggilannya dimatikan
+        // supaya tiap buka seksi tidak ada request yang terbuang. Fungsi
+        // SQL-nya sendiri dibiarkan ada di database -- aman kalau nanti
+        // mau dipakai lagi; tinggal kembalikan rpc-nya di sini.
+        Promise.resolve({ data: [] }),
+        // downtime_by_category: dulu isi pie "Downtime per Kategori" di
+        // Tahunan. Pie-nya sudah dihapus dari tampilan, jadi panggilannya
+        // ikut dimatikan supaya tidak ada request terbuang. Fungsi SQL-nya
+        // tetap ada di database; renderPerfPie() juga masih ada tapi
+        // langsung berhenti sendiri karena canvas-nya tidak ada lagi.
+        Promise.resolve({ data: [] }),
       ]);
       st.loading = false;
 
@@ -2216,10 +2743,15 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       });
       st.trend = trend;
       // Kartu angka selalu menampilkan PERIODE TERPILIH:
-      //  - tahunan -> tahun terpilih (index ke-2, sebelum pembatas)
+      //  - tahunan -> FY BERJALAN, yaitu kolom tahun TERAKHIR sebelum
+      //    pembatas. Dicari lewat kindYear, BUKAN nomor index -- dulu
+      //    ditulis trend[2] waktu kolom tahunnya masih tiga. Sekarang
+      //    kolomnya dua (FY lalu + FY berjalan), jadi index 2 malah
+      //    mengenai pembatas dan kartunya jadi kosong semua.
       //  - bulanan/harian -> agregat periode itu sendiri
       if (section === "tahunan") {
-        st.data = trend[2] || null;
+        const kolomFy = trend.filter((t) => t.kindYear);
+        st.data = kolomFy.length ? kolomFy[kolomFy.length - 1] : null;
       } else if (section === "bulanan") {
         // jumlahkan seluruh hari dlm bulan terpilih
         const valid = trend.filter((t) => !t.separator);
@@ -2249,7 +2781,49 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       st.byCategory = (catResult.data || []).map((r) => ({ kategori: r.kategori, menit: Math.round(Number(r.total_menit) || 0) }));
       st.loaded = true;
       if (section === "harian") { this.fetchPerfDayRows(); this.fetchPerfDowntimeRows(); }
+      if (section === "bulanan") { this.fetchPerfMonthDowntimeRows(); }
+      if (section === "tahunan") { this.fetchPerfYearDowntimeRows(); }
       this.$nextTick(() => { this.renderPerfChart(section); this.renderPerfPie(section); });
+    },
+    // "Rekap Downtime" Bulanan -- sama persis strukturnya dengan
+    // perfDowntimeRows (Harian), bedanya rentang waktunya 1 bulan penuh
+    // (lihat performance_downtime_rows di migration_performance_downtime_rows.sql
+    // -- fungsinya sudah generik terima p_start/p_end apa saja, jadi tidak
+    // perlu bikin fungsi SQL baru).
+    async fetchPerfMonthDowntimeRows() {
+      const st = this.perf.bulanan;
+      const { start, end } = this.perfBounds("month", st.anchor, 0);
+      const stasiunList = (this.stationConfig.mode === "variant" && this.tandemVariant)
+        ? this.stationConfig.variants[this.tandemVariant]
+        : null;
+      const { data, error } = await supabaseClient.rpc("performance_downtime_rows", {
+        p_mesin: machineKey, p_stasiun_list: stasiunList,
+        p_start: start.toISOString(), p_end: end.toISOString(),
+      });
+      st.downtimeRows = error ? [] : (data || []);
+    },
+    // "5 Downtime Terburuk" Tahunan -- 5 baris downtime dengan losstime
+    // PALING LAMA dalam periode ini, kolomnya PIC / Problem Detail /
+    // Total Losstime. Pakai fungsi SQL yang sama dengan Rekap Downtime
+    // Bulanan (performance_downtime_rows, sudah generik terima p_start/
+    // p_end), jadi TIDAK perlu fungsi SQL baru. Urut + batas 5 baris
+    // dikerjakan di database (PostgREST menerima order/limit untuk
+    // fungsi yang mengembalikan tabel), bukan menarik sebaris-barisnya
+    // setahun penuh ke browser.
+    async fetchPerfYearDowntimeRows() {
+      const st = this.perf.tahunan;
+      const { start, end } = this.perfBounds("year", st.anchor, 0);
+      const stasiunList = (this.stationConfig.mode === "variant" && this.tandemVariant)
+        ? this.stationConfig.variants[this.tandemVariant]
+        : null;
+      const { data, error } = await supabaseClient
+        .rpc("performance_downtime_rows", {
+          p_mesin: machineKey, p_stasiun_list: stasiunList,
+          p_start: start.toISOString(), p_end: end.toISOString(),
+        })
+        .order("durasi_menit", { ascending: false })
+        .limit(5);
+      st.downtimeRows = error ? [] : (data || []);
     },
     fetchAllPerf() {
       Object.keys(this.PERF_CONFIG).forEach((s) => this.fetchPerfSection(s));
@@ -2306,9 +2880,9 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
             labels: ["GSPH"],
             datasets: [
               { label: "Target", data: [Number((d.targetGsph || 0).toFixed(1))],
-                backgroundColor: cssVar("--sky"), borderRadius: 6, borderSkipped: false, barPercentage: 0.5, categoryPercentage: 0.6 },
+                backgroundColor: cssVar("--sky"), borderRadius: 0, borderSkipped: false, barPercentage: 0.5, categoryPercentage: 0.6 },
               { label: "Aktual", data: [Number((d.gsph || 0).toFixed(1))],
-                backgroundColor: cssVar("--teal"), borderRadius: 6, borderSkipped: false, barPercentage: 0.5, categoryPercentage: 0.6 },
+                backgroundColor: cssVar("--teal"), borderRadius: 0, borderSkipped: false, barPercentage: 0.5, categoryPercentage: 0.6 },
             ],
           },
           options: {
@@ -2329,29 +2903,129 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         return;
       }
 
-      // Warnai batang tahun berbeda dari batang bulan (mode tahunan)
+      // Batang Perjam (Aktual) HIJAU. Dua kolom ringkasan FY dibuat hijau
+      // tua supaya masih bisa dibedakan dari batang bulanan tanpa keluar
+      // dari warna yang diminta.
       const barColors = st.trend.map((t) =>
-        section === "tahunan" && t.kindYear ? cssVar("--navy") : cssVar("--teal")
+        section === "tahunan" && t.kindYear ? "#15803D" : cssVar("--green")
       );
 
-      st.chart = new Chart(canvas, {
-        data: {
-          labels: st.trend.map((t) => t.label),
-          datasets: [
-            {
-              type: "bar", label: "GSPH (Aktual)",
-              data: st.trend.map((t) => (t.separator ? null : Number((t.gsph || 0).toFixed(1)))),
-              backgroundColor: barColors, borderRadius: 4, borderSkipped: false, barPercentage: 0.7, categoryPercentage: 0.8, order: 2,
-            },
-            {
-              type: "line", label: "GSPH (Target)",
-              data: st.trend.map((t) => (t.separator ? null : Number((t.targetGsph || 0).toFixed(1)))),
-              borderColor: cssVar("--red"), borderWidth: 2, pointRadius: 0, tension: 0, spanGaps: true, order: 1,
-            },
-          ],
+      const datasets = [
+        {
+          type: "bar", label: "Perjam (Aktual)",
+          data: st.trend.map((t) => (t.separator ? null : Number((t.gsph || 0).toFixed(1)))),
+          // Sudut dibuat siku (0) supaya sisi bevel menempel rapat di
+          // pojoknya, sama seperti batang di dashboard.
+          backgroundColor: barColors, borderRadius: 0, borderSkipped: false, barPercentage: 0.7, categoryPercentage: 0.8, order: 2,
         },
+        {
+          type: "line", label: "Perjam (Target)",
+          // Dua kolom ringkasan FY sengaja DIKOSONGKAN -- di sana yang
+          // ditampilkan cuma batang Perjam (Aktual). Garis Target baru
+          // mulai dari kolom April. (kindYear hanya ada di mode tahunan,
+          // jadi mode bulanan/harian tidak terpengaruh.)
+          data: st.trend.map((t) => (t.separator || t.kindYear ? null : Number((t.targetGsph || 0).toFixed(1)))),
+          borderColor: cssVar("--red"), borderWidth: 2, pointRadius: 0, tension: 0, spanGaps: true, order: 1,
+        },
+      ];
+      // Bulanan saja: tiap hari dlm bulan sudah punya t.stroke (Qty Produksi
+      // hari itu, dihitung di fetchPerfSection) -- tumpangkan sebagai garis
+      // putus-putus di sumbu kanan (y1), skalanya beda jauh dari Perjam
+      // jadi tidak dipaksa 1 sumbu yang sama.
+      if (section === "bulanan") {
+        datasets.push({
+          type: "line", label: "Qty Produksi (Harian)",
+          data: st.trend.map((t) => (t.separator ? null : Number(t.stroke || 0))),
+          borderColor: cssVar("--amber"), backgroundColor: "transparent",
+          borderWidth: 2, borderDash: [5, 3], pointRadius: 0, tension: 0.25, spanGaps: true,
+          yAxisID: "y1", order: 0,
+        });
+      }
+      // Tahunan: Qty Pcs sebagai garis HITAM di sumbu KANAN. Satuannya
+      // (puluhan ribu pcs) beda jauh dari Perjam (puluhan pcs/jam), jadi
+      // tidak boleh satu sumbu -- kalau dipaksa, batang Perjam-nya tergencet.
+      if (section === "tahunan") {
+        // Dua kolom ringkasan FY sengaja DIKOSONGKAN -- di sana yang
+        // ditampilkan cuma batang Perjam (Aktual). Garis Qty baru mulai
+        // dari kolom April, jadi angkanya total SEBULAN semua dan
+        // skalanya seragam.
+        const qtyTitik = st.trend.map((t) => {
+          if (t.separator || t.kindYear) return null;
+          const v = Number(t.stroke || 0);
+          // Bulan yang belum berjalan dibiarkan KOSONG (null), bukan nol,
+          // supaya garisnya berhenti di bulan terakhir yang ada datanya.
+          return v > 0 ? v : null;
+        });
+        datasets.push({
+          type: "line", label: "Qty Pcs",
+          data: qtyTitik,
+          borderColor: "#000000", backgroundColor: "#000000",
+          borderWidth: 1.5, pointRadius: 1.5, tension: 0.3, spanGaps: true,
+          yAxisID: "y1", order: 0,
+        });
+      }
+
+      // Angka di TENGAH tiap batang "Perjam (Aktual)" (supaya tidak
+      // bertabrakan dgn garis "Perjam (Target)"/"Qty Produksi" yang lewat
+      // di atasnya), + angka di tiap titik garis "Qty Produksi (Harian)".
+      // Chart.js inti tidak punya ini bawaan (plugin chartjs-plugin-datalabels
+      // TIDAK dimuat di app ini, biar tidak nambah dependency luar), jadi
+      // dibikin plugin kecil sendiri, cuma dipasang di chart ini (bukan
+      // global) supaya tidak ikut muncul di chart lain (Dekidaka, dst).
+      const barValueLabelPlugin = {
+        id: "barValueLabel",
+        afterDatasetsDraw(chart) {
+          const { ctx } = chart;
+          chart.data.datasets.forEach((ds, i) => {
+            const meta = chart.getDatasetMeta(i);
+            if (meta.hidden) return;
+            if (ds.type === "bar") {
+              ctx.save();
+              ctx.fillStyle = "#ffffff";
+              ctx.font = "bold 10px sans-serif";
+              ctx.textAlign = "center";
+              ctx.textBaseline = "middle";
+              meta.data.forEach((bar, idx) => {
+                const val = ds.data[idx];
+                if (val === null || val === undefined) return;
+                const midY = (bar.y + bar.base) / 2;
+                ctx.fillText(fmtNum(val), bar.x, midY);
+              });
+              ctx.restore();
+            } else if (String(ds.label).indexOf("Qty Pcs") === 0) {
+              ctx.save();
+              ctx.fillStyle = "#000000";
+              ctx.font = "bold 10px sans-serif";
+              ctx.textAlign = "center";
+              ctx.textBaseline = "bottom";
+              meta.data.forEach((point, idx) => {
+                const val = ds.data[idx];
+                if (val === null || val === undefined || Number(val) === 0) return;
+                ctx.fillText(fmtNum(val), point.x, point.y - 5);
+              });
+              ctx.restore();
+            } else if (ds.label === "Qty Produksi (Harian)") {
+              ctx.save();
+              ctx.fillStyle = cssVar("--amber");
+              ctx.font = "10px sans-serif";
+              ctx.textAlign = "center";
+              ctx.textBaseline = "bottom";
+              meta.data.forEach((point, idx) => {
+                const val = ds.data[idx];
+                if (val === null || val === undefined) return;
+                ctx.fillText(fmtNum(val), point.x, point.y - 4);
+              });
+              ctx.restore();
+            }
+          });
+        },
+      };
+
+      st.chart = new Chart(canvas, {
+        data: { labels: st.trend.map((t) => t.label), datasets },
         options: {
           responsive: true, maintainAspectRatio: false,
+          layout: { padding: { top: 16 } }, // ruang buat angka di atas batang
           plugins: {
             legend: { display: true, position: "top", align: "end",
               labels: { color: cssVar("--muted"), boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle", font: { size: 10 }, padding: 12 } },
@@ -2362,8 +3036,20 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
             x: { ticks: { color: cssVar("--chart-tick"), font: { size: 10 } }, grid: { display: false }, border: { display: false } },
             y: { ticks: { color: cssVar("--chart-tick"), font: { size: 10 }, maxTicksLimit: 5 },
                  grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: false }, beginAtZero: true },
+            ...(section === "bulanan" ? {
+              y1: { position: "right", beginAtZero: true,
+                    ticks: { color: cssVar("--amber"), font: { size: 10 }, maxTicksLimit: 5 },
+                    grid: { display: false }, border: { display: false } },
+            } : {}),
+            // Tahunan: sumbu kanan khusus Qty Pcs (garis hitam).
+            ...(section === "tahunan" ? {
+              y1: { position: "right", beginAtZero: true, grace: "12%",
+                    ticks: { color: "#000000", font: { size: 10 }, maxTicksLimit: 5 },
+                    grid: { display: false }, border: { display: false } },
+            } : {}),
           },
         },
+        plugins: [barValueLabelPlugin],
       });
     },
     renderPerfPie(section) {
@@ -2467,9 +3153,27 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       return combined;
     },
     // Cuma buat tab Input Produksi — riwayat hari ini saja, tanpa filter.
+    // ===== "HARI INI" = HARI PRODUKSI, bukan tanggal kalender =====
+    // Hari produksi mulai jam 07:00 WIB (lihat migration_fix_hari_produksi_shift.sql
+    // dan assets/produksi-join.js). Jadi baris shift 2 yang jalan lewat
+    // tengah malam -- misalnya 00:45 atau 03:20 -- MASIH MILIK HARI
+    // SEBELUMNYA, bukan hari kalender yang baru.
+    //
+    // Dulu di sini dibandingkan tanggal kalendernya:
+    //   localDateStr(new Date(r.waktu_awal)) === localDateStr(new Date())
+    // sehingga begitu lewat tengah malam, baris-baris shift 2 kemarin
+    // langsung "pindah" ke daftar Riwayat Hari Ini milik hari baru --
+    // padahal shift-nya belum selesai dan harinya belum berganti.
+    // Keduanya sekarang memakai fungsi yang sama dengan seluruh aplikasi.
+    hariProduksiSekarang() {
+      return pjHariProduksiDariWaktu(new Date());
+    },
+    hariProduksiBaris(row) {
+      return row ? pjHariProduksiDariWaktu(row.waktu_awal) : null;
+    },
     riwayatHariIni() {
-      const today = localDateStr(new Date());
-      return this.combinedAll().filter((r) => localDateStr(new Date(r.waktu_awal)) === today);
+      const hari = this.hariProduksiSekarang();
+      return this.combinedAll().filter((r) => this.hariProduksiBaris(r) === hari);
     },
     resetRiwayatFilter() { this.riwayatFilter = { dari: "", sampai: "", part_number: "" }; },
 
@@ -2581,15 +3285,28 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // layar (link -> jam kejadian -> part number), dan rentangnya pakai
       // hari produksi, bukan tanggal kalender -- supaya isi file Excel
       // tidak pernah beda dari yang dilihat operator di dashboard.
+      // Downtime-nya juga -- kolom production_log.downtime_menit itu kolom
+      // mati (selalu 0), jadi kalau dipakai apa adanya file Excel-nya
+      // menulis 0 terus walau Rekap Downtime ada isinya.
       let ngByRow = {};
+      let dtByRow = {};
       if (prodRows.length) {
         const dari = localDateStr(new Date(bounds.start.getTime() - 7 * 60 * 60 * 1000));
         const sampai = localDateStr(new Date(bounds.end.getTime() - 7 * 60 * 60 * 1000));
-        const ngRows = await ambilNgInlineHariProduksi(supabaseClient, machineKey, dari, sampai);
+        const [ngRows, dtRows] = await Promise.all([
+          ambilNgInlineHariProduksi(supabaseClient, machineKey, dari, sampai),
+          ambilDowntimeUntukBaris(supabaseClient, machineKey, prodRows),
+        ]);
         ngByRow = cocokkanNgKeBarisProduksi(ngRows, prodRows).byRow;
+        dtByRow = cocokkanDowntimeKeBaris(prodRows, dtRows);
       }
 
-      const prod = prodRows.map((r) => ({ ...r, ngInlineQty: ngByRow[r.id] || 0, _tipe: "produksi" }));
+      const prod = prodRows.map((r) => ({
+        ...r,
+        ngInlineQty: ngByRow[r.id] || 0,
+        downtime_menit: Math.round(totalMenitDowntime(dtByRow[r.id])),
+        _tipe: "produksi",
+      }));
       const nonProd = (nonProdRes.data || []).map((r) => ({ ...r, _tipe: "nonproduksi" }));
       let combined = [...prod, ...nonProd];
       if (this.stationConfig.mode === "variant" && this.tandemVariant) {
@@ -2963,11 +3680,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         this.flash("Data downtime diperbarui, ter-link ke produksi otomatis. Cek lagi Qty di Input Produksi terkait, siapa tahu perlu disesuaikan.");
       } else {
         payload.created_by = this.session.user.id;
+        payload.client_ref = genClientRef();
         let error = null;
         try {
           if (!navigator.onLine) throw new Error("offline");
           let ins;
-          ({ data: ins, error } = await supabaseClient.from("downtime_log").insert(payload).select("id").single());
+          ({ data: ins, error } = await insertIdempotent("downtime_log", payload));
           // Downtime dibuat dari panggilan Andon -> tandai supaya tidak muncul lagi
           if (!error && this.andonSumber && ins && ins.id) {
             try { await supabaseClient.rpc("andon_link_downtime", { p_id: this.andonSumber.id, p_downtime_id: ins.id }); } catch (e) {}
@@ -3533,9 +4251,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           this.flash("Data Input Produksi diperbarui.");
         } else {
           payload.created_by = this.session.user.id;
+          payload.client_ref = genClientRef();
           try {
             if (!navigator.onLine) throw new Error("offline");
-            const { error } = await supabaseClient.from("production_log_new").insert(payload);
+            const { error } = await insertIdempotent("production_log_new", payload);
             if (error) throw error;
           } catch (insertErr) {
             // Sinyal putus -> simpan di antrean offline HP, disinkron
