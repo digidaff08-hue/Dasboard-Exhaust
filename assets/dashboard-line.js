@@ -18,7 +18,7 @@
   const COL = { productivity: "#0EA5E9", availability: "#10B981", downtime: "#F97316", ngInline: "#F43F5E", money: "#1D4ED8", straight: "#14B8A6", perjam: "#6366F1", trend: "#2563EB" };
 
   // Naikkan setiap kali file Dekidaka (machine-page.js, style.css, dekidaka-line.html) berubah.
-  const DEKI_VER = "20261101i";
+  const DEKI_VER = "20261101j";
 
   const mgCache = {};   // hasil Trend Volume per line|tahun|bulan -> tidak hitung ulang saat pindah line (berlaku 10 menit)
   const pad2 = (n) => String(n).padStart(2, "0");
@@ -182,6 +182,11 @@
       },
       // Problem Terbanyak: rangkuman downtime 1 bulan (Bulan/Tahun terpilih) per Problem -> mana yang paling sering & lama.
       topRows: [],
+      topDetail: null,   // {judul, sub, items:[{teks,kali,info}]} untuk jendela detail Penyebab / Penanganan
+      bukaDetail(r, jenis) {
+        const sebab = jenis === 'sebab';
+        this.topDetail = { judul: (sebab ? 'Penyebab' : 'Penanganan') + ' — ' + r.problem, sub: sebab ? 'urut paling sering' : 'urut terbaru', items: sebab ? r.sebabList : r.tindakList };
+      },
       async muatTop() {
         if (!this.bolehLihat()) return;
         const tok = (this._topTok = (this._topTok || 0) + 1);
@@ -196,16 +201,25 @@
           const g = new Map();
           (data || []).forEach((r) => {
             const k = r.problem || r.area || "(tanpa keterangan)";
-            const o = g.get(k) || { problem: k, kali: 0, menit: 0, sebab: new Map(), tindak: "" };
+            const o = g.get(k) || { problem: k, kali: 0, menit: 0, sebab: new Map(), tindak: "", tindakMap: new Map() };
             o.kali += 1;
             o.menit += Math.max(0, Math.round((new Date(r.waktu_akhir) - new Date(r.waktu_awal)) / 60000));
             if (r.penyebab) o.sebab.set(r.penyebab, (o.sebab.get(r.penyebab) || 0) + 1);
-            if (r.countermeasure) o.tindak = r.countermeasure;   // data urut waktu -> yang terakhir = penanganan terbaru
+            if (r.countermeasure) {
+              o.tindak = r.countermeasure;   // data urut waktu -> yang terakhir = penanganan terbaru
+              const t = o.tindakMap.get(r.countermeasure) || { kali: 0, terakhir: "" };
+              t.kali += 1; t.terakhir = r.waktu_awal; o.tindakMap.set(r.countermeasure, t);
+            }
             g.set(k, o);
           });
           this.topRows = [...g.values()].sort((a, b) => b.kali - a.kali || b.menit - a.menit).slice(0, 10).map((o) => ({
             problem: o.problem, kali: o.kali, menit: o.menit, tindak: o.tindak,
             sebab: [...o.sebab.entries()].sort((a, b) => b[1] - a[1]).map((x) => x[0])[0] || "",
+            sebabList: [...o.sebab.entries()].sort((a, b) => b[1] - a[1]).map((x) => ({ teks: x[0], kali: x[1], info: "" })),
+            tindakList: [...o.tindakMap.entries()].sort((a, b) => String(b[1].terakhir).localeCompare(String(a[1].terakhir))).map((x) => {
+              const d = new Date(x[1].terakhir);
+              return { teks: x[0], kali: x[1].kali, info: "terakhir " + pad2(d.getDate()) + "/" + pad2(d.getMonth() + 1) + "/" + d.getFullYear() };
+            }),
           }));
         } catch (e) { console.error("Gagal memuat Problem Terbanyak:", e); if (tok === this._topTok) this.topRows = []; }
       },
@@ -618,7 +632,7 @@
           if (d.dekidakaData && !dariBesar) { this.dekiData = d.dekidakaData; this.bangunPerjam(); }
           if (d.dekidakaSetOk) { this._dekiAck = true; if (/Dekidaka belum ikut/.test(this.pesan)) this.pesan = ""; }
         });
-        window.addEventListener("keydown", (e) => { if (e.key === "Escape") { if (this.fotoBesar) this.fotoBesar = false; else if (this.dekiBuka) this.tutupDekidaka(); } });
+        window.addEventListener("keydown", (e) => { if (e.key === "Escape") { if (this.topDetail) this.topDetail = null; else if (this.fotoBesar) this.fotoBesar = false; else if (this.dekiBuka) this.tutupDekidaka(); } });
         setTimeout(() => { this.dekiSiap = true; }, 8000);   // jaga-jaga kalau sinyal siap tidak datang
       },
       ubahPeriode() {
