@@ -90,10 +90,31 @@
   .dl-sheet th { color: #000; font-weight: 800; background: rgba(128,128,128,.08); font-size: 0.625rem; letter-spacing: 0; white-space: normal; padding: 4px 2px; }
   @media (max-width: 1100px) {
     .dl-main { height: auto; overflow: visible; }
-    .dl-grid { grid-template-columns: 1fr; grid-template-rows: none; grid-auto-rows: 290px; }
-    .dl-kanan { grid-column: auto !important; grid-row: auto !important; grid-template-columns: 1fr; }
-    .dl-deki, .dl-wide { grid-column: auto !important; grid-row: auto !important; }
-    .dl-deki { height: 520px; }
+    .dl-grid { grid-template-columns: 1fr; grid-template-rows: none; grid-auto-rows: auto; min-height: 0; }
+    .dl-grid > * { grid-column: auto !important; grid-row: auto !important; min-width: 0; }
+    .dl-grid > .dl-box { height: 290px; }
+    .dl-grid > .dl-deki { order: 1; height: 430px; }
+    .dl-grid > .dl-kanan { order: 2; height: auto; grid-template-columns: 1fr; }
+    .dl-kanan > .dl-box { height: 570px; }
+    .dl-kanan > .dl-split { flex-direction: column; height: auto; }
+    .dl-kanan > .dl-split > .dl-box { height: 290px; flex: none; }
+    .dl-o3 { order: 3; } .dl-o4 { order: 4; } .dl-o5 { order: 5; } .dl-o6 { order: 6; } .dl-o7 { order: 7; }
+    .dl-o8 { order: 8; } .dl-o9 { order: 9; }
+    .dl-grid > .dl-o8, .dl-grid > .dl-o9 { height: 260px; }
+    .dl-sheet { min-width: 600px; }
+    .dl-top { flex-wrap: wrap; }
+  }
+  @media (min-width: 700px) and (max-width: 1100px) {
+    .dl-grid { grid-template-columns: 1fr 1fr; }
+    .dl-grid > .dl-deki, .dl-grid > .dl-kanan, .dl-grid > .dl-o7, .dl-grid > .dl-o8, .dl-grid > .dl-o9 { grid-column: 1 / -1 !important; }
+    .dl-grid > .dl-deki { height: 600px; }
+    .dl-grid > .dl-kanan { grid-template-columns: 1fr 1fr; }
+    .dl-kanan > .dl-box { height: 600px; }
+    .dl-kanan > .dl-split > .dl-box { height: 296px; }
+  }
+  @media (max-width: 560px) {
+    .dl-kanan > .dl-box { height: 540px; }
+    .dl-title { font-size: 1.7rem; }
   }
 </style>
 
@@ -283,14 +304,14 @@
             </section>
           </div>
           </div>
-                    <section class="dl-box" style="grid-column:3; grid-row:4;">
+                    <section class="dl-box dl-o8" style="grid-column:3; grid-row:4;">
             <div class="dl-head"><span class="dl-box-title">Problem Terbanyak</span><span class="dl-sub" x-text="BULAN_LABELS[bulan - 1] + ' ' + tahun + ' — urut paling sering'"></span></div>
             <div class="dl-sheet-wrap">
               <table class="dl-sheet">
                 <thead><tr><th style="width:6%">No</th><th style="width:22%">Problem</th><th style="width:23%">Penyebab Utama</th><th style="width:8%">Kali</th><th style="width:9%">Menit</th><th style="width:32%">Penanganan Terakhir</th></tr></thead>
                 <tbody>
                   <template x-for="(r, i) in topRows" :key="r.problem">
-                    <tr :class="i === 0 ? 'dl-top1' : ''"><td x-text="i + 1"></td><td class="dl-kiri" :title="r.problem" x-text="r.problem"></td><td class="dl-kiri dl-klik" :title="'Klik: lihat semua penyebab'" @click="bukaDetail(r, 'sebab')" x-text="r.sebab || '-'"></td><td x-text="r.kali"></td><td x-text="r.menit"></td><td class="dl-kiri dl-klik" :title="'Klik: lihat semua penanganan'" @click="bukaDetail(r, 'tindak')" x-text="r.tindak || '-'"></td></tr>
+                    <tr :class="i === 0 ? 'dl-top1' : ''"><td x-text="i + 1"></td><td class="dl-kiri" :title="r.problem" x-text="r.problem"></td><td class="dl-kiri dl-klik" :title="'Klik: lihat semua penyebab'" @click="bukaDetail(r, 'sebab')" x-text="r.sebab || '-'"></td><td x-text="r.kali"></td><td class="dl-klik" :title="'Klik: lihat menit tiap kejadian'" @click="bukaDetail(r, 'menit')" x-text="r.menit"></td><td class="dl-kiri dl-klik" :title="'Klik: lihat semua penanganan'" @click="bukaDetail(r, 'tindak')" x-text="r.tindak || '-'"></td></tr>
                   </template>
                   <template x-for="k in Math.max(0, 5 - topRows.length)" :key="'tk' + k">
                     <tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>
@@ -299,27 +320,27 @@
               </table>
             </div>
           </section>
-<section class="dl-box" style="grid-column:1; grid-row:1;">
+<section class="dl-box dl-o3" style="grid-column:1; grid-row:1;">
             <div class="dl-head"><span class="dl-box-title">Grafik Availability</span><span class="dl-sub" x-text="'Rata-rata ' + fmtNum(rataAvail) + '%'"></span></div>
             <div class="dl-chart"><canvas id="dlAvailability"></canvas></div>
           </section>
-          <section class="dl-box" style="grid-column:1; grid-row:2;">
+          <section class="dl-box dl-o4" style="grid-column:1; grid-row:2;">
             <div class="dl-head"><span class="dl-box-title">Downtime Harian</span><span class="dl-sub" x-text="'Total ' + fmtNum(totalDowntime) + ' menit'"></span></div>
             <div class="dl-chart"><canvas id="dlDowntime"></canvas></div>
           </section>
-          <section class="dl-box" style="grid-column:1; grid-row:3;">
+          <section class="dl-box dl-o5" style="grid-column:1; grid-row:3;">
             <div class="dl-head"><span class="dl-box-title">Grafik NG Inline</span></div>
             <div class="dl-chart"><canvas id="dlNgInline"></canvas></div>
           </section>
-          <section class="dl-box" style="grid-column:1; grid-row:4;">
+          <section class="dl-box dl-o6" style="grid-column:1; grid-row:4;">
             <div class="dl-head"><span class="dl-box-title">Grafik NG Trial</span></div>
             <div class="dl-chart"><canvas id="dlNgTrial"></canvas></div>
           </section>
-          <section class="dl-box" style="grid-column:1; grid-row:5;">
+          <section class="dl-box dl-o7" style="grid-column:1; grid-row:5;">
             <div class="dl-head"><span class="dl-box-title">Grafik Straightpass</span></div>
             <div class="dl-chart"><canvas id="dlStraightpass"></canvas></div>
           </section>
-          <section class="dl-box dl-wide" style="grid-row:5;">
+          <section class="dl-box dl-o9 dl-wide" style="grid-row:5;">
             <div class="dl-head"><span class="dl-box-title">Problem Followup Sheets</span></div>
             <div class="dl-sheet-wrap">
             <table class="dl-sheet">
