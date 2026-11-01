@@ -18,7 +18,7 @@
   const COL = { productivity: "#0EA5E9", availability: "#10B981", downtime: "#F97316", ngInline: "#F43F5E", money: "#1D4ED8", straight: "#14B8A6", perjam: "#6366F1", trend: "#2563EB" };
 
   // Naikkan setiap kali file Dekidaka (machine-page.js, style.css, dekidaka-line.html) berubah.
-  const DEKI_VER = "20261031a";
+  const DEKI_VER = "20261101b";
 
   const mgCache = {};   // hasil Trend Volume per line|tahun|bulan -> tidak hitung ulang saat pindah line (berlaku 10 menit)
   const pad2 = (n) => String(n).padStart(2, "0");
@@ -432,6 +432,7 @@
           });
         };
         aman(() => ganda("dlNgInline", COL.ngInline, COL.money, "Qty", "Value (ribu Rp)", false, D.ngQty, D.ngVal, "above"), "ngInline");
+        aman(() => ganda("dlNgTrial", COL.ngInline, COL.money, "Qty", "Value (ribu Rp)", false, D.ngQty.map(() => 0), D.ngVal.map(() => 0), "above"), "ngTrial");   // data NG Trial belum ada sumbernya
         aman(() => ganda("dlStraightpass", COL.straight, "#000000", "Qty Repair", "% Straightpass", true, D.repQty, D.spPct, "base"), "straightpass");
 
         // Trend Volume: W1..Wn per bulan (lihat gambarTrend / mintaMingguan)
@@ -584,7 +585,15 @@
         window.addEventListener("keydown", (e) => { if (e.key === "Escape") { if (this.fotoBesar) this.fotoBesar = false; else if (this.dekiBuka) this.tutupDekidaka(); } });
         setTimeout(() => { this.dekiSiap = true; }, 8000);   // jaga-jaga kalau sinyal siap tidak datang
       },
-      ubahPeriode() { this.muat(); },
+      ubahPeriode() {
+        // Picker tanggal ikut Bulan/Tahun yang dipilih (hari dipertahankan; bulan berjalan -> hari ini).
+        const now = new Date();
+        if (this.tahun === now.getFullYear() && this.bulan === now.getMonth() + 1) this.perjamTgl = tglHariIni();
+        else { const dh = Number((this.perjamTgl || "").slice(8, 10)) || 1; this.perjamTgl = tglStr(this.tahun, this.bulan, Math.min(dh, this.jumlahHari)); }
+        this.tandaiManual();
+        this.muatPerjam();
+        this.muat();
+      },
       // ---------- Data baru langsung masuk (tanpa refresh) ----------
       // Realtime (Pusher/Supabase lewat RealtimeHub) + cadangan polling 45 dtk kalau realtime tidak aktif/putus.
       segarkanData() {
