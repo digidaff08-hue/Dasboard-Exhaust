@@ -18,7 +18,7 @@
   const COL = { productivity: "#0EA5E9", availability: "#10B981", downtime: "#F97316", ngInline: "#F43F5E", money: "#1D4ED8", straight: "#14B8A6", perjam: "#6366F1", trend: "#2563EB" };
 
   // Naikkan setiap kali file Dekidaka (machine-page.js, style.css, dekidaka-line.html) berubah.
-  const DEKI_VER = "20261101b";
+  const DEKI_VER = "20261101h";
 
   const mgCache = {};   // hasil Trend Volume per line|tahun|bulan -> tidak hitung ulang saat pindah line (berlaku 10 menit)
   const pad2 = (n) => String(n).padStart(2, "0");
@@ -318,14 +318,15 @@
         const hariIni = new Date(); hariIni.setHours(0, 0, 0, 0);
         const lewat = (d) => new Date(y, m - 1, d) > hariIni;   // hari yang belum tiba
 
-        const hasil = { avail: Array(n).fill(null), downtime: Array(n).fill(0), ngQty: Array(n).fill(0), ngVal: Array(n).fill(0), repQty: Array(n).fill(0), spPct: Array(n).fill(null), target: 100 };
+        const hasil = { avail: Array(n).fill(null), downtime: Array(n).fill(0), ngQty: Array(n).fill(0), ngVal: Array(n).fill(0), trQty: Array(n).fill(0), trVal: Array(n).fill(0), repQty: Array(n).fill(0), spPct: Array(n).fill(null), target: 100 };
         try {
-          const [prodRes, ngRes, repRes, spRes, tgRes] = await Promise.all([
+          const [prodRes, ngRes, repRes, spRes, tgRes, trRes] = await Promise.all([
             supabaseClient.rpc("dashboard_harian_produksi", { p_start: awal.toISOString(), p_end: akhir.toISOString(), p_mesin: line }),
             ambilSemua("dashboard_qc_ng_detail_range", { p_type_ng: "NG PRODUKSI", p_start: sAwal, p_end: sAkhir }),
             ambilSemua("dashboard_qc_repair_detail_range", { p_start: sAwal, p_end: sAkhir }),
             supabaseClient.rpc("dashboard_qc_produksi_daily_line", { p_start: awal.toISOString(), p_end: akhir.toISOString(), p_mesin: line }),
             supabaseClient.from("productivity_target").select("tahun,bulan,target").eq("tahun", y).eq("bulan", m),
+            ambilSemua("dashboard_qc_ng_detail_range", { p_type_ng: "NG TRIAL", p_start: sAwal, p_end: sAkhir }),
           ]);
           if (token !== this._tok) return;   // sudah ganti line/bulan lagi -> abaikan hasil lama
 
@@ -342,6 +343,11 @@
             if (r.mesin !== line) return;
             const d = hariDari(r.tanggal);
             if (d >= 1 && d <= n) { hasil.ngQty[d - 1] += Number(r.qty) || 0; hasil.ngVal[d - 1] += Number(r.value) || 0; }
+          });
+          (trRes.data || []).forEach((r) => {
+            if (r.mesin !== line) return;
+            const d = hariDari(r.tanggal);
+            if (d >= 1 && d <= n) { hasil.trQty[d - 1] += Number(r.qty) || 0; hasil.trVal[d - 1] += Number(r.value) || 0; }
           });
           (repRes.data || []).forEach((r) => {
             if (r.mesin !== line) return;
@@ -432,7 +438,7 @@
           });
         };
         aman(() => ganda("dlNgInline", COL.ngInline, COL.money, "Qty", "Value (ribu Rp)", false, D.ngQty, D.ngVal, "above"), "ngInline");
-        aman(() => ganda("dlNgTrial", COL.ngInline, COL.money, "Qty", "Value (ribu Rp)", false, D.ngQty.map(() => 0), D.ngVal.map(() => 0), "above"), "ngTrial");   // data NG Trial belum ada sumbernya
+        aman(() => ganda("dlNgTrial", COL.ngInline, COL.money, "Qty", "Value (ribu Rp)", false, D.trQty || [], D.trVal || [], "above"), "ngTrial");
         aman(() => ganda("dlStraightpass", COL.straight, "#000000", "Qty Repair", "% Straightpass", true, D.repQty, D.spPct, "base"), "straightpass");
 
         // Trend Volume: W1..Wn per bulan (lihat gambarTrend / mintaMingguan)

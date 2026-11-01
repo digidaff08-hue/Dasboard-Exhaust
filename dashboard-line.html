@@ -74,7 +74,8 @@
   .dl-foto img, .dl-foto video { width: 100%; height: 100%; object-fit: contain; display: block; background: #fff; }
   .dl-sheet-wrap { flex: 1; min-height: 0; overflow: auto; }
   .dl-sheet td.dl-kiri { text-align: left; }
-  .dl-sheet td { color: #000; white-space: normal; overflow-wrap: anywhere; word-break: break-word; line-height: 1.25; cursor: default; }
+  .dl-sheet td { color: #000; white-space: nowrap; overflow: hidden; text-overflow: clip; max-width: 0; height: 17px; padding: 1px 3px; line-height: 1.2; cursor: default; }
+  .dl-sheet thead th { position: sticky; top: 0; z-index: 1; background-color: var(--panel); background-image: linear-gradient(rgba(128,128,128,.08), rgba(128,128,128,.08)); }
   .dl-sheet { width: 100%; border-collapse: collapse; font-size: 0.6875rem; table-layout: fixed; }
   .dl-sheet th, .dl-sheet td { border: 1px solid var(--border); padding: 4px 3px; text-align: center; }
   .dl-sheet th { font-weight: 800; background: rgba(128,128,128,.08); font-size: 0.625rem; letter-spacing: 0; white-space: normal; padding: 4px 2px; }
@@ -275,7 +276,7 @@
             <div class="dl-chart"><canvas id="dlNgInline"></canvas></div>
           </section>
           <section class="dl-box" style="grid-column:1; grid-row:4;">
-            <div class="dl-head"><span class="dl-box-title">Grafik NG Trial</span><span class="dl-sub">menyusul</span></div>
+            <div class="dl-head"><span class="dl-box-title">Grafik NG Trial</span></div>
             <div class="dl-chart"><canvas id="dlNgTrial"></canvas></div>
           </section>
           <section class="dl-box" style="grid-column:1; grid-row:5;">
@@ -283,16 +284,18 @@
             <div class="dl-chart"><canvas id="dlStraightpass"></canvas></div>
           </section>
           <section class="dl-box dl-wide" style="grid-row:5;">
-            <div class="dl-head"><span class="dl-box-title">Problem Followup Sheets</span><span class="dl-sub" x-text="'dari data downtime ' + perjamTgl + ' (Shift 1 + 2) — ' + problemRows.length + ' data'"></span></div>
+            <div class="dl-head"><span class="dl-box-title">Problem Followup Sheets</span></div>
             <div class="dl-sheet-wrap">
             <table class="dl-sheet">
-              <thead><tr><th style="width:4%">No</th><th style="width:24%">Problem</th><th style="width:9%">Date</th><th style="width:6%">Shift</th><th style="width:28%">Penanganan</th><th style="width:8%">Waktu</th><th style="width:13%">Tgl Selesai</th><th style="width:8%">PIC</th></tr></thead>
+              <thead><tr><th style="width:4%">No</th><th style="width:30%">Problem</th><th style="width:10%">Date</th><th style="width:6%">Shift</th><th style="width:36%">Penanganan</th><th style="width:7%">Waktu</th><th style="width:7%">PIC</th></tr></thead>
               <tbody>
                 <template x-for="(r, i) in problemRows" :key="i">
-                  <tr><td x-text="i + 1"></td><td class="dl-kiri" :title="r.problem" x-text="r.problem"></td><td :title="r.tanggal" x-text="r.tanggal"></td><td x-text="r.shift"></td><td class="dl-kiri" :title="r.penanganan" x-text="r.penanganan"></td><td :title="r.waktu + ' mnt'" x-text="r.waktu + ' mnt'"></td><td :title="r.selesai" x-text="r.selesai"></td><td :title="r.pic" x-text="r.pic"></td></tr>
+                  <tr><td x-text="i + 1"></td><td class="dl-kiri" :title="r.problem" x-text="r.problem"></td><td :title="r.tanggal" x-text="r.tanggal"></td><td x-text="r.shift"></td><td class="dl-kiri" :title="r.penanganan" x-text="r.penanganan"></td><td :title="r.waktu + ' mnt'" x-text="r.waktu + ' mnt'"></td><td :title="r.pic" x-text="r.pic"></td></tr>
                 </template>
-                <tr x-show="!problemRows.length"><td colspan="8" style="color:#000">Tidak ada downtime pada tanggal ini</td></tr>
-              </tbody>
+                <template x-for="k in Math.max(0, 6 - problemRows.length)" :key="'kosong' + k">
+                  <tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                </template>
+                </tbody>
             </table>
             </div>
           </section>
