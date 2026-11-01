@@ -72,6 +72,7 @@
   .dl-foto-besar img, .dl-foto-besar video { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
   .dl-foto-tutup { position: absolute; top: 10px; right: 10px; }
   .dl-foto img, .dl-foto video { width: 100%; height: 100%; object-fit: contain; display: block; background: #fff; }
+  .dl-sheet tr.dl-top1 td { background: rgba(220,38,38,.10); font-weight: 800; }
   .dl-sheet-wrap { flex: 1; min-height: 0; overflow: auto; }
   .dl-sheet td.dl-kiri { text-align: left; }
   .dl-sheet td { color: #000; white-space: nowrap; overflow: hidden; text-overflow: clip; max-width: 0; height: 17px; padding: 1px 3px; line-height: 1.2; cursor: default; }
@@ -263,7 +264,23 @@
             </section>
           </div>
           </div>
-          <section class="dl-box" style="grid-column:1; grid-row:1;">
+                    <section class="dl-box" style="grid-column:3; grid-row:4;">
+            <div class="dl-head"><span class="dl-box-title">Problem Terbanyak</span><span class="dl-sub" x-text="BULAN_LABELS[bulan - 1] + ' ' + tahun + ' — urut paling sering'"></span></div>
+            <div class="dl-sheet-wrap">
+              <table class="dl-sheet">
+                <thead><tr><th style="width:5%">#</th><th style="width:23%">Problem</th><th style="width:23%">Penyebab Utama</th><th style="width:8%">Kali</th><th style="width:9%">Menit</th><th style="width:32%">Penanganan Terakhir</th></tr></thead>
+                <tbody>
+                  <template x-for="(r, i) in topRows" :key="r.problem">
+                    <tr :class="i === 0 ? 'dl-top1' : ''"><td x-text="i + 1"></td><td class="dl-kiri" :title="r.problem" x-text="r.problem"></td><td class="dl-kiri" :title="r.sebab" x-text="r.sebab || '-'"></td><td x-text="r.kali"></td><td x-text="r.menit"></td><td class="dl-kiri" :title="r.tindak" x-text="r.tindak || '-'"></td></tr>
+                  </template>
+                  <template x-for="k in Math.max(0, 5 - topRows.length)" :key="'tk' + k">
+                    <tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </section>
+<section class="dl-box" style="grid-column:1; grid-row:1;">
             <div class="dl-head"><span class="dl-box-title">Grafik Availability</span><span class="dl-sub" x-text="'Rata-rata ' + fmtNum(rataAvail) + '%'"></span></div>
             <div class="dl-chart"><canvas id="dlAvailability"></canvas></div>
           </section>
@@ -287,7 +304,7 @@
             <div class="dl-head"><span class="dl-box-title">Problem Followup Sheets</span></div>
             <div class="dl-sheet-wrap">
             <table class="dl-sheet">
-              <thead><tr><th style="width:4%">No</th><th style="width:30%">Problem</th><th style="width:10%">Date</th><th style="width:6%">Shift</th><th style="width:36%">Penanganan</th><th style="width:7%">Waktu</th><th style="width:7%">PIC</th></tr></thead>
+              <thead><tr><th style="width:4%">No</th><th style="width:22%">Problem</th><th style="width:9%">Date</th><th style="width:6%">Shift</th><th style="width:44%">Penanganan</th><th style="width:7%">Waktu</th><th style="width:8%">PIC</th></tr></thead>
               <tbody>
                 <template x-for="(r, i) in problemRows" :key="i">
                   <tr><td x-text="i + 1"></td><td class="dl-kiri" :title="r.problem" x-text="r.problem"></td><td :title="r.tanggal" x-text="r.tanggal"></td><td x-text="r.shift"></td><td class="dl-kiri" :title="r.penanganan" x-text="r.penanganan"></td><td :title="r.waktu + ' mnt'" x-text="r.waktu + ' mnt'"></td><td :title="r.pic" x-text="r.pic"></td></tr>
