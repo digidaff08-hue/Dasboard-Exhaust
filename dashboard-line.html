@@ -33,7 +33,7 @@
   .dl-wrap { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
   .dl-perf { flex: 1 1 auto; min-height: 560px; width: 100%; border: 0; background: transparent; display: block; }
   .dl-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
-  .dl-grid { flex: 1 1 auto; min-height: 560px; display: grid; grid-template-columns: 1fr .72fr 1fr; grid-template-rows: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .dl-grid { flex: 1 1 auto; min-height: 760px; display: grid; grid-template-columns: 1fr .72fr 1fr; grid-template-rows: repeat(5, minmax(0, 1fr)); gap: 8px; }
   .dl-box { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px 4px; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
   .dl-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 2px; flex: 0 0 auto; }
   .dl-box-title { font-size: 0.6875rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
@@ -42,14 +42,14 @@
   .dl-pj-in { font: 700 0.6875rem inherit; font-family: inherit; padding: 1px 4px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: inherit; }
   .dl-pj-btn { font: 800 0.625rem inherit; font-family: inherit; padding: 2px 8px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; }
   .dl-pj-btn.on { background: #0f172a; color: #fff; border-color: #0f172a; }
-  .dl-kanan { grid-column: 3; grid-row: 1 / span 2; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-width: 0; min-height: 0; }
+  .dl-kanan { grid-column: 3; grid-row: 1 / span 3; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-width: 0; min-height: 0; }
   .dl-pj-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; overflow: hidden; position: relative; }
   .dl-pj-kosong { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
   .dl-pj-panel { flex: 1 1 0; min-width: 0; display: flex; min-height: 0; }
   .dl-pj-judul { writing-mode: vertical-rl; transform: rotate(180deg); font: 700 0.8125rem Arial, sans-serif; letter-spacing: .04em; padding: 0 3px 0 4px; text-align: center; white-space: nowrap; }
   .dl-pj-kanvas { position: relative; flex: 1; min-width: 0; }
   .dl-chart { position: relative; flex: 1; min-height: 0; }
-  .dl-deki { grid-column: 2; grid-row: 1 / span 3; padding: 0; flex-direction: row; }
+  .dl-deki { grid-column: 2; grid-row: 1 / span 4; padding: 0; flex-direction: row; }
   .dl-deki-tools { flex: 0 0 38px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 4px; border-left: 1px solid var(--border); background: rgba(128,128,128,.05); }
   .dl-tool { width: 30px; height: 30px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); font: inherit; font-size: 0.9375rem; font-weight: 700; line-height: 1; cursor: pointer; padding: 0; }
   .dl-tool:hover { border-color: #4f5fe0; color: #4f5fe0; }
@@ -74,7 +74,7 @@
   .dl-foto img, .dl-foto video { width: 100%; height: 100%; object-fit: contain; display: block; background: #fff; }
   .dl-sheet-wrap { flex: 1; min-height: 0; overflow: auto; }
   .dl-sheet td.dl-kiri { text-align: left; }
-  .dl-sheet td { color: #000; word-break: break-word; }
+  .dl-sheet td { color: #000; white-space: normal; overflow-wrap: anywhere; word-break: break-word; line-height: 1.25; cursor: default; }
   .dl-sheet { width: 100%; border-collapse: collapse; font-size: 0.6875rem; table-layout: fixed; }
   .dl-sheet th, .dl-sheet td { border: 1px solid var(--border); padding: 4px 3px; text-align: center; }
   .dl-sheet th { font-weight: 800; background: rgba(128,128,128,.08); font-size: 0.625rem; letter-spacing: 0; white-space: normal; padding: 4px 2px; }
@@ -275,17 +275,21 @@
             <div class="dl-chart"><canvas id="dlNgInline"></canvas></div>
           </section>
           <section class="dl-box" style="grid-column:1; grid-row:4;">
+            <div class="dl-head"><span class="dl-box-title">Grafik NG Trial</span><span class="dl-sub">menyusul</span></div>
+            <div class="dl-chart"><canvas id="dlNgTrial"></canvas></div>
+          </section>
+          <section class="dl-box" style="grid-column:1; grid-row:5;">
             <div class="dl-head"><span class="dl-box-title">Grafik Straightpass</span></div>
             <div class="dl-chart"><canvas id="dlStraightpass"></canvas></div>
           </section>
-          <section class="dl-box dl-wide" style="grid-row:4;">
+          <section class="dl-box dl-wide" style="grid-row:5;">
             <div class="dl-head"><span class="dl-box-title">Problem Followup Sheets</span><span class="dl-sub" x-text="'dari data downtime ' + perjamTgl + ' (Shift 1 + 2) — ' + problemRows.length + ' data'"></span></div>
             <div class="dl-sheet-wrap">
             <table class="dl-sheet">
-              <thead><tr><th style="width:4%">No</th><th style="width:26%">Problem</th><th style="width:10%">Date</th><th style="width:8%">Shift</th><th style="width:28%">Penanganan</th><th style="width:8%">Waktu</th><th style="width:8%">Tgl Selesai</th><th style="width:8%">PIC</th></tr></thead>
+              <thead><tr><th style="width:4%">No</th><th style="width:24%">Problem</th><th style="width:9%">Date</th><th style="width:6%">Shift</th><th style="width:28%">Penanganan</th><th style="width:8%">Waktu</th><th style="width:13%">Tgl Selesai</th><th style="width:8%">PIC</th></tr></thead>
               <tbody>
                 <template x-for="(r, i) in problemRows" :key="i">
-                  <tr><td x-text="i + 1"></td><td class="dl-kiri" x-text="r.problem"></td><td x-text="r.tanggal"></td><td x-text="r.shift"></td><td class="dl-kiri" x-text="r.penanganan"></td><td x-text="r.waktu + ' mnt'"></td><td x-text="r.selesai"></td><td x-text="r.pic"></td></tr>
+                  <tr><td x-text="i + 1"></td><td class="dl-kiri" :title="r.problem" x-text="r.problem"></td><td :title="r.tanggal" x-text="r.tanggal"></td><td x-text="r.shift"></td><td class="dl-kiri" :title="r.penanganan" x-text="r.penanganan"></td><td :title="r.waktu + ' mnt'" x-text="r.waktu + ' mnt'"></td><td :title="r.selesai" x-text="r.selesai"></td><td :title="r.pic" x-text="r.pic"></td></tr>
                 </template>
                 <tr x-show="!problemRows.length"><td colspan="8" style="color:#000">Tidak ada downtime pada tanggal ini</td></tr>
               </tbody>
