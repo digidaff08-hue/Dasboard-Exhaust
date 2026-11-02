@@ -483,22 +483,11 @@
                     <p class="empty-state" x-show="planningForStation(st.id).length === 0">Belum ada rencana.</p>
                   </div>
                 </div>
-                <div class="planning-col">
-                  <p class="panel-subtitle">Aktual Produksi (Hari Ini)</p>
-                  <div class="planning-list">
-                    <template x-for="r in productionRows.filter(r => (r.stasiun||null) === dbStasiun(st.id) && hariProduksiBaris(r) === hariProduksiSekarang())" :key="r.id">
-                      <div class="planning-item">
-                        <span x-text="r.part_number"></span>
-                        <span class="hint" x-text="(r.qty ?? '-') + 'pcs · ' + fmtClock(r.waktu_awal) + '-' + fmtClock(r.waktu_akhir)"></span>
-                      </div>
-                    </template>
-                  </div>
-                </div>
               </div>
             </div>
           </template>
 
-          <div id="pj-form" x-show="pjOpen" x-cloak x-effect="productionRows; nonProduksiRows; if (pjOpen && !pjDirty) pjMuat()" class="pj-wrap">
+          <div id="pj-form" x-show="pjOpen" x-cloak x-effect="productionRows; nonProduksiRows; if (pjOpen && !pjDirty) pjMuat()" x-init="$watch('nowTick', () => pjAutoCek())" class="pj-wrap">
           <div class="panel">
             <p class="panel-title">Input Produksi Per Jam <button type="button" class="btn-ghost btn-sm" style="float:right" @click="if(!pjDirty || confirm('Tutup form? Isian yang belum disimpan akan hilang.')) { pjOpen = false; pjDirty = false; }">Tutup</button></p>
             <div class="pj-bar">
@@ -508,23 +497,21 @@
               <div class="field" x-show="stationList().length > 1"><label>Stasiun</label>
                 <select x-model="pjStasiun" :disabled="pjDirty" @change="pjGanti()"><template x-for="st in stationList()" :key="st.id"><option :value="st.id" x-text="st.label"></option></template></select></div>
             </div>
-            <p class="hint" x-show="pjDirty">Ada isian belum disimpan — tanggal/shift dikunci. Tekan <b>Simpan Semua</b>.</p>
-            <p class="hint">Isi jam cukup angka (0715 → 07:15). Kolom Kat. hanya boleh angka <b>0</b> (pilihan Part No. = part number) atau <b>3</b> (pilihan Part No. = non produksi). Jam tidak boleh tumpang tindih. Downtime/NG baru bisa diinput setelah baris produksi jam itu disimpan. Kolom kanan = menit.</p>
           </div>
           <div class="panel pj-panel">
             <div class="pj-scroll">
               <table class="pj-tbl">
                 <thead><tr>
-                  <th class="pj-c-jam">Waktu<br>Awal</th><th class="pj-c-jam">Waktu<br>Akhir</th><th class="pj-c-kat">Kat.</th>
+                  <th class="pj-c-jam">Waktu<br>Awal</th><th class="pj-c-jam">Waktu<br>Akhir</th><th class="pj-c-kat">Kategori<br>kerja</th>
                   <th class="pj-c-part">Part No.</th><th class="pj-c-n">Qty<br>Prod.</th><th class="pj-c-n pj-sep">Repair</th>
-                  <th class="pj-c-n">Dan-<br>dori</th><th class="pj-c-n">Stock<br>out</th><th class="pj-c-n">Fork-<br>lift</th><th class="pj-c-n">Die<br>Jig</th><th class="pj-c-n">Mesin<br>Rusak</th>
+                  <th class="pj-c-m">Dandori</th><th class="pj-c-m">Downtime</th>
                 </tr></thead>
                 <tbody>
                   <template x-for="(b, i) in pjBaris" :key="i">
-                    <tr :class="b.id && b.id === pjSorotId ? 'pj-sorot' : ''">
-                      <td><input type="text" inputmode="numeric" maxlength="5" x-model="b.awal" @change="pjJam(b,'awal',i)"></td>
-                      <td><input type="text" inputmode="numeric" maxlength="5" x-model="b.akhir" @change="pjJam(b,'akhir',i)"></td>
-                      <td><input type="text" inputmode="numeric" maxlength="2" x-model="b.kat" @input="pjGantiKat(b)"></td>
+                    <tr :class="(b.id && b.id === pjSorotId ? 'pj-sorot ' : '') + (b.err ? 'pj-err' : '')" :title="b.err">
+                      <td><button type="button" class="pj-btn" @click="pjBukaPick(i,'awal',$event)" x-text="pjTampil(b.awal, false) || 'pilih jam'" :class="b.awal ? '' : 'pj-btn-kosong'"></button></td>
+                      <td><button type="button" class="pj-btn" @click="pjBukaPick(i,'akhir',$event)" x-text="pjTampil(b.akhir, true) || 'pilih jam'" :class="b.akhir ? '' : 'pj-btn-kosong'"></button></td>
+                      <td><select x-model="b.kat" @change="pjGantiKat(b)" x-effect="b.kat; $nextTick(() => { $el.value = b.kat })"><option value=""></option><option value="0">0</option><option value="3">3</option></select></td>
                       <td><select x-model="b.part" @change="pjUbah(b)" x-effect="pjPartOpsi(b); b.part; $nextTick(() => { $el.value = b.part })">
                         <option value=""></option>
                         <template x-for="v in pjPartOpsi(b)" :key="b.kat + '|' + v"><option :value="v" x-text="v"></option></template>
@@ -532,20 +519,19 @@
                       <td><input type="text" inputmode="numeric" :disabled="b.kat === '3'" x-model="b.qty" @input="pjAngka(b,'qty')"></td>
                       <td class="pj-sep"><input type="text" inputmode="numeric" :disabled="b.kat === '3'" x-model="b.repair" @input="pjAngka(b,'repair')"></td>
                       <td><input type="text" inputmode="numeric" :disabled="b.kat === '3'" x-model="b.dandori" @input="pjAngka(b,'dandori')"></td>
-                      <td><input type="text" inputmode="numeric" :disabled="b.kat === '3'" x-model="b.stockout" @input="pjAngka(b,'stockout')"></td>
-                      <td><input type="text" inputmode="numeric" :disabled="b.kat === '3'" x-model="b.forklift" @input="pjAngka(b,'forklift')"></td>
-                      <td><input type="text" inputmode="numeric" :disabled="b.kat === '3'" x-model="b.diejig" @input="pjAngka(b,'diejig')"></td>
-                      <td><input type="text" inputmode="numeric" :disabled="b.kat === '3'" x-model="b.rusak" @input="pjAngka(b,'rusak')"></td>
+                      <td class="pj-ro" :title="'Terisi otomatis dari tab Downtime'" x-text="b.downtime || ''"></td>
                     </tr>
                   </template>
                 </tbody>
                 <tfoot><tr>
                   <td colspan="4" class="pj-tot-l">Total</td>
                   <td x-text="fmtNum(pjTotal('qty'))"></td><td class="pj-sep" x-text="fmtNum(pjTotal('repair'))"></td>
-                  <td x-text="fmtNum(pjTotal('dandori'))"></td><td x-text="fmtNum(pjTotal('stockout'))"></td><td x-text="fmtNum(pjTotal('forklift'))"></td>
-                  <td x-text="fmtNum(pjTotal('diejig'))"></td><td x-text="fmtNum(pjTotal('rusak'))"></td>
+                  <td x-text="fmtNum(pjTotal('dandori'))"></td><td x-text="fmtNum(pjTotal('downtime'))"></td>
                 </tr></tfoot>
               </table>
+            </div>
+            <div class="pj-galat" x-show="pjGalat().length" x-cloak>
+              <template x-for="m in pjGalat()" :key="m"><p x-text="'⚠ ' + m"></p></template>
             </div>
             <div class="pj-gap" x-show="pjGap.length" x-cloak>
               <p><b>Ada jeda waktu antar baris.</b> Pilih jenisnya (atau abaikan), lalu tekan Simpan Semua lagi.</p>
@@ -564,6 +550,22 @@
           </div>
           </div>
 
+          <div class="pj-pop" x-show="pjPick" x-cloak :style="pjPick ? 'top:' + pjPick.top + 'px;left:' + pjPick.left + 'px' : ''" @click.outside="pjPick = null" @keydown.escape.window="pjPick = null">
+            <template x-if="pjPick">
+              <div>
+                <p class="pj-pop-tgl">Tanggal: <b x-text="pjPickTanggal()"></b> <span>(otomatis)</span></p>
+                <div class="pj-pop-jam">
+                  <select x-model="pjPick.h"><template x-for="h in PJ_HH" :key="h"><option :value="h" x-text="h"></option></template></select>
+                  <span>:</span>
+                  <select x-model="pjPick.m"><template x-for="m in PJ_MM" :key="m"><option :value="m" x-text="m"></option></template></select>
+                </div>
+                <div class="pj-pop-aksi">
+                  <button type="button" class="btn-ghost btn-sm" @click="pjPickKosong()">Kosongkan</button>
+                  <button type="button" class="btn-primary btn-sm" @click="pjPickOk()">OK</button>
+                </div>
+              </div>
+            </template>
+          </div>
           <div class="panel">
             <p class="panel-title">Riwayat Hari Ini <span class="count" x-text="riwayatHariIni().length + ' baris'"></span></p>
             <p class="hint" style="margin-bottom:12px;">Riwayat lengkap semua tanggal ada di tab "Riwayat Produksi".</p>
