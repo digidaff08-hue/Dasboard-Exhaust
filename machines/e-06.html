@@ -487,7 +487,7 @@
             </div>
           </template>
 
-          <div id="pj-form" x-show="pjOpen" x-cloak x-effect="productionRows; nonProduksiRows; if (pjOpen && !pjDirty) pjMuat()" x-init="$watch('nowTick', () => pjAutoCek())" class="pj-wrap">
+          <div id="pj-form" x-show="pjOpen" x-cloak x-effect="productionRows; nonProduksiRows; if (pjOpen && !pjDirty) $nextTick(() => { if (pjOpen && !pjDirty) pjMuat() })" x-init="$watch('nowTick', () => pjAutoCek())" class="pj-wrap">
           <div class="panel">
             <p class="panel-title">Input Produksi Per Jam <button type="button" class="btn-ghost btn-sm" style="float:right" @click="if(!pjDirty || confirm('Tutup form? Isian yang belum disimpan akan hilang.')) { pjOpen = false; pjDirty = false; }">Tutup</button></p>
             <div class="pj-bar">
@@ -507,8 +507,8 @@
                   <th class="pj-c-m">Dandori</th><th class="pj-c-m">Downtime</th>
                 </tr></thead>
                 <tbody>
-                  <template x-for="(b, i) in pjBaris" :key="i">
-                    <tr :class="(b.id && b.id === pjSorotId ? 'pj-sorot ' : '') + (b.err ? 'pj-err' : '')" :title="b.err">
+                  <template x-for="(b, i) in pjBaris" :key="b.k">
+                    <tr :class="(b.id && b.id === pjSorotId ? 'pj-sorot ' : '') + (b.err ? 'pj-err' : (b.warn ? 'pj-warn' : ''))" :title="b.err || b.warn">
                       <td><button type="button" class="pj-btn" @click="pjBukaPick(i,'awal',$event)" x-html="pjTampilHtml(b.awal, false, b.awalTgl) || '<span class=\'pj-kosong\'>pilih jam</span>'"></button></td>
                       <td><button type="button" class="pj-btn" @click="pjBukaPick(i,'akhir',$event)" x-html="pjTampilHtml(b.akhir, true, b.akhirTgl) || '<span class=\'pj-kosong\'>pilih jam</span>'"></button></td>
                       <td><button type="button" class="pj-btn pj-btn-kat" @click="pjBukaKat(i,$event)" x-html="b.kat ? '<b>' + b.kat + '</b>' : '<span class=\'pj-kosong\'>pilih</span>'"></button></td>
@@ -529,6 +529,9 @@
             </div>
             <div class="pj-galat" x-show="pjGalat().length" x-cloak>
               <template x-for="m in pjGalat()" :key="m"><p x-text="'⚠ ' + m"></p></template>
+            </div>
+            <div class="pj-peringatan" x-show="pjPeringatan().length" x-cloak>
+              <template x-for="m in pjPeringatan()" :key="m"><p x-text="'⚠ ' + m"></p></template>
             </div>
             <div class="pj-gap" x-show="pjGap.length" x-cloak>
               <p><b>Ada jeda waktu antar baris.</b> Pilih jenisnya (atau abaikan), lalu tekan Simpan Semua lagi.</p>
@@ -564,6 +567,11 @@
                     <template x-for="n in ['Mg','Sn','Sl','Rb','Km','Jm','Sb']" :key="n"><span class="pj-cal-hr" x-text="n"></span></template>
                     <template x-for="h in pjCalHari()" :key="h.iso"><button type="button" :class="(h.iso === pjPickTglIso() ? 'on ' : '') + (h.luar ? 'luar ' : '') + (h.prod ? 'prod' : '')" @click="pjCalPilih(h.iso)" x-text="h.d"></button></template>
                   </div>
+                </div>
+                <div class="pj-durasi" x-show="pjPick.k === 'akhir' && pjBaris[pjPick.i].kat === '3' && pjBaris[pjPick.i].awal">
+                  <span>Durasi (menit)</span>
+                  <button type="button" @click="pjPickDurasi(5)">5</button><button type="button" @click="pjPickDurasi(10)">10</button><button type="button" @click="pjPickDurasi(15)">15</button><button type="button" @click="pjPickDurasi(20)">20</button>
+                  <input type="number" min="1" max="600" placeholder="lain" @input="pjPickDurasi($event.target.value)">
                 </div>
                 <div class="pj-roda" x-show="!pjPick.cal">
                   <div class="pj-roda-kol"><span>Jam</span>

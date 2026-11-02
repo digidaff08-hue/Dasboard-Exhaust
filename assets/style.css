@@ -4429,3 +4429,10 @@ html[data-ukuran="besar"] { font-size: 17.6px; }
 .pj-tgl-row{position:relative}.pj-tgl-btn b{display:inline!important;font-size:19px}
 .pj-tgl-btn{height:44px;white-space:nowrap}
 #pj-form{scroll-margin-top:110px}
+.pj-peringatan{border:1px solid #d9a400;background:#fff6d6;color:#6b4e00;border-radius:8px;padding:6px 10px;margin:8px 4px;font-size:13px}
+.pj-peringatan p{margin:2px 0}
+.pj-tbl tbody tr.pj-warn td{background:#fff8dc}
+.pj-durasi{display:flex;align-items:center;gap:6px;margin:0 0 10px;flex-wrap:wrap}
+.pj-durasi span{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#667;width:100%}
+.pj-durasi button{flex:1;min-width:0;height:38px;border:1px solid #c5d2e6;background:#f3f6fb;border-radius:10px;font-size:16px;font-weight:700;color:#1f4e79;cursor:pointer;padding:0}
+.pj-durasi input{flex:1.2;min-width:0;height:38px;border:1px solid #c5d2e6;border-radius:10px;text-align:center;font-size:15px;padding:0 4px}

@@ -4082,7 +4082,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (!this.pjDirty) this.pjMuat();
     },
     pjBarisKosong(awal) {
-      return { id: null, tabel: "production_log", awal: awal || "", awalTgl: "", akhir: "", akhirTgl: "", kat: "", part: "", qty: "", repair: "", dandori: "", downtime: "", ubah: false, asliExtra: null, err: "" };
+      return { k: (window.__pjSeq = (window.__pjSeq || 0) + 1), id: null, tabel: "production_log", awal: awal || "", awalTgl: "", akhir: "", akhirTgl: "", kat: "", part: "", qty: "", repair: "", dandori: "", downtime: "", ubah: false, asliExtra: null, err: "", warn: "" };
     },
     pjHHMM(d) { return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); },
     pjShiftDari(d) { const m = d.getHours() * 60 + d.getMinutes(); return (m >= 7 * 60 && m < 19 * 60 + 30) ? "1" : "2"; },
@@ -4107,10 +4107,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         return o;
       });
       const list = prod.concat(non).sort((x, y) => x.waktu - y.waktu);
-      while (list.length < this.PJ_JUMLAH_BARIS) list.push(this.pjBarisKosong(list.length ? list[list.length - 1].akhir : ""));
+      while (list.length < this.PJ_JUMLAH_BARIS) list.push(this.pjBarisKosong());
       this.pjBaris = list; this.pjDirty = false; this.pjGap = []; this.pjGapOk = false;
     },
-    pjTambahBaris() { const l = this.pjBaris; this.pjBaris.push(this.pjBarisKosong(l.length ? l[l.length - 1].akhir : "")); },
+    pjTambahBaris() { this.pjBaris.push(this.pjBarisKosong()); },
     pjUbah(b) { b.ubah = true; this.pjDirty = true; this.pjGapOk = false; this.pjGap = []; },
     pjAngka(b, k) { b[k] = String(b[k]).replace(/[^0-9]/g, ""); this.pjUbah(b); },
     // Kolom Kat. hanya boleh angka 0 atau 3 (satu karakter).
@@ -4163,7 +4163,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       let jam = b[k];
       if (!jam) jam = (k === "awal" && i > 0 && this.pjBaris[i - 1].akhir) ? this.pjBaris[i - 1].akhir : this.pjHHMM(new Date());
       this.pjQ = "";
-      this.pjPick = { tipe: "jam", i, k, h: jam.split(":")[0], m: jam.split(":")[1], tgl: b[k + "Tgl"] || "", manual: !!b[k + "Tgl"], ...this.pjPosisi(ev, 300, 330) };
+      this.pjPick = { tipe: "jam", i, k, h: jam.split(":")[0], m: jam.split(":")[1], tgl: b[k + "Tgl"] || "", manual: !!b[k + "Tgl"], ...this.pjPosisi(ev, 300, 420) };
     },
     pjBukaKat(i, ev) { this.pjQ = ""; this.pjPick = { tipe: "kat", i, ...this.pjPosisi(ev, 240, 190) }; },
     pjBukaPart(i, ev) {
@@ -4249,7 +4249,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
     // Periksa jam+tanggal satu baris terhadap shift yang dipilih. Isi b.err (kosong = aman).
     pjCek(b) {
-      b.err = "";
+      b.err = ""; b.warn = "";
       const r = this.pjRentangShift();
       let wa = null, wk = null;
       if (b.awal) {
@@ -4263,6 +4263,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (wa && wk) {
         if (wk <= wa) b.err = "Waktu Akhir " + this.pjLabelWaktu(wk) + " harus setelah Waktu Awal " + this.pjLabelWaktu(wa) + ".";
         else if ((wk - wa) / 60000 > 12 * 60) b.err = "Rentang " + this.pjLabelWaktu(wa) + " – " + this.pjLabelWaktu(wk) + " terlalu panjang (maks 12 jam).";
+        else if (b.kat === "0") { // peringatan: baris produksi melewati batas blok Dekidaka
+          const blk = this.pjBlokShift().find((x) => wa >= x.awal && wa < x.akhir);
+          if (blk && wk > blk.akhir) b.warn = "melewati batas blok Dekidaka " + blk.n + " (berakhir " + this.pjHHMM(blk.akhir) + ") — Qty dihitung di blok " + blk.n + ".";
+        }
       }
     },
     pjGalat() {
@@ -4289,6 +4293,66 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const non = (this.nonProduksiTypeList || []).map((n) => n.nama);
       if (b.part && ((b.kat === "3" && !non.includes(b.part)) || (b.kat === "0" && !parts.includes(b.part)))) b.part = "";
       if (b.kat === "3") { ["qty", "repair", "dandori"].forEach((k) => { b[k] = ""; }); }
+      const i = this.pjBaris.findIndex((x) => x === b);
+      if (b.kat === "0" && !b.akhir && i >= 0) this.pjIsiProduksi(i);
+      if (b.kat === "3" && !b.awal && !b.akhir && i >= 0) this.pjIsiNonProduksi(i);
+    },
+    // ---- jam otomatis mengikuti blok Dekidaka ----
+    // Daftar blok Dekidaka untuk tanggal & shift yang dipilih (Senin–Kamis / Jumat / Shift 2).
+    pjBlokShift() {
+      const [y, m, d] = this.pjTgl.split("-").map(Number);
+      const jumat = new Date(y, m - 1, d).getDay() === 5, s2 = this.pjShift === "2", out = [];
+      for (let n = 1; n <= (s2 ? 10 : DKD_TOTAL_BLOCKS); n++) {
+        const sch = DKD_TIME_TABLE[n]; const w = sch && (s2 ? sch.shift2 : (jumat ? sch.jumat1 : sch.senKam1));
+        if (!w) continue;
+        const sm = dkdTimeToMinutes(w[0]), em = dkdTimeToMinutes(w[1]);
+        const awal = new Date(y, m - 1, d + (s2 && sm < 12 * 60 ? 1 : 0), Math.floor(sm / 60), sm % 60, 0, 0);
+        out.push({ n, awal, akhir: new Date(awal.getTime() + (((em - sm) + 1440) % 1440) * 60000) });
+      }
+      return out;
+    },
+    // Blok terisi = sudah ada baris produksi yang Waktu Awal-nya jatuh di blok itu
+    pjBlokTerisi(blk) {
+      return this.pjBaris.some((b) => b.kat === "0" && b.awal && b.akhir && (() => {
+        const t = this.pjWaktu(b.awal, false, b.awalTgl); return t >= blk.awal && t < blk.akhir;
+      })());
+    },
+    pjBlokBerikut() {
+      const kosong = this.pjBlokShift().filter((blk) => !this.pjBlokTerisi(blk));
+      if (!kosong.length) return null;
+      const now = new Date();
+      return kosong.find((blk) => blk.awal <= now) || kosong[0];
+    },
+    pjAkhirTerakhir() { // Waktu Akhir paling akhir di antara semua baris (Date) atau null
+      let mx = null;
+      this.pjBaris.forEach((b) => { if (b.akhir) { const t = this.pjWaktu(b.akhir, true, b.akhirTgl); if (!mx || t > mx) mx = t; } });
+      return mx;
+    },
+    pjIsiProduksi(i) {
+      const b = this.pjBaris[i], blk = this.pjBlokBerikut();
+      if (!blk) { this.flash("Semua blok Dekidaka sudah terisi.", true); return false; }
+      let awal = blk.awal;
+      this.pjBaris.forEach((x) => { // kegiatan non-produksi yang berakhir di dalam blok ini -> produksi mulai setelahnya
+        if (x === b || !x.akhir) return;
+        const t = this.pjWaktu(x.akhir, true, x.akhirTgl); if (t > awal && t < blk.akhir) awal = t;
+      });
+      b.awal = this.pjHHMM(awal); b.awalTgl = this.pjIso(awal);
+      b.akhir = this.pjHHMM(blk.akhir); b.akhirTgl = this.pjIso(blk.akhir);
+      this.pjUbah(b); this.pjCek(b); return true;
+    },
+    pjIsiNonProduksi(i) { // Kat. 3: mulai dari akhir kegiatan terakhir, atau awal shift
+      const b = this.pjBaris[i]; const t = this.pjAkhirTerakhir() || this.pjRentangShift().a;
+      b.awal = this.pjHHMM(t); b.awalTgl = this.pjIso(t); this.pjUbah(b);
+    },
+    pjPickDurasi(n) {
+      const q = this.pjPick; if (!q) return; n = Number(n); if (!(n > 0)) return;
+      const b = this.pjBaris[q.i]; if (!b.awal) return;
+      const wk = new Date(this.pjWaktu(b.awal, false, b.awalTgl).getTime() + n * 60000);
+      q.h = String(wk.getHours()).padStart(2, "0"); q.m = String(wk.getMinutes()).padStart(2, "0");
+      q.tgl = this.pjIso(wk); q.manual = q.tgl !== this.pjIso(this.pjWaktu(q.h + ":" + q.m, true));
+    },
+    pjPeringatan() {
+      const l = []; this.pjBaris.forEach((b, i) => { if (b.warn) l.push("Baris " + (i + 1) + ": " + b.warn); }); return l;
     },
     pjTotal(k) { return this.pjBaris.reduce((a, b) => a + (Number(b[k]) || 0), 0); },
     pjKosong(b) { return !b.part && ["qty", "repair", "dandori"].every((k) => b[k] === "" || b[k] === null); },
@@ -4307,8 +4371,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (!plan) plan = (this.planningForStation(stationId) || []).find((p) => p.status !== "selesai") || null;
       let last = -1; this.pjBaris.forEach((b, i) => { if (b.id || !this.pjKosong(b) || b.akhir) last = i; });
       const t = this.pjBaris[last + 1] || (this.pjTambahBaris(), this.pjBaris[this.pjBaris.length - 1]);
-      t.awal = last >= 0 && this.pjBaris[last].akhir ? this.pjBaris[last].akhir : this.pjHHMM(now);
       t.kat = "0"; if (plan) { t.part = plan.part_number; this.pjPlanId = plan.id; }
+      this.pjIsiProduksi(this.pjBaris.findIndex((x) => x === t));
       t.ubah = true; this.pjDirty = true;
     },
     pjBuka(row, tabel) {
