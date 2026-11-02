@@ -3498,30 +3498,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     deleteRiwayat(row) {
       if (row._tipe === "produksi") this.deleteProduction(row.id); else this.deleteNonProduksiRow(row.id);
     },
-    editProduction(row) {
-      const stationId = row.stasiun || "_single";
-      if (this.stationConfig.mode === "variant" && row.stasiun) {
-        if (this.stationConfig.variants.lama.includes(row.stasiun)) this.setTandemVariant("lama");
-        else if (this.stationConfig.variants.baru.includes(row.stasiun)) this.setTandemVariant("baru");
-      }
-      if (!this.lines[stationId]) this.lines[stationId] = this.freshLine();
-      const line = this.lines[stationId];
-      line.editingId = row.id;
-      line.state = "edit";
-      line.entryStart = row.waktu_awal; line.entryEnd = row.waktu_akhir;
-      line.editForm = {
-        waktu_awal: toLocalInput(row.waktu_awal), waktu_akhir: toLocalInput(row.waktu_akhir),
-        part_number: row.part_number || "", qty: row.qty ?? "", manpower: row.manpower ?? "",
-        ng: row.ng ?? "", repair: row.repair ?? "",
-        dandori_menit: row.dandori_menit ?? "", break_menit: row.break_menit ?? "",
-      };
-      this.extraFields.forEach((f) => (line.editForm[f.key] = row.extra?.[f.key] ?? ""));
-      line.routingType = row.extra?.routing_type || null;
-      line.routingNumbers = row.extra?.routing_numbers || [];
-      if (!row.break_menit) this.recalcEditBreak(stationId);
-      this.tab = "produksi_new";
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    },
+    editProduction(row) { this.pjBuka(row, "production_log"); },
     async saveEditProduction(stationId) {
       const line = this.lines[stationId];
       const f = line.editForm;
@@ -4091,6 +4068,221 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // dengan NG Inline (ng_line_models -> ng_model_parts), karena itu yang
     // datanya sudah terisi per line -- bukan dari tabel part_numbers (Master
     // Data lama) yang ternyata masih kosong di semua line.
+    // ================= INPUT PRODUKSI PERJAM (tab "Input Produksi NEW") =================
+    // Pengganti sistem input live lama. Baris bebas (Waktu Awal/Akhir, Kat., Part, Qty, Repair,
+    // lalu menit Dandori/Stockout/Forklift-Crane/Die Jig/Mesin Rusak).
+    //   Kat. 0 -> production_log (Part Number)      Kat. 3 -> dandori_log (Non-Produksi)
+    PJ_JUMLAH_BARIS: 15,
+    pjOpen: false, pjTgl: "", pjShift: "1", pjStasiun: "", pjSaving: false, pjBaris: [], pjDirty: false,
+    pjSorotId: null, pjGap: [], pjGapOk: false, pjPlanId: null,
+    pjInit() {
+      if (!this.pjTgl) this.pjTgl = this.hariProduksiSekarang();
+      const st = this.stationList();
+      if (!this.pjStasiun || !st.some((x) => x.id === this.pjStasiun)) this.pjStasiun = st.length ? st[0].id : "";
+      if (!this.pjDirty) this.pjMuat();
+    },
+    pjBarisKosong(awal) {
+      return { id: null, tabel: "production_log", awal: awal || "", akhir: "", kat: "", part: "", qty: "", repair: "", dandori: "", stockout: "", forklift: "", diejig: "", rusak: "", ubah: false, asliExtra: null };
+    },
+    pjHHMM(d) { return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); },
+    pjShiftDari(d) { const m = d.getHours() * 60 + d.getMinutes(); return (m >= 7 * 60 && m < 19 * 60 + 30) ? "1" : "2"; },
+    pjMuat() {
+      const want = this.dbStasiun(this.pjStasiun);
+      const dalam = (r) => !r._pending && (r.stasiun || null) === want && this.hariProduksiBaris(r) === this.pjTgl && this.pjShiftDari(new Date(r.waktu_awal)) === this.pjShift;
+      const prod = (this.productionRows || []).filter(dalam).map((r) => {
+        const o = this.pjBarisKosong(); const e = r.extra || {};
+        o.id = r.id; o.waktu = new Date(r.waktu_awal).getTime();
+        o.awal = this.pjHHMM(new Date(r.waktu_awal)); o.akhir = this.pjHHMM(new Date(r.waktu_akhir));
+        o.kat = "0"; o.part = r.part_number || ""; o.qty = r.qty ?? ""; o.repair = r.repair ?? "";
+        o.dandori = r.dandori_menit || ""; o.stockout = e.stockout ?? ""; o.forklift = e.forklift_crane ?? "";
+        o.diejig = e.die_jig ?? ""; o.rusak = e.mesin_rusak ?? ""; o.asliExtra = e;
+        return o;
+      });
+      const non = (this.nonProduksiRows || []).filter((r) => dalam(r) && r.kategori === "OTHER").map((r) => {
+        const o = this.pjBarisKosong();
+        o.id = r.id; o.tabel = "dandori_log"; o.waktu = new Date(r.waktu_awal).getTime();
+        o.awal = this.pjHHMM(new Date(r.waktu_awal)); o.akhir = this.pjHHMM(new Date(r.waktu_akhir));
+        o.kat = "3"; o.part = r.part_ke || r.keterangan || "";
+        return o;
+      });
+      const list = prod.concat(non).sort((x, y) => x.waktu - y.waktu);
+      while (list.length < this.PJ_JUMLAH_BARIS) list.push(this.pjBarisKosong(list.length ? list[list.length - 1].akhir : ""));
+      this.pjBaris = list; this.pjDirty = false; this.pjGap = []; this.pjGapOk = false;
+    },
+    pjTambahBaris() { const l = this.pjBaris; this.pjBaris.push(this.pjBarisKosong(l.length ? l[l.length - 1].akhir : "")); },
+    pjUbah(b) { b.ubah = true; this.pjDirty = true; this.pjGapOk = false; this.pjGap = []; },
+    pjAngka(b, k) { b[k] = String(b[k]).replace(/[^0-9]/g, ""); this.pjUbah(b); },
+    // Kolom Kat. hanya boleh angka 0 atau 3 (satu karakter).
+    pjKat(b) { const d = String(b.kat).replace(/[^03]/g, ""); b.kat = d.slice(-1); this.pjUbah(b); },
+    // "0715" / "715" / "7:15" -> "07:15"
+    pjJam(b, k, i) {
+      const d = String(b[k]).replace(/[^0-9]/g, "");
+      let v = "";
+      if (d.length >= 3) { const h = d.length === 3 ? d.slice(0, 1) : d.slice(0, 2); v = h.padStart(2, "0") + ":" + d.slice(-2); }
+      else if (d.length) v = d.padStart(2, "0") + ":00";
+      const [h, m] = v ? v.split(":").map(Number) : [0, 0];
+      if (v && (h > 23 || m > 59)) v = "";
+      b[k] = v; this.pjUbah(b);
+      if (k === "akhir" && v && this.pjBaris[i + 1] && !this.pjBaris[i + 1].awal) this.pjBaris[i + 1].awal = v;
+    },
+    pjWaktu(jam) { // "HH:MM" -> Date di hari produksi (sebelum 07:00 = lewat tengah malam)
+      const [y, m, d] = this.pjTgl.split("-").map(Number); const [h, mi] = jam.split(":").map(Number);
+      return new Date(y, m - 1, d + (h * 60 + mi < 7 * 60 ? 1 : 0), h, mi, 0, 0);
+    },
+    // Kat. 3 = hanya Non-Produksi, Kat. 0 = hanya Part Number, kosong = keduanya.
+    pjPartOpsi(b) {
+      const parts = (this.partNumberList || []).map((p) => p.value);
+      const non = (this.nonProduksiTypeList || []).map((n) => n.nama);
+      let l = b.kat === "3" ? non : b.kat === "0" ? parts : parts.concat(non);
+      if (b.part && !l.includes(b.part)) l = [b.part].concat(l);
+      return l;
+    },
+    pjGantiKat(b) {
+      this.pjKat(b);
+      const parts = (this.partNumberList || []).map((p) => p.value);
+      const non = (this.nonProduksiTypeList || []).map((n) => n.nama);
+      if (b.part && ((b.kat === "3" && !non.includes(b.part)) || (b.kat === "0" && !parts.includes(b.part)))) b.part = "";
+      if (b.kat === "3") { ["qty", "repair", "dandori", "stockout", "forklift", "diejig", "rusak"].forEach((k) => { b[k] = ""; }); }
+    },
+    pjTotal(k) { return this.pjBaris.reduce((a, b) => a + (Number(b[k]) || 0), 0); },
+    pjKosong(b) { return !b.part && ["qty", "repair", "dandori", "stockout", "forklift", "diejig", "rusak"].every((k) => b[k] === "" || b[k] === null); },
+
+    // ---- buka form: tombol "Mulai Produksi" / Edit dari riwayat ----
+    pjSegarkanForm(scroll) {
+      this.pjOpen = true; this.pjMuat();
+      if (scroll) this.$nextTick(() => { const el = document.getElementById("pj-form"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); });
+    },
+    pjMulai(stationId, plan) {
+      if (this.pjDirty && this.pjOpen && !confirm("Ada isian yang belum disimpan di form. Buang dan lanjut?")) return;
+      const now = new Date();
+      this.pjStasiun = stationId; this.pjTgl = this.hariProduksiSekarang(); this.pjShift = this.pjShiftDari(now);
+      this.pjSorotId = null; this.pjPlanId = null;
+      this.pjSegarkanForm(true);
+      if (!plan) plan = (this.planningForStation(stationId) || []).find((p) => p.status !== "selesai") || null;
+      let last = -1; this.pjBaris.forEach((b, i) => { if (b.id || !this.pjKosong(b) || b.akhir) last = i; });
+      const t = this.pjBaris[last + 1] || (this.pjTambahBaris(), this.pjBaris[this.pjBaris.length - 1]);
+      t.awal = last >= 0 && this.pjBaris[last].akhir ? this.pjBaris[last].akhir : this.pjHHMM(now);
+      t.kat = "0"; if (plan) { t.part = plan.part_number; this.pjPlanId = plan.id; }
+      t.ubah = true; this.pjDirty = true;
+    },
+    pjBuka(row, tabel) {
+      if (this.pjDirty && this.pjOpen && !confirm("Ada isian yang belum disimpan di form. Buang dan lanjut?")) return;
+      const stationId = row.stasiun || "_single";
+      if (this.stationConfig.mode === "variant" && row.stasiun) {
+        if (this.stationConfig.variants.lama.includes(row.stasiun)) this.setTandemVariant("lama");
+        else if (this.stationConfig.variants.baru.includes(row.stasiun)) this.setTandemVariant("baru");
+      }
+      this.pjStasiun = stationId; this.pjTgl = this.hariProduksiBaris(row);
+      this.pjShift = this.pjShiftDari(new Date(row.waktu_awal)); this.pjSorotId = row.id; this.pjPlanId = null;
+      this.tab = "produksi_new";
+      this.pjSegarkanForm(true);
+    },
+
+    // ---- jeda (gap) antar baris: tanyakan jenis non-produksi ----
+    pjCariGap() {
+      const isi = this.pjBaris.filter((b) => b.awal && b.akhir && (b.id || !this.pjKosong(b))).map((b) => {
+        const wa = this.pjWaktu(b.awal); const wk = this.pjWaktu(b.akhir); if (wk <= wa) return null;
+        return { wa, wk };
+      }).filter(Boolean).sort((x, y) => x.wa - y.wa);
+      const gaps = [];
+      for (let i = 1; i < isi.length; i++) {
+        const a = isi[i - 1].wk, z = isi[i].wa;
+        const menit = Math.round((z - a) / 60000) - computeBreakMinutes(a.toISOString(), z.toISOString());
+        if (menit >= 1) gaps.push({ awal: this.pjHHMM(a), akhir: this.pjHHMM(z), a: a.toISOString(), z: z.toISOString(), menit, nama: "" });
+      }
+      return gaps;
+    },
+    pjOverlap() {
+      const isi = this.pjBaris.map((b, i) => ({ b, i })).filter((x) => x.b.awal && x.b.akhir && (x.b.id || !this.pjKosong(x.b))).map((x) => {
+        const wa = this.pjWaktu(x.b.awal); const wk = this.pjWaktu(x.b.akhir); if (wk <= wa) return null;
+        return { i: x.i, wa, wk };
+      }).filter(Boolean).sort((x, y) => x.wa - y.wa);
+      for (let k = 1; k < isi.length; k++) if (isi[k].wa < isi[k - 1].wk) return "Baris " + (isi[k - 1].i + 1) + " dan " + (isi[k].i + 1) + " jamnya tumpang tindih.";
+      return "";
+    },
+    async pjSimpan() {
+      if (this.pjSaving) return;
+      const num = (v) => (v === "" || v === null || v === undefined ? null : Number(v));
+      const tulis = [], ubah = [], non = [], nonUbah = [];
+      for (let i = 0; i < this.pjBaris.length; i++) {
+        const b = this.pjBaris[i];
+        if (!b.id && this.pjKosong(b)) continue;
+        const no = "Baris " + (i + 1) + ": ";
+        if (b.kat !== "0" && b.kat !== "3") { this.flash(no + "kolom Kat. wajib diisi 0 atau 3.", true); return; }
+        if (!b.awal || !b.akhir) { this.flash(no + "Waktu Awal & Akhir wajib diisi.", true); return; }
+        if (!b.part) { this.flash(no + (b.kat === "3" ? "jenis Non-Produksi" : "Part Number") + " belum dipilih.", true); return; }
+        const wa = this.pjWaktu(b.awal); const wk = this.pjWaktu(b.akhir);
+        if (wk <= wa) { this.flash(no + "Waktu Akhir harus setelah Waktu Awal.", true); return; }
+        const waI = wa.toISOString(), wkI = wk.toISOString();
+        if (b.kat === "3") {
+          const pl = { waktu_awal: waI, waktu_akhir: wkI, part_ke: b.part, keterangan: b.part };
+          if (!b.id) non.push({ mesin: machineKey, stasiun: this.dbStasiun(this.pjStasiun), kategori: "OTHER", part_dari: null, ...pl });
+          else if (b.ubah && b.tabel === "dandori_log") nonUbah.push({ id: b.id, p: pl });
+          continue;
+        }
+        if (b.tabel === "dandori_log") continue; // baris non-produksi yang Kat.-nya diubah: tidak dipindah tabel
+        if (b.qty === "" && b.dandori === "" && b.repair === "" && !b.id) { /* baris tanpa angka tetap disimpan (mis. baru mulai) */ }
+        const extra = { ...(b.asliExtra || {}), input: "perjam", kategori_kerja: "0",
+          stockout: num(b.stockout), forklift_crane: num(b.forklift), die_jig: num(b.diejig), mesin_rusak: num(b.rusak) };
+        if (!b.id) {
+          const pm = (this.partNumberList || []).find((p) => p.value === b.part);
+          tulis.push({
+            mesin: machineKey, stasiun: this.dbStasiun(this.pjStasiun), waktu_awal: waI, waktu_akhir: wkI,
+            part_number: b.part, qty: num(b.qty), manpower: pm && pm.std_mp ? Number(pm.std_mp) : null,
+            repair: num(b.repair), dandori_menit: num(b.dandori) || 0, downtime_menit: 0,
+            break_menit: computeBreakMinutes(waI, wkI), ng: null, extra,
+          });
+        } else if (b.ubah) {
+          ubah.push({ id: b.id, p: { waktu_awal: waI, waktu_akhir: wkI, part_number: b.part, qty: num(b.qty), repair: num(b.repair),
+            dandori_menit: num(b.dandori) || 0, break_menit: computeBreakMinutes(waI, wkI), extra } });
+        }
+      }
+      const tmp = this.pjOverlap(); if (tmp) { this.flash(tmp + " Jam tidak boleh tumpang tindih.", true); return; }
+      // Jeda antar baris: tanyakan dulu jenisnya (boleh diabaikan)
+      if (!this.pjGapOk) {
+        const gaps = this.pjCariGap();
+        if (gaps.length) { this.pjGap = gaps; this.flash("Ada jeda waktu antar baris — pilih jenisnya (atau abaikan), lalu Simpan lagi.", true); return; }
+      }
+      this.pjGap.forEach((g) => { if (g.nama) non.push({ mesin: machineKey, stasiun: this.dbStasiun(this.pjStasiun), kategori: "OTHER", part_dari: null, waktu_awal: g.a, waktu_akhir: g.z, part_ke: g.nama, keterangan: g.nama }); });
+      if (!tulis.length && !ubah.length && !non.length && !nonUbah.length) { this.flash("Tidak ada perubahan untuk disimpan."); return; }
+      this.pjSaving = true;
+      let gagal = 0, antre = 0;
+      try {
+        for (const t of tulis) {
+          try {
+            if (!navigator.onLine) throw new Error("offline");
+            t.client_ref = genClientRef();
+            const { error } = await insertIdempotent("production_log", t);
+            if (error) throw error;
+          } catch (err) {
+            if (isNetworkError(err) || err.message === "offline") { enqueueOffline("production_log", t); antre++; }
+            else { gagal++; this.flash("Gagal menyimpan: " + (err.message || err), true); }
+          }
+        }
+        for (const u of ubah) {
+          const { error } = await supabaseClient.from("production_log").update(u.p).eq("id", u.id);
+          if (error) { gagal++; this.flash("Gagal update: " + error.message, true); }
+        }
+        for (const n of non) await this.saveNonProduksiRow(n);
+        for (const u of nonUbah) {
+          const { error } = await supabaseClient.from("dandori_log").update(u.p).eq("id", u.id);
+          if (error) { gagal++; this.flash("Gagal update non-produksi: " + error.message, true); }
+        }
+        if (!gagal) {
+          // Plan produksi: otomatis "selesai" kalau Part Number-nya sudah tersimpan
+          const partTersimpan = new Set(tulis.concat(ubah.map((u) => u.p)).map((t) => t.part_number));
+          const selesai = (this.planningForStation(this.pjStasiun) || []).filter((p) => p.status !== "selesai" && partTersimpan.has(p.part_number));
+          for (const p of selesai) await supabaseClient.from("production_planning").update({ status: "selesai" }).eq("id", p.id);
+          this.flash(antre ? "Tidak ada jaringan — " + antre + " baris disimpan di HP, disinkron otomatis nanti." : "Data produksi tersimpan.");
+          this.pjDirty = false;
+        }
+        if (antre) this.refreshPendingCount();
+        await Promise.all([this.fetchProduction(), this.fetchNonProduksi(), this.fetchPlanning()]);
+        if (!gagal) this.pjMuat();
+        this.refreshLoadedPerf();
+      } finally { this.pjSaving = false; }
+    },
+    pjGanti() { this.pjMuat(); },
     produksiNewPartOptions: [],
     async fetchProduksiPartNumberOptions() {
       const modelNames = (this.ngModelList || []).map((m) => m.model).filter(Boolean);

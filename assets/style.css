@@ -4323,3 +4323,25 @@ html[data-ukuran="besar"] { font-size: 17.6px; }
 
 /* Performance di Dashboard Line: bagian dipilih dari bar atas halaman induk, tombol pilih bagian disembunyikan */
 .perf-tanpa-chip .perf-toggle-row{ display:none !important; }
+
+/* ===== Input Perjam ===== */
+.pj-bar{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:6px}
+.pj-panel{padding:8px}
+.pj-scroll{overflow-x:auto}
+.pj-tbl{border-collapse:collapse;table-layout:fixed;width:100%;min-width:560px;border:2px solid #000;font-size:12px;color:#000}
+.pj-tbl th,.pj-tbl td{border:1px solid #000;padding:0;text-align:center;height:30px}
+.pj-tbl tbody td{border-bottom:1px dashed #000}
+.pj-tbl th{font-weight:600;font-size:11px;line-height:1.15;padding:3px 1px;background:var(--bg-panel,#fff);color:#000}
+.pj-tbl .pj-sep{border-right:2px solid #000}
+.pj-c-jam{width:48px}.pj-c-kat{width:38px}.pj-c-part{width:96px}.pj-c-n{width:44px}.pj-c-x{width:22px;border:0!important}
+.pj-tbl input,.pj-tbl select{width:100%;height:28px;box-sizing:border-box;border:0;background:transparent;text-align:center;font-size:12px;padding:0 1px;color:#000;min-width:0}
+.pj-tbl select{text-align:left;text-overflow:ellipsis;appearance:none;-webkit-appearance:none;padding:0 2px}
+.pj-tbl input:focus,.pj-tbl select:focus{outline:2px solid #1f4e79;outline-offset:-2px;background:#fffbe6}
+.pj-tbl tbody tr.pj-istirahat td{background:#c6efd9}
+.pj-tbl tfoot td{font-weight:700;height:28px}.pj-tot-l{text-align:right!important;padding-right:6px!important}
+.pj-x{border:0;background:none;color:#b3261e;cursor:pointer;font-size:12px;padding:0}
+.pj-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 4px 2px}
+.pj-tbl tbody tr.pj-sorot td{background:#fff3c4}
+.pj-gap{border:1px dashed #b3261e;border-radius:8px;padding:8px 10px;margin:8px 4px;font-size:13px}
+.pj-gap-row{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}
+.pj-gap-row select{min-width:200px}
