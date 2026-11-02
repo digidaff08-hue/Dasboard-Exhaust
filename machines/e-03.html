@@ -449,7 +449,7 @@
           </div>
 
           <template x-for="st in stationList()" :key="st.id">
-            <div class="panel station-card">
+            <div class="panel station-card" x-show="!pjOpen">
               <p class="panel-title" x-show="st.label"><span x-text="st.label"></span></p>
 
               <div>
@@ -509,13 +509,10 @@
                 <tbody>
                   <template x-for="(b, i) in pjBaris" :key="i">
                     <tr :class="(b.id && b.id === pjSorotId ? 'pj-sorot ' : '') + (b.err ? 'pj-err' : '')" :title="b.err">
-                      <td><button type="button" class="pj-btn" @click="pjBukaPick(i,'awal',$event)" x-text="pjTampil(b.awal, false) || 'pilih jam'" :class="b.awal ? '' : 'pj-btn-kosong'"></button></td>
-                      <td><button type="button" class="pj-btn" @click="pjBukaPick(i,'akhir',$event)" x-text="pjTampil(b.akhir, true) || 'pilih jam'" :class="b.akhir ? '' : 'pj-btn-kosong'"></button></td>
-                      <td><select x-model="b.kat" @change="pjGantiKat(b)" x-effect="b.kat; $nextTick(() => { $el.value = b.kat })"><option value=""></option><option value="0">0</option><option value="3">3</option></select></td>
-                      <td><select x-model="b.part" @change="pjUbah(b)" x-effect="pjPartOpsi(b); b.part; $nextTick(() => { $el.value = b.part })">
-                        <option value=""></option>
-                        <template x-for="v in pjPartOpsi(b)" :key="b.kat + '|' + v"><option :value="v" x-text="v"></option></template>
-                      </select></td>
+                      <td><button type="button" class="pj-btn" @click="pjBukaPick(i,'awal',$event)" x-html="pjTampilHtml(b.awal, false, b.awalTgl) || '<span class=\'pj-kosong\'>pilih jam</span>'"></button></td>
+                      <td><button type="button" class="pj-btn" @click="pjBukaPick(i,'akhir',$event)" x-html="pjTampilHtml(b.akhir, true, b.akhirTgl) || '<span class=\'pj-kosong\'>pilih jam</span>'"></button></td>
+                      <td><button type="button" class="pj-btn pj-btn-kat" @click="pjBukaKat(i,$event)" x-html="b.kat ? '<b>' + b.kat + '</b>' : '<span class=\'pj-kosong\'>pilih</span>'"></button></td>
+                      <td><button type="button" class="pj-btn pj-btn-part" @click="pjBukaPart(i,$event)" :title="b.part" x-html="b.part ? '<span class=\'pj-part-t\'></span>' : '<span class=\'pj-kosong\'>pilih part</span>'" x-effect="b.part; $nextTick(() => { const e = $el.querySelector('.pj-part-t'); if (e) e.textContent = b.part })"></button></td>
                       <td><input type="text" inputmode="numeric" :disabled="b.kat === '3'" x-model="b.qty" @input="pjAngka(b,'qty')"></td>
                       <td class="pj-sep"><input type="text" inputmode="numeric" :disabled="b.kat === '3'" x-model="b.repair" @input="pjAngka(b,'repair')"></td>
                       <td><input type="text" inputmode="numeric" :disabled="b.kat === '3'" x-model="b.dandori" @input="pjAngka(b,'dandori')"></td>
@@ -551,17 +548,54 @@
           </div>
 
           <div class="pj-pop" x-show="pjPick" x-cloak :style="pjPick ? 'top:' + pjPick.top + 'px;left:' + pjPick.left + 'px' : ''" @click.outside="pjPick = null" @keydown.escape.window="pjPick = null">
-            <template x-if="pjPick">
+            <template x-if="pjPick && pjPick.tipe === 'jam'">
               <div>
-                <p class="pj-pop-tgl">Tanggal: <b x-text="pjPickTanggal()"></b> <span>(otomatis)</span></p>
-                <div class="pj-pop-jam">
-                  <select x-model="pjPick.h"><template x-for="h in PJ_HH" :key="h"><option :value="h" x-text="h"></option></template></select>
-                  <span>:</span>
-                  <select x-model="pjPick.m"><template x-for="m in PJ_MM" :key="m"><option :value="m" x-text="m"></option></template></select>
+                <div class="pj-pop-head"><span class="pj-pop-besar" x-text="pjPick.h + ':' + pjPick.m"></span></div>
+                <div class="pj-tgl-row">
+                  <button type="button" @click="pjPickTglGeser(-1)" aria-label="Hari sebelumnya">‹</button>
+                  <div class="pj-tgl-tengah"><button type="button" class="pj-tgl-btn" @click="pjCalToggle()" title="Pilih dari kalender"><b x-text="pjPickTanggal()"></b><span x-text="pjPick.cal ? '▲' : '📅'"></span></button>
+                    <i x-show="!pjPick.manual">otomatis</i>
+                    <a x-show="pjPick.manual" href="#" @click.prevent="pjPick.manual = false; pjPick.tgl = ''">dipilih manual · kembali otomatis</a></div>
+                  <button type="button" @click="pjPickTglGeser(1)" aria-label="Hari berikutnya">›</button>
                 </div>
-                <div class="pj-pop-aksi">
-                  <button type="button" class="btn-ghost btn-sm" @click="pjPickKosong()">Kosongkan</button>
-                  <button type="button" class="btn-primary btn-sm" @click="pjPickOk()">OK</button>
+                <div class="pj-cal" x-show="pjPick.cal">
+                  <div class="pj-cal-head"><button type="button" @click="pjCalGeser(-1)">‹</button><b x-text="pjCalJudul()"></b><button type="button" @click="pjCalGeser(1)">›</button></div>
+                  <div class="pj-cal-grid">
+                    <template x-for="n in ['Mg','Sn','Sl','Rb','Km','Jm','Sb']" :key="n"><span class="pj-cal-hr" x-text="n"></span></template>
+                    <template x-for="h in pjCalHari()" :key="h.iso"><button type="button" :class="(h.iso === pjPickTglIso() ? 'on ' : '') + (h.luar ? 'luar ' : '') + (h.prod ? 'prod' : '')" @click="pjCalPilih(h.iso)" x-text="h.d"></button></template>
+                  </div>
+                </div>
+                <div class="pj-roda" x-show="!pjPick.cal">
+                  <div class="pj-roda-kol"><span>Jam</span>
+                    <div class="pj-roda-list" x-init="$nextTick(() => { $el.scrollTop = Math.max(0, Number(pjPick.h) * 34 - 68) })">
+                      <template x-for="h in PJ_HH" :key="h"><button type="button" :class="pjPick.h === h ? 'on' : ''" @click="pjPick.h = h" x-text="h"></button></template>
+                    </div></div>
+                  <em>:</em>
+                  <div class="pj-roda-kol"><span>Menit</span>
+                    <div class="pj-roda-list" x-init="$nextTick(() => { $el.scrollTop = Math.max(0, Number(pjPick.m) * 34 - 68) })">
+                      <template x-for="m in PJ_MM" :key="m"><button type="button" :class="pjPick.m === m ? 'on' : ''" @click="pjPick.m = m" x-text="m"></button></template>
+                    </div></div>
+                </div>
+                <div class="pj-pop-aksi2">
+                  <button type="button" class="pj-b-kosong" @click="pjPickKosong()">Kosongkan</button>
+                  <button type="button" class="pj-b-ok" @click="pjPickOk()">OK</button>
+                </div>
+              </div>
+            </template>
+            <template x-if="pjPick && pjPick.tipe === 'kat'">
+              <div>
+                <p class="pj-pop-lbl">Kategori kerja</p>
+                <button type="button" class="pj-opsi" @click="pjPilihKat('0')"><b>0</b><span>Produksi — pilih Part Number</span></button>
+                <button type="button" class="pj-opsi" @click="pjPilihKat('3')"><b>3</b><span>Non Produksi</span></button>
+                <button type="button" class="pj-opsi pj-opsi-kosong" @click="pjPilihKat('')"><b>–</b><span>Kosongkan</span></button>
+              </div>
+            </template>
+            <template x-if="pjPick && pjPick.tipe === 'part'">
+              <div>
+                <input type="text" class="pj-cari" placeholder="Cari…" x-model="pjQ" x-init="$nextTick(() => $el.focus())">
+                <div class="pj-daftar">
+                  <template x-for="v in pjPartHasil()" :key="v"><button type="button" class="pj-opsi pj-opsi-part" :class="v === pjBaris[pjPick.i].part ? 'on' : ''" @click="pjPilihPart(v)" x-text="v"></button></template>
+                  <p class="pj-habis" x-show="!pjPartHasil().length">Tidak ada pilihan.</p>
                 </div>
               </div>
             </template>

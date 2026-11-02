@@ -4082,7 +4082,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (!this.pjDirty) this.pjMuat();
     },
     pjBarisKosong(awal) {
-      return { id: null, tabel: "production_log", awal: awal || "", akhir: "", kat: "", part: "", qty: "", repair: "", dandori: "", downtime: "", ubah: false, asliExtra: null, err: "" };
+      return { id: null, tabel: "production_log", awal: awal || "", awalTgl: "", akhir: "", akhirTgl: "", kat: "", part: "", qty: "", repair: "", dandori: "", downtime: "", ubah: false, asliExtra: null, err: "" };
     },
     pjHHMM(d) { return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); },
     pjShiftDari(d) { const m = d.getHours() * 60 + d.getMinutes(); return (m >= 7 * 60 && m < 19 * 60 + 30) ? "1" : "2"; },
@@ -4093,6 +4093,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const o = this.pjBarisKosong(); const e = r.extra || {};
         o.id = r.id; o.waktu = new Date(r.waktu_awal).getTime();
         o.awal = this.pjHHMM(new Date(r.waktu_awal)); o.akhir = this.pjHHMM(new Date(r.waktu_akhir));
+        o.awalTgl = this.pjIso(new Date(r.waktu_awal)); o.akhirTgl = this.pjIso(new Date(r.waktu_akhir));
         o.kat = "0"; o.part = r.part_number || ""; o.qty = r.qty ?? ""; o.repair = r.repair ?? "";
         o.dandori = r.dandori_menit || ""; o.downtime = r.downtime_menit || ""; o.asliExtra = e;
         return o;
@@ -4101,6 +4102,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const o = this.pjBarisKosong();
         o.id = r.id; o.tabel = "dandori_log"; o.waktu = new Date(r.waktu_awal).getTime();
         o.awal = this.pjHHMM(new Date(r.waktu_awal)); o.akhir = this.pjHHMM(new Date(r.waktu_akhir));
+        o.awalTgl = this.pjIso(new Date(r.waktu_awal)); o.akhirTgl = this.pjIso(new Date(r.waktu_akhir));
         o.kat = "3"; o.part = r.part_ke || r.keterangan || "";
         return o;
       });
@@ -4116,7 +4118,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // Input jam (type="time"): validasi langsung, lalu sambungkan Waktu Awal baris berikutnya.
     pjJam(b, k, i) {
       b[k] = b[k] || ""; this.pjUbah(b); this.pjCek(b);
-      if (k === "akhir" && b.akhir && !b.err && this.pjBaris[i + 1] && !this.pjBaris[i + 1].awal) this.pjBaris[i + 1].awal = b.akhir;
+      if (k === "akhir" && b.akhir && !b.err && this.pjBaris[i + 1] && !this.pjBaris[i + 1].awal) { this.pjBaris[i + 1].awal = b.akhir; this.pjBaris[i + 1].awalTgl = b.akhirTgl; }
       if (b.err) this.flash(b.err, true);
     },
     PJ_HH: Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")),
@@ -4136,62 +4138,131 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0");
     },
     // Tampilan "dd/mm/yyyy HH:MM" untuk sel Waktu Awal/Akhir (kosong kalau belum diisi)
-    pjTampil(jam, akhir) {
+    pjTampil(jam, akhir, tgl) {
       if (!jam || !this.pjTgl) return "";
-      const d = this.pjWaktu(jam, akhir);
+      const d = this.pjWaktu(jam, akhir, tgl);
       return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + "/" + d.getFullYear() + " " + jam;
     },
-    // ---- pemilih jam (popup) ----
-    pjPick: null,
+    // ---- pemilih (popup): jam / kategori kerja / part no ----
+    pjPick: null, pjQ: "",
+    pjTampilHtml(jam, akhir, tgl) {
+      if (!jam || !this.pjTgl) return "";
+      const d = this.pjWaktu(jam, akhir, tgl);
+      const dd = String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0");
+      return '<span class="pj-t-tgl">' + dd + '<span class="pj-yy">/' + d.getFullYear() + '</span></span> <b>' + jam + '</b>';
+    },
+    pjPosisi(ev, lebar, tinggi) {
+      const r = ev.currentTarget.getBoundingClientRect();
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - lebar - 8));
+      let top = r.bottom + 4;
+      if (top + tinggi > window.innerHeight - 8) top = r.top - tinggi - 4 >= 8 ? r.top - tinggi - 4 : Math.max(8, window.innerHeight - tinggi - 8);
+      return { top, left };
+    },
     pjBukaPick(i, k, ev) {
       const b = this.pjBaris[i];
       let jam = b[k];
       if (!jam) jam = (k === "awal" && i > 0 && this.pjBaris[i - 1].akhir) ? this.pjBaris[i - 1].akhir : this.pjHHMM(new Date());
-      const r = ev.currentTarget.getBoundingClientRect();
-      const w = 250, left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
-      const top = Math.min(r.bottom + 4, window.innerHeight - 190);
-      this.pjPick = { i, k, h: jam.split(":")[0], m: jam.split(":")[1], top, left };
+      this.pjQ = "";
+      this.pjPick = { tipe: "jam", i, k, h: jam.split(":")[0], m: jam.split(":")[1], tgl: b[k + "Tgl"] || "", manual: !!b[k + "Tgl"], ...this.pjPosisi(ev, 300, 330) };
+    },
+    pjBukaKat(i, ev) { this.pjQ = ""; this.pjPick = { tipe: "kat", i, ...this.pjPosisi(ev, 240, 190) }; },
+    pjBukaPart(i, ev) {
+      const b = this.pjBaris[i];
+      if (!b.kat) { this.flash("Isi Kategori kerja dulu (0 = part number, 3 = non produksi).", true); return; }
+      this.pjQ = ""; this.pjPick = { tipe: "part", i, ...this.pjPosisi(ev, 300, 360) };
+    },
+    pjPartHasil() {
+      const q = this.pjQ.trim().toLowerCase(); const b = this.pjPick ? this.pjBaris[this.pjPick.i] : null; if (!b) return [];
+      return this.pjPartOpsi(b).filter((v) => !q || v.toLowerCase().includes(q));
+    },
+    pjPilihKat(v) { const b = this.pjBaris[this.pjPick.i]; b.kat = v; this.pjGantiKat(b); this.pjPick = null; },
+    pjPilihPart(v) { const b = this.pjBaris[this.pjPick.i]; b.part = v; this.pjUbah(b); this.pjPick = null; },
+    // jam di luar shift ditampilkan redup
+    pjJamDalamShift(h) { h = Number(h); return this.pjShift === "1" ? (h >= 7 && h <= 19) : (h >= 19 || h <= 7); },
+    // Tanggal yang berlaku di pemilih: pilihan manual, atau otomatis dari jam yang dipilih
+    pjPickTglIso() {
+      const q = this.pjPick; if (!q || !this.pjTgl) return "";
+      return q.manual && q.tgl ? q.tgl : this.pjIso(this.pjWaktu(q.h + ":" + q.m, q.k === "akhir"));
     },
     pjPickTanggal() {
-      const q = this.pjPick; if (!q || !this.pjTgl) return "";
-      return this.pjTampil(q.h + ":" + q.m, q.k === "akhir").split(" ")[0];
+      const t = this.pjPickTglIso(); if (!t) return "";
+      const [y, m, d] = t.split("-"); return d + "/" + m + "/" + y;
     },
+    // ---- kalender mini di dalam pemilih ----
+    pjCalToggle() {
+      const q = this.pjPick; if (!q) return;
+      if (q.cal) { q.cal = false; return; }
+      const [y, m] = this.pjPickTglIso().split("-").map(Number); q.bulan = { y, m }; q.cal = true;
+    },
+    pjCalGeser(n) { const b = this.pjPick.bulan; const d = new Date(b.y, b.m - 1 + n, 1); this.pjPick.bulan = { y: d.getFullYear(), m: d.getMonth() + 1 }; },
+    pjCalJudul() {
+      const b = this.pjPick && this.pjPick.bulan; if (!b) return "";
+      return ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"][b.m - 1] + " " + b.y;
+    },
+    pjCalHari() {
+      const b = this.pjPick && this.pjPick.bulan; if (!b) return [];
+      const awal = new Date(b.y, b.m - 1, 1), mulai = new Date(b.y, b.m - 1, 1 - awal.getDay());
+      const hariProduksi = [this.pjTgl, this.pjIso(new Date(Number(this.pjTgl.slice(0, 4)), Number(this.pjTgl.slice(5, 7)) - 1, Number(this.pjTgl.slice(8, 10)) + 1))];
+      const out = [];
+      for (let i = 0; i < 42; i++) {
+        const d = new Date(mulai.getFullYear(), mulai.getMonth(), mulai.getDate() + i); const iso = this.pjIso(d);
+        out.push({ d: d.getDate(), iso, luar: d.getMonth() !== b.m - 1, prod: hariProduksi.includes(iso) });
+      }
+      return out;
+    },
+    pjCalPilih(iso) { this.pjPick.tgl = iso; this.pjPick.manual = true; this.pjPick.cal = false; },
+    pjPickTglGeser(n) {
+      const [y, m, d] = this.pjPickTglIso().split("-").map(Number);
+      this.pjPick.tgl = this.pjIso(new Date(y, m - 1, d + n)); this.pjPick.manual = true;
+    },
+    pjPickGantiTgl(v) { if (!v) return; this.pjPick.tgl = v; this.pjPick.manual = true; },
     pjPickOk() {
       const q = this.pjPick; if (!q) return;
-      const b = this.pjBaris[q.i]; b[q.k] = q.h + ":" + q.m;
+      const b = this.pjBaris[q.i]; b[q.k] = q.h + ":" + q.m; b[q.k + "Tgl"] = q.manual ? q.tgl : "";
       this.pjPick = null; this.pjJam(b, q.k, q.i);
     },
     pjPickKosong() {
       const q = this.pjPick; if (!q) return;
-      const b = this.pjBaris[q.i]; b[q.k] = ""; this.pjPick = null; this.pjJam(b, q.k, q.i);
+      const b = this.pjBaris[q.i]; b[q.k] = ""; b[q.k + "Tgl"] = ""; this.pjPick = null; this.pjJam(b, q.k, q.i);
     },
     pjMenit(jam) { const [h, m] = String(jam).split(":").map(Number); return h * 60 + m; },
-    // "HH:MM" -> Date di hari produksi. Sebelum 07:00 = lewat tengah malam (besok);
-    // untuk Waktu Akhir Shift 2, tepat 07:00 juga = besok.
-    pjWaktu(jam, akhir) {
-      const [y, m, d] = this.pjTgl.split("-").map(Number); const [h, mi] = jam.split(":").map(Number);
+    pjIso(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); },
+    // "HH:MM" (+ tanggal pilihan "YYYY-MM-DD", opsional) -> Date. Tanpa tanggal: otomatis di hari produksi
+    // (sebelum 07:00 = lewat tengah malam/besok; Waktu Akhir Shift 2 tepat 07:00 juga = besok).
+    pjWaktu(jam, akhir, tgl) {
+      const [h, mi] = jam.split(":").map(Number);
+      if (tgl) { const [y, m, d] = tgl.split("-").map(Number); return new Date(y, m - 1, d, h, mi, 0, 0); }
+      const [y, m, d] = this.pjTgl.split("-").map(Number);
       const mm = h * 60 + mi;
       const besok = mm < 7 * 60 || (akhir && this.pjShift === "2" && mm === 7 * 60);
       return new Date(y, m - 1, d + (besok ? 1 : 0), h, mi, 0, 0);
     },
-    // Periksa jam satu baris terhadap shift yang dipilih. Isi b.err (kosong = aman).
+    // Rentang shift yang dipilih sebagai Date
+    pjRentangShift() {
+      const [y, m, d] = this.pjTgl.split("-").map(Number);
+      return this.pjShift === "1"
+        ? { a: new Date(y, m - 1, d, 7, 0), z: new Date(y, m - 1, d, 19, 30), ra: "Shift 1 (07:00–19:30)" }
+        : { a: new Date(y, m - 1, d, 19, 30), z: new Date(y, m - 1, d + 1, 7, 0), ra: "Shift 2 (19:30–07:00)" };
+    },
+    pjLabelWaktu(d) {
+      return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + " " + this.pjHHMM(d);
+    },
+    // Periksa jam+tanggal satu baris terhadap shift yang dipilih. Isi b.err (kosong = aman).
     pjCek(b) {
       b.err = "";
-      const s1 = this.pjShift === "1", ra = "Shift " + this.pjShift + (s1 ? " (07:00–19:30)" : " (19:30–07:00)");
+      const r = this.pjRentangShift();
+      let wa = null, wk = null;
       if (b.awal) {
-        const m = this.pjMenit(b.awal);
-        const ok = s1 ? (m >= 420 && m < 1170) : (m >= 1170 || m < 420);
-        if (!ok) { b.err = "Waktu Awal " + b.awal + " di luar jam " + ra + "."; return; }
+        wa = this.pjWaktu(b.awal, false, b.awalTgl);
+        if (wa < r.a || wa >= r.z) { b.err = "Waktu Awal " + this.pjLabelWaktu(wa) + " di luar " + r.ra + "."; return; }
       }
       if (b.akhir) {
-        const m = this.pjMenit(b.akhir);
-        const ok = s1 ? (m > 420 && m <= 1170) : (m > 1170 || m <= 420);
-        if (!ok) { b.err = "Waktu Akhir " + b.akhir + " di luar jam " + ra + "."; return; }
+        wk = this.pjWaktu(b.akhir, true, b.akhirTgl);
+        if (wk <= r.a || wk > r.z) { b.err = "Waktu Akhir " + this.pjLabelWaktu(wk) + " di luar " + r.ra + "."; return; }
       }
-      if (b.awal && b.akhir) {
-        const wa = this.pjWaktu(b.awal), wk = this.pjWaktu(b.akhir, true);
-        if (wk <= wa) b.err = "Waktu Akhir " + b.akhir + " harus setelah Waktu Awal " + b.awal + ".";
-        else if ((wk - wa) / 60000 > 12 * 60) b.err = "Rentang " + b.awal + "–" + b.akhir + " terlalu panjang (maks 12 jam).";
+      if (wa && wk) {
+        if (wk <= wa) b.err = "Waktu Akhir " + this.pjLabelWaktu(wk) + " harus setelah Waktu Awal " + this.pjLabelWaktu(wa) + ".";
+        else if ((wk - wa) / 60000 > 12 * 60) b.err = "Rentang " + this.pjLabelWaktu(wa) + " – " + this.pjLabelWaktu(wk) + " terlalu panjang (maks 12 jam).";
       }
     },
     pjGalat() {
@@ -4256,7 +4327,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // ---- jeda (gap) antar baris: tanyakan jenis non-produksi ----
     pjCariGap() {
       const isi = this.pjBaris.filter((b) => b.awal && b.akhir && (b.id || !this.pjKosong(b))).map((b) => {
-        const wa = this.pjWaktu(b.awal); const wk = this.pjWaktu(b.akhir, true); if (wk <= wa) return null;
+        const wa = this.pjWaktu(b.awal, false, b.awalTgl); const wk = this.pjWaktu(b.akhir, true, b.akhirTgl); if (wk <= wa) return null;
         return { wa, wk };
       }).filter(Boolean).sort((x, y) => x.wa - y.wa);
       const gaps = [];
@@ -4269,7 +4340,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
     pjOverlap() {
       const isi = this.pjBaris.map((b, i) => ({ b, i })).filter((x) => x.b.awal && x.b.akhir && (x.b.id || !this.pjKosong(x.b))).map((x) => {
-        const wa = this.pjWaktu(x.b.awal); const wk = this.pjWaktu(x.b.akhir, true); if (wk <= wa) return null;
+        const wa = this.pjWaktu(x.b.awal, false, x.b.awalTgl); const wk = this.pjWaktu(x.b.akhir, true, x.b.akhirTgl); if (wk <= wa) return null;
         return { i: x.i, wa, wk };
       }).filter(Boolean).sort((x, y) => x.wa - y.wa);
       for (let k = 1; k < isi.length; k++) if (isi[k].wa < isi[k - 1].wk) return "Baris " + (isi[k - 1].i + 1) + " dan " + (isi[k].i + 1) + " jamnya tumpang tindih.";
@@ -4288,7 +4359,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         if (!b.awal || !b.akhir) { this.flash(no + "Waktu Awal & Akhir wajib diisi.", true); return; }
         if (!b.part) { this.flash(no + (b.kat === "3" ? "jenis Non-Produksi" : "Part Number") + " belum dipilih.", true); return; }
         this.pjCek(b); if (b.err) { this.flash(no + b.err, true); return; }
-        const wa = this.pjWaktu(b.awal); const wk = this.pjWaktu(b.akhir, true);
+        const wa = this.pjWaktu(b.awal, false, b.awalTgl); const wk = this.pjWaktu(b.akhir, true, b.akhirTgl);
         const waI = wa.toISOString(), wkI = wk.toISOString();
         if (b.kat === "3") {
           const pl = { waktu_awal: waI, waktu_akhir: wkI, part_ke: b.part, keterangan: b.part };
