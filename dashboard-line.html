@@ -33,7 +33,7 @@
   .dl-wrap { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
   .dl-perf { flex: 1 1 auto; min-height: 560px; width: 100%; border: 0; background: transparent; display: block; }
   .dl-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
-  .dl-grid { flex: 1 1 auto; min-height: 760px; display: grid; grid-template-columns: 1fr .72fr 1fr; grid-template-rows: repeat(5, minmax(0, 1fr)); gap: 8px; }
+  .dl-grid { flex: 1 1 auto; min-height: 760px; display: grid; grid-template-columns: minmax(0, 25fr) minmax(0, 45fr) minmax(0, 30fr); grid-template-rows: minmax(0, 1fr); gap: 8px; }
   .dl-box { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px 4px; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
   .dl-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 2px; flex: 0 0 auto; }
   .dl-box-title { font-size: 0.6875rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
@@ -42,14 +42,16 @@
   .dl-pj-in { font: 700 0.6875rem inherit; font-family: inherit; padding: 1px 4px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: inherit; }
   .dl-pj-btn { font: 800 0.625rem inherit; font-family: inherit; padding: 2px 8px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; }
   .dl-pj-btn.on { background: #0f172a; color: #fff; border-color: #0f172a; }
-  .dl-kanan { grid-column: 3; grid-row: 1 / span 3; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-width: 0; min-height: 0; }
+  .dl-tengah { grid-column: 2; display: grid; grid-template-rows: minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr); gap: 8px; min-width: 0; min-height: 0; }
+  .dl-pjrow { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; min-width: 0; min-height: 0; }
+  .dl-kol5 { grid-column: 3; display: grid; grid-template-rows: repeat(5, minmax(0, 1fr)); gap: 8px; min-width: 0; min-height: 0; }
   .dl-pj-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; overflow: hidden; position: relative; }
   .dl-pj-kosong { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
   .dl-pj-panel { flex: 1 1 0; min-width: 0; display: flex; min-height: 0; }
   .dl-pj-judul { writing-mode: vertical-rl; transform: rotate(180deg); font: 700 0.8125rem Arial, sans-serif; letter-spacing: .04em; padding: 0 3px 0 4px; text-align: center; white-space: nowrap; }
   .dl-pj-kanvas { position: relative; flex: 1; min-width: 0; }
   .dl-chart { position: relative; flex: 1; min-height: 0; }
-  .dl-deki { grid-column: 2; grid-row: 1 / span 4; padding: 0; flex-direction: row; }
+  .dl-deki { grid-column: 1; padding: 0; flex-direction: row; }
   .dl-deki-tools { flex: 0 0 38px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 4px; border-left: 1px solid var(--border); background: rgba(128,128,128,.05); }
   .dl-tool { width: 30px; height: 30px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); font: inherit; font-size: 0.9375rem; font-weight: 700; line-height: 1; cursor: pointer; padding: 0; }
   .dl-tool:hover { border-color: #4f5fe0; color: #4f5fe0; }
@@ -61,8 +63,8 @@
   .dl-besar-box iframe { flex: 1 1 auto; min-width: 0; width: 100%; height: 100%; border: 0; background: transparent; display: block; }
   .dl-deki-muat { position: absolute; top: 50%; left: 0; right: 0; text-align: center; }
   .dl-deki iframe { flex: 1 1 auto; min-width: 0; width: 100%; height: 100%; border: 0; background: transparent; display: block; }
-  .dl-wide { grid-column: 2 / span 2; }
-  .dl-split { display: flex; flex-direction: column; gap: 8px; min-width: 0; min-height: 0; }
+  .dl-split { display: flex; flex-direction: row; gap: 8px; min-width: 0; min-height: 0; }
+  .dl-split > .dl-box { min-width: 0; }
   .dl-split-chart { flex: 1 1 0; }
   .dl-split-foto { flex: 1 1 0; }
   .dl-foto-tools .dl-pj-btn { font-family: inherit; font-size: 0.625rem; font-weight: 800; padding: 2px 8px; line-height: 1.3; }
@@ -90,30 +92,24 @@
   .dl-sheet th { color: #000; font-weight: 800; background: rgba(128,128,128,.08); font-size: 0.625rem; letter-spacing: 0; white-space: normal; padding: 4px 2px; }
   @media (max-width: 1100px) {
     .dl-main { height: auto; overflow: visible; }
-    .dl-grid { grid-template-columns: 1fr; grid-template-rows: none; grid-auto-rows: auto; min-height: 0; }
-    .dl-grid > * { grid-column: auto !important; grid-row: auto !important; min-width: 0; }
-    .dl-grid > .dl-box { height: 290px; }
+    .dl-grid { grid-template-columns: 1fr; grid-template-rows: none; min-height: 0; }
+    .dl-grid > * { grid-column: auto !important; min-width: 0; }
     .dl-grid > .dl-deki { order: 1; height: 430px; }
-    .dl-grid > .dl-kanan { order: 2; height: auto; grid-template-columns: 1fr; }
-    .dl-kanan > .dl-box { height: 570px; }
-    .dl-kanan > .dl-split { flex-direction: column; height: auto; }
-    .dl-kanan > .dl-split > .dl-box { height: 290px; flex: none; }
-    .dl-o3 { order: 3; } .dl-o4 { order: 4; } .dl-o5 { order: 5; } .dl-o6 { order: 6; } .dl-o7 { order: 7; }
-    .dl-o8 { order: 8; } .dl-o9 { order: 9; }
-    .dl-grid > .dl-o8, .dl-grid > .dl-o9 { height: 260px; }
+    .dl-grid > .dl-tengah { order: 2; grid-template-rows: none; grid-auto-rows: auto; }
+    .dl-grid > .dl-kol5 { order: 3; grid-template-rows: none; grid-auto-rows: 290px; }
+    .dl-pjrow { height: 300px; }
+    .dl-split { height: 290px; }
+    .dl-tengah > .dl-o8, .dl-tengah > .dl-o9 { height: 260px; }
     .dl-sheet { min-width: 600px; }
     .dl-top { flex-wrap: wrap; }
   }
   @media (min-width: 700px) and (max-width: 1100px) {
-    .dl-grid { grid-template-columns: 1fr 1fr; }
-    .dl-grid > .dl-deki, .dl-grid > .dl-kanan, .dl-grid > .dl-o7, .dl-grid > .dl-o8, .dl-grid > .dl-o9 { grid-column: 1 / -1 !important; }
     .dl-grid > .dl-deki { height: 600px; }
-    .dl-grid > .dl-kanan { grid-template-columns: 1fr 1fr; }
-    .dl-kanan > .dl-box { height: 600px; }
-    .dl-kanan > .dl-split > .dl-box { height: 296px; }
+    .dl-grid > .dl-kol5 { grid-template-columns: 1fr 1fr; }
+    .dl-kol5 > .dl-o7 { grid-column: 1 / -1; }
   }
   @media (max-width: 560px) {
-    .dl-kanan > .dl-box { height: 540px; }
+    .dl-pjrow { height: 260px; }
     .dl-title { font-size: 1.7rem; }
   }
 </style>
@@ -264,21 +260,24 @@
               <button type="button" class="dl-tool" title="Lihat versi besar" @click="bukaDekidaka()"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
             </div>
           </section>
-          <div class="dl-kanan">
-          <section class="dl-box">
-            <div class="dl-head">
-              <span class="dl-box-title">Grafik Perjam</span>
-            </div>
-            <div class="dl-pj-wrap">
-              <span class="dl-sub dl-pj-kosong" x-show="!perjamPanels.length" x-text="perjamMemuat ? 'Memuat…' : perjamPesan"></span>
-              <template x-for="(pn, i) in perjamPanels" :key="pn.part + '|' + perjamShift + '|' + i">
-                <div class="dl-pj-panel">
-                  <div class="dl-pj-judul" x-text="pn.part"></div>
-                  <div class="dl-pj-kanvas"><canvas :id="'dlPerjam' + i"></canvas></div>
+          <div class="dl-tengah">
+          <div class="dl-pjrow">
+            <section class="dl-box" x-show="!perjamPanels.length">
+              <div class="dl-head"><span class="dl-box-title">Grafik Perjam</span></div>
+              <div class="dl-pj-wrap"><span class="dl-sub dl-pj-kosong" x-text="perjamMemuat ? 'Memuat…' : perjamPesan"></span></div>
+            </section>
+            <template x-for="(pn, i) in perjamPanels" :key="pn.part + '|' + perjamShift + '|' + i">
+              <section class="dl-box">
+                <div class="dl-head"><span class="dl-box-title">Grafik Perjam</span></div>
+                <div class="dl-pj-wrap">
+                  <div class="dl-pj-panel">
+                    <div class="dl-pj-judul" x-text="pn.part"></div>
+                    <div class="dl-pj-kanvas"><canvas :id="'dlPerjam' + i"></canvas></div>
+                  </div>
                 </div>
-              </template>
-            </div>
-          </section>
+              </section>
+            </template>
+          </div>
           <div class="dl-split">
             <section class="dl-box dl-split-chart"><!-- Grafik Trend Volume dihapus: kolom dibiarkan kosong --></section>
             <section class="dl-box dl-split-foto">
@@ -300,44 +299,7 @@
               <span class="error-msg" x-show="fotoPesan" x-text="fotoPesan"></span>
             </section>
           </div>
-          </div>
-                    <section class="dl-box dl-o8" style="grid-column:3; grid-row:4;">
-            <div class="dl-head"><span class="dl-box-title">Problem Terbanyak</span><span class="dl-sub" x-text="BULAN_LABELS[bulan - 1] + ' ' + tahun + ' — urut paling sering'"></span></div>
-            <div class="dl-sheet-wrap">
-              <table class="dl-sheet">
-                <thead><tr><th style="width:6%">No</th><th style="width:22%">Problem</th><th style="width:23%">Penyebab Utama</th><th style="width:8%">Kali</th><th style="width:9%">Menit</th><th style="width:32%">Penanganan Terakhir</th></tr></thead>
-                <tbody>
-                  <template x-for="(r, i) in topRows" :key="r.problem">
-                    <tr :class="i === 0 ? 'dl-top1' : ''"><td x-text="i + 1"></td><td class="dl-kiri" :title="r.problem" x-text="r.problem"></td><td class="dl-kiri dl-klik" :title="'Klik: lihat semua penyebab'" @click="bukaDetail(r, 'sebab')" x-text="r.sebab || '-'"></td><td x-text="r.kali"></td><td class="dl-klik" :title="'Klik: lihat menit tiap kejadian'" @click="bukaDetail(r, 'menit')" x-text="r.menit"></td><td class="dl-kiri dl-klik" :title="'Klik: lihat semua penanganan'" @click="bukaDetail(r, 'tindak')" x-text="r.tindak || '-'"></td></tr>
-                  </template>
-                  <template x-for="k in Math.max(0, 5 - topRows.length)" :key="'tk' + k">
-                    <tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>
-                  </template>
-                </tbody>
-              </table>
-            </div>
-          </section>
-<section class="dl-box dl-o3" style="grid-column:1; grid-row:1;">
-            <div class="dl-head"><span class="dl-box-title">Grafik Availability</span><span class="dl-sub" x-text="'Rata-rata ' + fmtNum(rataAvail) + '%'"></span></div>
-            <div class="dl-chart"><canvas id="dlAvailability"></canvas></div>
-          </section>
-          <section class="dl-box dl-o4" style="grid-column:1; grid-row:2;">
-            <div class="dl-head"><span class="dl-box-title">Downtime Harian</span><span class="dl-sub" x-text="'Total ' + fmtNum(totalDowntime) + ' menit'"></span></div>
-            <div class="dl-chart"><canvas id="dlDowntime"></canvas></div>
-          </section>
-          <section class="dl-box dl-o5" style="grid-column:1; grid-row:3;">
-            <div class="dl-head"><span class="dl-box-title">Grafik NG Inline</span></div>
-            <div class="dl-chart"><canvas id="dlNgInline"></canvas></div>
-          </section>
-          <section class="dl-box dl-o6" style="grid-column:1; grid-row:4;">
-            <div class="dl-head"><span class="dl-box-title">Grafik NG Trial</span></div>
-            <div class="dl-chart"><canvas id="dlNgTrial"></canvas></div>
-          </section>
-          <section class="dl-box dl-o7" style="grid-column:1; grid-row:5;">
-            <div class="dl-head"><span class="dl-box-title">Grafik Straightpass</span></div>
-            <div class="dl-chart"><canvas id="dlStraightpass"></canvas></div>
-          </section>
-          <section class="dl-box dl-o9 dl-wide" style="grid-row:5;">
+          <section class="dl-box dl-o9">
             <div class="dl-head"><span class="dl-box-title">Problem Followup Sheets</span></div>
             <div class="dl-sheet-wrap">
             <table class="dl-sheet">
@@ -353,6 +315,46 @@
             </table>
             </div>
           </section>
+          <section class="dl-box dl-o8">
+            <div class="dl-head"><span class="dl-box-title">Problem Terbanyak</span><span class="dl-sub" x-text="BULAN_LABELS[bulan - 1] + ' ' + tahun + ' — urut paling sering'"></span></div>
+            <div class="dl-sheet-wrap">
+              <table class="dl-sheet">
+                <thead><tr><th style="width:6%">No</th><th style="width:22%">Problem</th><th style="width:23%">Penyebab Utama</th><th style="width:8%">Kali</th><th style="width:9%">Menit</th><th style="width:32%">Penanganan Terakhir</th></tr></thead>
+                <tbody>
+                  <template x-for="(r, i) in topRows" :key="r.problem">
+                    <tr :class="i === 0 ? 'dl-top1' : ''"><td x-text="i + 1"></td><td class="dl-kiri" :title="r.problem" x-text="r.problem"></td><td class="dl-kiri dl-klik" :title="'Klik: lihat semua penyebab'" @click="bukaDetail(r, 'sebab')" x-text="r.sebab || '-'"></td><td x-text="r.kali"></td><td class="dl-klik" :title="'Klik: lihat menit tiap kejadian'" @click="bukaDetail(r, 'menit')" x-text="r.menit"></td><td class="dl-kiri dl-klik" :title="'Klik: lihat semua penanganan'" @click="bukaDetail(r, 'tindak')" x-text="r.tindak || '-'"></td></tr>
+                  </template>
+                  <template x-for="k in Math.max(0, 5 - topRows.length)" :key="'tk' + k">
+                    <tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </section>
+          </div>
+          <div class="dl-kol5">
+          <section class="dl-box dl-o3">
+            <div class="dl-head"><span class="dl-box-title">Grafik Availability</span><span class="dl-sub" x-text="'Rata-rata ' + fmtNum(rataAvail) + '%'"></span></div>
+            <div class="dl-chart"><canvas id="dlAvailability"></canvas></div>
+          </section>
+          <section class="dl-box dl-o4">
+            <div class="dl-head"><span class="dl-box-title">Downtime Harian</span><span class="dl-sub" x-text="'Total ' + fmtNum(totalDowntime) + ' menit'"></span></div>
+            <div class="dl-chart"><canvas id="dlDowntime"></canvas></div>
+          </section>
+          <section class="dl-box dl-o5">
+            <div class="dl-head"><span class="dl-box-title">Grafik NG Inline</span></div>
+            <div class="dl-chart"><canvas id="dlNgInline"></canvas></div>
+          </section>
+          <section class="dl-box dl-o6">
+            <div class="dl-head"><span class="dl-box-title">Grafik NG Trial</span></div>
+            <div class="dl-chart"><canvas id="dlNgTrial"></canvas></div>
+          </section>
+          <section class="dl-box dl-o7">
+            <div class="dl-head"><span class="dl-box-title">Grafik Straightpass</span></div>
+            <div class="dl-chart"><canvas id="dlStraightpass"></canvas></div>
+          </section>
+          </div>
+
         </div>
       </div>
       </div>
