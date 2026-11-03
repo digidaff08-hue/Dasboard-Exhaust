@@ -18,7 +18,7 @@
   const COL = { productivity: "#0EA5E9", availability: "#10B981", downtime: "#F97316", ngInline: "#F43F5E", money: "#1D4ED8", straight: "#14B8A6", perjam: "#6366F1", trend: "#2563EB" };
 
   // Naikkan setiap kali file Dekidaka (machine-page.js, style.css, dekidaka-line.html) berubah.
-  const DEKI_VER = "20261103c";
+  const DEKI_VER = "20261103e";
 
   const mgCache = {};   // hasil Trend Volume per line|tahun|bulan -> tidak hitung ulang saat pindah line (berlaku 10 menit)
   const pad2 = (n) => String(n).padStart(2, "0");
@@ -163,6 +163,11 @@
       perjamManual: false,     // true kalau user memilih sendiri tanggal/shift -> jangan di-otomatis
       perjamPanels: [],
       perjamChips: [],
+      repair3dTotal: null,     // {qty, titik} dikirim kotak 3D
+      repairSinkron() {
+        const fr = document.querySelector(".dl-r3d");
+        if (fr && fr.contentWindow && this.perjamTgl) { try { fr.contentWindow.postMessage({ repairSet: { tanggal: this.perjamTgl } }, "*"); } catch (e) {} }
+      },
       perjamPilih: [],         // pilihan manual (maks 2 kode part); kosong = otomatis
       pilihPerjam(kd) {
         const aktif = this.perjamChips.filter((c) => c.aktif).map((c) => c.kode);
@@ -190,6 +195,7 @@
       // (iframe mengirim data per blok lewat pesan "dekidakaData"), dikelompokkan per part (PERJAM_CFG).
       async muatPerjam() {
         if (!this.bolehLihat() || typeof Chart === "undefined") return;
+        this.repairSinkron();
         this.dekiSinkron();           // minta papan Dekidaka ikut tanggal & shift ini -> papan mengirim data baru
         this.bangunPerjam();
         this.muatProblem();
@@ -654,6 +660,8 @@
           const d = e.data || {};
           const frBesar = document.querySelector(".dl-besar iframe");
           const dariBesar = !!(frBesar && frBesar.contentWindow === e.source);
+          if (d.repairSiap) this.repairSinkron();
+          if (d.repairTotal) this.repair3dTotal = d.repairTotal;
           if (d.dekidakaSiap) { if (dariBesar) { this.dekiBesarSiap = true; this.dekiSinkron(frBesar); } else { this.dekiSiap = true; this.dekiSinkron(document.querySelector(".dl-deki iframe")); if (!this.mingguHasil) this.mintaMingguan(); } }
           if (d.dekidakaZoom) { if (dariBesar) this.dekiZoomBesar = d.dekidakaZoom; else this.dekiZoom = d.dekidakaZoom; }
           if (d.dekidakaBuild) {

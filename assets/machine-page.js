@@ -411,7 +411,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261103c";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261103e";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:45", "20:30"] },
@@ -885,6 +885,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     repairChainAnchors: [],   // posisi tap-nya saja (buat bola penanda)
     repairChainSegs: [],      // panjang tiap segmen, buat Undo per segmen
     repairShowAreas: false, repairAreaSize: 0.02, repairDraftPoints: [],
+    // Dashboard Line (solo3d): jumlah Repair per titik/area pada 1 tanggal -> area menyala + angka di model.
+    repairHeat: {}, repairHeatTgl: "", repairHariRows: [], repairKartu: null, repairPic: {},
     repairEditMode: false, repairDrawShape: "freehand", repairSnapMode: false, repairNewViewLabel: "", repairNewViewFile: null, repairViewUploading: false,
     repairNewViewColor: "#9aa4ad",
     // Point yang lagi dipilih buat di-edit (Geser/Ukuran/Edit Titik), dan
@@ -1029,6 +1031,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           if (wantTab === "repair" && new URLSearchParams(location.search).get("solo3d") === "1") {
             document.documentElement.classList.add("repair-solo");
             this.tab = "repair";
+            this.repairSoloMulai();
           }
           // ?dekidaka=1 -> dipakai halaman Dashboard Line: papan Dekidaka
           // langsung terbuka, halaman line di belakangnya disembunyikan, dan
@@ -1067,7 +1070,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         downtime_log: () => this.fetchDowntime(),
         dandori_log: () => this.fetchNonProduksi(),
         ng_inline_log: () => this.fetchNgInline(),
-        repair_log: () => this.fetchRepairLog(),
+        repair_log: () => { this.muatRepairHeat(); return this.fetchRepairLog(); },
         repair_views: () => this.fetchRepairViews(),
       };
       // Lewat RealtimeHub (assets/realtime.js): bisa Supabase Realtime atau
@@ -4988,6 +4991,59 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
 
     // ================= REPAIR (klik titik di gambar -> popup) =================
+    // Dashboard Line: tanggal dikirim induk lewat postMessage {repairSet:{tanggal}}.
+    repairSoloMulai() {
+      window.addEventListener("message", (e) => {
+        const st = e.data && e.data.repairSet;
+        if (!st || !st.tanggal) return;
+        this.repairHeatTgl = st.tanggal;
+        this.muatRepairHeat();
+      });
+      try { window.parent.postMessage({ repairSiap: true }, "*"); } catch (e) {}
+    },
+    // Jumlah Repair per titik (point_id) pada tanggal terpilih, lalu gambar ulang area di model.
+    async muatRepairHeat() {
+      const tgl = this.repairHeatTgl;
+      if (!tgl) return;
+      const tok = (this._rhTok = (this._rhTok || 0) + 1);
+      try {
+        const { data, error } = await supabaseClient.from("repair_log").select("id,point_id,point_label,jam,part_number,qty,kategori_repair,created_by").eq("mesin", machineKey).eq("tanggal", tgl).order("jam").limit(5000);
+        if (error) throw error;
+        if (tok !== this._rhTok) return;
+        const heat = {}; let total = 0;
+        (data || []).forEach((r) => { const q = Number(r.qty) || 0; total += q; if (r.point_id && q > 0) heat[r.point_id] = (heat[r.point_id] || 0) + q; });
+        this.repairHariRows = data || [];
+        this.repairHeat = heat;
+        this.muatRepairPic(data || []);
+        try { window.parent.postMessage({ repairTotal: { tanggal: tgl, qty: total, titik: Object.keys(heat).length } }, "*"); } catch (e) {}
+        if (this.repairKartu) this.bukaKartuRepair(this.repairKartu.pointId, true);
+        if (repairThreeState) this.rebuildRepairMarkers();
+      } catch (e) { console.error("Gagal memuat titik Repair:", e); }
+    },
+    // Nama PIC (pengisi Repair) dari profiles; kalau tidak bisa dibaca, kartu tampil tanpa PIC.
+    async muatRepairPic(rows) {
+      try {
+        const ids = [...new Set(rows.map((r) => r.created_by).filter((x) => x && !this.repairPic[x]))];
+        if (!ids.length) return;
+        const { data } = await supabaseClient.from("profiles").select("id,full_name").in("id", ids);
+        (data || []).forEach((u) => { this.repairPic[u.id] = u.full_name || ""; });
+        if (this.repairKartu) this.bukaKartuRepair(this.repairKartu.pointId, true);
+      } catch (e) { /* PIC tidak wajib */ }
+    },
+    // Ketuk titik di model (Dashboard Line) -> kartu isi semua catatan Repair di titik itu pada tanggal terpilih.
+    bukaKartuRepair(pointId, perbarui) {
+      const rows = (this.repairHariRows || []).filter((r) => r.point_id === pointId);
+      if (!rows.length) { this.repairKartu = null; return; }
+      const pt = (this.repairPoints || []).find((x) => x.id === pointId);
+      this.repairKartu = {
+        pointId,
+        judul: "Titik " + ((pt && pt.label) || rows[0].point_label || "-"),
+        tanggal: this.repairHeatTgl,
+        rows: rows.map((r) => ({ id: r.id, jam: String(r.jam || "").slice(0, 5), kategori: r.kategori_repair || "-", qty: Number(r.qty) || 0, part: String(r.part_number || "-").split("-").slice(1).join("-") || r.part_number || "-", pic: this.repairPic[r.created_by] || "" })),
+        total: rows.reduce((t, r) => t + (Number(r.qty) || 0), 0),
+      };
+    },
+    tutupKartuRepair() { this.repairKartu = null; },
     async fetchRepairViews() {
       const { data, error } = await supabaseClient.from("repair_views").select("*").eq("mesin", machineKey).order("sort_order");
       if (error) { this.flash("Gagal memuat gambar Repair: " + error.message, true); return; }
@@ -6593,6 +6649,9 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // Dipisah supaya garisnya bisa dibikin tipis & samar tanpa membuat
       // areanya jadi susah disentuh.
       const bidang = pt.path && pt.path.mode === "bidang";
+      // Ada Repair di area ini pada tanggal terpilih (Dashboard Line) -> menyala sesuai jumlahnya.
+      const qtyPanas = Number((this.repairHeat || {})[pt.id]) || 0;
+      const warnaPanas = 0xDC2626;   // titik yang pernah disentuh: merah terang
       const buat = (radius, opacity, hanyaSentuh) => {
         let geo;
         if (bidang) {
@@ -6611,7 +6670,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           // Merah tua (#B91C1C) untuk semua bentuk area -- garis las maupun
           // bidang. Sebelumnya pakai merah terang (#EF4444) yang di bidang
           // lebar terlihat lebih muda daripada di garis tipis.
-          color: terpilih ? 0x16A34A : 0xB91C1C,
+          color: terpilih ? 0x16A34A : (qtyPanas > 0 && !hanyaSentuh ? warnaPanas : 0xB91C1C),
           transparent: true, opacity, depthWrite: false,
         });
         const obj = new THREE.Mesh(geo, mat);
@@ -6626,11 +6685,11 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (bidang) {
         // Bidang: cukup satu lapis. Bentuknya sudah seluas permukaan,
         // jadi tidak perlu lapis sentuh terpisah seperti garis las.
-        buat(tebal, terpilih ? 0.55 : (this.repairShowAreas ? 0.24 : 0), false);
+        buat(tebal, terpilih ? 0.55 : (qtyPanas > 0 ? 0.85 : (this.repairShowAreas ? 0.24 : 0)), false);
       } else {
         buat(tebal, 0, true);                     // lapis sentuh (tak terlihat)
-        buat(tebal * 0.5,                         // lapis tampilan (tipis)
-             terpilih ? 0.55 : (this.repairShowAreas ? 0.24 : 0),
+        buat(tebal * (qtyPanas > 0 ? 1.5 : 0.5), // lapis tampilan (tipis; tebal kalau ada Repair)
+             terpilih ? 0.55 : (qtyPanas > 0 ? 0.85 : (this.repairShowAreas ? 0.24 : 0)),
              false);
       }
     },
@@ -7349,6 +7408,11 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // Nambah Point baru sekarang HARUS lewat drag-menyusuri (lihat
       // startRepairDraw dkk), bukan lagi dari klik tunggal di permukaan kosong.
       const hit = this.raycastRepairMarkers(ev, container);
+      if (document.documentElement.classList.contains("repair-solo")) {
+        // Dashboard Line: ketuk titik bertanda -> kartu isinya; ketuk tempat lain -> tutup.
+        if (hit && hit.object.userData && hit.object.userData.pointId) this.bukaKartuRepair(hit.object.userData.pointId); else this.repairKartu = null;
+        return;
+      }
       if (!hit || !hit.object.userData || !hit.object.userData.pointId) return;
       const point = this.repairPoints.find((p) => p.id === hit.object.userData.pointId);
       if (!point) return;
