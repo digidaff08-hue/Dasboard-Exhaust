@@ -487,7 +487,7 @@
             </div>
           </template>
 
-          <div id="pj-form" x-show="pjOpen" x-cloak x-effect="productionRows; nonProduksiRows; if (pjOpen && !pjDirty) $nextTick(() => { if (pjOpen && !pjDirty) pjMuat() })" x-init="$watch('nowTick', () => pjAutoCek())" class="pj-wrap">
+          <div id="pj-form" x-show="pjOpen" x-cloak x-effect="productionRows; nonProduksiRows; if (pjOpen && !pjDirty && !pjSibuk) $nextTick(() => { if (pjOpen && !pjDirty && !pjSibuk) pjMuat() })" x-init="$watch('nowTick', () => pjAutoCek())" class="pj-wrap">
           <div class="panel">
             <p class="panel-title">Input Produksi Per Jam <button type="button" class="btn-ghost btn-sm" style="float:right" @click="pjTutup()">Tutup</button></p>
             <div class="pj-bar">
@@ -512,11 +512,11 @@
                       <td><button type="button" class="pj-btn" @click="pjBukaPick(i,'awal',$event)" x-html="pjTampilHtml(b.awal, false, b.awalTgl) || ''"></button></td>
                       <td><button type="button" class="pj-btn" @click="pjBukaPick(i,'akhir',$event)" x-html="pjTampilHtml(b.akhir, true, b.akhirTgl) || ''"></button></td>
                       <td><button type="button" class="pj-btn pj-btn-kat" @click="pjBukaKat(i,$event)" x-html="b.kat ? '<b>' + b.kat + '</b>' : ''"></button></td>
-                      <td><button type="button" class="pj-btn pj-btn-part" @click="pjBukaPart(i,$event)" :title="b.part" x-html="b.part ? '<span class=\'pj-part-t\'></span>' : ''" x-effect="b.part; $nextTick(() => { const e = $el.querySelector('.pj-part-t'); if (e) e.textContent = b.part })"></button></td>
-                      <td><input type="text" inputmode="numeric" :disabled="b.kat === '3'" x-model="b.qty" @input="pjAngka(b,'qty')"></td>
-                      <td class="pj-sep"><input type="text" inputmode="numeric" :disabled="b.kat === '3'" x-model="b.repair" @input="pjAngka(b,'repair')"></td>
-                      <td><input type="text" inputmode="numeric" :disabled="b.kat === '3'" x-model="b.dandori" @input="pjAngka(b,'dandori')"></td>
-                      <td class="pj-ro" :title="'Terisi otomatis dari tab Downtime'" x-text="b.downtime || ''"></td>
+                      <td><button type="button" class="pj-btn pj-btn-part" @click="pjBukaPart(i,$event)" :title="b.part" x-text="b.part"></button></td>
+                      <td><input type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" :disabled="b.kat === '3'" x-model="b.qty" @input="pjAngka(b,'qty')"></td>
+                      <td class="pj-sep"><input type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" :disabled="b.kat === '3'" x-model="b.repair" @input="pjAngka(b,'repair')"></td>
+                      <td><input type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" :disabled="b.kat === '3'" x-model="b.dandori" @input="pjAngka(b,'dandori')"></td>
+                      <td class="pj-ro" @click="document.activeElement && document.activeElement.blur()" :title="'Terisi otomatis dari tab Downtime'" x-text="b.downtime || ''"></td>
                     </tr>
                   </template>
                 </tbody>
@@ -604,7 +604,7 @@
             </template>
             <template x-if="pjPick && pjPick.tipe === 'part'">
               <div>
-                <input type="text" class="pj-cari" placeholder="Cari…" x-model="pjQ" x-init="$nextTick(() => $el.focus())">
+                <input type="text" class="pj-cari" placeholder="Cari…" x-model="pjQ">
                 <div class="pj-daftar">
                   <template x-for="v in pjPartHasil()" :key="v"><button type="button" class="pj-opsi pj-opsi-part" :class="v === pjBaris[pjPick.i].part ? 'on' : ''" @click="pjPilihPart(v)" x-text="v"></button></template>
                   <p class="pj-habis" x-show="!pjPartHasil().length">Tidak ada pilihan.</p>
