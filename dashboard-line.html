@@ -50,6 +50,11 @@
   .dl-head-tengah { justify-content: center !important; text-align: center; }
   .dl-pj-baris { flex-direction: row; gap: 10px; }
   .dl-pj-panel { flex: 1 1 0; min-width: 0; display: flex; min-height: 0; }
+  .dl-pj-chips { display:flex; flex-wrap:wrap; justify-content:center; gap:4px; padding:0 4px 4px; }
+  .dl-pj-chip { font: 800 0.625rem inherit; font-family: inherit; padding: 1px 8px; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; line-height: 1.4; }
+  .dl-pj-chip.kosong { opacity: .55; }
+  .dl-pj-chip.on { background: #16a34a; color: #fff; border-color: #16a34a; opacity: 1; }
+  .dl-pj-chip.oto { border-style: dashed; color: #0f172a; }
   .dl-pj-judul { writing-mode: vertical-rl; transform: rotate(180deg); font: 700 0.8125rem Arial, sans-serif; letter-spacing: .04em; padding: 0 3px 0 4px; text-align: center; white-space: nowrap; }
   .dl-pj-kanvas { position: relative; flex: 1; min-width: 0; }
   .dl-chart { position: relative; flex: 1; min-height: 0; }
@@ -268,6 +273,12 @@
           <div class="dl-pjrow">
             <section class="dl-box">
               <div class="dl-head dl-head-tengah"><span class="dl-box-title">Grafik Perjam</span></div>
+              <div class="dl-pj-chips" x-show="perjamChips.length">
+                <template x-for="c in perjamChips" :key="c.kode">
+                  <button type="button" class="dl-pj-chip" :class="{on: c.aktif, kosong: !c.ada}" @click="pilihPerjam(c.kode)" x-text="c.kode"></button>
+                </template>
+                <button type="button" class="dl-pj-chip oto" x-show="perjamPilih.length" @click="perjamOtomatis()">Otomatis</button>
+              </div>
               <div class="dl-pj-wrap dl-pj-baris">
                 <span class="dl-sub dl-pj-kosong" x-show="!perjamPanels.length" x-text="perjamMemuat ? 'Memuat…' : perjamPesan"></span>
                 <template x-for="(pn, i) in perjamPanels" :key="pn.part + '|' + perjamShift + '|' + i">
