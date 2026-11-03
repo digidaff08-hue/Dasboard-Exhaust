@@ -411,7 +411,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261103f";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261103g";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:45", "20:30"] },
@@ -6715,6 +6715,30 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
              terpilih ? 0.55 : (qtyPanas > 0 ? 0.85 : (this.repairShowAreas ? 0.24 : 0)),
              false);
       }
+      if (qtyPanas > 0) this.buildRepairPin(THREE, r, pt, titik, maxDim);
+    },
+    // Tanda titik yang ada Repair (Dashboard Line): bulatan merah kecil bertepi putih di tengah area.
+    // Ukurannya tetap di layar & selalu terlihat (tembus badan model), supaya tidak terlewat di sisi belakang.
+    buildRepairPin(THREE, r, pt, titik, maxDim) {
+      try {
+        const arr = titik && titik.length ? titik : [{ x: pt.x || 0, y: pt.y || 0, z: pt.z || 0 }];
+        const n = arr.length;
+        const pusat = arr.reduce((a, t) => ({ x: a.x + t.x / n, y: a.y + t.y / n, z: a.z + t.z / n }), { x: 0, y: 0, z: 0 });
+        const cl = r.centerLocal || { x: 0, y: 0, z: 0 };
+        const arah = new THREE.Vector3(pusat.x - cl.x, pusat.y - cl.y, pusat.z - cl.z);
+        if (arah.lengthSq() < 1e-8) arah.set(0, 0, 1); else arah.normalize();
+        const c = document.createElement("canvas"); c.width = c.height = 64;
+        const g = c.getContext("2d");
+        g.beginPath(); g.arc(32, 32, 28, 0, Math.PI * 2); g.fillStyle = "#ffffff"; g.fill();
+        g.beginPath(); g.arc(32, 32, 20, 0, Math.PI * 2); g.fillStyle = "#dc2626"; g.fill();
+        const mat = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, depthWrite: false, transparent: true, sizeAttenuation: false });
+        const sp = new THREE.Sprite(mat);
+        sp.scale.set(0.07, 0.07, 1);
+        sp.position.set(pusat.x + arah.x * maxDim * 0.02, pusat.y + arah.y * maxDim * 0.02, pusat.z + arah.z * maxDim * 0.02);
+        sp.renderOrder = 1001;
+        sp.userData.pointId = pt.id;
+        r.mesh.add(sp); r.markers.push(sp);
+      } catch (e) { console.error("Tanda titik Repair gagal:", e); }
     },
 
     // Pratinjau jalur yang sedang dibuat (tap-tap belum disimpan) --
