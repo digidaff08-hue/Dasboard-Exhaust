@@ -4073,7 +4073,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // lalu menit Dandori/Stockout/Forklift-Crane/Die Jig/Mesin Rusak).
     //   Kat. 0 -> production_log (Part Number)      Kat. 3 -> dandori_log (Non-Produksi)
     PJ_JUMLAH_BARIS: 15,
-    pjOpen: false, pjTgl: "", pjShift: "1", pjStasiun: "", pjSaving: false, pjBaris: [], pjDirty: false, pjEdit: false, pjStatus: "",
+    pjOpen: false, pjTgl: "", pjShift: "1", pjStasiun: "", pjSaving: false, pjBaris: [], pjDirty: false, pjEdit: false, pjStatus: "", pjSibuk: 0,
     pjSorotId: null, pjGap: [], pjGapOk: false, pjPlanId: null, pjAuto: false,
     pjInit() {
       if (!this.pjTgl) this.pjTgl = this.hariProduksiSekarang();
@@ -4162,16 +4162,18 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       return { top, left };
     },
     pjBukaPick(i, k, ev) {
+      if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
       const b = this.pjBaris[i];
       let jam = b[k];
       if (!jam) jam = (k === "awal" && i > 0 && this.pjBaris[i - 1].akhir) ? this.pjBaris[i - 1].akhir : this.pjHHMM(new Date());
       this.pjQ = "";
       this.pjPick = { tipe: "jam", i, k, h: jam.split(":")[0], m: jam.split(":")[1], tgl: b[k + "Tgl"] || "", manual: !!b[k + "Tgl"], ...this.pjPosisi(ev, 300, 420) };
     },
-    pjBukaKat(i, ev) { this.pjQ = ""; this.pjPick = { tipe: "kat", i, ...this.pjPosisi(ev, 240, 190) }; },
+    pjBukaKat(i, ev) { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); this.pjQ = ""; this.pjPick = { tipe: "kat", i, ...this.pjPosisi(ev, 240, 190) }; },
     pjBukaPart(i, ev) {
       const b = this.pjBaris[i];
       if (!b.kat) { this.flash("Isi Kategori kerja dulu (0 = part number, 3 = non produksi).", true); return; }
+      if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
       this.pjQ = ""; this.pjPick = { tipe: "part", i, ...this.pjPosisi(ev, 300, 360) };
     },
     pjPartHasil() {
@@ -4516,7 +4518,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (b.id && non !== (b.tabel === "dandori_log")) { b.err = "Kategori baris yang sudah tersimpan tidak bisa diganti."; this.pjStatus = "Belum tersimpan — " + b.err; return; }
       const num = (v) => (v === "" || v === null || v === undefined ? null : Number(v));
       const wa = this.pjWaktu(b.awal, false, b.awalTgl).toISOString(), wk = this.pjWaktu(b.akhir, true, b.akhirTgl).toISOString();
-      const ver = b.v; b.saving = true; this.pjStatus = "Menyimpan..."; let ok = false;
+      const ver = b.v; b.saving = true; this.pjSibuk++; this.pjStatus = "Menyimpan..."; let ok = false;
       try {
         if (non) {
           const pl = { waktu_awal: wa, waktu_akhir: wk, part_ke: b.part, keterangan: b.part };
@@ -4552,13 +4554,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           this.pjStatus = "Tidak ada jaringan — belum tersimpan. Sambungkan internet lalu ubah/ketuk baris lagi.";
         } else { this.pjStatus = "Gagal menyimpan: " + (err.message || err); this.flash(this.pjStatus, true); }
       } finally { b.saving = false; }
-      if (!ok) return;
-      if (b.v !== ver) { return this.pjSimpanBaris(b); } // ada perubahan saat menyimpan: simpan lagi (update baris yang sama)
+      if (!ok) { this.pjSibuk--; return; }
+      if (b.v !== ver) { this.pjSibuk--; return this.pjSimpanBaris(b); } // ada perubahan saat menyimpan: simpan lagi (update baris yang sama)
       b.ubah = false;
       this.pjDirty = this.pjBaris.some((x) => x.ubah);
       this.pjStatus = this.pjDirty ? "Baris ini tersimpan — ada baris lain yang belum lengkap." : "✓ Tersimpan otomatis";
-      await Promise.all([this.fetchProduction(), this.fetchNonProduksi(), this.fetchPlanning()]);
-      this.refreshLoadedPerf();
+      try { await Promise.all([this.fetchProduction(), this.fetchNonProduksi(), this.fetchPlanning()]); this.refreshLoadedPerf(); }
+      finally { this.pjSibuk--; } // baru sekarang form boleh dimuat ulang (semua data sudah lengkap)
     },
     async pjTutup() {
       const tm = window.__pjT || {};

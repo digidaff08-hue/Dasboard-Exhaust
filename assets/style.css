@@ -4456,3 +4456,4 @@ html[data-ukuran="besar"] { font-size: 17.6px; }
   .pj-tbl th{font-size:7.5px;letter-spacing:-.3px}
   .pj-c-jam{width:14%}.pj-c-kat{width:9%}.pj-c-n{width:9%}.pj-c-m{width:13%}
 }
+.pj-btn-part{word-break:break-all}
