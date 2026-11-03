@@ -50,7 +50,11 @@
   .dl-head-tengah { justify-content: center !important; text-align: center; }
   .dl-pj-baris { flex-direction: row; gap: 10px; }
   .dl-pj-panel { flex: 1 1 0; min-width: 0; display: flex; min-height: 0; }
-  .dl-repair3d .dl-head { flex-wrap: wrap; row-gap: 0; }
+  .dl-repair3d .dl-head { position: relative; padding-left: 30px; padding-right: 30px; }
+  .dl-r3d-besar-btn { position: absolute; right: 4px; padding: 1px 6px; line-height: 1.3; top: 50%; transform: translateY(-50%); background: var(--panel); }
+  .dl-r3d-modal { position: fixed; inset: 0; z-index: 3000; background: rgba(15,23,42,.72); display: flex; align-items: center; justify-content: center; padding: 14px; }
+  .dl-r3d-modal-box { position: relative; background: #fff; border-radius: 12px; overflow: hidden; width: 100%; height: 100%; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  .dl-r3d-modal-box iframe { width: 100%; height: 100%; border: 0; display: block; background: transparent; }
   .dl-pj-chips { display:flex; flex-wrap:wrap; justify-content:center; gap:4px; padding:0 4px 4px; }
   .dl-pj-chip { font: 800 0.625rem inherit; font-family: inherit; padding: 1px 8px; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; line-height: 1.4; }
   .dl-pj-chip.kosong { opacity: .55; }
@@ -232,6 +236,13 @@
         <iframe class="dl-perf" x-show="tampil === m" x-cloak :src="perfSrc[m] || 'about:blank'" title="Performance"></iframe>
       </template>
       <div class="dl-body" x-show="tampil === 'dashboard'">
+        <!-- Model 3D versi besar -->
+        <div class="dl-r3d-modal" x-show="r3dBesar" x-cloak @click.self="r3dBesar = false">
+          <div class="dl-r3d-modal-box">
+            <template x-if="r3dBesar"><iframe class="dl-r3d-big" :src="repair3dUrl" title="Model 3D Repair (besar)"></iframe></template>
+            <button type="button" class="dl-tool dl-foto-tutup" title="Tutup (Esc)" @click="r3dBesar = false">&#10005;</button>
+          </div>
+        </div>
         <!-- Dekidaka versi besar (layar penuh) -->
         <div class="dl-besar" x-show="dekiBuka" x-cloak @click.self="tutupDekidaka()">
           <div class="dl-besar-box">
@@ -293,7 +304,7 @@
           </div>
           <div class="dl-split">
             <section class="dl-box dl-split-chart dl-repair3d">
-              <div class="dl-head dl-head-tengah"><span class="dl-box-title">Titik Point NG Inline dan Repair</span></div>
+              <div class="dl-head dl-head-tengah"><span class="dl-box-title">Titik Point NG Inline dan Repair</span><button type="button" class="dl-pj-btn dl-r3d-besar-btn" title="Lihat layar besar" @click="r3dBesar = true">&#128065;</button></div>
               <iframe class="dl-r3d" :src="tampil === 'dashboard' ? repair3dUrl : 'about:blank'" title="Model 3D Repair"></iframe>
             </section>
             <section class="dl-box dl-split-foto">
