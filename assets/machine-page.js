@@ -1025,6 +1025,11 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
             document.documentElement.classList.add("perf-tanpa-chip");
           }
           if (wantTab === "performance") this.openPerformanceTab();
+          // ?tab=repair&solo3d=1 -> dipakai Dashboard Line: HANYA model 3D (tanpa tombol edit, tanpa input Repair).
+          if (wantTab === "repair" && new URLSearchParams(location.search).get("solo3d") === "1") {
+            document.documentElement.classList.add("repair-solo");
+            this.tab = "repair";
+          }
           // ?dekidaka=1 -> dipakai halaman Dashboard Line: papan Dekidaka
           // langsung terbuka, halaman line di belakangnya disembunyikan, dan
           // tombol Tutup memberi tahu halaman induk (postMessage).
@@ -5060,6 +5065,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
 
     openRepairPoint(point) {
       if (this.repairEditMode) return; // di mode edit, klik ditangani handleRepair3DClick (lihat viewer 3D)
+      if (document.documentElement.classList.contains("repair-solo")) return; // tampilan Dashboard Line: hanya lihat
       this.editingRepairId = null;
       this.repairModalPoint = point;
       this.repairForm = { tanggal: localDateStr(new Date()), jam: localTimeStr(new Date()), part_number: "", qty: "", kategori_repair: "" };

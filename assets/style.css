@@ -4458,3 +4458,18 @@ html[data-ukuran="besar"] { font-size: 17.6px; }
   .pj-c-jam{width:14%}.pj-c-kat{width:9%}.pj-c-n{width:9%}.pj-c-m{width:13%}
 }
 .pj-btn-part{word-break:break-all}
+
+/* Tampilan "hanya model 3D Repair" (dipakai Dashboard Line lewat iframe: ?tab=repair&solo3d=1) */
+html.repair-solo, html.repair-solo body { background: transparent !important; overflow: hidden !important; }
+html.repair-solo body * { visibility: hidden; }
+html.repair-solo #repair-solo-zone, html.repair-solo #repair-solo-zone * { visibility: visible; }
+html.repair-solo #repair-solo-zone { position: fixed; inset: 0; margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; background: transparent !important; display: flex; flex-direction: column; z-index: 10; }
+html.repair-solo #repair-solo-zone .empty-state { margin: auto; }
+html.repair-solo #repair-solo-zone .repair-3d-wrap { flex: 1 1 auto; min-height: 0; max-width: none; margin: 0; display: flex; flex-direction: column; }
+html.repair-solo #repair-solo-zone .repair-3d-canvas { flex: 1 1 auto; height: auto !important; min-height: 0; }
+html.repair-solo #repair-solo-zone .repair-3d-hint,
+html.repair-solo #repair-solo-zone .repair-admin-only,
+html.repair-solo #repair-solo-zone > div[x-show="repairEditMode"],
+html.repair-solo #repair-solo-zone > div[x-show="repairEditMode && repairSelectedPointId"] { display: none !important; }
+html.repair-solo #repair-solo-zone .repair-edit-toggle { margin: 2px 0 0; justify-content: center; }
+html.repair-solo #repair-solo-zone .repair-part-switcher { margin: 2px 4px 4px !important; justify-content: center; }

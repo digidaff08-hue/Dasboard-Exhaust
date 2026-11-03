@@ -334,6 +334,7 @@
       get tahunOptions() { const y = new Date().getFullYear(); return [y - 2, y - 1, y, y + 1]; },
       get jumlahHari() { return new Date(this.tahun, this.bulan, 0).getDate(); },
       get labelHari() { return Array.from({ length: this.jumlahHari }, (_, i) => String(i + 1)); },
+      get repair3dUrl() { return "machines/" + this.activeTab.toLowerCase() + ".html?tab=repair&solo3d=1&v=" + DEKI_VER; },
       get dekiUrl() { return "dekidaka-line.html?line=" + this.activeTab + "&solo=1&dekidaka=1&inline=1&v=" + DEKI_VER; },
       dekiSiap: false,
       dekiZoom: "",
