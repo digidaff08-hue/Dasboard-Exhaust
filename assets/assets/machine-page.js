@@ -893,6 +893,14 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     repairChainPath: [],      // seluruh titik jalur hasil sambungan
     repairChainAnchors: [],   // posisi tap-nya saja (buat bola penanda)
     repairChainSegs: [],      // panjang tiap segmen, buat Undo per segmen
+    // Pilihan jam 24-jam (sama di PC / iPad / HP): dua kotak pilih Jam & Menit.
+    jamOpsi: Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")),
+    menitOpsi: Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0")),
+    gabungJam(cur, bagian, nilai) {
+      if (nilai === "") return "";
+      const [h = "", m = ""] = String(cur || "").split(":");
+      return (bagian === "h" ? nilai : (h || "00")) + ":" + (bagian === "m" ? nilai : (m || "00"));
+    },
     repairShowAreas: false, repairAreaSize: 0.02, repairDraftPoints: [],
     // Dashboard Line (solo3d): jumlah Repair per titik/area pada 1 tanggal -> area menyala + angka di model.
     repairHeat: {}, repairHeatTgl: "", repairHariRows: [], repairKartu: null, repairPic: {},
