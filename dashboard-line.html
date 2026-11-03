@@ -51,7 +51,6 @@
   .dl-pj-baris { flex-direction: row; gap: 10px; }
   .dl-pj-panel { flex: 1 1 0; min-width: 0; display: flex; min-height: 0; }
   .dl-repair3d .dl-head { flex-wrap: wrap; row-gap: 0; }
-  .dl-r3d-total { flex: 0 0 100%; text-align: center; font-weight: 800; color: #b91c1c; margin: 0 0 2px; }
   .dl-pj-chips { display:flex; flex-wrap:wrap; justify-content:center; gap:4px; padding:0 4px 4px; }
   .dl-pj-chip { font: 800 0.625rem inherit; font-family: inherit; padding: 1px 8px; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; line-height: 1.4; }
   .dl-pj-chip.kosong { opacity: .55; }
@@ -294,7 +293,7 @@
           </div>
           <div class="dl-split">
             <section class="dl-box dl-split-chart dl-repair3d">
-              <div class="dl-head dl-head-tengah"><span class="dl-box-title">Titik Point NG Inline dan Repair</span><span class="dl-sub dl-r3d-total" x-show="repair3dTotal" x-text="repair3dTotal ? 'Repair ' + repair3dTotal.qty + ' pcs · ' + repair3dTotal.titik + ' titik' : ''"></span></div>
+              <div class="dl-head dl-head-tengah"><span class="dl-box-title">Titik Point NG Inline dan Repair</span></div>
               <iframe class="dl-r3d" :src="tampil === 'dashboard' ? repair3dUrl : 'about:blank'" title="Model 3D Repair"></iframe>
             </section>
             <section class="dl-box dl-split-foto">
