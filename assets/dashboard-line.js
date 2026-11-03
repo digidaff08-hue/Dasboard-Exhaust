@@ -357,7 +357,6 @@
         if (!senyap) this.memuat = true;
         this.pesan = "";
         const line = this.activeTab;
-        this.mintaMingguan(senyap);
         this.muatTop();
         const y = this.tahun, m = this.bulan, n = this.jumlahHari;
         const awal = new Date(y, m - 1, 1), akhir = new Date(y, m, 1);
@@ -371,8 +370,11 @@
           const [prodRes, ngRes, repRes, spRes, tgRes, trRes] = await Promise.all([
             supabaseClient.rpc("dashboard_harian_produksi", { p_start: awal.toISOString(), p_end: akhir.toISOString(), p_mesin: line }),
             ambilSemua("dashboard_qc_ng_detail_range", { p_type_ng: "NG PRODUKSI", p_start: sAwal, p_end: sAkhir }),
-            ambilSemua("dashboard_qc_repair_detail_range", { p_start: sAwal, p_end: sAkhir }),
-            supabaseClient.rpc("dashboard_qc_produksi_daily_line", { p_start: awal.toISOString(), p_end: akhir.toISOString(), p_mesin: line }),
+            // Straightpass: stroke (qty) & repair diambil LANGSUNG dari production_log -- sumber yang sama
+            // dengan Dekidaka / tab Performance. Hari produksi = 07:00 s/d 07:00 berikutnya.
+            supabaseClient.from("production_log").select("waktu_awal,qty,repair").eq("mesin", line)
+              .gte("waktu_awal", sAwal + "T07:00:00+07:00").lt("waktu_awal", sAkhir + "T07:00:00+07:00").limit(5000),
+            Promise.resolve({ data: [], error: null }),
             supabaseClient.from("productivity_target").select("tahun,bulan,target").eq("tahun", y).eq("bulan", m),
             ambilSemua("dashboard_qc_ng_detail_range", { p_type_ng: "NG TRIAL", p_start: sAwal, p_end: sAkhir }),
           ]);
@@ -397,19 +399,21 @@
             const d = hariDari(r.tanggal);
             if (d >= 1 && d <= n) { hasil.trQty[d - 1] += Number(r.qty) || 0; hasil.trVal[d - 1] += Number(r.value) || 0; }
           });
-          (repRes.data || []).forEach((r) => {
-            if (r.mesin !== line) return;
-            const d = hariDari(r.tanggal);
-            if (d >= 1 && d <= n) hasil.repQty[d - 1] += Number(r.qty) || 0;
-          });
-          // % Straightpass harian = (stroke - repair) / stroke
-          if (spRes.error) {
-            console.info("dashboard_qc_produksi_daily_line belum ada di Supabase -> garis % Straightpass dikosongkan.", spRes.error.message);
+          // Hari produksi baris = tanggal UTC dari waktu_awal (jam lokal WIB dikurangi 7 jam).
+          if (repRes.error) {
+            console.error("Gagal memuat production_log untuk Straightpass:", repRes.error);
           } else {
+            const stroke = Array(n).fill(0), ada = Array(n).fill(false);
+            (repRes.data || []).forEach((r) => {
+              const d = hariDari(new Date(r.waktu_awal).toISOString());
+              if (d < 1 || d > n) return;
+              hasil.repQty[d - 1] += Number(r.repair) || 0;
+              stroke[d - 1] += Number(r.qty) || 0; ada[d - 1] = true;
+            });
+            // % Straightpass harian = (stroke - repair) / stroke
             for (let d = 1; d <= n; d++) {
-              if (lewat(d)) continue;
-              const r = (spRes.data || []).find((x) => x.tanggal === tglStr(y, m, d));
-              if (r && Number(r.stroke)) hasil.spPct[d - 1] = Number((((Number(r.stroke) - hasil.repQty[d - 1]) / Number(r.stroke)) * 100).toFixed(1));
+              if (lewat(d) || !ada[d - 1] || !stroke[d - 1]) continue;
+              hasil.spPct[d - 1] = Number((((stroke[d - 1] - hasil.repQty[d - 1]) / stroke[d - 1]) * 100).toFixed(1));
             }
           }
           const t = (tgRes.data || [])[0];
