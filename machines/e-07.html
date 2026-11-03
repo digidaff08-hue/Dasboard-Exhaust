@@ -1592,7 +1592,7 @@
 
         <!-- ===================== TAB REPAIR ===================== -->
         <div x-show="tab === 'repair'" :style="tab !== 'repair' ? 'content-visibility:hidden' : 'content-visibility:visible'">
-          <div class="panel">
+          <div class="panel" id="repair-solo-zone">
             <p class="empty-state" x-show="repairViews.length === 0">Belum ada model 3D Repair. Admin bisa upload lewat tab Master Data.</p>
             <div class="repair-part-switcher" x-show="repairViews.length > 1" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
               <template x-for="v in repairViews" :key="v.id">
@@ -1617,10 +1617,10 @@
                 <button type="button" class="btn-secondary btn-sm" @click="resetTampilan()" title="Kembalikan model ke sudut pandang semula">↺ Reset Tampilan</button>
                 <button type="button" class="btn-secondary btn-sm" :class="repairShowAreas ? 'btn-primary' : ''" @click="toggleRepairShowAreas()" x-text="repairShowAreas ? '👁 Area ditampilkan' : '👁 Tampilkan Area'"></button>
                 <template x-if="isAdmin()">
-                  <button type="button" class="btn-secondary btn-sm" @click="simpanTampilanAwal()" title="Jadikan sudut pandang yang sedang tampil sebagai bawaan">📌 Simpan Tampilan</button>
+                  <button type="button" class="btn-secondary btn-sm repair-admin-only" @click="simpanTampilanAwal()" title="Jadikan sudut pandang yang sedang tampil sebagai bawaan">📌 Simpan Tampilan</button>
                 </template>
                 <template x-if="isAdmin()">
-                  <button type="button" class="btn-secondary btn-sm" :class="repairEditMode ? 'btn-primary' : ''" @click="toggleRepairEditModeArea()" x-text="repairEditMode ? '✓ Mode Atur Area aktif' : '✏️ Mode Atur Area'"></button>
+                  <button type="button" class="btn-secondary btn-sm repair-admin-only" :class="repairEditMode ? 'btn-primary' : ''" @click="toggleRepairEditModeArea()" x-text="repairEditMode ? '✓ Mode Atur Area aktif' : '✏️ Mode Atur Area'"></button>
                 </template>
               </div>
             </div>
