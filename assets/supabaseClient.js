@@ -72,7 +72,7 @@ async function requireAuth() {
   // (Input Produksi, Attendance, halaman mesin, dst) langsung dipantulkan
   // ke Dashboard Exhaust -- termasuk kalau alamatnya diketik manual.
   const myRole = await getMyRole(session);
-  if (!isDashboardExhaustPage() && !isDashboardLinePage() && !isEmbeddedPerformanceView() && !isDekidakaEmbed() && myRole === "guest") {
+  if (!isDashboardExhaustPage() && !isDashboardLinePage() && !isEmbeddedPerformanceView() && !isDekidakaEmbed() && !isSolo3dEmbed() && myRole === "guest") {
     window.location.href = getBasePath() + "dashboard-exhaust.html";
     return null;
   }
@@ -129,6 +129,12 @@ function isDekidakaEmbed() {
   catch (e) { return false; }
 }
 
+// Model 3D Repair yang dipasang di Dashboard Line lewat iframe (?solo3d=1) -- tampilan lihat saja.
+function isSolo3dEmbed() {
+  try { return new URLSearchParams(window.location.search).get("solo3d") === "1"; }
+  catch (e) { return false; }
+}
+
 function isAndonPage() {
   return window.location.pathname.toLowerCase().includes("andon");
 }
@@ -151,7 +157,7 @@ async function requireStaff(session) {
   // GUEST: boleh HANYA di Dashboard Exhaust & Dashboard Line (lihat saja), halaman lain
   // dipantulkan ke Dashboard Exhaust.
   if (r === "guest") {
-    if (isDashboardExhaustPage() || isDashboardLinePage() || isEmbeddedPerformanceView() || isDekidakaEmbed()) return true;
+    if (isDashboardExhaustPage() || isDashboardLinePage() || isEmbeddedPerformanceView() || isDekidakaEmbed() || isSolo3dEmbed()) return true;
     window.location.href = getBasePath() + "dashboard-exhaust.html";
     return false;
   }
