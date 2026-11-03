@@ -1594,6 +1594,13 @@
         <!-- ===================== TAB REPAIR ===================== -->
         <div x-show="tab === 'repair'" :style="tab !== 'repair' ? 'content-visibility:hidden' : 'content-visibility:visible'">
           <div class="panel" id="repair-solo-zone">
+            <div class="repair-kartu" x-show="repairKartu" x-cloak @click.stop>
+              <div class="repair-kartu-head"><b x-text="repairKartu && repairKartu.judul"></b><button type="button" class="repair-kartu-x" @click="tutupKartuRepair()" aria-label="Tutup">✕</button></div>
+              <template x-for="r in (repairKartu ? repairKartu.rows : [])" :key="r.id">
+                <div class="repair-kartu-baris"><span><b x-text="r.jam"></b> · <span x-text="r.kategori"></span> · <b x-text="r.qty + ' pcs'"></b></span><small x-text="r.part + (r.pic ? ' · ' + r.pic : '')"></small></div>
+              </template>
+              <div class="repair-kartu-total" x-text="repairKartu ? 'Total ' + repairKartu.total + ' pcs' : ''"></div>
+            </div>
             <p class="empty-state" x-show="repairViews.length === 0">Belum ada model 3D Repair. Admin bisa upload lewat tab Master Data.</p>
             <div class="repair-part-switcher" x-show="repairViews.length > 1" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
               <template x-for="v in repairViews" :key="v.id">
