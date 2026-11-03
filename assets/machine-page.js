@@ -4109,6 +4109,9 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const list = prod.concat(non).sort((x, y) => x.waktu - y.waktu);
       while (list.length < this.PJ_JUMLAH_BARIS) list.push(this.pjBarisKosong());
       this.pjBaris = list; this.pjDirty = false; this.pjGap = []; this.pjGapOk = false;
+      // Baris kosong pertama: Waktu Awal otomatis = akhir baris terakhir, atau awal shift (07:00 / 19:30)
+      const kosong = list.find((x) => !x.id && !x.awal && !x.akhir && !x.kat && this.pjKosong(x));
+      if (kosong && this.pjTgl) { const t = this.pjAkhirTerakhir() || this.pjRentangShift().a; kosong.awal = this.pjHHMM(t); kosong.awalTgl = this.pjIso(t); }
     },
     pjTambahBaris() { this.pjBaris.push(this.pjBarisKosong()); },
     pjUbah(b) { b.ubah = true; b.v = (b.v || 0) + 1; this.pjDirty = true; this.pjGapOk = false; this.pjGap = []; this.pjJadwalSimpan(b); },
@@ -4297,6 +4300,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const non = (this.nonProduksiTypeList || []).map((n) => n.nama);
       if (b.part && ((b.kat === "3" && !non.includes(b.part)) || (b.kat === "0" && !parts.includes(b.part)))) b.part = "";
       if (b.kat === "3") { ["qty", "repair", "dandori"].forEach((k) => { b[k] = ""; }); }
+      if (b.kat === "0" && !b.part && this.pjPlanId) { const pl = (this.planningForStation(this.pjStasiun) || []).find((p) => p.id === this.pjPlanId); if (pl) b.part = pl.part_number; }
       const i = this.pjBaris.findIndex((x) => x === b);
       if (b.kat === "0" && !b.akhir && i >= 0) this.pjIsiProduksi(i);
       if (b.kat === "3" && !b.awal && !b.akhir && i >= 0) this.pjIsiNonProduksi(i);
@@ -4336,6 +4340,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const b = this.pjBaris[i], blk = this.pjBlokBerikut();
       if (!blk) { this.flash("Semua blok Dekidaka sudah terisi.", true); return false; }
       let awal = blk.awal;
+      if (b.awal) { const w = this.pjWaktu(b.awal, false, b.awalTgl); if (w >= blk.awal && w < blk.akhir) awal = w; else if (w < blk.awal) awal = w; }
       this.pjBaris.forEach((x) => { // kegiatan non-produksi yang berakhir di dalam blok ini -> produksi mulai setelahnya
         if (x === b || !x.akhir) return;
         const t = this.pjWaktu(x.akhir, true, x.akhirTgl); if (t > awal && t < blk.akhir) awal = t;
@@ -4373,11 +4378,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.pjSorotId = null; this.pjPlanId = null; this.pjAuto = true; this.pjEdit = false;
       this.pjSegarkanForm(true);
       if (!plan) plan = (this.planningForStation(stationId) || []).find((p) => p.status !== "selesai") || null;
-      let last = -1; this.pjBaris.forEach((b, i) => { if (b.id || !this.pjKosong(b) || b.akhir) last = i; });
-      const t = this.pjBaris[last + 1] || (this.pjTambahBaris(), this.pjBaris[this.pjBaris.length - 1]);
-      t.kat = "0"; if (plan) { t.part = plan.part_number; this.pjPlanId = plan.id; }
-      this.pjIsiProduksi(this.pjBaris.findIndex((x) => x === t));
-      this.pjUbah(t);
+      if (plan) this.pjPlanId = plan.id;
     },
     pjBuka(row, tabel) {
       if (this.pjDirty && this.pjOpen && !confirm("Ada isian yang belum disimpan di form. Buang dan lanjut?")) return;

@@ -502,17 +502,17 @@
             <div class="pj-scroll">
               <table class="pj-tbl">
                 <thead><tr>
-                  <th class="pj-c-jam">Waktu<br>Awal</th><th class="pj-c-jam">Waktu<br>Akhir</th><th class="pj-c-kat">Kategori<br>kerja</th>
+                  <th class="pj-c-jam">Waktu<br>Awal</th><th class="pj-c-jam">Waktu<br>Akhir</th><th class="pj-c-kat">Kat.<br>Kerja</th>
                   <th class="pj-c-part">Part No.</th><th class="pj-c-n">Qty<br>Prod.</th><th class="pj-c-n pj-sep">Repair</th>
                   <th class="pj-c-m">Dandori</th><th class="pj-c-m">Downtime</th>
                 </tr></thead>
                 <tbody>
                   <template x-for="(b, i) in pjBaris" :key="b.k">
                     <tr :class="(b.id && b.id === pjSorotId ? 'pj-sorot ' : '') + (b.err ? 'pj-err' : (b.warn ? 'pj-warn' : ''))" :title="b.err || b.warn">
-                      <td><button type="button" class="pj-btn" @click="pjBukaPick(i,'awal',$event)" x-html="pjTampilHtml(b.awal, false, b.awalTgl) || '<span class=\'pj-kosong\'>pilih jam</span>'"></button></td>
-                      <td><button type="button" class="pj-btn" @click="pjBukaPick(i,'akhir',$event)" x-html="pjTampilHtml(b.akhir, true, b.akhirTgl) || '<span class=\'pj-kosong\'>pilih jam</span>'"></button></td>
-                      <td><button type="button" class="pj-btn pj-btn-kat" @click="pjBukaKat(i,$event)" x-html="b.kat ? '<b>' + b.kat + '</b>' : '<span class=\'pj-kosong\'>pilih</span>'"></button></td>
-                      <td><button type="button" class="pj-btn pj-btn-part" @click="pjBukaPart(i,$event)" :title="b.part" x-html="b.part ? '<span class=\'pj-part-t\'></span>' : '<span class=\'pj-kosong\'>pilih part</span>'" x-effect="b.part; $nextTick(() => { const e = $el.querySelector('.pj-part-t'); if (e) e.textContent = b.part })"></button></td>
+                      <td><button type="button" class="pj-btn" @click="pjBukaPick(i,'awal',$event)" x-html="pjTampilHtml(b.awal, false, b.awalTgl) || ''"></button></td>
+                      <td><button type="button" class="pj-btn" @click="pjBukaPick(i,'akhir',$event)" x-html="pjTampilHtml(b.akhir, true, b.akhirTgl) || ''"></button></td>
+                      <td><button type="button" class="pj-btn pj-btn-kat" @click="pjBukaKat(i,$event)" x-html="b.kat ? '<b>' + b.kat + '</b>' : ''"></button></td>
+                      <td><button type="button" class="pj-btn pj-btn-part" @click="pjBukaPart(i,$event)" :title="b.part" x-html="b.part ? '<span class=\'pj-part-t\'></span>' : ''" x-effect="b.part; $nextTick(() => { const e = $el.querySelector('.pj-part-t'); if (e) e.textContent = b.part })"></button></td>
                       <td><input type="text" inputmode="numeric" :disabled="b.kat === '3'" x-model="b.qty" @input="pjAngka(b,'qty')"></td>
                       <td class="pj-sep"><input type="text" inputmode="numeric" :disabled="b.kat === '3'" x-model="b.repair" @input="pjAngka(b,'repair')"></td>
                       <td><input type="text" inputmode="numeric" :disabled="b.kat === '3'" x-model="b.dandori" @input="pjAngka(b,'dandori')"></td>
