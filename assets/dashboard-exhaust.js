@@ -1292,14 +1292,36 @@ function dashboardExhaust() {
         // langsung -- rentangnya 1 tahun fiskal penuh, dan khususnya data
         // Repair volumenya bisa jauh di atas batas 1000-baris/request bawaan
         // Supabase. Lihat catatan lengkap di definisi fetchAllRpcRows().
-        const [ngInlineRes, ngTrialRes, repairRes] = await Promise.all([
+        let [ngInlineRes, ngTrialRes, repairRes] = await Promise.all([
           fetchAllRpcRows("dashboard_qc_ng_detail_range", { p_type_ng: "NG PRODUKSI", p_start: localDateStr(fyStart), p_end: localDateStr(fyEnd) }),
           fetchAllRpcRows("dashboard_qc_ng_detail_range", { p_type_ng: "NG TRIAL", p_start: localDateStr(fyStart), p_end: localDateStr(fyEnd) }),
-          fetchAllRpcRows("dashboard_qc_repair_detail_range", { p_start: localDateStr(fyStart), p_end: localDateStr(fyEnd) }),
+          // Qty Repair per line/hari/bulan/model: SATU sumber dengan Dekidaka, tab Performance,
+          // Dashboard Line & grafik Perline = kolom production_log.repair (diisi di Input Produksi),
+          // per HARI PRODUKSI (07:00-07:00). BUKAN dari repair_log (titik 3D), supaya angka tidak beda.
+          (async () => {
+            try {
+              const dari = localDateStr(fyStart) + "T07:00:00+07:00", sampai = localDateStr(fyEnd) + "T07:00:00+07:00";
+              const [pm, bagian] = [{}, []];
+              const mp = await supabaseClient.from("ng_model_parts").select("part_no, model").limit(5000);
+              (mp.data || []).forEach((x) => { if (!pm[x.part_no]) pm[x.part_no] = x.model; });
+              for (let from = 0; ; from += 1000) {
+                const r = await supabaseClient.from("production_log").select("mesin,part_number,waktu_awal,repair")
+                  .gt("repair", 0).gte("waktu_awal", dari).lt("waktu_awal", sampai).order("waktu_awal", { ascending: true }).range(from, from + 999);
+                if (r.error) return { data: null, error: r.error };
+                (r.data || []).forEach((x) => bagian.push({ mesin: x.mesin, model: pm[x.part_number] || "", qty: Number(x.repair) || 0,
+                  tanggal: new Date(x.waktu_awal).toISOString().slice(0, 10) })); // hari produksi = tanggal UTC (WIB - 7 jam)
+                if (!r.data || r.data.length < 1000) break;
+              }
+              return { data: bagian, error: null };
+            } catch (e) { return { data: null, error: e }; }
+          })(),
         ]);
         if (ngInlineRes.error) console.error("dashboard_qc_ng_detail_range (NG PRODUKSI, line-model map):", ngInlineRes.error);
         if (ngTrialRes.error) console.error("dashboard_qc_ng_detail_range (NG TRIAL, line-model map):", ngTrialRes.error);
-        if (repairRes.error) console.error("dashboard_qc_repair_detail_range (line-model map):", repairRes.error);
+        if (repairRes.error) { // cadangan: kalau production_log gagal dibaca, pakai sumber lama
+          console.error("Repair dari production_log gagal, pakai dashboard_qc_repair_detail_range:", repairRes.error);
+          repairRes = await fetchAllRpcRows("dashboard_qc_repair_detail_range", { p_start: localDateStr(fyStart), p_end: localDateStr(fyEnd) });
+        }
 
         // Index bulan-FY (0 = April fyStartYear .. 11 = Maret fyStartYear+1)
         // dari string tanggal "YYYY-MM-DD" -- dibaca lewat slice (BUKAN lewat
