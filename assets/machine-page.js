@@ -411,7 +411,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261101l";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261103a";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:45", "20:30"] },
@@ -1997,6 +1997,9 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // pilihan user TIDAK hilang (dia pengali di atas fit).
       if (inlineMode && Math.abs((this.dkdModalZoom || 1) - 1) < 0.01) {
         dkdIsiLebar(board, availW, availH);
+        // Papan lebih pendek dari kotak -> tinggi barisnya dilonggarkan sedikit supaya papan penuh sampai bawah.
+        const tb = board.querySelector("table.dkd-main");
+        if (tb && new URLSearchParams(location.search).get("penuh") !== "1") { tb.style.setProperty("--dkd-pad-fill", "0px"); dkdIsiTinggi(board, availW / availH); }
         boardW = board.offsetWidth; boardH = board.offsetHeight;
       }
       if (inlineMode && new URLSearchParams(location.search).get("penuh") === "1" && Math.abs((this.dkdModalZoom || 1) - 1) < 0.01) {
