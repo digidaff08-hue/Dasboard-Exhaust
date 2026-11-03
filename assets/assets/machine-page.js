@@ -288,6 +288,15 @@ function localTimeStr(d) {
 }
 // Gabungkan tanggal ('YYYY-MM-DD') + jam ('HH:MM') jadi ISO string timestamptz,
 // dipakai backend buat mencocokkan ke baris produksi (production_log_id).
+// Hari produksi = 07:00 sampai 07:00 berikutnya. Jam 00:00-06:59 masih milik hari produksi SEBELUMNYA.
+function hariProduksiStr(d) { return localDateStr(new Date(d.getTime() - 7 * 3600 * 1000)); }
+// Repair: "tanggal" = hari produksi. Jam sebelum 07:00 berarti dini hari di tanggal kalender berikutnya.
+function waktuRepairIso(tanggal, jam) {
+  if (!tanggal || !jam) return null;
+  let tgl = tanggal;
+  if (jam < "07:00") { const d = new Date(tanggal + "T00:00:00"); d.setDate(d.getDate() + 1); tgl = localDateStr(d); }
+  return tanggalJamToIso(tgl, jam);
+}
 function tanggalJamToIso(tanggal, jam) {
   if (!tanggal || !jam) return null;
   const d = new Date(`${tanggal}T${jam}:00`);
@@ -5147,7 +5156,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (document.documentElement.classList.contains("repair-solo")) return; // tampilan Dashboard Line: hanya lihat
       this.editingRepairId = null;
       this.repairModalPoint = point;
-      this.repairForm = { tanggal: localDateStr(new Date()), jam: localTimeStr(new Date()), part_number: "", qty: "", kategori_repair: "" };
+      this.repairForm = { tanggal: hariProduksiStr(new Date()), jam: localTimeStr(new Date()), part_number: "", qty: "", kategori_repair: "" };
       this.repairPartLocked = false; this.repairPartHint = "";
       this.repairModalOpen = true;
       this.syncRepairPartFromProduction();
@@ -5159,12 +5168,33 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.repairForm = { tanggal: row.tanggal, jam: row.jam || localTimeStr(new Date()), part_number: row.part_number || "", qty: row.qty, kategori_repair: row.kategori_repair };
       this.repairModalOpen = true;
     },
+    // Jam diubah: kalau waktu kejadiannya jadi di masa depan, berarti yang dimaksud hari produksi sebelumnya
+    // (mis. jam 07:06 mengisi Repair shift 2 jam 03:00) -> tanggal mundur 1 hari.
+    repairJamBerubah() {
+      const f = this.repairForm;
+      const iso = waktuRepairIso(f.tanggal, f.jam);
+      if (iso && new Date(iso).getTime() > Date.now() + 5 * 60000) {
+        const d = new Date(f.tanggal + "T00:00:00"); d.setDate(d.getDate() - 1);
+        f.tanggal = localDateStr(d);
+      }
+      this.syncRepairPartFromProduction();
+    },
+    // Keterangan di bawah Tanggal/Jam: hari produksi & shift.
+    repairHariInfo() {
+      const f = this.repairForm || {};
+      if (!f.tanggal || !f.jam) return "";
+      const fmt = (t) => { const d = new Date(t + "T00:00:00"); return d.toLocaleDateString("id-ID", { day: "numeric", month: "short" }); };
+      const shift = f.jam >= "07:00" && f.jam < "19:30" ? "Shift 1" : "Shift 2";
+      let info = "Hari produksi " + fmt(f.tanggal) + " · " + shift;
+      if (f.jam < "07:00") { const d = new Date(f.tanggal + "T00:00:00"); d.setDate(d.getDate() + 1); info += " (dini hari " + fmt(localDateStr(d)) + ")"; }
+      return info;
+    },
     closeRepairModal() {
       this.repairModalOpen = false; this.repairModalPoint = null; this.editingRepairId = null;
     },
     async syncRepairPartFromProduction() {
       // Auto-fill Part No dari Input Produksi berdasarkan tanggal & jam -- sama logikanya dengan NG Inline
-      const iso = tanggalJamToIso(this.repairForm.tanggal, this.repairForm.jam);
+      const iso = waktuRepairIso(this.repairForm.tanggal, this.repairForm.jam);
       if (!iso) { this.repairPartLocked = false; this.repairPartHint = ""; return; }
 
       const { data: prod, error } = await supabaseClient
@@ -5195,7 +5225,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       }
       this.repairSaving = true;
       const payload = {
-        mesin: machineKey, tanggal: f.tanggal, jam: f.jam, waktu_kejadian: tanggalJamToIso(f.tanggal, f.jam),
+        mesin: machineKey, tanggal: f.tanggal, jam: f.jam, waktu_kejadian: waktuRepairIso(f.tanggal, f.jam),
         view_id: this.repairActiveViewId, point_id: this.repairModalPoint?.id || null,
         point_label: this.repairModalPoint?.label || null,
         part_number: f.part_number, qty: Number(f.qty), kategori_repair: f.kategori_repair,
