@@ -305,7 +305,7 @@
           <div class="dl-split">
             <section class="dl-box dl-split-chart dl-repair3d">
               <div class="dl-head dl-head-tengah"><span class="dl-box-title">Titik Point NG Inline dan Repair</span><button type="button" class="dl-pj-btn dl-r3d-besar-btn" title="Lihat layar besar" @click="r3dBesar = true">&#128065;</button></div>
-              <iframe class="dl-r3d" :src="tampil === 'dashboard' ? repair3dUrl : 'about:blank'" title="Model 3D Repair"></iframe>
+              <iframe class="dl-r3d" @load="if (tampil === 'dashboard') r3dCek()" :src="tampil === 'dashboard' ? repair3dUrl : 'about:blank'" title="Model 3D Repair"></iframe>
             </section>
             <section class="dl-box dl-split-foto">
               <div class="dl-head">
