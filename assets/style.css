@@ -4436,3 +4436,6 @@ html[data-ukuran="besar"] { font-size: 17.6px; }
 .pj-durasi span{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#667;width:100%}
 .pj-durasi button{flex:1;min-width:0;height:38px;border:1px solid #c5d2e6;background:#f3f6fb;border-radius:10px;font-size:16px;font-weight:700;color:#1f4e79;cursor:pointer;padding:0}
 .pj-durasi input{flex:1.2;min-width:0;height:38px;border:1px solid #c5d2e6;border-radius:10px;text-align:center;font-size:15px;padding:0 4px}
+.pj-status{font-size:13px;color:#16794a;align-self:center}
+.pj-status.bad{color:#b45309}
+.pj-edit-btn{display:flex;gap:8px}

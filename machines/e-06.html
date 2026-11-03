@@ -489,7 +489,7 @@
 
           <div id="pj-form" x-show="pjOpen" x-cloak x-effect="productionRows; nonProduksiRows; if (pjOpen && !pjDirty) $nextTick(() => { if (pjOpen && !pjDirty) pjMuat() })" x-init="$watch('nowTick', () => pjAutoCek())" class="pj-wrap">
           <div class="panel">
-            <p class="panel-title">Input Produksi Per Jam <button type="button" class="btn-ghost btn-sm" style="float:right" @click="if(!pjDirty || confirm('Tutup form? Isian yang belum disimpan akan hilang.')) { pjOpen = false; pjDirty = false; }">Tutup</button></p>
+            <p class="panel-title">Input Produksi Per Jam <button type="button" class="btn-ghost btn-sm" style="float:right" @click="pjTutup()">Tutup</button></p>
             <div class="pj-bar">
               <div class="field"><label>Tanggal produksi</label><input type="date" x-model="pjTgl" :disabled="pjDirty" @change="pjGanti()"></div>
               <div class="field"><label>Shift</label>
@@ -534,7 +534,7 @@
               <template x-for="m in pjPeringatan()" :key="m"><p x-text="'⚠ ' + m"></p></template>
             </div>
             <div class="pj-gap" x-show="pjGap.length" x-cloak>
-              <p><b>Ada jeda waktu antar baris.</b> Pilih jenisnya (atau abaikan), lalu tekan Simpan Semua lagi.</p>
+              <p><b>Ada jeda waktu antar baris.</b> Pilih jenisnya (atau abaikan), lalu tekan Simpan lagi.</p>
               <template x-for="(g, gi) in pjGap" :key="gi">
                 <div class="pj-gap-row">
                   <span x-text="g.awal + ' – ' + g.akhir + ' (' + g.menit + ' mnt)'"></span>
@@ -545,7 +545,11 @@
             </div>
             <div class="pj-foot">
               <button type="button" class="btn-ghost btn-sm" @click="pjTambahBaris()">+ Tambah baris</button>
-              <button type="button" class="btn-primary" :disabled="pjSaving || !pjDirty" @click="pjSimpan()" x-text="pjSaving ? 'Menyimpan...' : 'Simpan Semua'"></button>
+              <span class="pj-status" x-show="!pjEdit" x-text="pjStatus || 'Tersimpan otomatis setelah baris lengkap'" :class="pjStatus.startsWith('Belum') || pjStatus.startsWith('Gagal') || pjStatus.startsWith('Tidak') ? 'bad' : ''"></span>
+              <span class="pj-edit-btn" x-show="pjEdit" x-cloak>
+                <button type="button" class="btn-ghost" @click="pjBatalEdit()">Batal</button>
+                <button type="button" class="btn-primary" :disabled="pjSaving || !pjDirty" @click="pjSimpan()" x-text="pjSaving ? 'Menyimpan...' : 'Simpan'"></button>
+              </span>
             </div>
           </div>
           </div>
