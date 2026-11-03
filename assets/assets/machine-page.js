@@ -5016,7 +5016,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         this.repairHeatTgl = st.tanggal;
         this.muatRepairHeat(true);
       });
-      try { window.parent.postMessage({ repairSiap: true }, "*"); } catch (e) {}
+      try { window.parent.postMessage({ repairSiap: true, repair3dBuild: DKD_BUILD }, "*"); } catch (e) {}
     },
     // Jumlah Repair per titik (point_id) pada tanggal terpilih, lalu gambar ulang area di model.
     async muatRepairHeat(ganti) {

@@ -579,6 +579,12 @@
       fotoUrl: "",
       fotoBesar: false,
       r3dBesar: false,
+      r3dTerima: false,
+      // Kotak 3D tidak membalas dalam 7 detik / beda versi -> berarti file machine-page.js belum terganti.
+      r3dCek() {
+        this.r3dTerima = false;
+        setTimeout(() => { if (!this.r3dTerima && this.tampil === "dashboard") this.pesan = "Kotak 3D masih memakai file lama - unggah assets/machine-page.js dan folder machines/, lalu Ctrl+F5."; }, 7000);
+      },
       fotoPesan: "",
       fotoBusy: false,
       fotoJenis: "gambar",   // "gambar" | "video"
@@ -662,6 +668,7 @@
           const d = e.data || {};
           const frBesar = document.querySelector(".dl-besar iframe");
           const dariBesar = !!(frBesar && frBesar.contentWindow === e.source);
+          if (d.repair3dBuild) { this.r3dTerima = true; if (d.repair3dBuild !== DEKI_VER) this.pesan = "Kotak 3D versi " + d.repair3dBuild + ", halaman versi " + DEKI_VER + " - unggah assets/machine-page.js dan folder machines/, lalu Ctrl+F5."; }
           if (d.repairSiap) this.repairSinkron();
           if (d.repairTotal) this.repair3dTotal = d.repairTotal;
           if (d.dekidakaSiap) { if (dariBesar) { this.dekiBesarSiap = true; this.dekiSinkron(frBesar); } else { this.dekiSiap = true; this.dekiSinkron(document.querySelector(".dl-deki iframe")); if (!this.mingguHasil) this.mintaMingguan(); } }
