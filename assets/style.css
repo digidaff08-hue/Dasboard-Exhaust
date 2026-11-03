@@ -4469,6 +4469,7 @@ html.repair-solo #repair-solo-zone .repair-3d-wrap { flex: 1 1 auto; min-height:
 html.repair-solo #repair-solo-zone .repair-3d-canvas { flex: 1 1 auto; height: auto !important; min-height: 0; }
 html.repair-solo #repair-solo-zone .repair-3d-hint,
 html.repair-solo #repair-solo-zone .repair-admin-only,
+html.repair-solo #repair-solo-zone .repair-edit-toggle,
 html.repair-solo #repair-solo-zone > div[x-show="repairEditMode"],
 html.repair-solo #repair-solo-zone > div[x-show="repairEditMode && repairSelectedPointId"] { display: none !important; }
 html.repair-solo #repair-solo-zone .repair-edit-toggle { margin: 2px 0 0; justify-content: center; }

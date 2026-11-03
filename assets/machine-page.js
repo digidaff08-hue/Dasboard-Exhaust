@@ -788,7 +788,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
   const VERTEX_HANDLE_COLOR = "#2563eb"; // bola kecil biru -- handle buat geser 1 titik jalur (Edit Titik)
   const BBOX_HANDLE_COLOR = "#f97316"; // kotak kecil oranye -- handle Ukuran gaya Excel/PowerPoint (sudut & tengah sisi)
   return {
-    session: null, profile: null, tab: "produksi_new", loading: true,
+    session: null, profile: null, tab: (() => { try { return new URLSearchParams(location.search).get("solo3d") === "1" ? "repair" : "produksi_new"; } catch (e) { return "produksi_new"; } })(), loading: true,
     riwayatExportMonth: localDateStr(new Date()).slice(0, 7),
     downtimeExportMonth: localDateStr(new Date()).slice(0, 7),
     ngInlineExportMonth: localDateStr(new Date()).slice(0, 7),
