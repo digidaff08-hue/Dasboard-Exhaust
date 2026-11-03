@@ -4469,8 +4469,11 @@ html.repair-solo #repair-solo-zone .repair-3d-wrap { flex: 1 1 auto; min-height:
 html.repair-solo #repair-solo-zone .repair-3d-canvas { flex: 1 1 auto; height: auto !important; min-height: 0; }
 html.repair-solo #repair-solo-zone .repair-3d-hint,
 html.repair-solo #repair-solo-zone .repair-admin-only,
-html.repair-solo #repair-solo-zone .repair-edit-toggle,
 html.repair-solo #repair-solo-zone > div[x-show="repairEditMode"],
 html.repair-solo #repair-solo-zone > div[x-show="repairEditMode && repairSelectedPointId"] { display: none !important; }
 html.repair-solo #repair-solo-zone .repair-edit-toggle { margin: 2px 0 0; justify-content: center; }
 html.repair-solo #repair-solo-zone .repair-part-switcher { margin: 2px 4px 4px !important; justify-content: center; }
+
+/* tombol kecil di bawah model (Reset Tampilan, Tampilkan Area) */
+html.repair-solo #repair-solo-zone .repair-edit-toggle { margin: 0; padding: 2px 4px 4px; gap: 6px; flex: 0 0 auto; flex-wrap: nowrap; }
+html.repair-solo #repair-solo-zone .repair-edit-toggle .btn-sm { font-size: 0.5938rem; padding: 2px 8px; line-height: 1.3; white-space: nowrap; }
