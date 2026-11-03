@@ -18,7 +18,7 @@
   const COL = { productivity: "#0EA5E9", availability: "#10B981", downtime: "#F97316", ngInline: "#F43F5E", money: "#1D4ED8", straight: "#14B8A6", perjam: "#6366F1", trend: "#2563EB" };
 
   // Naikkan setiap kali file Dekidaka (machine-page.js, style.css, dekidaka-line.html) berubah.
-  const DEKI_VER = "20261103b";
+  const DEKI_VER = "20261103c";
 
   const mgCache = {};   // hasil Trend Volume per line|tahun|bulan -> tidak hitung ulang saat pindah line (berlaku 10 menit)
   const pad2 = (n) => String(n).padStart(2, "0");
@@ -126,15 +126,20 @@
     "1": ["8,00", "9,00", "9,40", "11,00", "12,30", "13,30", "14,40", "15,45", "17,15", "18,15", "19,30"],
     "2": ["20,30", "21,40", "22,40", "23,40", "1,20", "2,20", "3,30", "4,15", "6,00", "7,00", "–"],
   };
-  // Isi 2 grafik Perjam per line: judul + kode part yang dihitung (dicocokkan
-  // dengan "mengandung" pada part_number, mis. 14110-73R10 mengandung 73R10).
-  const PERJAM_CFG = {
-    "E-02": [{ judul: "73R10/R20/74U00", kode: ["73R10", "73R20", "74U00"] }, { judul: "52P00", kode: ["52P00"] }],
-    "E-03": [{ judul: "BZ060", kode: ["BZ060"] }, { judul: "BZ260", kode: ["BZ260"] }],
-    "E-04": [{ judul: "BZ140", kode: ["BZ140"] }, { judul: "BZ150", kode: ["BZ150"] }],
-    "E-05": [{ judul: "0Y050/60", kode: ["0Y050", "0Y060"] }, { judul: "BZ140/50", kode: ["BZ140", "BZ150"] }],
-    "E-06": [{ judul: "BZ110/010", kode: ["BZ110", "BZ010"] }, { judul: "BZ140/50", kode: ["BZ140", "BZ150"] }],
-    "E-07": [{ judul: "74U50", kode: ["74U50"] }, { judul: "BZ140/50", kode: ["BZ140", "BZ150"] }],
+  // Daftar part Perjam per line (kode = bagian belakang part no, mis. 25051-0Y050 -> 0Y050,
+  // 17150-BZ140-T -> BZ140-T). Cocok persis, jadi BZ140 tidak ikut menghitung BZ140-T.
+  // Grafik menampilkan 2 part: default = 2 part yang terakhir diproduksi, atau pilihan manual lewat chip.
+  const PERJAM_PART = {
+    "E-02": ["73R11", "73R21", "52P00", "74U00"],
+    "E-03": ["BZ060", "BZ260", "BZ140", "BZ140-T"],
+    "E-04": ["BZ140-T", "BZ150-T"],
+    "E-05": ["0Y050", "0Y060", "BZ140", "BZ140-T"],
+    "E-06": ["BZ110", "BZ010", "BZ180", "BZ140", "BZ140-T"],
+    "E-07": ["74U50", "BZ140", "BZ150"],
+  };
+  const kodePerjam = (part, daftar) => {
+    const s = String(part || "").trim().toUpperCase();
+    return daftar.find((c) => s === c || s.endsWith("-" + c)) || "";
   };
   const KPJ_DEFAULT = { "E-02": 25, "E-03": 32, "E-04": 32, "E-05": 32, "E-06": 32, "E-07": 35 };
   const menit = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
@@ -157,6 +162,15 @@
       perjamShift: shiftSekarang(),
       perjamManual: false,     // true kalau user memilih sendiri tanggal/shift -> jangan di-otomatis
       perjamPanels: [],
+      perjamChips: [],
+      perjamPilih: [],         // pilihan manual (maks 2 kode part); kosong = otomatis
+      pilihPerjam(kd) {
+        const aktif = this.perjamChips.filter((c) => c.aktif).map((c) => c.kode);
+        if (aktif.includes(kd)) return;
+        this.perjamPilih = [aktif[aktif.length - 1], kd].filter(Boolean);   // ganti yang tampil lebih dulu
+        this.bangunPerjam();
+      },
+      perjamOtomatis() { this.perjamPilih = []; this.bangunPerjam(); },
       perjamMemuat: false,
       perjamPesan: "",
       perjamAuto() {
@@ -264,20 +278,34 @@
         const dd = this.dekiData;
         const cocok = dd && dd.line === line && dd.tanggal === this.perjamTgl && String(dd.shift) === String(sh);
         const baris = cocok ? (dd.baris || []) : [];
-        const cfg = PERJAM_CFG[line] || [{ judul: "", kode: [] }, { judul: "", kode: [] }];
-        const panels = cfg.map((g) => {
+        const daftar = PERJAM_PART[line] || [];
+        const kunci = line + "|" + this.perjamTgl + "|" + sh;
+        if (this._pjKunci !== kunci) { this._pjKunci = kunci; this.perjamPilih = []; }   // ganti line/tanggal/shift -> kembali otomatis
+        const data = {};
+        daftar.forEach((kd) => {
           const pct = Array(11).fill(null), qty = Array(11).fill(0);
+          let akhir = -1;
           for (let i = 0; i < 11; i++) {
-            const rs = baris.filter((r) => r.blok === i + 1 && r.part && g.kode.some((k) => String(r.part).toUpperCase().includes(k)));
+            const rs = baris.filter((r) => r.blok === i + 1 && kodePerjam(r.part, daftar) === kd);
             if (!rs.length) continue;
             const q = rs.reduce((t, r) => t + (Number(r.qty) || 0), 0);
             const kols = [...new Set(rs.map((r) => r.kol))];
             const tg = kols.reduce((t, c) => t + (Number(((dd.target || [])[i] || [])[c]) || 0), 0);
             qty[i] = q;
+            if (q > 0) akhir = i;
             if (q > 0 && tg > 0) pct[i] = Math.round((q / tg) * 1000) / 10;
           }
-          return { part: g.judul, qty, pct };
+          data[kd] = { part: kd, qty, pct, akhir };
         });
+        // Otomatis: 2 part dengan blok produksi terakhir paling akhir; sisanya diisi urutan daftar.
+        let pilih = (this.perjamPilih || []).filter((k) => daftar.includes(k));
+        if (pilih.length < 2) {
+          const urut = [...daftar].sort((x, y) => data[y].akhir - data[x].akhir || daftar.indexOf(x) - daftar.indexOf(y));
+          pilih = urut.slice(0, 2);
+        }
+        pilih = daftar.filter((k) => pilih.includes(k));   // urutan tampil sama dengan urutan daftar
+        this.perjamChips = daftar.map((k) => ({ kode: k, aktif: pilih.includes(k), ada: data[k].akhir >= 0 }));
+        const panels = pilih.map((k) => data[k]);
         while (panels.length < 2) panels.push({ part: "", pct: Array(11).fill(null), qty: Array(11).fill(0) });
         this.hapusPerjam();
         this.perjamPanels = panels; this.perjamMemuat = false;
