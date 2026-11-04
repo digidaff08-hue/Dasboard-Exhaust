@@ -1094,7 +1094,7 @@ input[type="month"]:focus {
                       <template x-for="(r, i) in cfFiltered('ng_inline')" :key="i">
                         <tr>
                           <td><span class="line-badge" x-text="r.mesin"></span></td>
-                          <td class="mono" x-text="r.tanggal||'-'"></td>
+                          <td class="mono" x-text="(r.tanggal||'-') + (r.jam_tampil ? ' ' + r.jam_tampil : '')"></td>
                           <td x-text="r.type_ng||'-'"></td>
                           <td x-text="r.model||'-'"></td>
                           <td x-text="r.pic||'-'"></td>
@@ -1771,7 +1771,10 @@ function dataMentah() {
         if(!h) continue;
         if(tglDari && h<tglDari) continue;
         if(tglSampai && h>tglSampai) continue;
-        out.push({...r, tanggal_asli:r.tanggal, tanggal:h});
+        let jt='';
+        if (r.jam) jt=String(r.jam).slice(0,5);
+        else if (r.waktu_kejadian && w && !Number.isNaN(w.getTime())) jt=String(w.getHours()).padStart(2,'0')+':'+String(w.getMinutes()).padStart(2,'0');
+        out.push({...r, tanggal_asli:r.tanggal, tanggal:h, jam_tampil:jt});
       }
       out.sort((a,b)=>b.tanggal>a.tanggal?1:b.tanggal<a.tanggal?-1:(String(b.jam||'')>String(a.jam||'')?1:-1));
       return out;
@@ -1926,7 +1929,7 @@ function dataMentah() {
         })));
       else if(s==='produksi') exportToExcel(`DataMentah_Produksi_${line}_${label}`, this.data.produksi.map(r=>({'Line':r.mesin||'-','Waktu Awal':fmtDTLocal(r.waktu_awal),'Waktu Akhir':fmtDTLocal(r.waktu_akhir),'Part / Jenis':r._tipe==='produksi'?(r.part_number||'-'):(r.part_ke||r.keterangan||r.part_dari||'-'),'Qty':r._tipe==='produksi'?(r.qty??''):'-','NG Inline':r._tipe==='produksi'?(r.ng_inline_qty??0):'-','Repair':r._tipe==='produksi'?(r.repair??0):'-','Dandori (mnt)':r._tipe==='produksi'?(r.dandori_menit??''):'-','Downtime (mnt)':r._tipe==='produksi'?(r.downtime_menit??''):'-','Break (mnt)':r._tipe==='produksi'?(r.break_menit??''):'-'})));
       else if(s==='downtime') exportToExcel(`DataMentah_Downtime_${line}_${label}`, this.data.downtime.map(r=>({'Line':r.mesin||'-','Waktu Awal':fmtDTLocal(r.waktu_awal),'Waktu Akhir':fmtDTLocal(r.waktu_akhir),'Durasi (menit)':durasiMntRaw(r.waktu_awal,r.waktu_akhir),'Kategori':r.kategori||'-','PIC':r.pic||'-','Waktu Tunggu':r.waktu_tunggu??'-','Keterangan':r.ket||'-','Problem Kategori':r.problem||'-','Problem Detail':r.penyebab||'-','Area':r.area||'-','Countermeasure':r.countermeasure||'-','Total Losstime':durasiMntRaw(r.waktu_awal,r.waktu_akhir),'Status':r.status||'-'})));
-      else if(s==='ng_inline') exportToExcel(`DataMentah_NG_Inline_${line}_${label}`, this.data.ng_inline.map(r=>({'Line':r.mesin||'-','Tanggal':r.tanggal||'-','Type':r.type_ng||'-','Model':r.model||'-','PIC':r.pic||'-','Part No':r.part_number||'-','Area':r.area||'-','NG Proses':r.ng_proses||'-','Qty':r.qty??'','Value (Rp)':r.value??'','Kategori':r.ng_kategori||'-','Reason':r.reason||'-'})));
+      else if(s==='ng_inline') exportToExcel(`DataMentah_NG_Inline_${line}_${label}`, this.data.ng_inline.map(r=>({'Line':r.mesin||'-','Tanggal':(r.tanggal||'-')+(r.jam_tampil?' '+r.jam_tampil:''),'Type':r.type_ng||'-','Model':r.model||'-','PIC':r.pic||'-','Part No':r.part_number||'-','Area':r.area||'-','NG Proses':r.ng_proses||'-','Qty':r.qty??'','Value (Rp)':r.value??'','Kategori':r.ng_kategori||'-','Reason':r.reason||'-'})));
       else if(s==='total_produksi') {
         const days = this.tpDays();
         const rows = this.tpRows().map(row => {

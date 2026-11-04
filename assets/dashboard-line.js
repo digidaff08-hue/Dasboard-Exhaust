@@ -18,7 +18,7 @@
   const COL = { productivity: "#0EA5E9", availability: "#10B981", downtime: "#F97316", ngInline: "#F43F5E", money: "#1D4ED8", straight: "#14B8A6", perjam: "#6366F1", trend: "#2563EB" };
 
   // Naikkan setiap kali file Dekidaka (machine-page.js, style.css, dekidaka-line.html) berubah.
-  const DEKI_VER = "20261103e";
+  const DEKI_VER = "20261104c";
 
   const mgCache = {};   // hasil Trend Volume per line|tahun|bulan -> tidak hitung ulang saat pindah line (berlaku 10 menit)
   const pad2 = (n) => String(n).padStart(2, "0");
@@ -165,8 +165,9 @@
       perjamChips: [],
       repair3dTotal: null,     // {qty, titik} dikirim kotak 3D
       repairSinkron() {
-        const fr = document.querySelector(".dl-r3d");
-        if (fr && fr.contentWindow && this.perjamTgl) { try { fr.contentWindow.postMessage({ repairSet: { tanggal: this.perjamTgl } }, "*"); } catch (e) {} }
+        document.querySelectorAll(".dl-r3d, .dl-r3d-big").forEach((fr) => {
+          if (fr && fr.contentWindow && this.perjamTgl) { try { fr.contentWindow.postMessage({ repairSet: { tanggal: this.perjamTgl } }, "*"); } catch (e) {} }
+        });
       },
       perjamPilih: [],         // pilihan manual (maks 2 kode part); kosong = otomatis
       pilihPerjam(kd) {
@@ -577,6 +578,14 @@
       // ---------- Kotak foto (1 foto per line, disimpan di Supabase Storage bucket "line-foto") ----------
       fotoUrl: "",
       fotoBesar: false,
+      r3dBesar: false,
+      r3dTerima: false,
+      r3dVer: "",
+      // Kotak 3D tidak membalas dalam 7 detik / beda versi -> berarti file machine-page.js belum terganti.
+      r3dCek() {
+        
+        setTimeout(() => { if (!this.r3dTerima && this.tampil === "dashboard") this.r3dVer = "lama"; if (!this.r3dTerima && this.tampil === "dashboard") this.pesan = "Kotak 3D masih memakai file lama - unggah assets/machine-page.js dan folder machines/, lalu Ctrl+F5."; }, 7000);
+      },
       fotoPesan: "",
       fotoBusy: false,
       fotoJenis: "gambar",   // "gambar" | "video"
@@ -660,6 +669,7 @@
           const d = e.data || {};
           const frBesar = document.querySelector(".dl-besar iframe");
           const dariBesar = !!(frBesar && frBesar.contentWindow === e.source);
+          if (d.repair3dBuild) { this.r3dTerima = true; this.r3dVer = d.repair3dBuild; if (d.repair3dBuild !== DEKI_VER) this.pesan = "Kotak 3D versi " + d.repair3dBuild + ", halaman versi " + DEKI_VER + " - unggah assets/machine-page.js dan folder machines/, lalu Ctrl+F5."; }
           if (d.repairSiap) this.repairSinkron();
           if (d.repairTotal) this.repair3dTotal = d.repairTotal;
           if (d.dekidakaSiap) { if (dariBesar) { this.dekiBesarSiap = true; this.dekiSinkron(frBesar); } else { this.dekiSiap = true; this.dekiSinkron(document.querySelector(".dl-deki iframe")); if (!this.mingguHasil) this.mintaMingguan(); } }
@@ -677,7 +687,7 @@
           if (d.dekidakaData && !dariBesar) { this.dekiData = d.dekidakaData; this.bangunPerjam(); }
           if (d.dekidakaSetOk) { this._dekiAck = true; if (/Dekidaka belum ikut/.test(this.pesan)) this.pesan = ""; }
         });
-        window.addEventListener("keydown", (e) => { if (e.key === "Escape") { if (this.topDetail) this.topDetail = null; else if (this.fotoBesar) this.fotoBesar = false; else if (this.dekiBuka) this.tutupDekidaka(); } });
+        window.addEventListener("keydown", (e) => { if (e.key === "Escape") { if (this.topDetail) this.topDetail = null; else if (this.r3dBesar) this.r3dBesar = false; else if (this.fotoBesar) this.fotoBesar = false; else if (this.dekiBuka) this.tutupDekidaka(); } });
         setTimeout(() => { this.dekiSiap = true; }, 8000);   // jaga-jaga kalau sinyal siap tidak datang
       },
       ubahPeriode() {

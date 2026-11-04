@@ -420,7 +420,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261104a";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261104c";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:45", "20:30"] },
@@ -3394,7 +3394,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         .order("tanggal", { ascending: true });
       if (error) { this.flash("Gagal ambil data NG Inline buat export: " + error.message, true); return; }
       const rows = (data || []).map((row) => ({
-        "Tanggal": row.tanggal || "-",
+        "Tanggal": this.tanggalJamNg(row),
         "Type": row.type_ng || "-",
         "Model": row.model || "-",
         "PIC": row.pic || "-",
@@ -5164,6 +5164,21 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
     // Kolom PIC di Riwayat Repair: nama pengisi (dari login saat input), otomatis -- tidak ada di form.
     buildVer() { return DKD_BUILD; },
+    // "2026-11-03 01:30" -- tanggal + jam jadi satu (jam kosong -> tanggal saja)
+    tanggalJamNg(row) {
+      const j = this.jamNg(row);
+      return (row && row.tanggal ? row.tanggal : "-") + (j && j !== "-" ? " " + j : "");
+    },
+    // Jam kejadian NG Inline (HH:MM) -- supaya kelihatan siang/malam. Data lama tanpa jam -> '-'.
+    jamNg(row) {
+      if (!row) return "-";
+      if (row.jam) return String(row.jam).slice(0, 5);
+      if (row.waktu_kejadian) {
+        const d = new Date(row.waktu_kejadian);
+        if (!Number.isNaN(d.getTime())) return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+      }
+      return "-";
+    },
     repairPicNama(row) {
       return (row && row.created_by && this.repairPic[row.created_by]) || "-";
     },
