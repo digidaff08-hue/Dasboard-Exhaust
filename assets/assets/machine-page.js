@@ -5163,6 +5163,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.muatRepairPic(this.repairLogRows);
     },
     // Kolom PIC di Riwayat Repair: nama pengisi (dari login saat input), otomatis -- tidak ada di form.
+    buildVer() { return DKD_BUILD; },
     repairPicNama(row) {
       return (row && row.created_by && this.repairPic[row.created_by]) || "-";
     },
