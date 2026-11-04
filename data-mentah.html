@@ -1164,6 +1164,7 @@ input[type="month"]:focus {
                       <tr>
                         <th class="cf-th" :class="cfActive('repair','mesin')?'cf-active':''" @click.stop="cfOpen('repair','mesin',$el)"><div class="cf-th-inner">Line</div></th>
                         <th class="cf-th" :class="cfActive('repair','tanggal')?'cf-active':''" @click.stop="cfOpen('repair','tanggal',$el)"><div class="cf-th-inner">Tanggal</div></th>
+                        <th class="cf-th" :class="cfActive('repair','pic')?'cf-active':''" @click.stop="cfOpen('repair','pic',$el)"><div class="cf-th-inner">PIC</div></th>
                         <th class="cf-th" :class="cfActive('repair','point_label')?'cf-active':''" @click.stop="cfOpen('repair','point_label',$el)"><div class="cf-th-inner">Point</div></th>
                         <th class="cf-th" :class="cfActive('repair','model')?'cf-active':''" @click.stop="cfOpen('repair','model',$el)"><div class="cf-th-inner">Model</div></th>
                         <th class="cf-th" :class="cfActive('repair','part_number')?'cf-active':''" @click.stop="cfOpen('repair','part_number',$el)"><div class="cf-th-inner">Part No</div></th>
@@ -1176,6 +1177,7 @@ input[type="month"]:focus {
                         <tr>
                           <td><span class="line-badge" x-text="r.mesin"></span></td>
                           <td class="mono" x-text="r.tanggal||'-'"></td>
+                          <td x-text="r.pic||'-'"></td>
                           <td x-text="r.point_label||'-'"></td>
                           <td x-text="r.model||'-'"></td>
                           <td style="font-weight:500;" x-text="r.part_number||'-'"></td>
@@ -1813,6 +1815,14 @@ function dataMentah() {
         // (Line -> Model -> Part No), sama seperti kolom Model di Riwayat Repair.
         const peta=await this.petaModelPart();
         all=all.map(r=>({...r, model: r.model || (peta[r.mesin]||{})[r.part_number] || ''}));
+        // PIC = nama pengisi (dari login saat input Repair); baris lama tanpa created_by -> '-'
+        const idPic=[...new Set(all.map(r=>r.created_by).filter(Boolean))];
+        const namaPic={};
+        for(let i=0;i<idPic.length;i+=100){
+          const {data:pr}=await supabaseClient.from('profiles').select('id,full_name').in('id',idPic.slice(i,i+100));
+          (pr||[]).forEach(u=>{namaPic[u.id]=u.full_name||'';});
+        }
+        all=all.map(r=>({...r, pic: namaPic[r.created_by] || ''}));
         this.data.repair=all;
       } finally { this.loading.repair=false; }
     },
@@ -1934,7 +1944,7 @@ function dataMentah() {
         const line  = this.f.total_produksi.line || 'Semua_Line';
         exportToExcel(`TotalProduksi_${line}_${label}`, rows);
       }
-      else if(s==='repair') exportToExcel(`DataMentah_Repair_${line}_${label}`, this.data.repair.map(r=>({'Line':r.mesin||'-','Tanggal':r.tanggal||'-','Point':r.point_label||'-','Model':r.model||'-','Part No':r.part_number||'-','Qty':r.qty??'','Kategori Repair':r.kategori_repair||'-'})));
+      else if(s==='repair') exportToExcel(`DataMentah_Repair_${line}_${label}`, this.data.repair.map(r=>({'Line':r.mesin||'-','Tanggal':r.tanggal||'-','PIC':r.pic||'-','Point':r.point_label||'-','Model':r.model||'-','Part No':r.part_number||'-','Qty':r.qty??'','Kategori Repair':r.kategori_repair||'-'})));
     },
 
     fmtDT(iso){ return fmtDTLocal(iso); },
