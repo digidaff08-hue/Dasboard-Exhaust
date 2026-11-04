@@ -1176,7 +1176,7 @@ input[type="month"]:focus {
                       <template x-for="(r, i) in cfFiltered('repair')" :key="i">
                         <tr>
                           <td><span class="line-badge" x-text="r.mesin"></span></td>
-                          <td class="mono" x-text="r.tanggal||'-'"></td>
+                          <td class="mono" x-text="(r.tanggal||'-') + (r.jam_tampil ? ' ' + r.jam_tampil : '')"></td>
                           <td x-text="r.pic||'-'"></td>
                           <td x-text="r.point_label||'-'"></td>
                           <td x-text="r.model||'-'"></td>
@@ -1772,8 +1772,14 @@ function dataMentah() {
         if(tglDari && h<tglDari) continue;
         if(tglSampai && h>tglSampai) continue;
         let jt='';
-        if (r.jam) jt=String(r.jam).slice(0,5);
+        const stamp=(!adalahRepair && r.created_at) ? new Date(r.created_at) : null;   // NG Inline: pakai JAM STAMP (cap waktu input)
+        if (stamp && !Number.isNaN(stamp.getTime())) jt=String(stamp.getHours()).padStart(2,'0')+':'+String(stamp.getMinutes()).padStart(2,'0');
+        else if (r.jam) jt=String(r.jam).slice(0,5);
         else if (r.waktu_kejadian && w && !Number.isNaN(w.getTime())) jt=String(w.getHours()).padStart(2,'0')+':'+String(w.getMinutes()).padStart(2,'0');
+        else if (r.created_at) {   // data lama tanpa jam kejadian -> cap waktu input
+          const c=new Date(r.created_at);
+          if(!Number.isNaN(c.getTime())) jt=String(c.getHours()).padStart(2,'0')+':'+String(c.getMinutes()).padStart(2,'0');
+        }
         out.push({...r, tanggal_asli:r.tanggal, tanggal:h, jam_tampil:jt});
       }
       out.sort((a,b)=>b.tanggal>a.tanggal?1:b.tanggal<a.tanggal?-1:(String(b.jam||'')>String(a.jam||'')?1:-1));
@@ -1947,7 +1953,7 @@ function dataMentah() {
         const line  = this.f.total_produksi.line || 'Semua_Line';
         exportToExcel(`TotalProduksi_${line}_${label}`, rows);
       }
-      else if(s==='repair') exportToExcel(`DataMentah_Repair_${line}_${label}`, this.data.repair.map(r=>({'Line':r.mesin||'-','Tanggal':r.tanggal||'-','PIC':r.pic||'-','Point':r.point_label||'-','Model':r.model||'-','Part No':r.part_number||'-','Qty':r.qty??'','Kategori Repair':r.kategori_repair||'-'})));
+      else if(s==='repair') exportToExcel(`DataMentah_Repair_${line}_${label}`, this.data.repair.map(r=>({'Line':r.mesin||'-','Tanggal':(r.tanggal||'-')+(r.jam_tampil?' '+r.jam_tampil:''),'PIC':r.pic||'-','Point':r.point_label||'-','Model':r.model||'-','Part No':r.part_number||'-','Qty':r.qty??'','Kategori Repair':r.kategori_repair||'-'})));
     },
 
     fmtDT(iso){ return fmtDTLocal(iso); },
