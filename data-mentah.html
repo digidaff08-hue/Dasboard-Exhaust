@@ -1733,6 +1733,31 @@ function dataMentah() {
       } finally { this.loading.downtime=false; }
     },
 
+    // { 'E-05': { '25051-0Y050': 'MODEL', ... }, ... }
+    async petaModelPart() {
+      if (this._petaModel) return this._petaModel;
+      const ambil=async(tabel,kolom)=>{
+        let semua=[];
+        for(let from=0; from<20000; from+=1000){
+          const {data,error}=await supabaseClient.from(tabel).select(kolom).range(from,from+999);
+          if(error||!data) break;
+          semua=semua.concat(data);
+          if(data.length<1000) break;
+        }
+        return semua;
+      };
+      const [lm,mp]=await Promise.all([ambil('ng_line_models','mesin,model'),ambil('ng_model_parts','part_no,model')]);
+      const peta={};
+      for(const l of lm){
+        for(const p of mp){
+          if(p.model!==l.model) continue;
+          peta[l.mesin]=peta[l.mesin]||{};
+          if(!peta[l.mesin][p.part_no]) peta[l.mesin][p.part_no]=l.model;
+        }
+      }
+      this._petaModel=peta;
+      return peta;
+    },
     geserTgl(str, n) { const d=new Date(str+'T00:00:00'); d.setDate(d.getDate()+n); return localDateStr(d); },
     // NG Inline & Repair: tanggal = HARI PRODUKSI dari waktu kejadiannya (jam < 07:00 ikut hari sebelumnya).
     terapkanHariProduksi(rows,tglDari,tglSampai,adalahRepair) {
@@ -1784,6 +1809,10 @@ function dataMentah() {
         let all=[];
         for(const{data,error}of results){ if(error){this.flash('Error: '+error.message,true);continue;} all=all.concat(data||[]); }
         all=this.terapkanHariProduksi(all,tglDari,tglSampai,true);
+        // repair_log tidak punya kolom model -> dicari dari Part No lewat master NG Inline
+        // (Line -> Model -> Part No), sama seperti kolom Model di Riwayat Repair.
+        const peta=await this.petaModelPart();
+        all=all.map(r=>({...r, model: r.model || (peta[r.mesin]||{})[r.part_number] || ''}));
         this.data.repair=all;
       } finally { this.loading.repair=false; }
     },
