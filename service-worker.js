@@ -5,7 +5,7 @@
 // ini cuma men-cache HTML/CSS/JS-nya, bukan data produksi.
 // =========================================================
 // Naikkan versi ini tiap ada perubahan besar supaya cache lama dibuang.
-const CACHE_NAME = "produksi-downtime-shell-v272-pic-repair";
+const CACHE_NAME = "produksi-downtime-shell-v273-selalu-baru";
 
 const SHELL_FILES = [
   "/login.html",
@@ -72,7 +72,8 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
   event.respondWith(
-    fetch(event.request)
+    // cache: "no-cache" -> selalu tanya server dulu (bukan memakai salinan lama di cache browser/aplikasi terinstal)
+    fetch(event.request, { cache: "no-cache" })
       .then((response) => {
         // Cuma simpan respons sukses penuh (200). Dulu halaman error (404/500)
         // ikut tersimpan dan bisa muncul saat offline; respons 206 (partial,
