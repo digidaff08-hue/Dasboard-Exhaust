@@ -420,7 +420,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261103h";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261104a";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:45", "20:30"] },
@@ -3417,8 +3417,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         .gte("tanggal", startStr).lte("tanggal", endStr)
         .order("tanggal", { ascending: true });
       if (error) { this.flash("Gagal ambil data Repair buat export: " + error.message, true); return; }
+      await this.muatRepairPic(data || []);
       const rows = (data || []).map((row) => ({
         "Tanggal": row.tanggal || "-",
+        "PIC": this.repairPicNama(row),
         "Point": row.point_label || "-",
         "Model": this.repairPartNoModelMap[row.part_number] || "-",
         "Part No": row.part_number || "-",
@@ -5158,6 +5160,11 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const { data, error } = await supabaseClient.from("repair_log").select("*").eq("mesin", machineKey).order("tanggal", { ascending: false }).order("created_at", { ascending: false }).limit(200);
       if (error) { this.flash("Gagal memuat Riwayat Repair: " + error.message, true); return; }
       this.repairLogRows = data || [];
+      this.muatRepairPic(this.repairLogRows);
+    },
+    // Kolom PIC di Riwayat Repair: nama pengisi (dari login saat input), otomatis -- tidak ada di form.
+    repairPicNama(row) {
+      return (row && row.created_by && this.repairPic[row.created_by]) || "-";
     },
 
     openRepairPoint(point, touch) {
@@ -5260,6 +5267,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           const { data, error } = res;
           if (error) throw error;
           this.repairLogRows.unshift(data);
+          this.muatRepairPic([data]);
           if (tanpaSentuh) this.flash("Repair tersimpan, tapi posisi sentuh belum bisa disimpan (database belum diperbarui).", true); else this.flash("Data Repair tersimpan.");
         }
         this.closeRepairModal();
