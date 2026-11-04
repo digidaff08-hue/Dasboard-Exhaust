@@ -417,6 +417,7 @@ input[type="month"]:focus {
 .cf-th-inner {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
 }
 
@@ -540,7 +541,7 @@ input[type="month"]:focus {
 .tp-table th.tp-sticky-col {
   left: 0;
   z-index: 2;
-  text-align: left;
+  text-align: center;
   padding-left: 10px;
   min-width: 130px;
   max-width: 180px;
@@ -559,7 +560,7 @@ input[type="month"]:focus {
   left: 0;
   background: var(--panel);
   z-index: 1;
-  text-align: left;
+  text-align: center;
   padding-left: 10px;
   font-weight: 600;
   border-right: 2px solid var(--border);
@@ -620,6 +621,11 @@ input[type="month"]:focus {
   .dm-filter-cell { border-right: none; border-bottom: 1px solid var(--border); }
   .dm-filter-cell.grow { justify-content: flex-start; }
 }
+
+/* Semua tulisan Data Mentah rata tengah */
+.dm-table th, .dm-table td, .tp-table th, .tp-table td,
+.dm-table td.cell-trunc, .dm-table .cf-th-inner { text-align: center !important; }
+.dm-table td .cell-trunc, .dm-table td * { text-align: center; }
 </style>
 </head>
 <body>
