@@ -1325,6 +1325,12 @@ input[type="month"]:focus {
 function localDateStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
+// HARI PRODUKSI: mulai jam 07:00 WIB sampai 07:00 hari berikutnya (kerja shift).
+// Jam 00:00-06:59 masih milik hari produksi KEMARIN.
+function hariProd(d) {
+  const x = d instanceof Date ? d : new Date(d);
+  return localDateStr(new Date(x.getTime() - 7 * 3600 * 1000));
+}
 function fmtDTLocal(iso) {
   if (!iso) return '-';
   const d = new Date(iso);
@@ -1401,13 +1407,14 @@ function dataMentah() {
     sectionRange(s) {
       const f = this.f[s];
       if (f.tanggal) {
-        const dari=new Date(f.tanggal+'T00:00:00'), sampai=new Date(f.tanggal+'T00:00:00');
+        // hari produksi: tanggal 07:00 sampai tanggal berikutnya 07:00
+        const dari=new Date(f.tanggal+'T07:00:00'), sampai=new Date(f.tanggal+'T07:00:00');
         sampai.setDate(sampai.getDate()+1);
         return { dari:dari.toISOString(), sampai:sampai.toISOString(), tglDari:f.tanggal, tglSampai:f.tanggal };
       }
       if (f.bulan) {
         const [y,m]=f.bulan.split('-').map(Number);
-        const dari=new Date(y,m-1,1), sampai=new Date(y,m,1);
+        const dari=new Date(y,m-1,1,7), sampai=new Date(y,m,1,7);   // hari produksi mulai 07:00
         return { dari:dari.toISOString(), sampai:sampai.toISOString(),
                  tglDari:localDateStr(dari), tglSampai:localDateStr(new Date(y,m,0)) };
       }
@@ -1545,9 +1552,10 @@ function dataMentah() {
         function pad2(n) { return String(n ?? '').padStart(2, '0'); }
         function dtInfo(iso) {
           const d = new Date(iso);
+          const dp = new Date(d.getTime() - 7 * 3600 * 1000);   // hari produksi (dini hari ikut hari sebelumnya)
           return {
-            shift: getShift(iso), tahun: d.getFullYear(),
-            bulan: d.getMonth()+1, hari: d.getDate(),
+            shift: getShift(iso), tahun: dp.getFullYear(),
+            bulan: dp.getMonth()+1, hari: dp.getDate(),
             start_h: pad2(d.getHours()), start_m: pad2(d.getMinutes()),
           };
         }
@@ -1615,7 +1623,7 @@ function dataMentah() {
           // Tanggal LOKAL (WIB). waktu_awal dari Supabase berformat UTC, jadi
           // .slice(0,10) memberi tanggal UTC -- baris jam 00:00-06:59 WIB
           // jatuh ke hari sebelumnya dan urutannya jadi kacau.
-          const dayA = pjLocalDateStr(new Date(a.waktu_awal)), dayB = pjLocalDateStr(new Date(b.waktu_awal));
+          const dayA = hariProd(new Date(a.waktu_awal)), dayB = hariProd(new Date(b.waktu_awal));
           if (dayA !== dayB) return dayB.localeCompare(dayA);
           const la = LINE_ORDER[a.mesin]??99, lb = LINE_ORDER[b.mesin]??99;
           if (la !== lb) return la - lb;
@@ -1697,7 +1705,7 @@ function dataMentah() {
           // Tanggal LOKAL (WIB). waktu_awal dari Supabase berformat UTC, jadi
           // .slice(0,10) memberi tanggal UTC -- baris jam 00:00-06:59 WIB
           // jatuh ke hari sebelumnya dan urutannya jadi kacau.
-          const dayA = pjLocalDateStr(new Date(a.waktu_awal)), dayB = pjLocalDateStr(new Date(b.waktu_awal));
+          const dayA = hariProd(new Date(a.waktu_awal)), dayB = hariProd(new Date(b.waktu_awal));
           if(dayA!==dayB) return dayB.localeCompare(dayA);          // hari terbaru dulu
           const la=(LINE_ORDER[a.mesin]??99), lb=(LINE_ORDER[b.mesin]??99);
           if(la!==lb) return la-lb;                                  // E-02 sebelum E-03 dst
@@ -1725,6 +1733,23 @@ function dataMentah() {
       } finally { this.loading.downtime=false; }
     },
 
+    geserTgl(str, n) { const d=new Date(str+'T00:00:00'); d.setDate(d.getDate()+n); return localDateStr(d); },
+    // NG Inline & Repair: tanggal = HARI PRODUKSI dari waktu kejadiannya (jam < 07:00 ikut hari sebelumnya).
+    terapkanHariProduksi(rows,tglDari,tglSampai,adalahRepair) {
+      const out=[];
+      for(const r of rows){
+        let h=null;
+        const w = r.waktu_kejadian ? new Date(r.waktu_kejadian) : (!adalahRepair && r.tanggal ? new Date(r.tanggal+'T'+String(r.jam||'12:00').slice(0,5)+':00') : null);
+        if (w && !Number.isNaN(w.getTime())) h=hariProd(w); else h=r.tanggal||null;
+        if(!h) continue;
+        if(tglDari && h<tglDari) continue;
+        if(tglSampai && h>tglSampai) continue;
+        out.push({...r, tanggal_asli:r.tanggal, tanggal:h});
+      }
+      out.sort((a,b)=>b.tanggal>a.tanggal?1:b.tanggal<a.tanggal?-1:(String(b.jam||'')>String(a.jam||'')?1:-1));
+      return out;
+    },
+
     async fetchNgInline() {
       this.loading.ng_inline=true;
       try {
@@ -1732,13 +1757,14 @@ function dataMentah() {
         const lines=this.f.ng_inline.line?[this.f.ng_inline.line]:this.LINES;
         const results=await Promise.all(lines.map(ln=>{
           let q=supabaseClient.from('ng_inline_log').select('*').eq('mesin',ln).order('tanggal',{ascending:false}).limit(5000);
-          if(tglDari)   q=q.gte('tanggal',tglDari);
-          if(tglSampai) q=q.lte('tanggal',tglSampai);
+          // dilebarkan 1 hari di kedua ujung; penyaringan hari produksi di bawah
+          if(tglDari)   q=q.gte('tanggal',this.geserTgl(tglDari,-1));
+          if(tglSampai) q=q.lte('tanggal',this.geserTgl(tglSampai,1));
           return q;
         }));
         let all=[];
         for(const{data,error}of results){ if(error){this.flash('Error: '+error.message,true);continue;} all=all.concat(data||[]); }
-        all.sort((a,b)=>b.tanggal>a.tanggal?1:b.tanggal<a.tanggal?-1:0);
+        all=this.terapkanHariProduksi(all,tglDari,tglSampai);
         this.data.ng_inline=all;
       } finally { this.loading.ng_inline=false; }
     },
@@ -1750,13 +1776,14 @@ function dataMentah() {
         const lines=this.f.repair.line?[this.f.repair.line]:this.LINES;
         const results=await Promise.all(lines.map(ln=>{
           let q=supabaseClient.from('repair_log').select('*').eq('mesin',ln).order('tanggal',{ascending:false}).limit(5000);
-          if(tglDari)   q=q.gte('tanggal',tglDari);
-          if(tglSampai) q=q.lte('tanggal',tglSampai);
+          // dilebarkan 1 hari di kedua ujung; penyaringan hari produksi di bawah
+          if(tglDari)   q=q.gte('tanggal',this.geserTgl(tglDari,-1));
+          if(tglSampai) q=q.lte('tanggal',this.geserTgl(tglSampai,1));
           return q;
         }));
         let all=[];
         for(const{data,error}of results){ if(error){this.flash('Error: '+error.message,true);continue;} all=all.concat(data||[]); }
-        all.sort((a,b)=>b.tanggal>a.tanggal?1:b.tanggal<a.tanggal?-1:0);
+        all=this.terapkanHariProduksi(all,tglDari,tglSampai,true);
         this.data.repair=all;
       } finally { this.loading.repair=false; }
     },
@@ -1768,8 +1795,8 @@ function dataMentah() {
         if (!f.bulan) { this.data.total_produksi = []; return; }
 
         const [y, m] = f.bulan.split('-').map(Number);
-        const dari   = new Date(y, m-1, 1).toISOString();
-        const sampai = new Date(y, m,   1).toISOString();
+        const dari   = new Date(y, m-1, 1, 7).toISOString();   // hari produksi mulai 07:00
+        const sampai = new Date(y, m,   1, 7).toISOString();
         const lines  = f.line ? [f.line] : this.LINES;
 
         const results = await Promise.all(lines.map(ln =>
@@ -1788,7 +1815,7 @@ function dataMentah() {
           if (error) { this.flash('Error Total Produksi: ' + error.message, true); continue; }
           for (const r of data || []) {
             if (!r.part_number || r.part_number.trim().length <= 2) continue; // skip kode pendek
-            const day = new Date(r.waktu_awal).getDate();
+            const day = new Date(new Date(r.waktu_awal).getTime() - 7 * 3600 * 1000).getDate();   // hari produksi
             const qty = Number(r.qty) || 0;
             if (!agg[r.part_number]) agg[r.part_number] = {};
             agg[r.part_number][day] = (agg[r.part_number][day] || 0) + qty;
