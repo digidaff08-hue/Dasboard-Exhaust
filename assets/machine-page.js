@@ -288,6 +288,15 @@ function localTimeStr(d) {
 }
 // Gabungkan tanggal ('YYYY-MM-DD') + jam ('HH:MM') jadi ISO string timestamptz,
 // dipakai backend buat mencocokkan ke baris produksi (production_log_id).
+// Hari produksi = 07:00 sampai 07:00 berikutnya. Jam 00:00-06:59 masih milik hari produksi SEBELUMNYA.
+function hariProduksiStr(d) { return localDateStr(new Date(d.getTime() - 7 * 3600 * 1000)); }
+// Repair: "tanggal" = hari produksi. Jam sebelum 07:00 berarti dini hari di tanggal kalender berikutnya.
+function waktuRepairIso(tanggal, jam) {
+  if (!tanggal || !jam) return null;
+  let tgl = tanggal;
+  if (jam < "07:00") { const d = new Date(tanggal + "T00:00:00"); d.setDate(d.getDate() + 1); tgl = localDateStr(d); }
+  return tanggalJamToIso(tgl, jam);
+}
 function tanggalJamToIso(tanggal, jam) {
   if (!tanggal || !jam) return null;
   const d = new Date(`${tanggal}T${jam}:00`);
@@ -411,7 +420,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261103e";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261104a";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:45", "20:30"] },
@@ -884,9 +893,17 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     repairChainPath: [],      // seluruh titik jalur hasil sambungan
     repairChainAnchors: [],   // posisi tap-nya saja (buat bola penanda)
     repairChainSegs: [],      // panjang tiap segmen, buat Undo per segmen
+    // Pilihan jam 24-jam (sama di PC / iPad / HP): dua kotak pilih Jam & Menit.
+    jamOpsi: Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")),
+    menitOpsi: Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0")),
+    gabungJam(cur, bagian, nilai) {
+      if (nilai === "") return "";
+      const [h = "", m = ""] = String(cur || "").split(":");
+      return (bagian === "h" ? nilai : (h || "00")) + ":" + (bagian === "m" ? nilai : (m || "00"));
+    },
     repairShowAreas: false, repairAreaSize: 0.02, repairDraftPoints: [],
     // Dashboard Line (solo3d): jumlah Repair per titik/area pada 1 tanggal -> area menyala + angka di model.
-    repairHeat: {}, repairHeatTgl: "", repairHariRows: [], repairKartu: null, repairPic: {},
+    repairHeat: {}, repairHeatTgl: "", repairHariRows: [], repairKartu: null, repairPic: {}, repairModalTouch: null,
     repairEditMode: false, repairDrawShape: "freehand", repairSnapMode: false, repairNewViewLabel: "", repairNewViewFile: null, repairViewUploading: false,
     repairNewViewColor: "#9aa4ad",
     // Point yang lagi dipilih buat di-edit (Geser/Ukuran/Edit Titik), dan
@@ -3400,8 +3417,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         .gte("tanggal", startStr).lte("tanggal", endStr)
         .order("tanggal", { ascending: true });
       if (error) { this.flash("Gagal ambil data Repair buat export: " + error.message, true); return; }
+      await this.muatRepairPic(data || []);
       const rows = (data || []).map((row) => ({
         "Tanggal": row.tanggal || "-",
+        "PIC": this.repairPicNama(row),
         "Point": row.point_label || "-",
         "Model": this.repairPartNoModelMap[row.part_number] || "-",
         "Part No": row.part_number || "-",
@@ -4997,28 +5016,51 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const st = e.data && e.data.repairSet;
         if (!st || !st.tanggal) return;
         this.repairHeatTgl = st.tanggal;
-        this.muatRepairHeat();
+        this.muatRepairHeat(true);
       });
-      try { window.parent.postMessage({ repairSiap: true }, "*"); } catch (e) {}
+      try { window.parent.postMessage({ repairSiap: true, repair3dBuild: DKD_BUILD }, "*"); } catch (e) {}
     },
     // Jumlah Repair per titik (point_id) pada tanggal terpilih, lalu gambar ulang area di model.
-    async muatRepairHeat() {
+    async muatRepairHeat(ganti) {
       const tgl = this.repairHeatTgl;
       if (!tgl) return;
       const tok = (this._rhTok = (this._rhTok || 0) + 1);
       try {
-        const { data, error } = await supabaseClient.from("repair_log").select("id,point_id,point_label,jam,part_number,qty,kategori_repair,created_by").eq("mesin", machineKey).eq("tanggal", tgl).order("jam").limit(5000);
+        const { data, error } = await supabaseClient.from("repair_log").select("*").eq("mesin", machineKey).eq("tanggal", tgl).order("jam").limit(5000);
         if (error) throw error;
         if (tok !== this._rhTok) return;
-        const heat = {}; let total = 0;
-        (data || []).forEach((r) => { const q = Number(r.qty) || 0; total += q; if (r.point_id && q > 0) heat[r.point_id] = (heat[r.point_id] || 0) + q; });
         this.repairHariRows = data || [];
-        this.repairHeat = heat;
+        this.repairHeat = this.hitungRepairHeat(this.repairHariRows);
+        const heat = this.repairHeat; let total = 0;
+        (data || []).forEach((r) => { total += Number(r.qty) || 0; });
         this.muatRepairPic(data || []);
+        // Tanggal baru & model yang tampil tidak punya Repair, tapi model/part lain punya -> pindah ke part itu.
+        if (ganti && !Object.keys(heat).length && (this.repairViews || []).length > 1) {
+          const perView = {};
+          this.repairHariRows.forEach((r) => { if (r.view_id) perView[r.view_id] = (perView[r.view_id] || 0) + (Number(r.qty) || 0); });
+          const terbaik = Object.keys(perView).filter((v) => this.repairViews.some((x) => x.id === v) && v !== this.repairActiveViewId).sort((a, b) => perView[b] - perView[a])[0];
+          if (terbaik) { await this.selectRepairView(terbaik); this.repairHeat = this.hitungRepairHeat(); }
+        }
         try { window.parent.postMessage({ repairTotal: { tanggal: tgl, qty: total, titik: Object.keys(heat).length } }, "*"); } catch (e) {}
-        if (this.repairKartu) this.bukaKartuRepair(this.repairKartu.pointId, true);
+        if (this.repairKartu) this.bukaKartuRepair(this.repairKartu.pointId, true, this.repairKartu.ids);
         if (repairThreeState) this.rebuildRepairMarkers();
       } catch (e) { console.error("Gagal memuat titik Repair:", e); }
+    },
+    // Catatan Repair milik 1 titik: cocok lewat point_id; kalau catatan lama kehilangan point_id (titiknya dibuat ulang),
+    // dicocokkan lewat nama titik -- hanya bila nama itu unik di model ini.
+    repairRowsUntukTitik(pt) {
+      const pts = this.repairPoints || [];
+      const kenal = new Set(pts.map((x) => x.id));
+      const unik = pt.label && pts.filter((x) => x.label === pt.label).length === 1;
+      return (this.repairHariRows || []).filter((r) => r.point_id === pt.id || (unik && !kenal.has(r.point_id) && r.point_label === pt.label));
+    },
+    hitungRepairHeat(rows) {
+      const heat = {};
+      (this.repairPoints || []).forEach((pt) => {
+        const q = this.repairRowsUntukTitik(pt).reduce((t, r) => t + (Number(r.qty) || 0), 0);
+        if (q > 0) heat[pt.id] = q;
+      });
+      return heat;
     },
     // Nama PIC (pengisi Repair) dari profiles; kalau tidak bisa dibaca, kartu tampil tanpa PIC.
     async muatRepairPic(rows) {
@@ -5027,16 +5069,17 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         if (!ids.length) return;
         const { data } = await supabaseClient.from("profiles").select("id,full_name").in("id", ids);
         (data || []).forEach((u) => { this.repairPic[u.id] = u.full_name || ""; });
-        if (this.repairKartu) this.bukaKartuRepair(this.repairKartu.pointId, true);
+        if (this.repairKartu) this.bukaKartuRepair(this.repairKartu.pointId, true, this.repairKartu.ids);
       } catch (e) { /* PIC tidak wajib */ }
     },
     // Ketuk titik di model (Dashboard Line) -> kartu isi semua catatan Repair di titik itu pada tanggal terpilih.
-    bukaKartuRepair(pointId, perbarui) {
-      const rows = (this.repairHariRows || []).filter((r) => r.point_id === pointId);
-      if (!rows.length) { this.repairKartu = null; return; }
+    bukaKartuRepair(pointId, perbarui, ids) {
       const pt = (this.repairPoints || []).find((x) => x.id === pointId);
+      let rows = pt ? this.repairRowsUntukTitik(pt) : [];
+      if (ids && ids.length) rows = rows.filter((r) => ids.includes(r.id));
+      if (!rows.length) { this.repairKartu = null; return; }
       this.repairKartu = {
-        pointId,
+        pointId, ids: ids || null,
         judul: "Titik " + ((pt && pt.label) || rows[0].point_label || "-"),
         tanggal: this.repairHeatTgl,
         rows: rows.map((r) => ({ id: r.id, jam: String(r.jam || "").slice(0, 5), kategori: r.kategori_repair || "-", qty: Number(r.qty) || 0, part: String(r.part_number || "-").split("-").slice(1).join("-") || r.part_number || "-", pic: this.repairPic[r.created_by] || "" })),
@@ -5117,14 +5160,21 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const { data, error } = await supabaseClient.from("repair_log").select("*").eq("mesin", machineKey).order("tanggal", { ascending: false }).order("created_at", { ascending: false }).limit(200);
       if (error) { this.flash("Gagal memuat Riwayat Repair: " + error.message, true); return; }
       this.repairLogRows = data || [];
+      this.muatRepairPic(this.repairLogRows);
+    },
+    // Kolom PIC di Riwayat Repair: nama pengisi (dari login saat input), otomatis -- tidak ada di form.
+    buildVer() { return DKD_BUILD; },
+    repairPicNama(row) {
+      return (row && row.created_by && this.repairPic[row.created_by]) || "-";
     },
 
-    openRepairPoint(point) {
+    openRepairPoint(point, touch) {
+      this.repairModalTouch = touch || null;
       if (this.repairEditMode) return; // di mode edit, klik ditangani handleRepair3DClick (lihat viewer 3D)
       if (document.documentElement.classList.contains("repair-solo")) return; // tampilan Dashboard Line: hanya lihat
       this.editingRepairId = null;
       this.repairModalPoint = point;
-      this.repairForm = { tanggal: localDateStr(new Date()), jam: localTimeStr(new Date()), part_number: "", qty: "", kategori_repair: "" };
+      this.repairForm = { tanggal: hariProduksiStr(new Date()), jam: localTimeStr(new Date()), part_number: "", qty: "", kategori_repair: "" };
       this.repairPartLocked = false; this.repairPartHint = "";
       this.repairModalOpen = true;
       this.syncRepairPartFromProduction();
@@ -5136,12 +5186,33 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.repairForm = { tanggal: row.tanggal, jam: row.jam || localTimeStr(new Date()), part_number: row.part_number || "", qty: row.qty, kategori_repair: row.kategori_repair };
       this.repairModalOpen = true;
     },
+    // Jam diubah: kalau waktu kejadiannya jadi di masa depan, berarti yang dimaksud hari produksi sebelumnya
+    // (mis. jam 07:06 mengisi Repair shift 2 jam 03:00) -> tanggal mundur 1 hari.
+    repairJamBerubah() {
+      const f = this.repairForm;
+      const iso = waktuRepairIso(f.tanggal, f.jam);
+      if (iso && new Date(iso).getTime() > Date.now() + 5 * 60000) {
+        const d = new Date(f.tanggal + "T00:00:00"); d.setDate(d.getDate() - 1);
+        f.tanggal = localDateStr(d);
+      }
+      this.syncRepairPartFromProduction();
+    },
+    // Keterangan di bawah Tanggal/Jam: hari produksi & shift.
+    repairHariInfo() {
+      const f = this.repairForm || {};
+      if (!f.tanggal || !f.jam) return "";
+      const fmt = (t) => { const d = new Date(t + "T00:00:00"); return d.toLocaleDateString("id-ID", { day: "numeric", month: "short" }); };
+      const shift = f.jam >= "07:00" && f.jam < "19:30" ? "Shift 1" : "Shift 2";
+      let info = "Hari produksi " + fmt(f.tanggal) + " · " + shift;
+      if (f.jam < "07:00") { const d = new Date(f.tanggal + "T00:00:00"); d.setDate(d.getDate() + 1); info += " (dini hari " + fmt(localDateStr(d)) + ")"; }
+      return info;
+    },
     closeRepairModal() {
-      this.repairModalOpen = false; this.repairModalPoint = null; this.editingRepairId = null;
+      this.repairModalOpen = false; this.repairModalPoint = null; this.editingRepairId = null; this.repairModalTouch = null;
     },
     async syncRepairPartFromProduction() {
       // Auto-fill Part No dari Input Produksi berdasarkan tanggal & jam -- sama logikanya dengan NG Inline
-      const iso = tanggalJamToIso(this.repairForm.tanggal, this.repairForm.jam);
+      const iso = waktuRepairIso(this.repairForm.tanggal, this.repairForm.jam);
       if (!iso) { this.repairPartLocked = false; this.repairPartHint = ""; return; }
 
       const { data: prod, error } = await supabaseClient
@@ -5172,7 +5243,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       }
       this.repairSaving = true;
       const payload = {
-        mesin: machineKey, tanggal: f.tanggal, jam: f.jam, waktu_kejadian: tanggalJamToIso(f.tanggal, f.jam),
+        mesin: machineKey, tanggal: f.tanggal, jam: f.jam, waktu_kejadian: waktuRepairIso(f.tanggal, f.jam),
         view_id: this.repairActiveViewId, point_id: this.repairModalPoint?.id || null,
         point_label: this.repairModalPoint?.label || null,
         part_number: f.part_number, qty: Number(f.qty), kategori_repair: f.kategori_repair,
@@ -5185,10 +5256,20 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           this.flash("Data Repair berhasil diupdate.");
         } else {
           payload.created_by = this.session.user.id;
-          const { data, error } = await supabaseClient.from("repair_log").insert(payload).select().single();
+          const t = this.repairModalTouch;
+          if (t) { payload.touch_x = t.x; payload.touch_y = t.y; payload.touch_z = t.z; }
+          let res = await supabaseClient.from("repair_log").insert(payload).select().single(); let tanpaSentuh = false;
+          if (res.error && t && /touch_/.test(res.error.message || "")) {
+            // Kolom posisi sentuh belum ada di database (migration belum dijalankan) -> tetap simpan tanpa posisi.
+            delete payload.touch_x; delete payload.touch_y; delete payload.touch_z;
+            res = await supabaseClient.from("repair_log").insert(payload).select().single();
+            tanpaSentuh = true;
+          }
+          const { data, error } = res;
           if (error) throw error;
           this.repairLogRows.unshift(data);
-          this.flash("Data Repair tersimpan.");
+          this.muatRepairPic([data]);
+          if (tanpaSentuh) this.flash("Repair tersimpan, tapi posisi sentuh belum bisa disimpan (database belum diperbarui).", true); else this.flash("Data Repair tersimpan.");
         }
         this.closeRepairModal();
       } catch (err) {
@@ -6649,9 +6730,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // Dipisah supaya garisnya bisa dibikin tipis & samar tanpa membuat
       // areanya jadi susah disentuh.
       const bidang = pt.path && pt.path.mode === "bidang";
-      // Ada Repair di area ini pada tanggal terpilih (Dashboard Line) -> menyala sesuai jumlahnya.
-      const qtyPanas = Number((this.repairHeat || {})[pt.id]) || 0;
-      const warnaPanas = 0xDC2626;   // titik yang pernah disentuh: merah terang
+      const qtyPanas = 0, warnaPanas = 0;   // (Dashboard Line memakai titik sentuh, bukan menyalakan area)
       const buat = (radius, opacity, hanyaSentuh) => {
         let geo;
         if (bidang) {
@@ -6693,6 +6772,41 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
              false);
       }
     },
+    // Titik SENTUH (Dashboard Line): satu bulatan merah kecil di tempat leader menyentuh model saat input Repair.
+    // Catatan lama tanpa posisi sentuh digambar di tengah areanya (bulatan oranye).
+    buildRepairDots(THREE, r, maxDim) {
+      const rows = this.repairHariRows || [];
+      // Ukuran tetap ~14 piksel di layar (kotak kecil maupun layar besar).
+      const tinggi = (this.$refs.repair3dCanvas && this.$refs.repair3dCanvas.clientHeight) || 300;
+      const skala = Math.max(0.02, Math.min(0.14, 26 / tinggi));
+      const buatSprite = (pos, warna, rowIds, pointId) => {
+        const c = document.createElement("canvas"); c.width = c.height = 96;
+        const g = c.getContext("2d");
+        g.beginPath(); g.arc(48, 48, 20, 0, Math.PI * 2); g.fillStyle = "#ffffff"; g.fill();
+        g.beginPath(); g.arc(48, 48, 14, 0, Math.PI * 2); g.fillStyle = warna; g.fill();
+        const mat = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, depthWrite: false, transparent: true, sizeAttenuation: false });
+        const sp = new THREE.Sprite(mat);
+        sp.scale.set(skala, skala, 1);   // bulatan terlihat ~14 px; sisanya area ketuk yang lebih lega
+        sp.position.set(pos.x, pos.y, pos.z);
+        sp.renderOrder = 1001;
+        sp.userData.pointId = pointId; sp.userData.rowIds = rowIds; sp.userData.isRepairAux = true;
+        r.mesh.add(sp); r.markers.push(sp);
+      };
+      (this.repairPoints || []).forEach((pt) => {
+        const rp = this.repairRowsUntukTitik(pt).filter((x) => rows.includes(x));
+        if (!rp.length) return;
+        const sentuh = rp.filter((x) => x.touch_x != null && x.touch_y != null && x.touch_z != null);
+        const tanpa = rp.filter((x) => !(x.touch_x != null && x.touch_y != null && x.touch_z != null));
+        sentuh.forEach((x) => buatSprite({ x: Number(x.touch_x), y: Number(x.touch_y), z: Number(x.touch_z) }, "#dc2626", [x.id], pt.id));
+        if (tanpa.length) {
+          const arr = this.repairAreaPoints(pt);
+          const list = arr.length ? arr : [{ x: pt.x || 0, y: pt.y || 0, z: pt.z || 0 }];
+          const n = list.length;
+          const pusat = list.reduce((a, t) => ({ x: a.x + t.x / n, y: a.y + t.y / n, z: a.z + t.z / n }), { x: 0, y: 0, z: 0 });
+          buatSprite(pusat, "#f59e0b", tanpa.map((x) => x.id), pt.id);
+        }
+      });
+    },
 
     // Pratinjau jalur yang sedang dibuat (tap-tap belum disimpan) --
     // SELALU terlihat, supaya admin tahu bentuk jalurnya sejauh ini.
@@ -6725,6 +6839,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
 
     rebuildRepairMarkers() {
       const r = repairThreeState; if (!r) return;
+      if (this.repairHeatTgl) this.repairHeat = this.hitungRepairHeat();
       const THREE = r.THREE;
       (r.markers || []).forEach((m) => { r.mesh.remove(m); this.disposeRepairObject(m); });
       if (r.weldLineMeshes) {
@@ -6755,7 +6870,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.repairPoints.forEach((pt) => {
         // --- BENTUK BARU: area sentuh (cakram tembus pandang) ---
         if (this.isRepairArea(pt)) {
-          this.buildRepairAreaMesh(THREE, r, pt, maxDim);
+          if (!this.repairHeatTgl || this.repairShowAreas) this.buildRepairAreaMesh(THREE, r, pt, maxDim);
           return;
         }
         // --- Point model LAMA (garis/lingkaran/kotak/bola): TIDAK digambar.
@@ -6791,6 +6906,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         r.markers.push(sprite);
       });
 
+      if (this.repairHeatTgl) this.buildRepairDots(THREE, r, maxDim);
       // Pratinjau jalur yang sedang di-tap (belum disimpan)
       if (this.repairEditMode) this.buildRepairDraftMesh(THREE, r, maxDim);
 
@@ -7410,14 +7526,24 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const hit = this.raycastRepairMarkers(ev, container);
       if (document.documentElement.classList.contains("repair-solo")) {
         // Dashboard Line: ketuk titik bertanda -> kartu isinya; ketuk tempat lain -> tutup.
-        if (hit && hit.object.userData && hit.object.userData.pointId) this.bukaKartuRepair(hit.object.userData.pointId); else this.repairKartu = null;
+        if (hit && hit.object.userData && hit.object.userData.pointId) this.bukaKartuRepair(hit.object.userData.pointId, false, hit.object.userData.rowIds); else this.repairKartu = null;
         return;
       }
       if (!hit || !hit.object.userData || !hit.object.userData.pointId) return;
       const point = this.repairPoints.find((p) => p.id === hit.object.userData.pointId);
       if (!point) return;
-      if (this.repairEditMode) this.selectRepairPoint(point.id);
-      else this.openRepairPoint(point);
+      if (this.repairEditMode) { this.selectRepairPoint(point.id); return; }
+      // Posisi sentuh pada permukaan model (koordinat lokal model) -> disimpan bersama Repair, ditampilkan di Dashboard Line.
+      let touch = null;
+      try {
+        const r = repairThreeState;
+        r.raycaster.setFromCamera(r.pointer, r.camera);
+        const hm = r.raycaster.intersectObject(r.mesh, true).find((h) => !(r.markers || []).includes(h.object) && !(h.object.userData && (h.object.userData.isArea || h.object.userData.isRepairAux)));
+        const w = hm ? hm.point : hit.point;
+        const l = r.mesh.worldToLocal(w.clone());
+        touch = { x: +l.x.toFixed(4), y: +l.y.toFixed(4), z: +l.z.toFixed(4) };
+      } catch (e) { touch = null; }
+      this.openRepairPoint(point, touch);
     },
     // ---- Pilih/batal-pilih Point buat toolbar Ukuran(otomatis)/Edit Titik/Hapus ----
     selectRepairPoint(id) {
