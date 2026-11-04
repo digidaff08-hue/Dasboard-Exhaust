@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://esm.sh">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script>if (/[?&]solo3d=1/.test(location.search)) document.documentElement.classList.add("repair-solo");</script>
-<link rel="stylesheet" href="../assets/style.css?v=20261103h">
+<link rel="stylesheet" href="../assets/style.css?v=20261104a">
 <script src="../assets/pengaturan.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -21,11 +21,11 @@
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="../assets/supabaseClient.js?v=20261103h"></script>
+<script src="../assets/supabaseClient.js?v=20261104a"></script>
 <script src="../assets/realtime.js"></script>
 <script src="../assets/utils.js"></script>
 <script src="../assets/produksi-join.js"></script>
-<script src="../assets/machine-page.js?v=20261103h"></script>
+<script src="../assets/machine-page.js?v=20261104a"></script>
 <script src="../assets/andon.js"></script>
 <style>
   /* decor-bg-fix */
@@ -1743,12 +1743,13 @@
             </div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th class="bulk-col"><input type="checkbox" class="bulk-box" title="Pilih semua" :checked="bulkAllChecked('repair', repairLogRows)" @change="bulkToggleAll('repair', repairLogRows)"></th><th>Tanggal</th><th>Point</th><th>Model</th><th>Part No</th><th class="num-col">Qty</th><th>Kategori Repair</th><th>Aksi</th></tr></thead>
+                <thead><tr><th class="bulk-col"><input type="checkbox" class="bulk-box" title="Pilih semua" :checked="bulkAllChecked('repair', repairLogRows)" @change="bulkToggleAll('repair', repairLogRows)"></th><th>Tanggal</th><th>PIC</th><th>Point</th><th>Model</th><th>Part No</th><th class="num-col">Qty</th><th>Kategori Repair</th><th>Aksi</th></tr></thead>
                 <tbody>
                   <template x-for="row in repairLogRows" :key="row.id">
                     <tr>
                       <td class="bulk-col"><input type="checkbox" class="bulk-box" :checked="bulkHas('repair', row.id)" @change="bulkToggle('repair', row)" :disabled="String(row.id).startsWith('pending_')"></td>
                       <td class="mono" x-text="row.tanggal"></td>
+                      <td x-text="repairPicNama(row)"></td>
                       <td class="mono" style="font-weight:600;" x-text="row.point_label || '-'"></td>
                       <td class="mono" x-text="repairPartNoModelMap[row.part_number] || '-'"></td>
                       <td class="mono" x-text="row.part_number || '-'"></td>
@@ -1760,7 +1761,7 @@
                       </td>
                     </tr>
                   </template>
-                  <tr x-show="repairLogRows.length === 0"><td colspan="8" class="empty-state">Belum ada data Repair.</td></tr>
+                  <tr x-show="repairLogRows.length === 0"><td colspan="9" class="empty-state">Belum ada data Repair.</td></tr>
                 </tbody>
               </table>
             </div>
