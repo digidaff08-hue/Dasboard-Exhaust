@@ -1730,7 +1730,7 @@
 
           <div class="panel">
             <p class="panel-title">
-              <span>Riwayat Repair <span class="count" x-text="repairLogRows.length + ' baris'"></span></span>
+              <span>Riwayat Repair <span class="count" x-text="repairLogRows.length + ' baris'"></span> <span style="font-size:.62rem;color:#94a3b8;font-weight:400;" x-text="'v' + buildVer()"></span></span>
               <template x-if="profile?.role === 'admin'"><span style="display:flex;gap:8px;align-items:center;">
                 <input type="month" x-model="repairExportMonth" title="Pilih bulan buat export" style="max-width:150px;">
                 <button type="button" class="btn-secondary btn-sm" @click="exportRepairExcel()">⬇ Export Excel</button>
