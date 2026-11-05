@@ -420,7 +420,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261105b";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261105c";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:45", "20:30"] },
@@ -6823,8 +6823,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // depannya (titik di sisi belakang tidak kelihatan).
     perbaruiRepairDots(r) {
       if (!r || !r.markers || !r.camera) return;
-      const DOT_PX = 14;
       const H = (r.renderer && r.renderer.domElement && r.renderer.domElement.clientHeight) || 300;
+      // Ukuran titik mengikuti tinggi kotak 3D: kotak kecil -> titik kecil (~7 px) supaya rapi,
+      // layar besar -> maksimal 14 px. Di dalam satu tampilan, ukurannya tetap saat zoom.
+      const DOT_PX = Math.max(7, Math.min(14, H * 0.03));
       const tanHalf = Math.tan((r.camera.fov * Math.PI / 180) / 2);
       const THREE = r.THREE;
       r.mesh.updateMatrixWorld(true);
