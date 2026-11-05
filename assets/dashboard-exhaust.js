@@ -1282,6 +1282,19 @@ function dashboardExhaust() {
     // MENYARING model/bar Qty Repair yang tampil, sementara angka %-nya
     // tetap dari data gabungan semua line, bukan murni line itu saja.
     // Sudah dikonfirmasi ke user dan diterima sebagai batasan.
+    // Data per-Line untuk chart Month/Daily. Kalau Line dipilih tapi line itu
+    // TIDAK punya data (mis. E-05 belum ada NG), hasilnya harus KOSONG (nol),
+    // bukan jatuh ke data gabungan semua line. Selama peta belum selesai
+    // dimuat, kembalikan null (sementara tampil gabungan, lalu dirender ulang).
+    qcPetaLine(jenis, kunci, line) {
+      if (!line || line === "ALL") return null;
+      const peta = (jenis === "month" ? this.qcLineMonthMap : this.qcLineDayMap)[kunci] || {};
+      if (peta[line]) return peta[line];
+      if (!this.qcLineModelMapLoaded) return null;
+      return jenis === "month"
+        ? { qtyByMonth: Array(12).fill(0), valueByMonth: Array(12).fill(0) }
+        : { qtyByDay: Array(31).fill(0), valueByDay: Array(31).fill(0) };
+    },
     async fetchQcLineModelMap() {
       if (this.qcLineModelMapLoaded) return;
       try {
@@ -4655,7 +4668,7 @@ function dashboardExhaust() {
         if (!canvas) return;
         const ngi = this.qcNgInline;
         const lineFilterMonth = this.qcLineFilter || "ALL";
-        const ngiMonthForLine = lineFilterMonth === "ALL" ? null : this.qcLineMonthMap.ngInline[lineFilterMonth];
+        const ngiMonthForLine = this.qcPetaLine("month", "ngInline", lineFilterMonth);
         const monthQty0 = ngiMonthForLine ? ngiMonthForLine.qtyByMonth : ngi.qtyByMonth;
         const monthValue0 = ngiMonthForLine ? ngiMonthForLine.valueByMonth : ngi.valueByMonth;
         // Dua kolom ringkasan di paling kiri: FY sebelumnya (diisi tangan di
@@ -4705,7 +4718,7 @@ function dashboardExhaust() {
         const ngt = this.qcNgTrial;
         const labels = qcMonthLabels;
         const lineFilterTrialMonth = this.qcLineFilter || "ALL";
-        const ngtMonthForLine = lineFilterTrialMonth === "ALL" ? null : this.qcLineMonthMap.ngTrial[lineFilterTrialMonth];
+        const ngtMonthForLine = this.qcPetaLine("month", "ngTrial", lineFilterTrialMonth);
         const trialQty0 = ngtMonthForLine ? ngtMonthForLine.qtyByMonth : (ngt.qtyByMonth && ngt.qtyByMonth.length ? ngt.qtyByMonth : labels.map(() => null));
         const trialValue0 = ngtMonthForLine ? ngtMonthForLine.valueByMonth : (ngt.valueByMonth && ngt.valueByMonth.length ? ngt.valueByMonth : labels.map(() => null));
         // Dua kolom ringkasan di paling kiri -- aturannya sama dengan chart
@@ -4760,7 +4773,7 @@ function dashboardExhaust() {
         // chart ini. Deret qcFy sudah 12 bulan, jadi tidak perlu .slice(2).
         const f = qcFyData;
         const lineFilterSpMonth = this.qcLineFilter || "ALL";
-        const repairMonthForLine = lineFilterSpMonth === "ALL" ? null : this.qcLineMonthMap.repair[lineFilterSpMonth];
+        const repairMonthForLine = this.qcPetaLine("month", "repair", lineFilterSpMonth);
         const repairQty0 = repairMonthForLine ? repairMonthForLine.qtyByMonth : (f.repairQty || []);
         const actual0 = f.actual || [];
         // Dua kolom ringkasan di paling kiri -- lihat penjelasan di chart
@@ -4971,9 +4984,9 @@ function dashboardExhaust() {
       // Straightpass cuma bar "Qty Repair" yang akurat per-line -- garis
       // "% Straightpass" TETAP data gabungan semua line (keterbatasan sama
       // seperti Month/Model, dashboard belum punya stroke harian per-line).
-      const ngiDayForLine = lineFilter === "ALL" ? null : this.qcLineDayMap.ngInline[lineFilter];
-      const ngtDayForLine = lineFilter === "ALL" ? null : this.qcLineDayMap.ngTrial[lineFilter];
-      const repDayForLine = lineFilter === "ALL" ? null : this.qcLineDayMap.repair[lineFilter];
+      const ngiDayForLine = this.qcPetaLine("day", "ngInline", lineFilter);
+      const ngtDayForLine = this.qcPetaLine("day", "ngTrial", lineFilter);
+      const repDayForLine = this.qcPetaLine("day", "repair", lineFilter);
       const ngiDailyQty = ngiDayForLine ? ngiDayForLine.qtyByDay : ngi.dailyQty;
       const ngiDailyValue = ngiDayForLine ? ngiDayForLine.valueByDay : ngi.dailyValue;
       const ngtDailyQty = ngtDayForLine ? ngtDayForLine.qtyByDay : ngt.dailyQty;
