@@ -420,7 +420,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261104g";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261105a";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:45", "20:30"] },
@@ -4102,7 +4102,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // Pengganti sistem input live lama. Baris bebas (Waktu Awal/Akhir, Kat., Part, Qty, Repair,
     // lalu menit Dandori/Stockout/Forklift-Crane/Die Jig/Mesin Rusak).
     //   Kat. 0 -> production_log (Part Number)      Kat. 3 -> dandori_log (Non-Produksi)
-    PJ_JUMLAH_BARIS: 15,
+    PJ_JUMLAH_BARIS: 22,
     pjOpen: false, pjTgl: "", pjShift: "1", pjStasiun: "", pjSaving: false, pjBaris: [], pjDirty: false, pjEdit: false, pjStatus: "", pjSibuk: 0,
     pjSorotId: null, pjGap: [], pjGapOk: false, pjPlanId: null, pjAuto: false,
     pjInit() {
