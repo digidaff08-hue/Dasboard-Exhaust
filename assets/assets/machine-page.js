@@ -420,7 +420,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261104f";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261105a";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:45", "20:30"] },
@@ -4102,7 +4102,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // Pengganti sistem input live lama. Baris bebas (Waktu Awal/Akhir, Kat., Part, Qty, Repair,
     // lalu menit Dandori/Stockout/Forklift-Crane/Die Jig/Mesin Rusak).
     //   Kat. 0 -> production_log (Part Number)      Kat. 3 -> dandori_log (Non-Produksi)
-    PJ_JUMLAH_BARIS: 15,
+    PJ_JUMLAH_BARIS: 22,
     pjOpen: false, pjTgl: "", pjShift: "1", pjStasiun: "", pjSaving: false, pjBaris: [], pjDirty: false, pjEdit: false, pjStatus: "", pjSibuk: 0,
     pjSorotId: null, pjGap: [], pjGapOk: false, pjPlanId: null, pjAuto: false,
     pjInit() {
@@ -5763,6 +5763,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           // titik tunjukan langsung ditarik balik ke tengah 60x per detik.
           // Penguncian tengah sekarang dilakukan lewat tombol "Tengahkan".
           r.controls.update();
+          this.perbaruiRepairDots(r);
           r.renderer.render(r.scene, r.camera);
         }
         r.animId = requestAnimationFrame(tick);
@@ -6805,24 +6806,50 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
              false);
       }
     },
+    // Dipanggil tiap frame: dot selalu berukuran tetap di layar (px), dan
+    // digeser sedikit ke arah kamera supaya tidak "tenggelam" di permukaan
+    // tempat ia menempel -- tapi tetap TERTUTUP kalau ada bagian model di
+    // depannya (titik di sisi belakang tidak kelihatan).
+    perbaruiRepairDots(r) {
+      if (!r || !r.markers || !r.camera) return;
+      const DOT_PX = 14;
+      const H = (r.renderer && r.renderer.domElement && r.renderer.domElement.clientHeight) || 300;
+      const tanHalf = Math.tan((r.camera.fov * Math.PI / 180) / 2);
+      const THREE = r.THREE;
+      r.mesh.updateMatrixWorld(true);
+      const w = new THREE.Vector3(), arah = new THREE.Vector3();
+      const ms = (r.mesh.scale && r.mesh.scale.x) || 1;
+      r.markers.forEach((sp) => {
+        if (!sp.userData || !sp.userData.isDot) return;
+        w.copy(sp.userData.basePos).applyMatrix4(r.mesh.matrixWorld);
+        arah.copy(r.camera.position).sub(w);
+        const jarak = arah.length() || 1;
+        arah.divideScalar(jarak);
+        const dunia = (DOT_PX / H) * 2 * jarak * tanHalf * (96 / 40);   // lebar sprite penuh (bulatan 40/96 bagian)
+        sp.userData.ukuranDunia = dunia * (40 / 96);
+        sp.scale.set(dunia / ms, dunia / ms, 1);
+        w.addScaledVector(arah, sp.userData.ukuranDunia * 0.6);
+        sp.position.copy(r.mesh.worldToLocal(w));
+      });
+    },
     // Titik SENTUH (Dashboard Line): satu bulatan merah kecil di tempat leader menyentuh model saat input Repair.
     // Catatan lama tanpa posisi sentuh digambar di tengah areanya (bulatan oranye).
     buildRepairDots(THREE, r, maxDim) {
       const rows = this.repairHariRows || [];
-      // Ukuran tetap ~14 piksel di layar (kotak kecil maupun layar besar).
-      const tinggi = (this.$refs.repair3dCanvas && this.$refs.repair3dCanvas.clientHeight) || 300;
-      const skala = Math.max(0.02, Math.min(0.14, 26 / tinggi));
+      // Ukuran dot dihitung ULANG tiap frame (lihat perbaruiRepairDots): selalu
+      // ~DOT_PX piksel di layar, berapa pun zoom/ukuran gambar. Dot juga
+      // memakai depthTest, jadi titik di sisi belakang model TERTUTUP model.
       const buatSprite = (pos, warna, rowIds, pointId) => {
         const c = document.createElement("canvas"); c.width = c.height = 96;
         const g = c.getContext("2d");
         g.beginPath(); g.arc(48, 48, 20, 0, Math.PI * 2); g.fillStyle = "#ffffff"; g.fill();
         g.beginPath(); g.arc(48, 48, 14, 0, Math.PI * 2); g.fillStyle = warna; g.fill();
-        const mat = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, depthWrite: false, transparent: true, sizeAttenuation: false });
+        const mat = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: true, depthWrite: false, transparent: true, sizeAttenuation: true });
         const sp = new THREE.Sprite(mat);
-        sp.scale.set(skala, skala, 1);   // bulatan terlihat ~14 px; sisanya area ketuk yang lebih lega
         sp.position.set(pos.x, pos.y, pos.z);
         sp.renderOrder = 1001;
         sp.userData.pointId = pointId; sp.userData.rowIds = rowIds; sp.userData.isRepairAux = true;
+        sp.userData.isDot = true; sp.userData.basePos = new THREE.Vector3(pos.x, pos.y, pos.z);
         r.mesh.add(sp); r.markers.push(sp);
       };
       (this.repairPoints || []).forEach((pt) => {
@@ -7093,7 +7120,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       r.pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
       r.pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
       r.raycaster.setFromCamera(r.pointer, r.camera);
-      const hits = r.raycaster.intersectObjects(r.markers, false);
+      let hits = r.raycaster.intersectObjects(r.markers, false);
+      if (hits.some((h) => h.object.userData && h.object.userData.isDot)) {
+        // dot yang tertutup bagian model tidak boleh bisa diketuk
+        const perm = r.raycaster.intersectObject(r.mesh, true)
+          .find((h) => !h.object.isSprite && !(h.object.userData && (h.object.userData.isRepairAux || h.object.userData.isArea)));
+        if (perm) hits = hits.filter((h) => !(h.object.userData && h.object.userData.isDot) || h.distance <= perm.distance + (h.object.userData.ukuranDunia || 0));
+      }
       return hits.length ? hits[0] : null;
     },
     // Raycast KHUSUS handle tambahan di atas Point yang lagi dipilih --
