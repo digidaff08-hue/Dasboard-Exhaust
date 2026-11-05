@@ -420,7 +420,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261105c";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261105d";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:45", "20:30"] },
@@ -1020,6 +1020,14 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         // user. Ini penyebab utama loading awal jadi sangat lama.
         // Sekarang data itu baru diambil saat tab/seksi Performance benar-benar
         // dibuka (lihat openPerformanceTab() & setActivePerfSection()).
+        // Form Input Produksi Per Jam: setelah refresh, data hari berjalan datang BELAKANGAN
+        // (produksi dimuat lebih lambat dari non-produksi). Begitu datanya masuk, isi ulang
+        // form otomatis -- selama belum ada isian yang sedang diketik/disimpan.
+        const isiUlangForm = () => {
+          if (this.pjOpen && !this.pjDirty && !this.pjEdit && !this.pjSaving && !this.pjSibuk) this.pjMuat();
+        };
+        this.$watch("productionRows", isiUlangForm);
+        this.$watch("nonProduksiRows", isiUlangForm);
         this.$watch("tandemVariant", () => {
           // Ganti varian tandem -> data performance lama sudah tidak relevan
           // (beda stasiun). Reset status "loaded" supaya diambil ulang saat
