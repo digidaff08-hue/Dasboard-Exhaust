@@ -420,7 +420,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261105a";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261105b";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:45", "20:30"] },
@@ -903,7 +903,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
     repairShowAreas: false, repairAreaSize: 0.02, repairDraftPoints: [],
     // Dashboard Line (solo3d): jumlah Repair per titik/area pada 1 tanggal -> area menyala + angka di model.
-    repairHeat: {}, repairHeatTgl: "", repairHariRows: [], repairKartu: null, repairPic: {}, repairModalTouch: null,
+    repairHeat: {}, repairHeatTgl: "", repairHariRows: [], repairKartu: null, repairKartuPos: null, repairPic: {}, repairModalTouch: null,
     repairEditMode: false, repairDrawShape: "freehand", repairSnapMode: false, repairNewViewLabel: "", repairNewViewFile: null, repairViewUploading: false,
     repairNewViewColor: "#9aa4ad",
     // Point yang lagi dipilih buat di-edit (Geser/Ukuran/Edit Titik), dan
@@ -5087,6 +5087,17 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       };
     },
     tutupKartuRepair() { this.repairKartu = null; },
+    // Tampilan kecil (kotak di Dashboard Line): kartu melebar di bawah. Tampilan besar (layar penuh):
+    // kartu ringkas, lebar tetap, muncul di samping titik yang diketuk -- bukan di dasar layar.
+    kartuGaya() {
+      const W = window.innerWidth, H = window.innerHeight, p = this.repairKartuPos;
+      if (W < 700 || H < 500 || !p) return "";
+      const lebar = 250;
+      let kiri = p.x + 18; if (kiri + lebar > W - 8) kiri = p.x - lebar - 18;
+      kiri = Math.max(8, Math.min(kiri, W - lebar - 8));
+      const atas = Math.max(8, Math.min(p.y - 24, H - 190));
+      return "left:" + kiri + "px;top:" + atas + "px;right:auto;bottom:auto;width:" + lebar + "px;max-height:45%;";
+    },
     async fetchRepairViews() {
       const { data, error } = await supabaseClient.from("repair_views").select("*").eq("mesin", machineKey).order("sort_order");
       if (error) { this.flash("Gagal memuat gambar Repair: " + error.message, true); return; }
@@ -7592,6 +7603,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const hit = this.raycastRepairMarkers(ev, container);
       if (document.documentElement.classList.contains("repair-solo")) {
         // Dashboard Line: ketuk titik bertanda -> kartu isinya; ketuk tempat lain -> tutup.
+        if (hit && hit.object.userData && hit.object.userData.pointId) this.repairKartuPos = { x: ev.clientX, y: ev.clientY };
         if (hit && hit.object.userData && hit.object.userData.pointId) this.bukaKartuRepair(hit.object.userData.pointId, false, hit.object.userData.rowIds); else this.repairKartu = null;
         return;
       }
