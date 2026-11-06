@@ -420,7 +420,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261106b";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261106c";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:40", "20:30"] },
@@ -4149,7 +4149,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.pjBaris = list; this.pjDirty = false; this.pjGap = []; this.pjGapOk = false;
       // Baris kosong pertama: Waktu Awal otomatis = akhir baris terakhir, atau awal shift (07:00 / 19:30)
       const kosong = list.find((x) => !x.id && !x.awal && !x.akhir && !x.kat && this.pjKosong(x));
-      if (kosong && this.pjTgl) { const t = this.pjAkhirTerakhir() || this.pjRentangShift().a; kosong.awal = this.pjHHMM(t); kosong.awalTgl = this.pjIso(t); }
+      if (kosong && this.pjTgl) { const t = this.pjLompatJeda(this.pjAkhirTerakhir() || this.pjRentangShift().a); kosong.awal = this.pjHHMM(t); kosong.awalTgl = this.pjIso(t); }
     },
     pjTambahBaris() { this.pjBaris.push(this.pjBarisKosong()); },
     pjUbah(b) { b.ubah = true; b.v = (b.v || 0) + 1; this.pjDirty = true; this.pjGapOk = false; this.pjGap = []; this.pjJadwalSimpan(b); },
@@ -4375,6 +4375,15 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (!kosong.length) return null;
       const now = new Date();
       return kosong.find((blk) => blk.awal <= now) || kosong[0];
+    },
+    // Kalau waktu t jatuh di JEDA antar blok (mis. 04:15 setelah blok 8, sebelum blok 9 jam 05:00),
+    // Waktu Awal berikutnya mulai dari awal blok berikutnya (05:00), bukan dari t.
+    pjLompatJeda(t) {
+      const bl = this.pjBlokShift();
+      if (bl.some((b) => t >= b.awal && t < b.akhir)) return t;
+      const next = bl.find((b) => b.awal > t);
+      const prev = bl.filter((b) => b.akhir <= t).pop();
+      return next && prev ? next.awal : t;
     },
     pjAkhirTerakhir() { // Waktu Akhir paling akhir di antara semua baris (Date) atau null
       let mx = null;
