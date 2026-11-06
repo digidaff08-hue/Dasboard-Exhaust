@@ -198,7 +198,7 @@ const MACHINE_OPTIONS = [
 // ---------- Jadwal Shift & Break (tetap) ----------
 const SHIFT1_WEEKDAY = [[9,30,9,40],[12,5,12,45],[14,30,14,40],[16,0,16,15],[18,15,18,30]];
 const SHIFT1_FRIDAY  = [[9,30,9,40],[11,40,12,50],[14,30,14,40],[16,30,16,45],[18,15,18,30]];
-const SHIFT2_ALL     = [[21,30,21,40],[23,40,0,20],[2,20,2,30],[4,30,5,0]];
+const SHIFT2_ALL     = [[21,30,21,40],[23,40,0,20],[2,30,2,40],[4,15,5,0]];
 
 function mkDate(base, h, m, addDay = 0) {
   const x = new Date(base); x.setDate(x.getDate() + addDay); x.setHours(h, m, 0, 0); return x;
@@ -420,20 +420,20 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261105d";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261106b";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
-  1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:45", "20:30"] },
+  1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:40", "20:30"] },
   2:  { senKam1: ["08:00", "09:00"], jumat1: ["08:00", "09:00"], shift2: ["20:30", "21:30"] },
-  3:  { senKam1: ["09:00", "09:30"], jumat1: ["09:00", "09:30"], shift2: ["21:30", "21:40"] },
+  3:  { senKam1: ["09:00", "09:30"], jumat1: ["09:00", "09:30"], shift2: ["21:40", "22:40"] },
   4:  { senKam1: ["09:40", "11:00"], jumat1: ["09:40", "11:00"], shift2: ["22:40", "23:40"] },
-  5:  { senKam1: ["11:00", "11:50"], jumat1: ["11:00", "11:30"], shift2: ["00:20", "01:20"] },
-  6:  { senKam1: ["12:30", "13:30"], jumat1: ["12:40", "13:30"], shift2: ["01:20", "02:20"] },
-  7:  { senKam1: ["13:30", "14:30"], jumat1: ["13:30", "14:30"], shift2: ["02:30", "03:30"] },
-  8:  { senKam1: ["14:40", "15:50"], jumat1: ["14:40", "16:15"], shift2: ["03:30", "04:20"] },
+  5:  { senKam1: ["11:00", "11:50"], jumat1: ["11:00", "11:30"], shift2: ["00:20", "01:30"] },
+  6:  { senKam1: ["12:30", "13:30"], jumat1: ["12:40", "13:30"], shift2: ["01:30", "02:30"] },
+  7:  { senKam1: ["13:30", "14:30"], jumat1: ["13:30", "14:30"], shift2: ["02:40", "03:30"] },
+  8:  { senKam1: ["14:40", "15:50"], jumat1: ["14:40", "16:15"], shift2: ["03:30", "04:15"] },
   9:  { senKam1: ["16:15", "17:15"], jumat1: ["16:45", "17:15"], shift2: ["05:00", "06:00"] },
   10: { senKam1: ["17:15", "18:15"], jumat1: ["17:15", "18:15"], shift2: ["06:00", "07:00"] },
-  11: { senKam1: ["18:15", "19:30"], jumat1: ["18:15", "19:30"], shift2: null },
+  11: { senKam1: ["18:30", "19:30"], jumat1: ["18:30", "19:30"], shift2: null },
 };
 function dkdTimeToMinutes(t) {
   const [h, m] = t.split(":").map(Number);
@@ -4361,12 +4361,17 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
     // Blok terisi = sudah ada baris produksi yang Waktu Awal-nya jatuh di blok itu
     pjBlokTerisi(blk) {
+      // Terisi = ada baris produksi yang Waktu Awal-nya di dalam blok, ATAU rentang barisnya menutupi/menimpa blok itu
+      // (baris yang menimpa blok dianggap mengisinya).
       return this.pjBaris.some((b) => b.kat === "0" && b.awal && b.akhir && (() => {
-        const t = this.pjWaktu(b.awal, false, b.awalTgl); return t >= blk.awal && t < blk.akhir;
+        const t = this.pjWaktu(b.awal, false, b.awalTgl), z = this.pjWaktu(b.akhir, true, b.akhirTgl);
+        return (t >= blk.awal && t < blk.akhir) || (t < blk.akhir && z > blk.awal);
       })());
     },
     pjBlokBerikut() {
-      const kosong = this.pjBlokShift().filter((blk) => !this.pjBlokTerisi(blk));
+      // Baris baru SELALU setelah kegiatan terakhir: blok yang berakhir sebelum Waktu Akhir terakhir dilewati.
+      const terakhir = this.pjAkhirTerakhir();
+      const kosong = this.pjBlokShift().filter((blk) => !this.pjBlokTerisi(blk) && (!terakhir || blk.akhir > terakhir));
       if (!kosong.length) return null;
       const now = new Date();
       return kosong.find((blk) => blk.awal <= now) || kosong[0];
