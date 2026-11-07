@@ -175,6 +175,44 @@
     .la-table-wrap { max-height: none; overflow: visible; }
   }
 
+
+  /* ---------- Kartu Cuti (tab Sisa Cuti) ---------- */
+  .kc { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 16px; margin-top: 8px; align-items: start; }
+  .kc-box {
+    background: color-mix(in srgb, var(--green) 10%, var(--panel));
+    border: 1.5px solid color-mix(in srgb, var(--green) 45%, var(--border));
+    border-radius: 12px; padding: 16px 18px;
+  }
+  .kc-t { text-align: center; font-weight: 800; font-size: 0.75rem; letter-spacing: .08em; margin: 0 0 12px; color: var(--text); }
+  .kc-id { display: grid; grid-template-columns: 74px 1fr; gap: 6px 8px; font-size: 0.8125rem; margin-bottom: 14px; }
+  .kc-id span:nth-child(odd) { color: var(--muted); font-weight: 600; font-size: 0.75rem; }
+  .kc-id span:nth-child(even) { border-bottom: 1px dashed var(--border); padding-bottom: 2px; font-weight: 700; color: var(--text); }
+  .kc-hak {
+    display: grid; grid-template-columns: repeat(3, 1fr); text-align: center;
+    border: 1.5px solid color-mix(in srgb, var(--green) 55%, var(--border));
+    border-radius: 10px; overflow: hidden; background: var(--panel);
+  }
+  .kc-hak > div { padding: 9px 4px; font-size: 0.625rem; font-weight: 700; letter-spacing: .04em; color: var(--muted);
+    border-right: 1.5px solid color-mix(in srgb, var(--green) 55%, var(--border)); }
+  .kc-hak > div:last-child { border-right: 0; }
+  .kc-hak b { display: block; font-size: 1.875rem; line-height: 1.15; margin-top: 4px; color: var(--text); letter-spacing: 0; }
+  .kc-hak .s b { color: var(--green); }
+  .kc-hak .s.nol b { color: var(--amber); }
+  .kc-hak .s.neg b { color: var(--red); }
+  .kc-ket { font-size: 0.6875rem; color: var(--muted); margin: 10px 0 0; }
+  .kc-tb { width: 100%; border-collapse: collapse; font-size: 0.8125rem; background: var(--panel);
+    border: 1.5px solid color-mix(in srgb, var(--green) 55%, var(--border)); table-layout: fixed; }
+  .kc-tb th, .kc-tb td { border: 1px solid var(--border); padding: 7px 6px; text-align: center; height: 31px; }
+  .kc-tb th { font-size: 0.625rem; letter-spacing: .06em; color: var(--muted); height: auto; }
+  .kc-tb td { font-family: var(--mono, ui-monospace, monospace); }
+  .kc-tb td:nth-child(2) { color: var(--muted); width: 12%; }
+  .kc-tb .kc-sisa { font-weight: 800; color: var(--green); }
+  .kc-tb tr.khusus .kc-sisa { color: var(--muted); font-weight: 600; }
+  @media (max-width: 900px) {
+    .kc { grid-template-columns: 1fr; }
+    .kc-tb th, .kc-tb td { font-size: 0.625rem; padding: 6px 2px; }
+  }
+
   /* ---------- Bagian form ---------- */
   .la-section { margin-bottom: 20px; }
   .la-section:last-of-type { margin-bottom: 0; }
@@ -550,7 +588,9 @@
           <div>
         
         <div class="panel">
-          <p class="panel-title">Sisa Cuti</p>
+          <p class="panel-title">Kartu Cuti Saya
+            <span class="count" x-show="sisaHasil.length" x-text="'Tahun ' + sisaTahun"></span>
+          </p>
           <!-- Tidak ada kotak pencarian: data yang tampil selalu milik akun
                yang sedang login, diambil lewat profiles.nik. Admin yang perlu
                melihat karyawan lain memakai Master Data > Cuti. -->
@@ -563,26 +603,41 @@
 
           <p class="hint" x-show="sisaError" style="color:var(--red); font-weight:600;" x-text="sisaError"></p>
 
-          <!-- Hasil pencarian: 1 baris ringkasan per karyawan -->
-          <template x-if="sisaHasil.length">
-            <div>
-              <div class="table-wrap la-table-wrap" style="margin-top:8px;">
-                <table class="la-stack">
-                  <thead><tr><th>NIK</th><th>Nama</th><th>Sisa Cuti</th><th>Cuti Terakhir</th></tr></thead>
+          <!-- Tampilan seperti Kartu Istirahat Panjang: kiri ringkasan
+               (Hak Cuti, Terpakai, Sisa), kanan riwayat pengambilan dengan
+               sisa berjalan. Isinya dihitung dari data cuti, tanpa input ganda. -->
+          <template x-for="r in sisaHasil" :key="'kc-'+r.nik">
+            <div class="kc">
+              <div class="kc-box">
+                <p class="kc-t">KARTU CUTI</p>
+                <div class="kc-id">
+                  <span>NO. ID</span><span x-text="r.nik"></span>
+                  <span>NAMA</span><span x-text="r.nama"></span>
+                </div>
+                <div class="kc-hak">
+                  <div>HAK CUTI<b x-text="fmtHari(r.jatah)"></b></div>
+                  <div>TERPAKAI<b x-text="fmtHari(r.terpakai)"></b></div>
+                  <div class="s" :class="r.sisa < 0 ? 'neg' : (r.sisa === 0 ? 'nol' : '')">SISA CUTI<b x-text="fmtHari(r.sisa)"></b></div>
+                </div>
+                <p class="kc-ket">Sisa = Hak Cuti &minus; Terpakai. Cuti terakhir: <span x-text="r.cutiTerakhir || '-'"></span></p>
+              </div>
+              <div class="kc-box">
+                <p class="kc-t">PENGAMBILAN HAK CUTI</p>
+                <table class="kc-tb">
+                  <thead><tr><th colspan="3">TANGGAL</th><th>JUMLAH</th><th>SISA</th></tr></thead>
                   <tbody>
-                    <template x-for="r in sisaHasil" :key="'sh-'+r.nik">
-                      <tr>
-                        <td class="mono" data-label="NIK" x-text="r.nik"></td>
-                        <td data-label="Nama" x-text="r.nama"></td>
-                        <td data-label="Sisa Cuti">
-                          <span class="la-badge" :style="'--c: var(--' + (r.sisa < 0 ? 'red' : (r.sisa === 0 ? 'amber' : 'green')) + ')'"
-                                x-text="fmtHari(r.sisa) + ' hari'"></span>
-                        </td>
-                        <td class="mono" data-label="Cuti Terakhir" x-text="r.cutiTerakhir || '-'"></td>
+                    <template x-for="b in kartuBaris(r)" :key="'kb-'+r.nik+'-'+b.id">
+                      <tr :class="b.khusus ? 'khusus' : ''">
+                        <td x-text="b.kosong ? '' : b.dari"></td>
+                        <td>s/d</td>
+                        <td x-text="b.kosong ? '' : (b.sampai || '–')"></td>
+                        <td x-text="b.kosong ? '' : b.jumlah"></td>
+                        <td class="kc-sisa" x-text="b.kosong ? '' : (b.khusus ? b.sisa + '*' : b.sisa)"></td>
                       </tr>
                     </template>
                   </tbody>
                 </table>
+                <p class="kc-ket" x-show="kartuAdaKhusus(r)">* = Cuti Khusus, tidak memotong Hak Cuti.</p>
               </div>
             </div>
           </template>
@@ -591,30 +646,6 @@
             <p class="empty-state">NIK <span class="mono" x-text="nikSendiri()"></span> tidak ada di master karyawan. Hubungi admin.</p>
           </template>
         </div>
-
-        <!-- Riwayat cuti karyawan yang dipilih -->
-        <template x-if="cutiRiwayat.length || cutiPilih">
-          <div class="panel">
-            <p class="panel-title">Riwayat Cuti
-              <span class="count" x-text="cutiRiwayat.length + ' baris'"></span>
-            </p>
-            <div class="table-wrap la-table-wrap">
-              <table class="la-riwayat">
-                <thead><tr><th>NIK</th><th>Nama</th><th>Tanggal Cuti</th></tr></thead>
-                <tbody>
-                  <template x-for="r in cutiRiwayat" :key="'cr-'+r.id">
-                    <tr>
-                      <td class="mono" data-label="NIK" x-text="r.nik"></td>
-                      <td data-label="Nama" x-text="r.nama"></td>
-                      <td class="mono" data-label="Tanggal Cuti" x-text="rentangTanggal(r)"></td>
-                    </tr>
-                  </template>
-                  <tr x-show="cutiRiwayat.length === 0"><td colspan="3" class="empty-state">Belum ada riwayat cuti.</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </template>
           </div>
         </template>
 
@@ -957,6 +988,7 @@ function attendancePage() {
     sisaHasil: [],        // hasil pencarian karyawan
     cutiPilih: null,      // karyawan yang riwayatnya sedang ditampilkan
     cutiRiwayat: [],
+    sisaTahun: new Date().getFullYear(),
     JATAH_DEFAULT: 12,    // dipakai kalau karyawan belum diatur jatahnya
 
     // NIK milik akun yang sedang login (kolom profiles.nik, dipakai juga
@@ -980,6 +1012,7 @@ function attendancePage() {
       this.cutiRiwayat = [];
       try {
         const tahun = new Date().getFullYear();
+        this.sisaTahun = tahun;
         // Cari di master karyawan: cocok kalau NIK atau namanya mengandung
         // kata yang diketik (tidak peduli huruf besar/kecil).
         const { data: kar, error: errKar } = await supabaseClient
@@ -989,7 +1022,10 @@ function attendancePage() {
         if (errKar) { this.sisaError = "Gagal mencari karyawan: " + errKar.message; return; }
 
         this.sisaSudahCari = true;
-        const list = kar || [];
+        let list = kar || [];
+        // Kartu milik sendiri: ambil NIK yang persis sama saja (pencarian di
+        // atas memakai "mengandung", jadi NIK mirip bisa ikut terbawa).
+        if (this.sisaMilikSendiri) list = list.filter((k) => String(k.nik) === cari);
         if (!list.length) { this.sisaHasil = []; return; }
         const niks = list.map((k) => k.nik);
 
@@ -1029,6 +1065,30 @@ function attendancePage() {
       } finally {
         this.sisaLoading = false;
       }
+    },
+    // Baris tabel "Pengambilan Hak Cuti": cuti tahun berjalan dari yang
+    // paling awal, dengan sisa berjalan. Hanya Cuti Tahunan yang mengurangi
+    // sisa; Cuti Khusus ditampilkan tapi tidak memotong. Dilengkapi baris
+    // kosong sampai 10 supaya bentuknya seperti kartu.
+    kartuBaris(r) {
+      const th = String(this.sisaTahun);
+      const punya = (this._cutiSemua || [])
+        .filter((c) => c.nik === r.nik && String(c.tanggal).slice(0, 4) === th)
+        .sort((a, b) => String(a.tanggal).localeCompare(String(b.tanggal)));
+      let saldo = Number(r.jatah) || 0;
+      const out = punya.map((c) => {
+        const jml = Number(c.jumlah_hari ?? 1);
+        const potong = c.jenis_cuti === "Cuti Tahunan";
+        if (potong) saldo -= jml;
+        const a = String(c.tanggal).slice(0, 10), z = c.tanggal_selesai ? String(c.tanggal_selesai).slice(0, 10) : "";
+        return { id: c.id, dari: this.fmtTgl(c.tanggal), sampai: z && z !== a ? this.fmtTgl(z) : "",
+                 jumlah: this.fmtHari(jml), sisa: this.fmtHari(saldo), khusus: !potong };
+      });
+      for (let i = out.length; i < 10; i++) out.push({ id: "k" + i, kosong: true });
+      return out;
+    },
+    kartuAdaKhusus(r) {
+      return this.kartuBaris(r).some((b) => b.khusus);
     },
     pilihKaryawanCuti(r) {
       this.cutiPilih = r;
