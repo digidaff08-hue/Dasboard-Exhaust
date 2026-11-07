@@ -1112,9 +1112,8 @@ function attendancePage() {
         const dow = d.getDay(); // 0 = Minggu, 6 = Sabtu
         const dStr = localDateStr(d);
         const lib = this.hariLibur.find((r) => r.tanggal === dStr);
-        if (dow === 0) {
-          // Minggu: tidak dihitung
-        } else if (dow === 6) {
+        if (dow === 0 || dow === 6) {
+          // Sabtu / Minggu: dihitung hanya kalau ada Ganti Hari yang cocok
           if (lib && lib.jenis === "ganti_hari" && (lib.shift === "penuh" || lib.shift === this.shiftPadaTanggal(nikStr, dStr))) total++;
         } else {
           if (!lib || lib.jenis !== "libur") total++;

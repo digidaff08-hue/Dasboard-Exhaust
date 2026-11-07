@@ -1620,8 +1620,7 @@ function dataKaryawanPage() {
       }
       const lib = this.absensiLibur.find((r) => r.tanggal === ds);
       const dow = new Date(ds + "T00:00:00").getDay();
-      if (dow === 0) return "L";
-      if (dow === 6) {
+      if (dow === 0 || dow === 6) {
         if (lib && lib.jenis === "ganti_hari" && (lib.shift === "penuh" || lib.shift === this.shiftPadaTanggal(nik, ds))) return "";
         return "L";
       }
@@ -2204,9 +2203,8 @@ function dataKaryawanPage() {
         const dow = d.getDay();   // 0 = Minggu, 6 = Sabtu
         const ds = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
         const lib = this.rkHariLibur.find((r) => r.tanggal === ds);
-        if (dow === 0) {
-          // Minggu: tidak dihitung
-        } else if (dow === 6) {
+        if (dow === 0 || dow === 6) {
+          // Sabtu / Minggu: dihitung HANYA kalau ada Ganti Hari (Penuh, atau shift orangnya cocok)
           if (lib && lib.jenis === "ganti_hari" && (lib.shift === "penuh" || lib.shift === this.shiftPadaTanggal(nik, ds))) total++;
         } else {
           if (!lib || lib.jenis !== "libur") total++;
@@ -2237,9 +2235,9 @@ function dataKaryawanPage() {
         const dow = d.getDay();
         const ds = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
         const lib = this.rkHariLibur.find((x) => x.tanggal === ds);
-        if (dow === 0) {
-          alasan.push(ds + ": Minggu (memang tidak dihitung)");
-        } else if (dow === 6) {
+        if (dow === 0 && !(lib && lib.jenis === "ganti_hari")) {
+          alasan.push(ds + ": Minggu (memang tidak dihitung, kecuali ada Ganti Hari)");
+        } else if (dow === 0 || dow === 6) {
           if (!lib || lib.jenis !== "ganti_hari") {
             alasan.push(ds + ": Sabtu, BELUM ADA catatan Ganti Hari untuk tanggal ini -> tambahkan dulu di Attendance > Ganti Hari.");
           } else if (lib.shift !== "penuh") {
