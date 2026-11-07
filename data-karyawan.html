@@ -1279,7 +1279,7 @@ function dataKaryawanPage() {
     // ---- Ganti Hari (masuk kerja pengganti) ----
     // Satu tabel dengan hari libur (hari_libur), dibedakan kolom `jenis`.
     gantiHariRows: [],
-    gantiHariForm: { tanggal: localDateStr(new Date()), shift: "1", keterangan: "" },
+    gantiHariForm: { tanggal: localDateStr(new Date()), shift: "penuh", keterangan: "" },
     // ---- Absensi (grid harian 1-31, auto dari Cuti/Izin/Sakit/Mangkir +
     // Hari Libur/Ganti Hari, tapi bisa ditimpa manual per sel) ----
     absensiBulan: new Date().getMonth() + 1,
@@ -1531,7 +1531,7 @@ function dataKaryawanPage() {
       );
       if (error) { this.flash("Gagal simpan ganti hari: " + error.message, true); return; }
       this.flash("Ganti hari tersimpan.");
-      this.gantiHariForm = { tanggal: localDateStr(new Date()), shift: "1", keterangan: "" };
+      this.gantiHariForm = { tanggal: localDateStr(new Date()), shift: "penuh", keterangan: "" };
       await this.fetchHariLibur();
     },
     async deleteGantiHari(r) {
