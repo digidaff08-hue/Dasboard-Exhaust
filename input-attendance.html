@@ -210,7 +210,31 @@
   .kc-tb tr.khusus .kc-sisa { color: var(--muted); font-weight: 600; }
   @media (max-width: 900px) {
     .kc { grid-template-columns: 1fr; }
-    .kc-tb th, .kc-tb td { font-size: 0.625rem; padding: 6px 2px; }
+  }
+  /* ---- Layar sempit (HP) ----
+     Susunan kolom TIDAK diubah: "tanggal dari / s/d / tanggal sampai /
+     jumlah / sisa" tetap lengkap persis seperti di layar lebar, begitu juga
+     baris kosongnya. Yang menyesuaikan hanya BESAR HURUF dan LEBAR KOLOM:
+     - clamp(terkecil, ikut-lebar-layar, terbesar) -> di HP 320px memakai
+       ukuran terkecil, lalu membesar sendiri seiring layar sampai batas
+       maksimum, jadi tidak ada lompatan ukuran antar-HP;
+     - table-layout: auto -> lebar tiap kolom mengikuti isinya, kolom "s/d",
+       jumlah dan sisa menyempit sehingga dua kolom tanggal kebagian ruang. */
+  @media (max-width: 640px) {
+    .kc-box { padding: clamp(9px, 2.8vw, 14px) clamp(7px, 2.2vw, 13px); }
+
+    .kc-tb { table-layout: auto; }
+    .kc-tb th, .kc-tb td { padding: clamp(4px, 1.5vw, 7px) clamp(2px, 0.8vw, 5px); height: auto; }
+    .kc-tb td { font-size: clamp(0.5rem, 2.6vw, 0.6875rem); }
+    .kc-tb th { font-size: clamp(0.4375rem, 1.8vw, 0.5625rem); letter-spacing: 0; }
+    /* lebar kolom "s/d" dilepas supaya ikut isinya, bukan 12% tetap */
+    .kc-tb td:nth-child(2) { width: auto; }
+
+    .kc-t { font-size: clamp(0.5625rem, 2.5vw, 0.6875rem); }
+    .kc-id { grid-template-columns: clamp(48px, 15vw, 66px) 1fr; font-size: clamp(0.625rem, 2.6vw, 0.75rem); }
+    .kc-hak > div { font-size: clamp(0.4375rem, 2vw, 0.5625rem); padding: clamp(5px, 1.8vw, 8px) 2px; letter-spacing: 0; }
+    .kc-hak b { font-size: clamp(1.125rem, 6.2vw, 1.625rem); margin-top: 2px; }
+    .kc-ket { font-size: clamp(0.5rem, 2.3vw, 0.625rem); margin-top: 7px; }
   }
 
   /* ---------- Bagian form ---------- */
