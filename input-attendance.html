@@ -200,16 +200,21 @@
   .cuti-pip i { width: 12px; height: 24px; border-radius: 3px; background: var(--panel-2); border: 1px solid var(--border); }
   .cuti-pip i.pakai { background: var(--navy); border-color: var(--navy); }
   .cuti-pip i.lebih { background: var(--red); border-color: var(--red); }
-  .cuti-rinci { margin: 14px 0 0; font-size: 0.8125rem; color: var(--muted); line-height: 1.5; }
+  .cuti-rinci { margin: 16px 0 0; display: flex; flex-wrap: wrap; align-items: baseline;
+    gap: 6px 24px; font-size: 0.8125rem; color: var(--muted); }
+  .cuti-stat { display: inline-flex; align-items: baseline; gap: 7px; }
+  .cuti-stat b { font-family: var(--font-mono); font-size: 1.5rem; font-weight: 800; color: var(--green);
+    letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .cuti-akhir { margin: 12px 0 0; font-size: 0.8125rem; color: var(--muted); }
 
   .cuti-judul { display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
-    margin: 0 0 7px; font-size: 0.9375rem; font-weight: 700; color: var(--text); }
+    margin: 0 0 7px; padding-right: 20px; font-size: 0.9375rem; font-weight: 700; color: var(--text); }
   .cuti-judul span { font-size: 0.75rem; font-weight: 600; color: var(--muted); }
   /* Hanya daftar ini yang bergulir, jadi judul "Riwayat pemakaian" dan
      ringkasan saldo di atasnya tetap kelihatan sambil menggulir.
      overscroll-behavior menahan gulirannya supaya tidak merembet
      menggulirkan seluruh halaman begitu daftarnya habis. */
-  .cuti-list { list-style: none; margin: 0; padding: 0 2px 0 0;
+  .cuti-list { list-style: none; margin: 0; padding: 0 14px 0 0;
     max-height: min(56vh, 460px); overflow-y: auto; overscroll-behavior: contain;
     scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
   .cuti-list::-webkit-scrollbar { width: 6px; }
@@ -239,6 +244,8 @@
     .cuti-angka b { font-size: clamp(2.5rem, 13vw, 3.5rem); }
     .cuti-angka span { font-size: clamp(0.8125rem, 3.4vw, 0.9375rem); }
     .cuti-pip { gap: 3px; }
+    .cuti-rinci { gap: 6px 18px; }
+    .cuti-stat b { font-size: clamp(1.1875rem, 5.4vw, 1.5rem); }
     .cuti-pip i { width: clamp(9px, 3vw, 13px); height: clamp(18px, 5.4vw, 24px); }
     .cuti-list { max-height: 48vh; }
     .cuti-list li { gap: 8px; padding: 11px 0; }
@@ -663,11 +670,10 @@
                 </div>
 
                 <p class="cuti-rinci">
-                  <span x-text="fmtHari(r.terpakai) + ' dari ' + fmtHari(r.jatah) + ' hari jatah sudah dipakai'"></span>
-                  <template x-if="r.cutiTerakhir">
-                    <span><br>Cuti terakhir <span x-text="r.cutiTerakhir"></span></span>
-                  </template>
+                  <span class="cuti-stat"><b x-text="fmtHari(r.jatah)"></b> hari jatah</span>
+                  <span class="cuti-stat"><b x-text="fmtHari(r.terpakai)"></b> terpakai</span>
                 </p>
+                <p class="cuti-akhir" x-show="r.cutiTerakhir">Cuti terakhir <span x-text="r.cutiTerakhir"></span></p>
               </section>
 
               <section>
