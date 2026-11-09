@@ -5,7 +5,7 @@
 // ini cuma men-cache HTML/CSS/JS-nya, bukan data produksi.
 // =========================================================
 // Naikkan versi ini tiap ada perubahan besar supaya cache lama dibuang.
-const CACHE_NAME = "v299-angka-jatah";
+const CACHE_NAME = "v300-kartu-polos";
 
 const SHELL_FILES = [
   "/login.html",

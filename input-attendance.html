@@ -181,6 +181,12 @@
      Jatah digambar sebagai deret kotak kecil, satu kotak = satu hari.
      Kotak gelap = sudah dipakai, kotak terang = masih ada. Sekali lihat
      ketahuan tinggal berapa, tanpa perlu membaca angka dulu. */
+  /* Kartu cuti tampil tanpa garis tepi, menyatu dengan latar halaman. */
+  /* Aturan .main .panel di halaman ini memakai !important, jadi di sini
+     perlu !important juga supaya garis tepinya benar-benar hilang. */
+  .main .panel.panel-cuti { border: 0 !important; background: transparent !important;
+    box-shadow: none !important; padding-left: 0; padding-right: 0; }
+
   .cuti { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 28px; align-items: start; }
 
   .cuti-kepala { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
@@ -205,7 +211,6 @@
   .cuti-stat { display: inline-flex; align-items: baseline; gap: 7px; }
   .cuti-stat b { font-family: var(--font-mono); font-size: 1.5rem; font-weight: 800; color: var(--green);
     letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-  .cuti-akhir { margin: 12px 0 0; font-size: 0.8125rem; color: var(--muted); }
 
   .cuti-judul { display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
     margin: 0 0 7px; padding-right: 20px; font-size: 0.9375rem; font-weight: 700; color: var(--text); }
@@ -224,8 +229,11 @@
     gap: 12px; padding: 12px 2px; border-top: 1px solid var(--border); }
   .cuti-list li:last-child { border-bottom: 1px solid var(--border); }
   .cuti-tgl { font-family: var(--font-mono); font-size: 0.875rem; color: var(--text); }
-  .cuti-tag { margin-left: 8px; font-family: var(--font-ui); font-size: 0.6875rem; color: var(--muted);
-    border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+  /* Penanda Cuti Khusus. Warnanya dibedakan supaya langsung kelihatan
+     baris mana yang tidak memotong jatah. */
+  .cuti-tag { margin-left: 8px; font-family: var(--font-ui); font-size: 0.6875rem; font-weight: 700;
+    color: var(--amber); background: var(--amber-dim); border: 1px solid var(--amber);
+    border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
   .cuti-jml { font-size: 0.8125rem; color: var(--muted); white-space: nowrap; }
   .cuti-sisa { font-family: var(--font-mono); font-size: 1rem; font-weight: 700; color: var(--green);
     min-width: 2.4em; text-align: right; font-variant-numeric: tabular-nums; }
@@ -629,7 +637,7 @@
         <template x-if="tab === 'sisa'">
           <div>
         
-        <div class="panel">
+        <div class="panel panel-cuti">
           <!-- Tidak ada kotak pencarian: data yang tampil selalu milik akun
                yang sedang login, diambil lewat profiles.nik. Admin yang perlu
                melihat karyawan lain memakai Master Data > Cuti. -->
@@ -673,7 +681,6 @@
                   <span class="cuti-stat"><b x-text="fmtHari(r.jatah)"></b> hari jatah</span>
                   <span class="cuti-stat"><b x-text="fmtHari(r.terpakai)"></b> terpakai</span>
                 </p>
-                <p class="cuti-akhir" x-show="r.cutiTerakhir">Cuti terakhir <span x-text="r.cutiTerakhir"></span></p>
               </section>
 
               <section>
