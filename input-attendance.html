@@ -176,65 +176,66 @@
   }
 
 
-  /* ---------- Kartu Cuti (tab Sisa Cuti) ---------- */
-  .kc { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 16px; margin-top: 8px; align-items: start; }
-  .kc-box {
-    background: color-mix(in srgb, var(--green) 10%, var(--panel));
-    border: 1.5px solid color-mix(in srgb, var(--green) 45%, var(--border));
-    border-radius: 12px; padding: 16px 18px;
-  }
-  .kc-t { text-align: center; font-weight: 800; font-size: 0.75rem; letter-spacing: .08em; margin: 0 0 12px; color: var(--text); }
-  .kc-id { display: grid; grid-template-columns: 74px 1fr; gap: 6px 8px; font-size: 0.8125rem; margin-bottom: 14px; }
-  .kc-id span:nth-child(odd) { color: var(--muted); font-weight: 600; font-size: 0.75rem; }
-  .kc-id span:nth-child(even) { border-bottom: 1px dashed var(--border); padding-bottom: 2px; font-weight: 700; color: var(--text); }
-  .kc-hak {
-    display: grid; grid-template-columns: repeat(3, 1fr); text-align: center;
-    border: 1.5px solid color-mix(in srgb, var(--green) 55%, var(--border));
-    border-radius: 10px; overflow: hidden; background: var(--panel);
-  }
-  .kc-hak > div { padding: 9px 4px; font-size: 0.625rem; font-weight: 700; letter-spacing: .04em; color: var(--muted);
-    border-right: 1.5px solid color-mix(in srgb, var(--green) 55%, var(--border)); }
-  .kc-hak > div:last-child { border-right: 0; }
-  .kc-hak b { display: block; font-size: 1.875rem; line-height: 1.15; margin-top: 4px; color: var(--text); letter-spacing: 0; }
-  .kc-hak .s b { color: var(--green); }
-  .kc-hak .s.nol b { color: var(--amber); }
-  .kc-hak .s.neg b { color: var(--red); }
-  .kc-ket { font-size: 0.6875rem; color: var(--muted); margin: 10px 0 0; }
-  .kc-tb { width: 100%; border-collapse: collapse; font-size: 0.8125rem; background: var(--panel);
-    border: 1.5px solid color-mix(in srgb, var(--green) 55%, var(--border)); table-layout: fixed; }
-  .kc-tb th, .kc-tb td { border: 1px solid var(--border); padding: 7px 6px; text-align: center; height: 31px; }
-  .kc-tb th { font-size: 0.625rem; letter-spacing: .06em; color: var(--muted); height: auto; }
-  .kc-tb td { font-family: var(--mono, ui-monospace, monospace); }
-  .kc-tb td:nth-child(2) { color: var(--muted); width: 12%; }
-  .kc-tb .kc-sisa { font-weight: 800; color: var(--green); }
-  .kc-tb tr.khusus .kc-sisa { color: var(--muted); font-weight: 600; }
-  @media (max-width: 900px) {
-    .kc { grid-template-columns: 1fr; }
-  }
-  /* ---- Layar sempit (HP) ----
-     Susunan kolom TIDAK diubah: "tanggal dari / s/d / tanggal sampai /
-     jumlah / sisa" tetap lengkap persis seperti di layar lebar, begitu juga
-     baris kosongnya. Yang menyesuaikan hanya BESAR HURUF dan LEBAR KOLOM:
-     - clamp(terkecil, ikut-lebar-layar, terbesar) -> di HP 320px memakai
-       ukuran terkecil, lalu membesar sendiri seiring layar sampai batas
-       maksimum, jadi tidak ada lompatan ukuran antar-HP;
-     - table-layout: auto -> lebar tiap kolom mengikuti isinya, kolom "s/d",
-       jumlah dan sisa menyempit sehingga dua kolom tanggal kebagian ruang. */
-  @media (max-width: 640px) {
-    .kc-box { padding: clamp(9px, 2.8vw, 14px) clamp(7px, 2.2vw, 13px); }
+  /* ---------- Kartu Cuti (tab Sisa Cuti) ----------
+     Dua bagian: saldo jatah di kiri, riwayat pemakaian di kanan.
+     Jatah digambar sebagai deret kotak kecil, satu kotak = satu hari.
+     Kotak gelap = sudah dipakai, kotak terang = masih ada. Sekali lihat
+     ketahuan tinggal berapa, tanpa perlu membaca angka dulu. */
+  .cuti { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 28px; align-items: start; }
 
-    .kc-tb { table-layout: auto; }
-    .kc-tb th, .kc-tb td { padding: clamp(4px, 1.5vw, 7px) clamp(2px, 0.8vw, 5px); height: auto; }
-    .kc-tb td { font-size: clamp(0.5rem, 2.6vw, 0.6875rem); }
-    .kc-tb th { font-size: clamp(0.4375rem, 1.8vw, 0.5625rem); letter-spacing: 0; }
-    /* lebar kolom "s/d" dilepas supaya ikut isinya, bukan 12% tetap */
-    .kc-tb td:nth-child(2) { width: auto; }
+  .cuti-kepala { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .cuti-nama { margin: 0; font-size: 1.0625rem; font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
+  .cuti-nik { margin: 3px 0 0; font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); }
+  .cuti-tahun { flex: none; font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted);
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; }
 
-    .kc-t { font-size: clamp(0.5625rem, 2.5vw, 0.6875rem); }
-    .kc-id { grid-template-columns: clamp(48px, 15vw, 66px) 1fr; font-size: clamp(0.625rem, 2.6vw, 0.75rem); }
-    .kc-hak > div { font-size: clamp(0.4375rem, 2vw, 0.5625rem); padding: clamp(5px, 1.8vw, 8px) 2px; letter-spacing: 0; }
-    .kc-hak b { font-size: clamp(1.125rem, 6.2vw, 1.625rem); margin-top: 2px; }
-    .kc-ket { font-size: clamp(0.5rem, 2.3vw, 0.625rem); margin-top: 7px; }
+  .cuti-angka { display: flex; align-items: baseline; gap: 10px; margin: 22px 0 16px; }
+  .cuti-angka b { font-size: 3.5rem; line-height: 0.95; font-weight: 800; letter-spacing: -0.035em;
+    color: var(--green); font-variant-numeric: tabular-nums; }
+  .cuti-angka span { font-size: 0.9375rem; color: var(--muted); }
+  .cuti-angka.nol b { color: var(--amber); }
+  .cuti-angka.neg b { color: var(--red); }
+
+  .cuti-pip { display: flex; flex-wrap: wrap; gap: 3px; }
+  .cuti-pip i { width: 12px; height: 24px; border-radius: 3px; background: var(--panel-2); border: 1px solid var(--border); }
+  .cuti-pip i.pakai { background: var(--navy); border-color: var(--navy); }
+  .cuti-pip i.lebih { background: var(--red); border-color: var(--red); }
+  .cuti-rinci { margin: 14px 0 0; font-size: 0.8125rem; color: var(--muted); line-height: 1.5; }
+
+  .cuti-judul { display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    margin: 0 0 2px; font-size: 0.9375rem; font-weight: 700; color: var(--text); }
+  .cuti-judul span { font-size: 0.75rem; font-weight: 600; color: var(--muted); }
+  .cuti-list { list-style: none; margin: 0; padding: 0; }
+  .cuti-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center;
+    gap: 12px; padding: 12px 2px; border-top: 1px solid var(--border); }
+  .cuti-list li:last-child { border-bottom: 1px solid var(--border); }
+  .cuti-tgl { font-family: var(--font-mono); font-size: 0.875rem; color: var(--text); }
+  .cuti-tag { margin-left: 8px; font-family: var(--font-ui); font-size: 0.6875rem; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+  .cuti-jml { font-size: 0.8125rem; color: var(--muted); white-space: nowrap; }
+  .cuti-sisa { font-family: var(--font-mono); font-size: 1rem; font-weight: 700; color: var(--green);
+    min-width: 2.4em; text-align: right; font-variant-numeric: tabular-nums; }
+  .cuti-list li.khusus .cuti-sisa { color: var(--muted); font-weight: 600; }
+  .cuti-kosong { margin: 14px 0 0; font-size: 0.875rem; color: var(--muted); }
+  .cuti-catatan { margin: 12px 0 0; font-size: 0.75rem; color: var(--muted); }
+
+  /* Layar sempit: dua bagian ditumpuk, angka dan kotak jatah mengecil
+     mengikuti lebar layar supaya tetap muat di HP kecil. */
+  @media (max-width: 820px) {
+    .cuti { grid-template-columns: 1fr; gap: 20px; }
+  }
+  @media (max-width: 560px) {
+    .cuti-nama { font-size: clamp(0.9375rem, 4vw, 1.0625rem); }
+    .cuti-angka { margin: 16px 0 14px; }
+    .cuti-angka b { font-size: clamp(2.5rem, 13vw, 3.5rem); }
+    .cuti-angka span { font-size: clamp(0.8125rem, 3.4vw, 0.9375rem); }
+    .cuti-pip { gap: 3px; }
+    .cuti-pip i { width: clamp(9px, 3vw, 13px); height: clamp(18px, 5.4vw, 24px); }
+    .cuti-list li { gap: 8px; padding: 11px 0; }
+    .cuti-tgl { font-size: clamp(0.75rem, 3.3vw, 0.875rem); }
+    .cuti-jml { font-size: clamp(0.6875rem, 3vw, 0.8125rem); }
+    .cuti-sisa { font-size: clamp(0.875rem, 3.7vw, 1rem); }
+    .cuti-tag { margin-left: 6px; font-size: 0.625rem; padding: 1px 6px; }
   }
 
   /* ---------- Bagian form ---------- */
@@ -627,42 +628,60 @@
 
           <p class="hint" x-show="sisaError" style="color:var(--red); font-weight:600;" x-text="sisaError"></p>
 
-          <!-- Tampilan seperti Kartu Istirahat Panjang: kiri ringkasan
-               (Hak Cuti, Terpakai, Sisa), kanan riwayat pengambilan dengan
-               sisa berjalan. Isinya dihitung dari data cuti, tanpa input ganda. -->
+          <!-- Kiri: saldo jatah cuti, dengan deret kotak sebagai takaran.
+               Kanan: riwayat pemakaian dengan sisa berjalan di tiap baris.
+               Semuanya dihitung dari data cuti, tidak ada input ganda. -->
           <template x-for="r in sisaHasil" :key="'kc-'+r.nik">
-            <div class="kc">
-              <div class="kc-box">
-                <p class="kc-t">KARTU CUTI</p>
-                <div class="kc-id">
-                  <span>NO. ID</span><span x-text="r.nik"></span>
-                  <span>NAMA</span><span x-text="r.nama"></span>
+            <div class="cuti">
+
+              <section>
+                <div class="cuti-kepala">
+                  <div>
+                    <p class="cuti-nama" x-text="r.nama"></p>
+                    <p class="cuti-nik" x-text="r.nik"></p>
+                  </div>
                 </div>
-                <div class="kc-hak">
-                  <div>HAK CUTI<b x-text="fmtHari(r.jatah)"></b></div>
-                  <div>TERPAKAI<b x-text="fmtHari(r.terpakai)"></b></div>
-                  <div class="s" :class="r.sisa < 0 ? 'neg' : (r.sisa === 0 ? 'nol' : '')">SISA CUTI<b x-text="fmtHari(r.sisa)"></b></div>
+
+                <p class="cuti-angka" :class="r.sisa < 0 ? 'neg' : (r.sisa === 0 ? 'nol' : '')">
+                  <b x-text="fmtHari(r.sisa)"></b>
+                  <span>hari tersisa</span>
+                </p>
+
+                <div class="cuti-pip" role="img"
+                     :aria-label="fmtHari(r.terpakai) + ' dari ' + fmtHari(r.jatah) + ' hari jatah sudah dipakai'">
+                  <template x-for="pip in pipCuti(r)" :key="'pip-'+r.nik+'-'+pip.n">
+                    <i :class="pip.lebih ? 'lebih' : (pip.pakai ? 'pakai' : '')"></i>
+                  </template>
                 </div>
-                <p class="kc-ket">Sisa = Hak Cuti &minus; Terpakai. Cuti terakhir: <span x-text="r.cutiTerakhir || '-'"></span></p>
-              </div>
-              <div class="kc-box">
-                <p class="kc-t">PENGAMBILAN HAK CUTI</p>
-                <table class="kc-tb">
-                  <thead><tr><th colspan="3">TANGGAL</th><th>JUMLAH</th><th>SISA</th></tr></thead>
-                  <tbody>
-                    <template x-for="b in kartuBaris(r)" :key="'kb-'+r.nik+'-'+b.id">
-                      <tr :class="b.khusus ? 'khusus' : ''">
-                        <td x-text="b.kosong ? '' : b.dari"></td>
-                        <td>s/d</td>
-                        <td x-text="b.kosong ? '' : (b.sampai || '–')"></td>
-                        <td x-text="b.kosong ? '' : b.jumlah"></td>
-                        <td class="kc-sisa" x-text="b.kosong ? '' : (b.khusus ? b.sisa + '*' : b.sisa)"></td>
-                      </tr>
-                    </template>
-                  </tbody>
-                </table>
-                <p class="kc-ket" x-show="kartuAdaKhusus(r)">* = Cuti Khusus, tidak memotong Hak Cuti.</p>
-              </div>
+
+                <p class="cuti-rinci">
+                  <span x-text="fmtHari(r.terpakai) + ' dari ' + fmtHari(r.jatah) + ' hari jatah sudah dipakai'"></span>
+                  <template x-if="r.cutiTerakhir">
+                    <span><br>Cuti terakhir <span x-text="r.cutiTerakhir"></span></span>
+                  </template>
+                </p>
+              </section>
+
+              <section>
+                <p class="cuti-judul">Riwayat pemakaian <span>Sisa</span></p>
+
+                <ul class="cuti-list">
+                  <template x-for="c in kartuBaris(r)" :key="'kb-'+r.nik+'-'+c.id">
+                    <li :class="c.khusus ? 'khusus' : ''">
+                      <span class="cuti-tgl">
+                        <span x-text="c.rentang"></span>
+                        <span class="cuti-tag" x-show="c.khusus">khusus</span>
+                      </span>
+                      <span class="cuti-jml" x-text="c.jumlah + ' hari'"></span>
+                      <span class="cuti-sisa" x-text="c.sisa"></span>
+                    </li>
+                  </template>
+                </ul>
+
+                <p class="cuti-kosong" x-show="!kartuBaris(r).length">Belum ada cuti yang diambil tahun ini.</p>
+                <p class="cuti-catatan" x-show="kartuAdaKhusus(r)">Cuti khusus tidak memotong jatah, jadi sisanya tidak berubah.</p>
+              </section>
+
             </div>
           </template>
 
@@ -1012,6 +1031,7 @@ function attendancePage() {
     sisaHasil: [],        // hasil pencarian karyawan
     cutiPilih: null,      // karyawan yang riwayatnya sedang ditampilkan
     cutiRiwayat: [],
+    BLN_SINGKAT: ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"],
     sisaTahun: new Date().getFullYear(),
     JATAH_DEFAULT: 12,    // dipakai kalau karyawan belum diatur jatahnya
 
@@ -1090,27 +1110,38 @@ function attendancePage() {
         this.sisaLoading = false;
       }
     },
-    // Baris tabel "Pengambilan Hak Cuti": cuti tahun berjalan dari yang
-    // paling awal, dengan sisa berjalan. Hanya Cuti Tahunan yang mengurangi
-    // sisa; Cuti Khusus ditampilkan tapi tidak memotong. Dilengkapi baris
-    // kosong sampai 10 supaya bentuknya seperti kartu.
+    // Riwayat pemakaian cuti tahun berjalan. Sisa berjalan dihitung dari
+    // pengajuan paling lama ke paling baru, lalu urutannya DIBALIK supaya
+    // yang terakhir diajukan ada di paling atas. Angka sisa tiap baris
+    // tetap menempel pada barisnya: baris teratas = sisa terkini.
+    // Hanya Cuti Tahunan yang memotong sisa; Cuti Khusus ditampilkan
+    // tapi tidak mengurangi.
     kartuBaris(r) {
       const th = String(this.sisaTahun);
       const punya = (this._cutiSemua || [])
         .filter((c) => c.nik === r.nik && String(c.tanggal).slice(0, 4) === th)
         .sort((a, b) => String(a.tanggal).localeCompare(String(b.tanggal)));
       let saldo = Number(r.jatah) || 0;
-      const out = punya.map((c) => {
+      return punya.map((c) => {
         const jml = Number(c.jumlah_hari ?? 1);
         const potong = c.jenis_cuti === "Cuti Tahunan";
         if (potong) saldo -= jml;
-        const a = String(c.tanggal).slice(0, 10), z = c.tanggal_selesai ? String(c.tanggal_selesai).slice(0, 10) : "";
-        return { id: c.id, dari: this.fmtTgl(c.tanggal), sampai: z && z !== a ? this.fmtTgl(z) : "",
-                 jumlah: this.fmtHari(jml), sisa: this.fmtHari(saldo), khusus: !potong };
-      });
-      for (let i = out.length; i < 10; i++) out.push({ id: "k" + i, kosong: true });
+        return { id: c.id, rentang: this.rentangPendek(c), jumlah: this.fmtHari(jml),
+                 sisa: this.fmtHari(saldo), khusus: !potong };
+      }).reverse();
+    },
+
+    // Satu kotak untuk tiap hari jatah. pakai = sudah diambil,
+    // lebih = pemakaian yang sudah melewati jatah (ditandai merah).
+    pipCuti(r) {
+      const jatah = Math.max(0, Math.round(Number(r.jatah) || 0));
+      const pakai = Math.max(0, Math.round(Number(r.terpakai) || 0));
+      const n = Math.min(Math.max(jatah, pakai), 60);   // rem pengaman
+      const out = [];
+      for (let i = 1; i <= n; i++) out.push({ n: i, pakai: i <= pakai, lebih: i > jatah });
       return out;
     },
+
     kartuAdaKhusus(r) {
       return this.kartuBaris(r).some((b) => b.khusus);
     },
@@ -1123,6 +1154,22 @@ function attendancePage() {
       if (!t) return "";
       const [y, m, d] = String(t).slice(0, 10).split("-");
       return d + "/" + m + "/" + y;
+    },
+    // Tanggal pendek untuk daftar riwayat: "23 Sep", dan untuk cuti
+    // beberapa hari "9-12 Okt" (bagian yang sama tidak ditulis dua kali).
+    // Tahunnya sudah tertulis sekali di kepala kartu.
+    tglPendek(t) {
+      const s = String(t || "").slice(0, 10);
+      if (!s) return "";
+      const [, m, d] = s.split("-");
+      return Number(d) + " " + (this.BLN_SINGKAT[Number(m) - 1] || m);
+    },
+    rentangPendek(c) {
+      const a = String(c.tanggal || "").slice(0, 10);
+      const z = c.tanggal_selesai ? String(c.tanggal_selesai).slice(0, 10) : "";
+      if (!z || z === a) return this.tglPendek(a);
+      if (a.slice(0, 7) === z.slice(0, 7)) return Number(a.slice(8)) + "\u2013" + this.tglPendek(z);
+      return this.tglPendek(a) + " \u2013 " + this.tglPendek(z);
     },
     rentangTanggal(r) {
       const a = this.fmtTgl(r.tanggal);
