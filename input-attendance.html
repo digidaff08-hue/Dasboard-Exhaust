@@ -203,9 +203,18 @@
   .cuti-rinci { margin: 14px 0 0; font-size: 0.8125rem; color: var(--muted); line-height: 1.5; }
 
   .cuti-judul { display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
-    margin: 0 0 2px; font-size: 0.9375rem; font-weight: 700; color: var(--text); }
+    margin: 0 0 7px; font-size: 0.9375rem; font-weight: 700; color: var(--text); }
   .cuti-judul span { font-size: 0.75rem; font-weight: 600; color: var(--muted); }
-  .cuti-list { list-style: none; margin: 0; padding: 0; }
+  /* Hanya daftar ini yang bergulir, jadi judul "Riwayat pemakaian" dan
+     ringkasan saldo di atasnya tetap kelihatan sambil menggulir.
+     overscroll-behavior menahan gulirannya supaya tidak merembet
+     menggulirkan seluruh halaman begitu daftarnya habis. */
+  .cuti-list { list-style: none; margin: 0; padding: 0 2px 0 0;
+    max-height: min(56vh, 460px); overflow-y: auto; overscroll-behavior: contain;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+  .cuti-list::-webkit-scrollbar { width: 6px; }
+  .cuti-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+  .cuti-list::-webkit-scrollbar-track { background: transparent; }
   .cuti-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center;
     gap: 12px; padding: 12px 2px; border-top: 1px solid var(--border); }
   .cuti-list li:last-child { border-bottom: 1px solid var(--border); }
@@ -231,6 +240,7 @@
     .cuti-angka span { font-size: clamp(0.8125rem, 3.4vw, 0.9375rem); }
     .cuti-pip { gap: 3px; }
     .cuti-pip i { width: clamp(9px, 3vw, 13px); height: clamp(18px, 5.4vw, 24px); }
+    .cuti-list { max-height: 48vh; }
     .cuti-list li { gap: 8px; padding: 11px 0; }
     .cuti-tgl { font-size: clamp(0.75rem, 3.3vw, 0.875rem); }
     .cuti-jml { font-size: clamp(0.6875rem, 3vw, 0.8125rem); }
@@ -613,9 +623,6 @@
           <div>
         
         <div class="panel">
-          <p class="panel-title">Kartu Cuti Saya
-            <span class="count" x-show="sisaHasil.length" x-text="'Tahun ' + sisaTahun"></span>
-          </p>
           <!-- Tidak ada kotak pencarian: data yang tampil selalu milik akun
                yang sedang login, diambil lewat profiles.nik. Admin yang perlu
                melihat karyawan lain memakai Master Data > Cuti. -->
@@ -640,6 +647,7 @@
                     <p class="cuti-nama" x-text="r.nama"></p>
                     <p class="cuti-nik" x-text="r.nik"></p>
                   </div>
+                  <span class="cuti-tahun" x-text="sisaTahun"></span>
                 </div>
 
                 <p class="cuti-angka" :class="r.sisa < 0 ? 'neg' : (r.sisa === 0 ? 'nol' : '')">
