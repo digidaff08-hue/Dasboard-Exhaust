@@ -4292,11 +4292,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         minIso: a.toISOString(),
         maxIso: z.toISOString(),
       };
-      // Diisi sepanjang blok dulu, tinggal dipersempit sesuai kejadiannya.
+      // Jam sengaja dibiarkan kosong supaya operator mengisi jam kejadian
+      // yang sebenarnya, bukan asal menerima jam blok. Pilihannya tetap
+      // dibatasi sepanjang blok ini lewat dtBatas di atas.
       this.dtTgl = this.pjIso(a);
-      this.dtJamA = this.pjHHMM(a);
-      this.dtJamZ = this.pjHHMM(z);
-      this.dtSusunWaktu();
+      this.dtJamA = ""; this.dtJamZ = "";
+      this.dtStart = null; this.dtEnd = null;
       this.tab = "downtime";
       this.$nextTick(() => {
         const f = document.querySelector("form[x-show*='dtState']");
