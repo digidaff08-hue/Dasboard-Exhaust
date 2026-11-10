@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://esm.sh">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script>if (/[?&]solo3d=1/.test(location.search)) document.documentElement.classList.add("repair-solo");</script>
-<link rel="stylesheet" href="../assets/style.css?v=20261106c">
+<link rel="stylesheet" href="../assets/style.css?v=20261110a">
 <script src="../assets/pengaturan.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -21,11 +21,11 @@
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="../assets/supabaseClient.js?v=20261106c"></script>
+<script src="../assets/supabaseClient.js?v=20261110a"></script>
 <script src="../assets/realtime.js"></script>
 <script src="../assets/utils.js"></script>
 <script src="../assets/produksi-join.js"></script>
-<script src="../assets/machine-page.js?v=20261106c"></script>
+<script src="../assets/machine-page.js?v=20261110a"></script>
 <script src="../assets/andon.js"></script>
 <style>
   /* decor-bg-fix */
@@ -517,7 +517,10 @@
                       <td><input type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" :disabled="b.kat === '3'" x-model="b.qty" @input="pjAngka(b,'qty')"></td>
                       <td class="pj-sep"><input type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" :disabled="b.kat === '3'" x-model="b.repair" @input="pjAngka(b,'repair')"></td>
                       <td><input type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" :disabled="b.kat === '3'" x-model="b.dandori" @input="pjAngka(b,'dandori')"></td>
-                      <td class="pj-ro" @click="document.activeElement && document.activeElement.blur()" :title="'Terisi otomatis dari tab Downtime'" x-text="b.downtime || ''"></td>
+                      <td class="pj-ro" :class="b.id && !b.ubah ? 'pj-dt-klik' : ''"
+                          :title="b.id && !b.ubah ? 'Klik untuk mengisi downtime di blok jam ini' : 'Simpan dulu barisnya supaya downtime bisa diisi dari sini'"
+                          @click="document.activeElement && document.activeElement.blur(); pjBukaDowntime(b)"
+                          x-text="b.downtime || (b.id && !b.ubah ? '+' : '')"></td>
                     </tr>
                   </template>
                 </tbody>
@@ -1289,19 +1292,19 @@
                 </span>
               </div>
             </template>
+            <!-- Tidak ada stopwatch lagi. Tekan tombol -> form muncul ->
+                 tanggal & jam diisi sendiri. -->
             <div class="timer-row" x-show="!editingDowntimeId">
               <template x-if="dtState === 'idle'">
-                <button type="button" class="btn-primary" @click="startDowntime()">▶ Mulai Downtime</button>
+                <button type="button" class="btn-primary" @click="startDowntime()">+ Tambah Downtime</button>
               </template>
               <template x-if="dtState !== 'idle'">
                 <div class="timer-badge">
-                  <span class="timer-dot" :class="dtState==='running' ? 'timer-dot-live' : ''"></span>
-                  <span>Mulai <b x-text="fmtClock(dtStart)"></b></span>
-                  <template x-if="dtState === 'running'">
-                    <button type="button" class="btn-secondary btn-sm" @click="stopDowntime()">⏹ Selesai</button>
+                  <template x-if="dtBatas">
+                    <span>Blok <b x-text="dtBatas.label"></b><span x-show="dtBatas.part"> · <span x-text="dtBatas.part"></span></span> — jam hanya boleh di dalam blok ini</span>
                   </template>
-                  <template x-if="dtState === 'stopped'">
-                    <span>· Selesai <b x-text="fmtClock(dtEnd)"></b></span>
+                  <template x-if="!dtBatas">
+                    <span>Isi tanggal &amp; jam di bawah</span>
                   </template>
                   <button type="button" class="btn-ghost btn-sm" @click="cancelDowntime()">Batal</button>
                 </div>
@@ -1310,6 +1313,26 @@
             <p class="hint">Waktu downtime harus pas di dalam satu baris produksi (tidak boleh melintasi 2 part) — sistem akan menolak otomatis kalau tidak cocok.</p>
             <form @submit.prevent="submitDowntime" x-show="editingDowntimeId || dtState === 'stopped'" x-cloak>
               <div class="form-grid">
+                <!-- Tanggal & jam downtime diisi sendiri (dulu ikut stopwatch).
+                     Kalau form ini dibuka dari kolom Downtime di Input Produksi,
+                     tanggalnya dikunci dan pilihan jamnya dipangkas sepanjang
+                     blok baris itu saja. -->
+                <div class="field" style="grid-column: span 2; display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap;">
+                  <div style="flex:1 1 160px;min-width:0;">
+                    <label>Tanggal <span class="req">*</span></label>
+                    <input type="date" x-model="dtTgl" :disabled="!!dtBatas" @change="dtSusunWaktu()">
+                  </div>
+                  <div style="flex:1 1 120px;min-width:0;">
+                    <label>Jam Mulai <span class="req">*</span></label>
+                    <div class="jam-wrap" x-data="{ buka: false }" @click.outside="buka = false" @keydown.escape="buka = false"><input type="text" class="jam-input" readonly inputmode="none" placeholder="--:--" :value="dtJamA" @click="buka = !buka; if (buka) setTimeout(() => $root.querySelectorAll('.jam-col').forEach((c) => { const e = c.querySelector('.on'); if (e) c.scrollTop = e.offsetTop - c.clientHeight / 2 + e.offsetHeight / 2; }), 60)"><svg class="jam-ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><div class="jam-pop" x-show="buka" x-cloak><div class="jam-col"><template x-for="h in dtJamOpsi()" :key="h"><button type="button" class="jam-opt" :class="{ on: dtJamA.slice(0, 2) === h }" x-text="h" @click="updateDtTime('start', gabungJam(dtJamA, 'h', h))"></button></template></div><div class="jam-col"><template x-for="m in dtMenitOpsi('start')" :key="m"><button type="button" class="jam-opt" :class="{ on: dtJamA.slice(3, 5) === m }" x-text="m" @click="updateDtTime('start', gabungJam(dtJamA, 'm', m)); buka = false"></button></template></div></div></div>
+                  </div>
+                  <div style="flex:1 1 120px;min-width:0;">
+                    <label>Jam Selesai <span class="req">*</span></label>
+                    <div class="jam-wrap" x-data="{ buka: false }" @click.outside="buka = false" @keydown.escape="buka = false"><input type="text" class="jam-input" readonly inputmode="none" placeholder="--:--" :value="dtJamZ" @click="buka = !buka; if (buka) setTimeout(() => $root.querySelectorAll('.jam-col').forEach((c) => { const e = c.querySelector('.on'); if (e) c.scrollTop = e.offsetTop - c.clientHeight / 2 + e.offsetHeight / 2; }), 60)"><svg class="jam-ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><div class="jam-pop" x-show="buka" x-cloak><div class="jam-col"><template x-for="h in dtJamOpsi()" :key="h"><button type="button" class="jam-opt" :class="{ on: dtJamZ.slice(0, 2) === h }" x-text="h" @click="updateDtTime('end', gabungJam(dtJamZ, 'h', h))"></button></template></div><div class="jam-col"><template x-for="m in dtMenitOpsi('end')" :key="m"><button type="button" class="jam-opt" :class="{ on: dtJamZ.slice(3, 5) === m }" x-text="m" @click="updateDtTime('end', gabungJam(dtJamZ, 'm', m)); buka = false"></button></template></div></div></div>
+                  </div>
+                  <p class="hint" style="flex:1 1 100%;margin:0;" x-show="dtStart && dtEnd"
+                     x-text="'Lama ' + Math.round((new Date(dtEnd) - new Date(dtStart)) / 60000) + ' menit' + (dtTgl && dtJamZ < dtJamA ? ' (selesai di hari berikutnya)' : '')"></p>
+                </div>
                 <div class="field" x-show="stationConfig.mode !== 'none'">
                   <label>Stasiun</label>
                   <select x-model="dtForm.stasiun">
@@ -1375,14 +1398,6 @@
                     </template>
                   </div>
                 </div>
-                <div class="field" style="grid-column: span 2; display:flex; gap:14px; align-items:flex-start;" x-show="editingDowntimeId" x-cloak>
-                  <div style="flex:1;min-width:0;">
-                    <label>Jam Mulai</label>
-                    <div class="jam-wrap" x-data="{ buka: false }" @click.outside="buka = false" @keydown.escape="buka = false"><input type="text" class="jam-input" readonly inputmode="none" placeholder="--:--" :value="dtStart ? localTimeStr(new Date(dtStart)) : ''" @click="buka = !buka; if (buka) setTimeout(() => $root.querySelectorAll('.jam-col').forEach((c) => { const e = c.querySelector('.on'); if (e) c.scrollTop = e.offsetTop - c.clientHeight / 2 + e.offsetHeight / 2; }), 60)"><svg class="jam-ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><div class="jam-pop" x-show="buka" x-cloak><div class="jam-col"><template x-for="h in jamOpsi" :key="h"><button type="button" class="jam-opt" :class="{ on: (dtStart ? localTimeStr(new Date(dtStart)) : '').slice(0, 2) === h }" x-text="h" @click="updateDtTime('start', gabungJam(dtStart ? localTimeStr(new Date(dtStart)) : '', 'h', h))"></button></template></div><div class="jam-col"><template x-for="m in menitOpsi" :key="m"><button type="button" class="jam-opt" :class="{ on: (dtStart ? localTimeStr(new Date(dtStart)) : '').slice(3, 5) === m }" x-text="m" @click="updateDtTime('start', gabungJam(dtStart ? localTimeStr(new Date(dtStart)) : '', 'm', m)); buka = false"></button></template></div></div></div>
-                  </div>
-                  <div style="flex:1;min-width:0;">
-                    <label>Jam Selesai</label>
-                    <div class="jam-wrap" x-data="{ buka: false }" @click.outside="buka = false" @keydown.escape="buka = false"><input type="text" class="jam-input" readonly inputmode="none" placeholder="--:--" :value="dtEnd ? localTimeStr(new Date(dtEnd)) : ''" @click="buka = !buka; if (buka) setTimeout(() => $root.querySelectorAll('.jam-col').forEach((c) => { const e = c.querySelector('.on'); if (e) c.scrollTop = e.offsetTop - c.clientHeight / 2 + e.offsetHeight / 2; }), 60)"><svg class="jam-ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><div class="jam-pop" x-show="buka" x-cloak><div class="jam-col"><template x-for="h in jamOpsi" :key="h"><button type="button" class="jam-opt" :class="{ on: (dtEnd ? localTimeStr(new Date(dtEnd)) : '').slice(0, 2) === h }" x-text="h" @click="updateDtTime('end', gabungJam(dtEnd ? localTimeStr(new Date(dtEnd)) : '', 'h', h))"></button></template></div><div class="jam-col"><template x-for="m in menitOpsi" :key="m"><button type="button" class="jam-opt" :class="{ on: (dtEnd ? localTimeStr(new Date(dtEnd)) : '').slice(3, 5) === m }" x-text="m" @click="updateDtTime('end', gabungJam(dtEnd ? localTimeStr(new Date(dtEnd)) : '', 'm', m)); buka = false"></button></template></div></div></div>
                   </div>
                 </div>
                 <div class="field" style="grid-column: span 2;">
