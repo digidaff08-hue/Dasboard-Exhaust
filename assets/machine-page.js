@@ -420,7 +420,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261106c";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261110a";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:40", "20:30"] },
@@ -3598,10 +3598,80 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       await this.fetchNonProduksi();
     },
 
-    // ================= DOWNTIME (Start/Stop + validasi tabrakan part) =================
+    // ================= DOWNTIME (tanggal & jam diisi sendiri) =================
+    // Dulu pakai stopwatch: tekan Mulai -> jam berjalan -> tekan Selesai.
+    // Sekarang tanggal dan jam diketik sendiri oleh operator, jadi downtime
+    // yang baru teringat belakangan pun tetap bisa dicatat dengan jam yang
+    // benar, bukan jam saat formnya dibuka.
     dtState: "idle", dtStart: null, dtEnd: null,
-    startDowntime() { this.dtState = "running"; this.dtStart = new Date().toISOString(); },
-    cancelDowntime() { this.dtState = "idle"; this.dtStart = null; this.editingDowntimeId = null; this.dtForm = {}; this.andonSumber = null; },
+    dtTgl: "", dtJamA: "", dtJamZ: "",
+    // Terisi kalau form dibuka dari kolom Downtime di Input Produksi Per Jam.
+    // Isinya batas blok baris itu; pilihan jam dipangkas supaya tidak bisa
+    // keluar dari bloknya.  {label, part, minIso, maxIso}
+    dtBatas: null,
+
+    dtFormKosong() {
+      return { kategori: "", problem: "", penyebab: "", countermeasure: "", stasiun: "",
+               pic: "", waktu_tunggu: "", ket: "", area: "", status: "" };
+    },
+    startDowntime() {
+      this.editingDowntimeId = null;
+      this.andonSumber = null;
+      this.dtBatas = null;
+      this.dtState = "stopped";
+      this.dtTgl = hariProduksiStr(new Date());   // hari produksi berjalan (07:00-07:00)
+      this.dtJamA = ""; this.dtJamZ = "";
+      this.dtStart = null; this.dtEnd = null;
+      this.dtForm = this.dtFormKosong();
+    },
+    cancelDowntime() {
+      this.dtState = "idle"; this.dtStart = null; this.dtEnd = null;
+      this.dtTgl = ""; this.dtJamA = ""; this.dtJamZ = ""; this.dtBatas = null;
+      this.editingDowntimeId = null; this.dtForm = {}; this.andonSumber = null;
+    },
+
+    // Rangkai tanggal + jam jadi waktu lengkap. Kalau jam selesai lebih kecil
+    // atau sama dengan jam mulai, berarti lewat tengah malam (sering di
+    // Shift 2) -> tanggal selesainya maju satu hari.
+    dtSusunWaktu() {
+      if (!this.dtTgl || !this.dtJamA || !this.dtJamZ) { this.dtStart = null; this.dtEnd = null; return; }
+      const [y, m, d] = this.dtTgl.split("-").map(Number);
+      const [ha, ma] = this.dtJamA.split(":").map(Number);
+      const [hz, mz] = this.dtJamZ.split(":").map(Number);
+      const a = new Date(y, m - 1, d, ha, ma, 0, 0);
+      const z = new Date(y, m - 1, d, hz, mz, 0, 0);
+      if (z <= a) z.setDate(z.getDate() + 1);
+      this.dtStart = a.toISOString();
+      this.dtEnd = z.toISOString();
+    },
+    dtDalamBatas() {
+      const b = this.dtBatas;
+      if (!b || !this.dtStart || !this.dtEnd) return true;
+      return new Date(this.dtStart) >= new Date(b.minIso) && new Date(this.dtEnd) <= new Date(b.maxIso);
+    },
+    // Pilihan jam yang boleh dipilih. Tanpa batas blok -> 00..23 seperti biasa.
+    dtJamOpsi() {
+      const b = this.dtBatas;
+      if (!b) return this.jamOpsi;
+      const a = new Date(b.minIso), z = new Date(b.maxIso), ada = {};
+      for (const t = new Date(a); t <= z; t.setMinutes(t.getMinutes() + 1)) {
+        ada[String(t.getHours()).padStart(2, "0")] = 1;
+      }
+      return this.jamOpsi.filter((h) => ada[h]);
+    },
+    // Pilihan menit, dipangkas di jam pertama & jam terakhir blok.
+    dtMenitOpsi(which) {
+      const b = this.dtBatas;
+      if (!b) return this.menitOpsi;
+      const jam = which === "start" ? this.dtJamA : this.dtJamZ;
+      if (!jam) return this.menitOpsi;
+      const a = new Date(b.minIso), z = new Date(b.maxIso), h = Number(jam.slice(0, 2));
+      return this.menitOpsi.filter((m) => {
+        const t = new Date(a); t.setHours(h, Number(m), 0, 0);
+        if (t < a) t.setDate(t.getDate() + 1);   // blok yang melewati tengah malam
+        return t >= a && t <= z;
+      });
+    },
 
     // ================= ANDON -> DOWNTIME =================
     // Panggilan Andon yang sudah Selesai (24 jam terakhir) tapi belum dibuat
@@ -3623,8 +3693,15 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // Waktu tunggu  = panggil supporting -> start perbaikan
       // Total losstime = start perbaikan    -> selesai
       const w = this.andonWaktu(c);
+      this.dtBatas = null;
       this.dtStart = w.mulai;
       this.dtEnd = w.selesai;
+      // Jam dari panggilan Andon tetap diisikan otomatis, tapi sekarang
+      // boleh diubah kalau operator merasa jamnya kurang pas.
+      const wa = new Date(w.mulai), wz = new Date(w.selesai);
+      this.dtTgl = localDateStr(wa);
+      this.dtJamA = localTimeStr(wa);
+      this.dtJamZ = localTimeStr(wz);
       this.dtForm = {
         kategori: "", problem: "", penyebab: "", countermeasure: c.catatan || "", stasiun: "",
         pic: this.picOptions.includes(c.tim) ? c.tim : "", waktu_tunggu: w.tunggu,
@@ -3652,15 +3729,20 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       return { mulai, selesai, tunggu: menit(c.dipanggil_at, mulai), downtime: menit(mulai, selesai) };
     },
     andonJamStr(iso) { return iso ? new Date(iso).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "-"; },
-    stopDowntime() {
-      this.dtState = "stopped"; this.dtEnd = new Date().toISOString();
-      this.dtForm = {
-        kategori: "", problem: "", penyebab: "", countermeasure: "", stasiun: "",
-        pic: "", waktu_tunggu: "", ket: "", area: "", status: "",
-      };
-    },
+    // Tidak ada lagi tombol Selesai; disimpan sebagai jaring pengaman kalau
+    // masih ada tombol lama yang memanggilnya.
+    stopDowntime() { this.dtState = "stopped"; },
     async submitDowntime() {
       const f = this.dtForm;
+      if (!this.dtTgl || !this.dtJamA || !this.dtJamZ) {
+        this.flash("Tanggal, Jam Mulai dan Jam Selesai wajib diisi.", true);
+        return;
+      }
+      this.dtSusunWaktu();
+      if (!this.dtDalamBatas()) {
+        this.flash("Jam downtime harus berada di dalam blok " + this.dtBatas.label + " pada baris produksi itu.", true);
+        return;
+      }
       const required = [
         ["kategori", "Kategori"], ["pic", "PIC"], ["problem", "Problem Kategori"],
         ["penyebab", "Problem Detail"], ["area", "Area"],
@@ -3729,7 +3811,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     editDowntime(row) {
       this.editingDowntimeId = row.id;
       this.dtState = "stopped";
+      this.dtBatas = null;
       this.dtStart = row.waktu_awal; this.dtEnd = row.waktu_akhir;
+      const ra = new Date(row.waktu_awal), rz = new Date(row.waktu_akhir);
+      this.dtTgl = localDateStr(ra);
+      this.dtJamA = localTimeStr(ra);
+      this.dtJamZ = localTimeStr(rz);
       this.dtForm = {
         kategori: row.kategori || "", problem: row.problem || "", penyebab: row.penyebab || "",
         countermeasure: row.countermeasure || "", stasiun: row.stasiun || "",
@@ -3738,16 +3825,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       };
       this.tab = "downtime";
     },
-    // Ubah cuma jam (HH:MM) dari input type=time, tanggalnya tetap ikut
-    // dtStart/dtEnd yang sudah ada (dari data aslinya) -- dipakai pas Edit.
+    // Dipanggil pemilih jam di form Downtime. Nilainya disimpan apa adanya
+    // (HH:MM), waktu lengkapnya dirangkai ulang dari tanggal + jam.
     updateDtTime(which, value) {
       if (!value) return;
-      const base = which === "start" ? this.dtStart : this.dtEnd;
-      const d = base ? new Date(base) : new Date();
-      const [hh, mm] = value.split(":").map(Number);
-      d.setHours(hh, mm, 0, 0);
-      if (which === "start") this.dtStart = d.toISOString();
-      else this.dtEnd = d.toISOString();
+      if (which === "start") this.dtJamA = value; else this.dtJamZ = value;
+      this.dtSusunWaktu();
     },
     async deleteDowntime(id) {
       if (!confirm("Hapus data downtime ini?")) return;
@@ -4191,6 +4274,34 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const d = this.pjWaktu(jam, akhir, tgl);
       const dd = String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0");
       return '<span class="pj-t-tgl">' + dd + '<span class="pj-yy">/' + d.getFullYear() + '</span></span> <b>' + jam + '</b>';
+    },
+    // Klik kolom Downtime di Input Produksi Per Jam -> buka form Downtime
+    // dengan batas blok baris itu. Hanya untuk baris yang SUDAH tersimpan,
+    // karena pemeriksa di database mencocokkan downtime ke baris produksi
+    // yang betul-betul ada; kalau barisnya belum ada, pasti ditolak.
+    pjBukaDowntime(b) {
+      if (!b || !b.id) { this.flash("Simpan dulu baris produksinya, downtime baru bisa diisi dari sini.", true); return; }
+      if (b.ubah) { this.flash("Masih ada perubahan yang belum disimpan di baris ini. Simpan dulu, ya.", true); return; }
+      if (!b.awal || !b.akhir) { this.flash("Jam blok di baris ini belum lengkap.", true); return; }
+      const a = this.pjWaktu(b.awal, false, b.awalTgl), z = this.pjWaktu(b.akhir, true, b.akhirTgl);
+      if (!a || !z || z <= a) { this.flash("Jam blok di baris ini belum benar.", true); return; }
+      this.startDowntime();
+      this.dtBatas = {
+        label: this.pjHHMM(a) + " - " + this.pjHHMM(z),
+        part: b.part || "",
+        minIso: a.toISOString(),
+        maxIso: z.toISOString(),
+      };
+      // Diisi sepanjang blok dulu, tinggal dipersempit sesuai kejadiannya.
+      this.dtTgl = this.pjIso(a);
+      this.dtJamA = this.pjHHMM(a);
+      this.dtJamZ = this.pjHHMM(z);
+      this.dtSusunWaktu();
+      this.tab = "downtime";
+      this.$nextTick(() => {
+        const f = document.querySelector("form[x-show*='dtState']");
+        if (f) f.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
     },
     pjPosisi(ev, lebar, tinggi) {
       const r = ev.currentTarget.getBoundingClientRect();

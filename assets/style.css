@@ -1017,7 +1017,13 @@ td.mono, .mono { font-family: var(--font-mono); }
 .dkd-cell .dkd-scale{ position:absolute; top:0; left:0; transform-origin:top left; }
 /* border-left aksen warna per line (lihat DKD_LINE_COLORS / dkdBuildBoardHTML)
    -- biar pas digeser ke samping gampang kebaca lagi board line yang mana. */
-.dkd-board{ --dkd-css-build:20261106c; width:1720px; background:#fff; padding:14px 14px 14px 18px; font-size:0.75rem; color:#111; font-family: Arial, Helvetica, sans-serif; border-left:8px solid var(--dkd-accent, #1f4e79); }
+/* Kolom Downtime di Input Produksi Per Jam: bisa diklik untuk membuka form
+   Downtime dengan batas blok baris itu. Hanya aktif kalau barisnya sudah
+   tersimpan, makanya kelasnya dipasang bersyarat dari template. */
+.pj-dt-klik { cursor: pointer; color: var(--blue, #2563eb); font-weight: 700; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }
+.pj-dt-klik:hover { background: color-mix(in srgb, var(--blue, #2563eb) 10%, transparent); }
+
+.dkd-board{ --dkd-css-build:20261110a; width:1720px; background:#fff; padding:14px 14px 14px 18px; font-size:0.75rem; color:#111; font-family: Arial, Helvetica, sans-serif; border-left:8px solid var(--dkd-accent, #1f4e79); }
 /* Tombol kecil Print/Export PDF per board (muncul di dkd-info-bar, lihat
    dkdBuildBoardHTML) -- dipakai baik di tab Dekidaka ini maupun di modal
    "Lihat Dekidaka" (halaman line, assets/machine-page.js + assets/style.css
