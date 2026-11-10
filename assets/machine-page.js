@@ -3799,14 +3799,26 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           return;
         }
         if (error) {
-          this.flash("Gagal menyimpan downtime: " + (error.message || error), true);
+          const jam = (iso) => (iso ? new Date(iso).toLocaleString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "-");
+          console.error("Gagal menyimpan downtime:", error, payload);
+          this.flash("Gagal menyimpan downtime (" + jam(payload.waktu_awal) + " s/d " + jam(payload.waktu_akhir) + "): "
+            + (error.message || error.hint || error.details || error), true);
           return;
         }
         this.flash("Data downtime tersimpan, ter-link ke produksi otomatis. Cek lagi Qty di Input Produksi terkait, siapa tahu perlu disesuaikan.");
       }
+      // dtBatas dibersihkan oleh cancelDowntime, jadi ditandai dulu.
+      const dariProduksi = !!this.dtBatas;
       this.cancelDowntime();
       await Promise.all([this.fetchDowntime(), this.fetchProduction(), this.fetchProduksiNew()]);
       this.refreshLoadedPerf();
+      // Kalau tadi dibuka dari kolom Downtime di Input Produksi Per Jam,
+      // balik ke sana dan muat ulang barisnya supaya menit downtime-nya
+      // (yang disambungkan trigger di database) langsung kelihatan.
+      if (dariProduksi) {
+        this.tab = "produksi";
+        if (!this.pjDirty && !this.pjEdit) this.pjMuat();
+      }
     },
     editDowntime(row) {
       this.editingDowntimeId = row.id;
@@ -4282,6 +4294,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     pjBukaDowntime(b) {
       if (!b || !b.id) { this.flash("Simpan dulu baris produksinya, downtime baru bisa diisi dari sini.", true); return; }
       if (b.ubah) { this.flash("Masih ada perubahan yang belum disimpan di baris ini. Simpan dulu, ya.", true); return; }
+      // Baris Kat. 3 itu Non-Produksi (dandori_log), bukan baris produksi.
+      // Downtime hanya bisa disambungkan ke baris produksi, jadi kalau
+      // dibuka dari sini pasti ditolak database. Dicegah dari awal saja.
+      if (b.kat === "3" || b.tabel === "dandori_log") {
+        this.flash("Baris Non-Produksi (Kat. 3) tidak bisa diisi downtime. Downtime hanya menempel pada baris produksi.", true);
+        return;
+      }
       if (!b.awal || !b.akhir) { this.flash("Jam blok di baris ini belum lengkap.", true); return; }
       const a = this.pjWaktu(b.awal, false, b.awalTgl), z = this.pjWaktu(b.akhir, true, b.akhirTgl);
       if (!a || !z || z <= a) { this.flash("Jam blok di baris ini belum benar.", true); return; }
