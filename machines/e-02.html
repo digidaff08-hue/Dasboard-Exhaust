@@ -517,10 +517,10 @@
                       <td><input type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" :disabled="b.kat === '3'" x-model="b.qty" @input="pjAngka(b,'qty')"></td>
                       <td class="pj-sep"><input type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" :disabled="b.kat === '3'" x-model="b.repair" @input="pjAngka(b,'repair')"></td>
                       <td><input type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" :disabled="b.kat === '3'" x-model="b.dandori" @input="pjAngka(b,'dandori')"></td>
-                      <td class="pj-ro" :class="b.id && !b.ubah ? 'pj-dt-klik' : ''"
-                          :title="b.id && !b.ubah ? 'Klik untuk mengisi downtime di blok jam ini' : 'Simpan dulu barisnya supaya downtime bisa diisi dari sini'"
+                      <td class="pj-ro" :class="b.id && !b.ubah && b.kat !== '3' ? 'pj-dt-klik' : ''"
+                          :title="b.kat === '3' ? 'Baris Non-Produksi tidak bisa diisi downtime' : (b.id && !b.ubah ? 'Klik untuk mengisi downtime di blok jam ini' : 'Simpan dulu barisnya supaya downtime bisa diisi dari sini')"
                           @click="document.activeElement && document.activeElement.blur(); pjBukaDowntime(b)"
-                          x-text="b.downtime || (b.id && !b.ubah ? '+' : '')"></td>
+                          x-text="b.downtime || (b.id && !b.ubah && b.kat !== '3' ? '+' : '')"></td>
                     </tr>
                   </template>
                 </tbody>
