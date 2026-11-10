@@ -5,7 +5,7 @@
 // ini cuma men-cache HTML/CSS/JS-nya, bukan data produksi.
 // =========================================================
 // Naikkan versi ini tiap ada perubahan besar supaya cache lama dibuang.
-const CACHE_NAME = "v304-downtime-cek";
+const CACHE_NAME = "v305-downtime-perbaikan";
 
 const SHELL_FILES = [
   "/login.html",
