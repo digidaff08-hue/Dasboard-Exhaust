@@ -5,7 +5,7 @@
 // ini cuma men-cache HTML/CSS/JS-nya, bukan data produksi.
 // =========================================================
 // Naikkan versi ini tiap ada perubahan besar supaya cache lama dibuang.
-const CACHE_NAME = "v307-break-benar";
+const CACHE_NAME = "v308-target-perjam";
 
 const SHELL_FILES = [
   "/login.html",
