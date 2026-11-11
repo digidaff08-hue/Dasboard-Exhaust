@@ -437,7 +437,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261111a";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261111b";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:40", "20:30"] },
@@ -447,7 +447,7 @@ const DKD_TIME_TABLE = {
   5:  { senKam1: ["11:00", "11:50"], jumat1: ["11:00", "11:30"], shift2: ["00:20", "01:30"] },
   6:  { senKam1: ["12:30", "13:30"], jumat1: ["12:40", "13:30"], shift2: ["01:30", "02:20"] },
   7:  { senKam1: ["13:30", "14:30"], jumat1: ["13:30", "14:30"], shift2: ["02:30", "03:30"] },
-  8:  { senKam1: ["14:40", "15:50"], jumat1: ["14:40", "16:15"], shift2: ["03:30", "04:15"] },
+  8:  { senKam1: ["14:40", "16:00"], jumat1: ["14:40", "16:30"], shift2: ["03:30", "04:30"] },
   9:  { senKam1: ["16:15", "17:15"], jumat1: ["16:45", "17:15"], shift2: ["05:00", "06:00"] },
   10: { senKam1: ["17:15", "18:15"], jumat1: ["17:15", "18:15"], shift2: ["06:00", "07:00"] },
   11: { senKam1: ["18:30", "19:30"], jumat1: ["18:30", "19:30"], shift2: null },

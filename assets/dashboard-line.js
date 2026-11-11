@@ -18,7 +18,7 @@
   const COL = { productivity: "#0EA5E9", availability: "#10B981", downtime: "#F97316", ngInline: "#F43F5E", money: "#1D4ED8", straight: "#14B8A6", perjam: "#6366F1", trend: "#2563EB" };
 
   // Naikkan setiap kali file Dekidaka (machine-page.js, style.css, dekidaka-line.html) berubah.
-  const DEKI_VER = "20261111a";
+  const DEKI_VER = "20261111b";
 
   const mgCache = {};   // hasil Trend Volume per line|tahun|bulan -> tidak hitung ulang saat pindah line (berlaku 10 menit)
   const pad2 = (n) => String(n).padStart(2, "0");
@@ -117,7 +117,7 @@
     { s1: ["11:00", "11:50"], j1: ["11:00", "11:30"], s2: ["00:20", "01:30"] },
     { s1: ["12:30", "13:30"], j1: ["12:40", "13:30"], s2: ["01:30", "02:20"] },
     { s1: ["13:30", "14:30"], j1: ["13:30", "14:30"], s2: ["02:30", "03:30"] },
-    { s1: ["14:40", "15:50"], j1: ["14:40", "16:15"], s2: ["03:30", "04:15"] },
+    { s1: ["14:40", "16:00"], j1: ["14:40", "16:30"], s2: ["03:30", "04:30"] },
     { s1: ["16:15", "17:15"], j1: ["16:45", "17:15"], s2: ["05:00", "06:00"] },
     { s1: ["17:15", "18:15"], j1: ["17:15", "18:15"], s2: ["06:00", "07:00"] },
     { s1: ["18:30", "19:30"], j1: ["18:30", "19:30"], s2: null },
