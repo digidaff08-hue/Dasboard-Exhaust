@@ -437,7 +437,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261111b";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261111c";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:40", "20:30"] },
@@ -4232,7 +4232,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (!this.pjDirty) this.pjMuat();
     },
     pjBarisKosong(awal) {
-      return { k: (window.__pjSeq = (window.__pjSeq || 0) + 1), id: null, tabel: "production_log", awal: awal || "", awalTgl: "", akhir: "", akhirTgl: "", kat: "", part: "", qty: "", repair: "", dandori: "", downtime: "", ubah: false, v: 0, saving: false, asliExtra: null, err: "", warn: "" };
+      return { k: (window.__pjSeq = (window.__pjSeq || 0) + 1), id: null, tabel: "production_log", awal: awal || "", awalTgl: "", akhir: "", akhirTgl: "", kat: "", part: "", qty: "", repair: "", dandori: "", downtime: "", ubah: false, v: 0, saving: false, asliExtra: null, err: "", warn: "", auto: false };
     },
     pjHHMM(d) { return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); },
     pjShiftDari(d) { const m = d.getHours() * 60 + d.getMinutes(); return (m >= 7 * 60 && m < 19 * 60 + 30) ? "1" : "2"; },
@@ -4259,9 +4259,62 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const list = prod.concat(non).sort((x, y) => x.waktu - y.waktu);
       while (list.length < this.PJ_JUMLAH_BARIS) list.push(this.pjBarisKosong());
       this.pjBaris = list; this.pjDirty = false; this.pjGap = []; this.pjGapOk = false;
-      // Baris kosong pertama: Waktu Awal otomatis = akhir baris terakhir, atau awal shift (07:00 / 19:30)
-      const kosong = list.find((x) => !x.id && !x.awal && !x.akhir && !x.kat && this.pjKosong(x));
-      if (kosong && this.pjTgl) { const t = this.pjLompatJeda(this.pjAkhirTerakhir() || this.pjRentangShift().a); kosong.awal = this.pjHHMM(t); kosong.awalTgl = this.pjIso(t); }
+      this.pjIsiJamOtomatis();
+    },
+    // Baris kosong langsung diisi jam Awal/Akhir mengikuti blok Dekidaka yang
+    // belum terpakai, satu blok satu baris. Blok yang sudah ada baris
+    // tersimpannya dilewati. Jam ini cuma usulan: begitu diubah tangan,
+    // tanda "auto"-nya hilang dan baris diperlakukan seperti isian biasa.
+    pjIsiJamOtomatis() {
+      if (!this.pjTgl) return;
+      const terakhir = this.pjAkhirTerakhir();
+      const blok = this.pjBlokShift().filter((b) => !this.pjBlokTerisi(b) && (!terakhir || b.akhir > terakhir));
+      if (!blok.length) return;
+      // Jeda sebelum blok pertama (07:00-07:15 di Shift 1, 19:30-19:40 di Shift 2)
+      // dapat barisnya sendiri -- di lapangan itu memang diisi kegiatan Non-Produksi.
+      const mulai = terakhir || this.pjRentangShift().a;
+      const antre = mulai < blok[0].awal ? [{ awal: mulai, akhir: blok[0].awal }].concat(blok) : blok.slice();
+      if (!(mulai < blok[0].awal) && terakhir && terakhir > blok[0].awal && terakhir < blok[0].akhir) {
+        antre[0] = { awal: terakhir, akhir: blok[0].akhir };
+      }
+      let n = 0;
+      for (const b of this.pjBaris) {
+        if (n >= antre.length) break;
+        if (b.id || b.awal || b.akhir || b.kat || !this.pjKosong(b)) continue;
+        const w = antre[n++];
+        b.awal = this.pjHHMM(w.awal); b.awalTgl = this.pjIso(w.awal);
+        b.akhir = this.pjHHMM(w.akhir); b.akhirTgl = this.pjIso(w.akhir);
+        b.auto = true;
+      }
+    },
+    // ---- Target pcs per baris ----
+    // Sumbernya sama dengan papan Dekidaka: kolom "Out put/Jam" di tabel CT
+    // TARGET, yang dasarnya MODEL. Part Number dipetakan ke model lewat master
+    // NG Inline (ng_model_parts); kalau belum terdaftar, dicocokkan dari teks
+    // part number-nya -- persis cara dekidakaColumnIndexFor.
+    pjModelPart(part) {
+      const p = String(part || "").toUpperCase();
+      if (!p) return "";
+      const master = (this.repairPartNoModelMap || {})[part];
+      if (master) return master;
+      const ref = DKD_REF_DATA[machineKey];
+      if (!ref) return "";
+      const row = ref.ct.find((r) => dkdTokens(r[5]).some((m) => m && p.includes(m)));
+      return row ? row[5] : "";
+    },
+    // Target = durasi kotor baris (Waktu Akhir - Waktu Awal) x Out put/Jam / 60,
+    // dibulatkan ke atas. null = belum bisa dihitung (jam/part belum lengkap,
+    // atau model part itu tidak ada di CT TARGET line ini).
+    pjTargetJam(b) {
+      if (!b || b.kat === "3" || !b.part || !b.awal || !b.akhir) return null;
+      const wa = this.pjWaktu(b.awal, false, b.awalTgl), wk = this.pjWaktu(b.akhir, true, b.akhirTgl);
+      const menit = (wk - wa) / 60000;
+      if (!(menit > 0)) return null;
+      const model = this.pjModelPart(b.part);
+      return model ? dkdTargetBlok(machineKey, model, menit) : null;
+    },
+    pjTotalTarget() {
+      return this.pjBaris.reduce((s, b) => s + (this.pjTargetJam(b) || 0), 0);
     },
     pjTambahBaris() { this.pjBaris.push(this.pjBarisKosong()); },
     pjUbah(b) { b.ubah = true; b.v = (b.v || 0) + 1; this.pjDirty = true; this.pjGapOk = false; this.pjGap = []; this.pjJadwalSimpan(b); },
@@ -4270,7 +4323,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     pjKat(b) { const d = String(b.kat).replace(/[^03]/g, ""); b.kat = d.slice(-1); this.pjUbah(b); },
     // Input jam (type="time"): validasi langsung, lalu sambungkan Waktu Awal baris berikutnya.
     pjJam(b, k, i) {
-      b[k] = b[k] || ""; this.pjUbah(b); this.pjCek(b);
+      b[k] = b[k] || ""; b.auto = false; this.pjUbah(b); this.pjCek(b);
       if (k === "akhir" && b.akhir && !b.err && this.pjBaris[i + 1] && !this.pjBaris[i + 1].awal) { this.pjBaris[i + 1].awal = b.akhir; this.pjBaris[i + 1].awalTgl = b.akhirTgl; }
       if (b.err) this.flash(b.err, true);
     },
@@ -4483,7 +4536,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       return l;
     },
     pjGantiKat(b) {
-      this.pjKat(b);
+      const otomatis = b.auto;
+      this.pjKat(b); b.auto = false;
+      // Baris Non-Produksi biasanya pendek (K, C, A), bukan satu blok penuh.
+      // Jadi kalau Kat. 3 dipilih di baris yang jamnya masih usulan otomatis,
+      // Waktu Akhir dikosongkan supaya diisi sendiri.
+      if (otomatis && b.kat === "3") { b.akhir = ""; b.akhirTgl = ""; }
       const parts = (this.partNumberList || []).map((p) => p.value);
       const non = (this.nonProduksiTypeList || []).map((n) => n.nama);
       if (b.part && ((b.kat === "3" && !non.includes(b.part)) || (b.kat === "0" && !parts.includes(b.part)))) b.part = "";
