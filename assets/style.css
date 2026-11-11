@@ -1023,7 +1023,7 @@ td.mono, .mono { font-family: var(--font-mono); }
 .pj-dt-klik { cursor: pointer; color: var(--blue, #2563eb); font-weight: 700; }
 .pj-dt-klik:hover { background: color-mix(in srgb, var(--blue, #2563eb) 10%, transparent); }
 
-.dkd-board{ --dkd-css-build:20261111e; width:1720px; background:#fff; padding:14px 14px 14px 18px; font-size:0.75rem; color:#111; font-family: Arial, Helvetica, sans-serif; border-left:8px solid var(--dkd-accent, #1f4e79); }
+.dkd-board{ --dkd-css-build:20261111f; width:1720px; background:#fff; padding:14px 14px 14px 18px; font-size:0.75rem; color:#111; font-family: Arial, Helvetica, sans-serif; border-left:8px solid var(--dkd-accent, #1f4e79); }
 /* Tombol kecil Print/Export PDF per board (muncul di dkd-info-bar, lihat
    dkdBuildBoardHTML) -- dipakai baik di tab Dekidaka ini maupun di modal
    "Lihat Dekidaka" (halaman line, assets/machine-page.js + assets/style.css
@@ -4349,24 +4349,36 @@ html[data-ukuran="besar"] { font-size: 17.6px; }
 /* Form ini sudah punya garis tabelnya sendiri -- garis abu-abu kartunya
    dilepas. Tanpa garis, jarak kartu yang lebar jadi kelihatan kosong
    melompong, jadi padding dan jaraknya ikut dirapatkan. */
-.main .pj-wrap .panel{border:0!important;box-shadow:none!important;padding:10px 12px;margin-bottom:8px}
+.main .pj-wrap .panel{border:0!important;box-shadow:none!important;padding:4px 10px 8px;margin-bottom:6px}
+.main .pj-wrap .panel-title{margin-bottom:6px}
+.pj-wrap{margin-top:-10px}
 .pj-panel{padding:8px}
-.pj-scroll{overflow-x:auto}
-.pj-tbl{border-collapse:collapse;table-layout:fixed;width:100%;min-width:0;border:2px solid #000;font-size:12px;color:#000}
-.pj-tbl th,.pj-tbl td{border:1px solid #000;padding:0;text-align:center;height:30px}
+/* Tabelnya punya daerah scroll sendiri supaya baris judulnya tetap kelihatan
+   waktu digeser ke bawah. Tingginya ikut tinggi layar, dikurangi topbar +
+   kartu atas. */
+.pj-scroll{overflow:auto;max-height:calc(100vh - 240px);max-height:calc(100dvh - 240px);min-height:260px;border:2px solid #000}
+/* Garis tepi tebal sengaja dipasang di kotak scroll, BUKAN di tabel. Kalau di
+   tabel, garis itu ikut tergulung dan baris yang lewat kelihatan menyembul di
+   atas baris judul yang menempel. */
+.pj-tbl{border-collapse:collapse;table-layout:fixed;width:100%;min-width:0;border:0;font-size:11.5px;color:#000}
+.pj-tbl th,.pj-tbl td{border:1px solid #000;padding:0;text-align:center;height:26px}
 .pj-tbl tbody td{border-bottom:1px dashed #000}
-.pj-tbl th{font-weight:600;font-size:11px;line-height:1.15;padding:3px 1px;background:var(--bg-panel,#fff);color:#000}
+/* Garis sel biasa ikut tergulung bersama selnya, jadi baris judul yang
+   menempel dibuatkan garisnya dari box-shadow -- itu tidak ikut tergulung. */
+.pj-tbl thead th{position:sticky;top:0;z-index:3;box-shadow:inset 0 0 0 1px #000,0 2px 0 0 #000}
+.pj-tbl tfoot td{position:sticky;bottom:0;z-index:2;background:var(--bg-panel,#fff);box-shadow:inset 0 0 0 1px #000,0 -2px 0 0 #000}
+.pj-tbl th{font-weight:600;font-size:10.5px;line-height:1.1;padding:3px 1px;background:var(--bg-panel,#fff);color:#000}
 .pj-tbl .pj-sep{border-right:2px solid #000}
 .pj-c-jam{width:15.5%}.pj-c-kat{width:8.5%}.pj-c-tgt{width:8%}.pj-c-part{width:auto}.pj-c-n{width:8%}.pj-c-m{width:9.5%}.pj-c-x{width:22px;border:0!important}
 .pj-tbl .pj-tgt{font-weight:700;color:#1f4e79}
 /* Jam yang masih usulan otomatis dari blok Dekidaka: ditulis abu-abu supaya
    kelihatan bedanya dengan jam yang sudah dipakai/diisi sendiri. */
 .pj-tbl tbody tr.pj-auto .pj-btn{color:#9aa3ab}
-.pj-tbl input,.pj-tbl select{width:100%;height:28px;box-sizing:border-box;border:0;background:transparent;text-align:center;font-size:12px;padding:0 1px;color:#000;min-width:0}
+.pj-tbl input,.pj-tbl select{width:100%;height:26px;box-sizing:border-box;border:0;background:transparent;text-align:center;font-size:12px;padding:0 1px;color:#000;min-width:0}
 .pj-tbl select{text-align:left;text-overflow:ellipsis;appearance:none;-webkit-appearance:none;padding:0 2px}
 .pj-tbl input:focus,.pj-tbl select:focus{outline:2px solid #1f4e79;outline-offset:-2px;background:#fffbe6}
 .pj-tbl tbody tr.pj-istirahat td{background:#c6efd9}
-.pj-tbl tfoot td{font-weight:700;height:28px}.pj-tot-l{text-align:right!important;padding-right:6px!important}
+.pj-tbl tfoot td{font-weight:700;height:26px}.pj-tot-l{text-align:right!important;padding-right:6px!important}
 .pj-x{border:0;background:none;color:#b3261e;cursor:pointer;font-size:12px;padding:0}
 .pj-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 4px 2px}
 .pj-tbl tbody tr.pj-sorot td{background:#fff3c4}
@@ -4383,9 +4395,9 @@ html[data-ukuran="besar"] { font-size: 17.6px; }
 .pj-jam select{width:38px!important;padding:0!important;text-align:center!important;text-align-last:center}
 .pj-tg{font-size:9px;line-height:9px;color:#555;height:9px;margin-top:-1px}
 .pj-ro{background:#f1f1f1;color:#444}
-.pj-tbl tbody td{height:36px}
+.pj-tbl tbody td{height:30px}
 .pj-tbl th{white-space:nowrap}.pj-tbl td:nth-child(3) select{text-align:center;text-align-last:center}
-.pj-btn{width:100%;height:34px;border:0;background:transparent;font-size:12px;color:#000;cursor:pointer;font-family:inherit;padding:0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pj-btn{width:100%;height:28px;border:0;background:transparent;font-size:11.5px;color:#000;cursor:pointer;font-family:inherit;padding:0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pj-btn:hover{background:#eef3ff}.pj-kosong{color:#999;font-size:11px}
 .pj-t-tgl{color:#444;font-size:11px}.pj-btn b{font-size:13px}
 .pj-btn-part{text-align:left;padding-left:4px}.pj-part-t{font-size:12px}
@@ -4469,11 +4481,11 @@ html[data-ukuran="besar"] { font-size: 17.6px; }
 .pj-edit-btn{display:flex;gap:8px}
 
 /* Form perjam: selalu muat di lebar layar (HP & iPad), tanpa geser samping */
-.pj-scroll{overflow-x:hidden}
+.pj-scroll{overflow-x:hidden;overflow-y:auto;max-height:calc(100dvh - 215px)}
 @media (max-width:700px){
   .pj-panel{padding:4px}
-  .pj-tbl{font-size:10px}.pj-tbl th{font-size:9px;padding:2px 0}
-  .pj-btn{font-size:10px;padding:0;white-space:normal;line-height:1.1}.pj-btn b{font-size:11px}
+  .pj-tbl{font-size:9.5px}.pj-tbl th{font-size:8.5px;padding:2px 0}
+  .pj-btn{font-size:9.5px;padding:0;white-space:normal;line-height:1.1}.pj-btn b{font-size:10.5px}
   .pj-t-tgl{display:block;font-size:9px}
   .pj-tbl input{font-size:11px;padding:0}
   .pj-c-jam{width:14%}.pj-c-kat{width:8%}.pj-c-tgt{width:8.5%}.pj-c-n{width:9%}.pj-c-m{width:10.5%}
