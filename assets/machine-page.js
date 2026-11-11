@@ -437,7 +437,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261111c";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261111d";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:40", "20:30"] },
@@ -4268,13 +4268,21 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     pjIsiJamOtomatis() {
       if (!this.pjTgl) return;
       const terakhir = this.pjAkhirTerakhir();
-      const blok = this.pjBlokShift().filter((b) => !this.pjBlokTerisi(b) && (!terakhir || b.akhir > terakhir));
+      const semua = this.pjBlokShift();
+      const blok = semua.filter((b) => !this.pjBlokTerisi(b) && (!terakhir || b.akhir > terakhir));
       if (!blok.length) return;
-      // Jeda sebelum blok pertama (07:00-07:15 di Shift 1, 19:30-19:40 di Shift 2)
-      // dapat barisnya sendiri -- di lapangan itu memang diisi kegiatan Non-Produksi.
+      const antre = blok.slice();
       const mulai = terakhir || this.pjRentangShift().a;
-      const antre = mulai < blok[0].awal ? [{ awal: mulai, akhir: blok[0].awal }].concat(blok) : blok.slice();
-      if (!(mulai < blok[0].awal) && terakhir && terakhir > blok[0].awal && terakhir < blok[0].akhir) {
+      if (mulai < semua[0].awal) {
+        // Masih sebelum blok pertama shift: jeda persiapan (07:00-07:15 di
+        // Shift 1, 19:30-19:40 di Shift 2) dapat barisnya sendiri -- di
+        // lapangan memang diisi kegiatan Non-Produksi seperti K dan C.
+        // Syaratnya DI DEPAN blok pertama; jeda antar blok (jam istirahat)
+        // sengaja dibiarkan kosong, bukan dibuatkan baris.
+        antre.unshift({ awal: mulai, akhir: blok[0].awal });
+      } else if (terakhir && terakhir > blok[0].awal && terakhir < blok[0].akhir) {
+        // Kegiatan terakhir berhenti di tengah blok -> baris berikutnya
+        // menyambung dari situ, bukan dari awal blok.
         antre[0] = { awal: terakhir, akhir: blok[0].akhir };
       }
       let n = 0;
@@ -4316,6 +4324,21 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     pjTotalTarget() {
       return this.pjBaris.reduce((s, b) => s + (this.pjTargetJam(b) || 0), 0);
     },
+    // ---- Rekap Part No. satu hari produksi (Shift 1 + Shift 2 digabung) ----
+    // Dasarnya baris yang SUDAH TERSIMPAN, bukan isian yang masih di layar,
+    // supaya angkanya sama dengan yang ada di Riwayat.
+    pjRekapPart() {
+      const want = this.dbStasiun(this.pjStasiun), map = new Map();
+      (this.productionRows || []).forEach((r) => {
+        if (r._pending || (r.stasiun || null) !== want) return;
+        if (this.hariProduksiBaris(r) !== this.pjTgl) return;
+        const p = r.part_number || ""; if (!p) return;
+        map.set(p, (map.get(p) || 0) + (Number(r.qty) || 0));
+      });
+      return Array.from(map, ([part, qty]) => ({ part, qty }))
+        .sort((a, b) => b.qty - a.qty || a.part.localeCompare(b.part));
+    },
+    pjRekapTotal() { return this.pjRekapPart().reduce((s, r) => s + r.qty, 0); },
     pjTambahBaris() { this.pjBaris.push(this.pjBarisKosong()); },
     pjUbah(b) { b.ubah = true; b.v = (b.v || 0) + 1; this.pjDirty = true; this.pjGapOk = false; this.pjGap = []; this.pjJadwalSimpan(b); },
     pjAngka(b, k) { b[k] = String(b[k]).replace(/[^0-9]/g, ""); this.pjUbah(b); },
