@@ -1020,10 +1020,10 @@ td.mono, .mono { font-family: var(--font-mono); }
 /* Kolom Downtime di Input Produksi Per Jam: bisa diklik untuk membuka form
    Downtime dengan batas blok baris itu. Hanya aktif kalau barisnya sudah
    tersimpan, makanya kelasnya dipasang bersyarat dari template. */
-.pj-dt-klik { cursor: pointer; color: var(--blue, #2563eb); font-weight: 700; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }
+.pj-dt-klik { cursor: pointer; color: var(--blue, #2563eb); font-weight: 700; }
 .pj-dt-klik:hover { background: color-mix(in srgb, var(--blue, #2563eb) 10%, transparent); }
 
-.dkd-board{ --dkd-css-build:20261111d; width:1720px; background:#fff; padding:14px 14px 14px 18px; font-size:0.75rem; color:#111; font-family: Arial, Helvetica, sans-serif; border-left:8px solid var(--dkd-accent, #1f4e79); }
+.dkd-board{ --dkd-css-build:20261111e; width:1720px; background:#fff; padding:14px 14px 14px 18px; font-size:0.75rem; color:#111; font-family: Arial, Helvetica, sans-serif; border-left:8px solid var(--dkd-accent, #1f4e79); }
 /* Tombol kecil Print/Export PDF per board (muncul di dkd-info-bar, lihat
    dkdBuildBoardHTML) -- dipakai baik di tab Dekidaka ini maupun di modal
    "Lihat Dekidaka" (halaman line, assets/machine-page.js + assets/style.css
@@ -4333,15 +4333,23 @@ html[data-ukuran="besar"] { font-size: 17.6px; }
 
 /* ===== Input Perjam ===== */
 .pj-bar{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:6px}
-/* Rekap Part No. satu hari -- menempel di pojok kanan bawah kartu atas. */
-.pj-rekap{margin-left:auto;max-height:132px;overflow:auto;border:1px solid var(--border,#d7dee6);border-radius:8px;background:var(--bg-panel,#fff)}
-.pj-rekap table{border-collapse:collapse;font-size:12px;min-width:190px}
-.pj-rekap th,.pj-rekap td{padding:3px 10px;text-align:left;white-space:nowrap}
+/* Baris atas: isian kiri, rekap Part No. selalu nempel kanan (tepat di bawah
+   tombol Tutup). Sengaja TIDAK flex-wrap supaya di HP pun rekapnya tetap di
+   kanan, bukan melorot ke bawah pemilih tanggal. */
+.pj-atas{display:flex;gap:12px;align-items:flex-start}
+.pj-atas>.pj-bar{flex:1 1 auto;min-width:0;margin-bottom:0}
+.pj-rekap{flex:0 0 auto;margin-left:auto;max-height:132px;overflow:auto}
+.pj-rekap table{border-collapse:collapse;font-size:12px;min-width:180px}
+.pj-rekap th,.pj-rekap td{padding:2px 0 2px 14px;text-align:left;white-space:nowrap}
 .pj-rekap td:last-child,.pj-rekap th:last-child{text-align:right;font-variant-numeric:tabular-nums}
-.pj-rekap thead th{position:sticky;top:0;z-index:1;background:var(--bg-panel,#fff);font-weight:700;font-size:10.5px;letter-spacing:.4px;text-transform:uppercase;color:var(--text-dim,#5b6773);border-bottom:1px solid var(--border,#d7dee6)}
-.pj-rekap tbody td{border-bottom:1px solid var(--border-soft,#eef2f6)}
-.pj-rekap tfoot td{position:sticky;bottom:0;background:var(--bg-panel,#fff);font-weight:700;border-top:1px solid var(--border,#d7dee6)}
-@media (max-width:760px){ .pj-rekap{margin-left:0;width:100%;max-height:116px} .pj-rekap table{width:100%} }
+.pj-rekap thead th{position:sticky;top:0;z-index:1;background:var(--panel-2,#fff);font-weight:700;font-size:10.5px;letter-spacing:.4px;text-transform:uppercase;color:var(--text-dim,#5b6773)}
+.pj-rekap tfoot td{position:sticky;bottom:0;background:var(--panel-2,#fff);font-weight:700}
+@media (max-width:760px){ .pj-rekap table{font-size:11px;min-width:0} .pj-rekap th,.pj-rekap td{padding-left:10px} }
+@media (max-width:460px){ .pj-rekap table{font-size:10px} .pj-rekap th,.pj-rekap td{padding-left:7px} }
+/* Form ini sudah punya garis tabelnya sendiri -- garis abu-abu kartunya
+   dilepas. Tanpa garis, jarak kartu yang lebar jadi kelihatan kosong
+   melompong, jadi padding dan jaraknya ikut dirapatkan. */
+.main .pj-wrap .panel{border:0!important;box-shadow:none!important;padding:10px 12px;margin-bottom:8px}
 .pj-panel{padding:8px}
 .pj-scroll{overflow-x:auto}
 .pj-tbl{border-collapse:collapse;table-layout:fixed;width:100%;min-width:0;border:2px solid #000;font-size:12px;color:#000}
