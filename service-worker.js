@@ -5,7 +5,7 @@
 // ini cuma men-cache HTML/CSS/JS-nya, bukan data produksi.
 // =========================================================
 // Naikkan versi ini tiap ada perubahan besar supaya cache lama dibuang.
-const CACHE_NAME = "v311-grid-padat";
+const CACHE_NAME = "v315-repair-okng";
 
 const SHELL_FILES = [
   "/login.html",
