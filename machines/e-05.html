@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://esm.sh">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script>if (/[?&]solo3d=1/.test(location.search)) document.documentElement.classList.add("repair-solo");</script>
-<link rel="stylesheet" href="../assets/style.css?v=20261111f">
+<link rel="stylesheet" href="../assets/style.css?v=20261111j">
 <script src="../assets/pengaturan.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -21,11 +21,11 @@
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="../assets/supabaseClient.js?v=20261111f"></script>
+<script src="../assets/supabaseClient.js?v=20261111j"></script>
 <script src="../assets/realtime.js"></script>
 <script src="../assets/utils.js"></script>
 <script src="../assets/produksi-join.js"></script>
-<script src="../assets/machine-page.js?v=20261111f"></script>
+<script src="../assets/machine-page.js?v=20261111j"></script>
 <script src="../assets/andon.js"></script>
 <style>
   /* decor-bg-fix */
@@ -1274,7 +1274,7 @@
         </div>
 
         <!-- ===================== TAB DOWNTIME ===================== -->
-        <div x-show="tab === 'downtime'" :style="tab !== 'downtime' ? 'content-visibility:hidden' : 'content-visibility:visible'">
+        <div class="dt-wrap" x-show="tab === 'downtime'" :style="tab !== 'downtime' ? 'content-visibility:hidden' : 'content-visibility:visible'">
           <div class="panel">
             <p class="panel-title" x-text="editingDowntimeId ? 'Edit Data Downtime' : 'Catat Downtime'"></p>
             <!-- Panggilan Andon selesai -> jadikan downtime (assets/machine-page.js: pakaiAndon) -->
@@ -1772,7 +1772,7 @@
             </div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th class="bulk-col"><input type="checkbox" class="bulk-box" title="Pilih semua" :checked="bulkAllChecked('repair', repairLogRows)" @change="bulkToggleAll('repair', repairLogRows)"></th><th>Tanggal</th><th>PIC</th><th>Point</th><th>Model</th><th>Part No</th><th class="num-col">Qty</th><th>Kategori Repair</th><th>Aksi</th></tr></thead>
+                <thead><tr><th class="bulk-col"><input type="checkbox" class="bulk-box" title="Pilih semua" :checked="bulkAllChecked('repair', repairLogRows)" @change="bulkToggleAll('repair', repairLogRows)"></th><th>Tanggal</th><th>PIC</th><th>Point</th><th>Model</th><th>Part No</th><th class="num-col">Qty</th><th>Kategori Repair</th><th>OK/NG</th><th>Aksi</th></tr></thead>
                 <tbody>
                   <template x-for="row in repairLogRows" :key="row.id">
                     <tr>
@@ -1784,6 +1784,7 @@
                       <td class="mono" x-text="row.part_number || '-'"></td>
                       <td class="mono num-col" x-text="row.qty"></td>
                       <td><span class="tag-chip" x-text="row.kategori_repair"></span></td>
+                      <td><span class="tag-chip" :class="row.ok_ng === 'NG' ? 'rp-ng' : (row.ok_ng === 'OK' ? 'rp-ok' : '')" x-text="row.ok_ng || '-'"></span></td>
                       <td style="white-space:nowrap;">
                         <button class="btn-secondary btn-sm" @click="editRepairLog(row)">Edit</button>
                         <button class="btn-danger btn-sm" @click="deleteRepairLog(row.id)">Hapus</button>
@@ -1799,18 +1800,26 @@
 
         <!-- Popup Qty + Kategori Repair -->
         <div class="modal-overlay" x-show="repairModalOpen" x-cloak @click.self="closeRepairModal()">
-          <div class="panel" style="max-width:360px;width:100%;">
+          <div class="panel rp-modal" style="max-width:420px;width:100%;">
             <p class="panel-title" x-text="(editingRepairId ? 'Edit ' : '') + 'Repair — ' + (repairModalPoint?.label || 'Point')"></p>
             <div class="form-grid">
-              <div class="field" style="grid-column: span 2;"><label>Tanggal (hari produksi) <span class="req">*</span></label><input type="date" x-model="repairForm.tanggal" @change="syncRepairPartFromProduction()"></div>
-              <div class="field" style="grid-column: span 2;"><label>Jam <span class="req">*</span></label><div class="jam-wrap" x-data="{ buka: false }" @click.outside="buka = false" @keydown.escape="buka = false"><input type="text" class="jam-input" readonly inputmode="none" placeholder="--:--" :value="repairForm.jam || ''" @click="buka = !buka; if (buka) setTimeout(() => $root.querySelectorAll('.jam-col').forEach((c) => { const e = c.querySelector('.on'); if (e) c.scrollTop = e.offsetTop - c.clientHeight / 2 + e.offsetHeight / 2; }), 60)"><svg class="jam-ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><div class="jam-pop" x-show="buka" x-cloak><div class="jam-col"><template x-for="h in jamOpsi" :key="h"><button type="button" class="jam-opt" :class="{ on: (repairForm.jam || '').slice(0, 2) === h }" x-text="h" @click="repairForm.jam = gabungJam(repairForm.jam, 'h', h); repairJamBerubah()"></button></template></div><div class="jam-col"><template x-for="m in menitOpsi" :key="m"><button type="button" class="jam-opt" :class="{ on: (repairForm.jam || '').slice(3, 5) === m }" x-text="m" @click="repairForm.jam = gabungJam(repairForm.jam, 'm', m); repairJamBerubah(); buka = false"></button></template></div></div></div><p class="hint" x-text="repairHariInfo()"></p></div>
-              <div class="field" style="grid-column: span 2;">
+              <div class="field"><label>Tanggal produksi <span class="req">*</span></label><input type="date" x-model="repairForm.tanggal" @change="syncRepairPartFromProduction()"></div>
+              <div class="field"><label>Jam <span class="req">*</span></label><div class="jam-wrap" x-data="{ buka: false }" @click.outside="buka = false" @keydown.escape="buka = false"><input type="text" class="jam-input" readonly inputmode="none" placeholder="--:--" :value="repairForm.jam || ''" @click="buka = !buka; if (buka) setTimeout(() => $root.querySelectorAll('.jam-col').forEach((c) => { const e = c.querySelector('.on'); if (e) c.scrollTop = e.offsetTop - c.clientHeight / 2 + e.offsetHeight / 2; }), 60)"><svg class="jam-ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><div class="jam-pop" x-show="buka" x-cloak><div class="jam-col"><template x-for="h in jamOpsi" :key="h"><button type="button" class="jam-opt" :class="{ on: (repairForm.jam || '').slice(0, 2) === h }" x-text="h" @click="repairForm.jam = gabungJam(repairForm.jam, 'h', h); repairJamBerubah()"></button></template></div><div class="jam-col"><template x-for="m in menitOpsi" :key="m"><button type="button" class="jam-opt" :class="{ on: (repairForm.jam || '').slice(3, 5) === m }" x-text="m" @click="repairForm.jam = gabungJam(repairForm.jam, 'm', m); repairJamBerubah(); buka = false"></button></template></div></div></div><p class="hint" x-text="repairHariInfo()"></p></div>
+              <div class="field rp-span">
                 <label>Part No <span class="req">*</span></label>
                 <input type="text" :value="repairForm.part_number || '-- otomatis dari Input Produksi --'" disabled style="background:var(--input-bg,#f5f5f5); color:var(--text); opacity:0.8; cursor:not-allowed;">
                 <p class="hint" :class="repairPartLocked ? '' : 'hint-warn'" x-show="repairPartHint" x-text="repairPartHint"></p>
               </div>
-              <div class="field" style="grid-column: span 2;"><label>Qty <span class="req">*</span></label><input type="number" min="1" x-model="repairForm.qty"></div>
-              <div class="field" style="grid-column: span 2;">
+              <div class="field"><label>Qty <span class="req">*</span></label><input type="number" min="1" x-model="repairForm.qty"></div>
+              <div class="field">
+                <label>OK/NG <span class="req">*</span></label>
+                <select x-model="repairForm.ok_ng">
+                  <option value="">-- pilih --</option>
+                  <option value="OK">OK</option>
+                  <option value="NG">NG</option>
+                </select>
+              </div>
+              <div class="field rp-span">
                 <label>Kategori Repair <span class="req">*</span></label>
                 <select x-model="repairForm.kategori_repair">
                   <option value="">-- pilih --</option>

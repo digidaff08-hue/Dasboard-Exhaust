@@ -437,7 +437,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261111f";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261111j";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:40", "20:30"] },
@@ -888,7 +888,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     repairKategoriOptions: [], newRepairKategoriValue: "",
     repairPartNoModelMap: {},
     repairLogRows: [],
-    repairForm: { tanggal: localDateStr(new Date()), jam: localTimeStr(new Date()), part_number: "", qty: "", kategori_repair: "" },
+    repairForm: { tanggal: localDateStr(new Date()), jam: localTimeStr(new Date()), part_number: "", qty: "", kategori_repair: "", ok_ng: "" },
     repairModalOpen: false, repairModalPoint: null, repairSaving: false,
     repairPartLocked: false, repairPartHint: "",
     editingRepairId: null,
@@ -3451,6 +3451,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         "Part No": row.part_number || "-",
         "Qty": row.qty ?? "",
         "Kategori Repair": row.kategori_repair || "-",
+        "OK/NG": row.ok_ng || "-",
       }));
       exportRowsToExcel(`Repair_${machineKey}_${this.repairExportMonth}`, rows);
     },
@@ -4411,10 +4412,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.dtJamA = ""; this.dtJamZ = "";
       this.dtStart = null; this.dtEnd = null;
       this.tab = "downtime";
-      this.$nextTick(() => {
-        const f = document.querySelector("form[x-show*='dtState']");
-        if (f) f.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
+      // Pindah tab tidak mengubah posisi gulungan halaman, jadi form downtime
+      // terbuka di tengah-tengah dan kolom Tanggal/Jam ada di atas layar --
+      // harus digeser ke atas dulu. Panel "Catat Downtime" itu isi paling atas
+      // di tab ini, jadi cukup balikkan halaman ke puncak. requestAnimationFrame
+      // dipakai supaya jalan setelah tab lama benar-benar disembunyikan dan
+      // tinggi halamannya sudah dihitung ulang.
+      this.$nextTick(() => requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" })));
     },
     pjPosisi(ev, lebar, tinggi) {
       const r = ev.currentTarget.getBoundingClientRect();
@@ -5469,7 +5473,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (document.documentElement.classList.contains("repair-solo")) return; // tampilan Dashboard Line: hanya lihat
       this.editingRepairId = null;
       this.repairModalPoint = point;
-      this.repairForm = { tanggal: hariProduksiStr(new Date()), jam: localTimeStr(new Date()), part_number: "", qty: "", kategori_repair: "" };
+      this.repairForm = { tanggal: hariProduksiStr(new Date()), jam: localTimeStr(new Date()), part_number: "", qty: "", kategori_repair: "", ok_ng: "" };
       this.repairPartLocked = false; this.repairPartHint = "";
       this.repairModalOpen = true;
       this.syncRepairPartFromProduction();
@@ -5478,7 +5482,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const point = this.repairPoints.find((p) => p.id === row.point_id) || { id: row.point_id, label: row.point_label };
       this.editingRepairId = row.id;
       this.repairModalPoint = point;
-      this.repairForm = { tanggal: row.tanggal, jam: row.jam || localTimeStr(new Date()), part_number: row.part_number || "", qty: row.qty, kategori_repair: row.kategori_repair };
+      this.repairForm = { tanggal: row.tanggal, jam: row.jam || localTimeStr(new Date()), part_number: row.part_number || "", qty: row.qty, kategori_repair: row.kategori_repair, ok_ng: row.ok_ng || "" };
       this.repairModalOpen = true;
     },
     // Jam diubah: kalau waktu kejadiannya jadi di masa depan, berarti yang dimaksud hari produksi sebelumnya
@@ -5533,8 +5537,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
     async submitRepairPoint() {
       const f = this.repairForm;
-      if (!f.tanggal || !f.jam || !f.part_number || !f.qty || Number(f.qty) <= 0 || !f.kategori_repair) {
-        this.flash("Tanggal, Jam, Part No, Qty, dan Kategori Repair wajib diisi.", true); return;
+      if (!f.tanggal || !f.jam || !f.part_number || !f.qty || Number(f.qty) <= 0 || !f.kategori_repair || !f.ok_ng) {
+        this.flash("Tanggal, Jam, Part No, Qty, Kategori Repair, dan OK/NG wajib diisi.", true); return;
       }
       this.repairSaving = true;
       const payload = {
@@ -5542,10 +5546,18 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         view_id: this.repairActiveViewId, point_id: this.repairModalPoint?.id || null,
         point_label: this.repairModalPoint?.label || null,
         part_number: f.part_number, qty: Number(f.qty), kategori_repair: f.kategori_repair,
+        ok_ng: f.ok_ng,
       };
       try {
         if (this.editingRepairId) {
-          const { data, error } = await supabaseClient.from("repair_log").update(payload).eq("id", this.editingRepairId).select().single();
+          let r = await supabaseClient.from("repair_log").update(payload).eq("id", this.editingRepairId).select().single();
+          if (r.error && /ok_ng/.test(r.error.message || "")) {
+            // Kolom OK/NG belum ada di database (SQL-nya belum dijalankan) -> tetap simpan tanpa kolom itu.
+            const tanpa = Object.assign({}, payload); delete tanpa.ok_ng;
+            r = await supabaseClient.from("repair_log").update(tanpa).eq("id", this.editingRepairId).select().single();
+            if (!r.error) this.flash("Tersimpan, tapi OK/NG belum bisa disimpan (database belum diperbarui).", true);
+          }
+          const { data, error } = r;
           if (error) throw error;
           this.repairLogRows = this.repairLogRows.map((r) => (r.id === data.id ? data : r));
           this.flash("Data Repair berhasil diupdate.");
@@ -5553,7 +5565,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           payload.created_by = this.session.user.id;
           const t = this.repairModalTouch;
           if (t) { payload.touch_x = t.x; payload.touch_y = t.y; payload.touch_z = t.z; }
-          let res = await supabaseClient.from("repair_log").insert(payload).select().single(); let tanpaSentuh = false;
+          let res = await supabaseClient.from("repair_log").insert(payload).select().single(); let tanpaSentuh = false, tanpaOkNg = false;
+          if (res.error && /ok_ng/.test(res.error.message || "")) {
+            // Kolom OK/NG belum ada di database (SQL-nya belum dijalankan) -> tetap simpan tanpa kolom itu.
+            delete payload.ok_ng;
+            res = await supabaseClient.from("repair_log").insert(payload).select().single();
+            tanpaOkNg = true;
+          }
           if (res.error && t && /touch_/.test(res.error.message || "")) {
             // Kolom posisi sentuh belum ada di database (migration belum dijalankan) -> tetap simpan tanpa posisi.
             delete payload.touch_x; delete payload.touch_y; delete payload.touch_z;
@@ -5564,7 +5582,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           if (error) throw error;
           this.repairLogRows.unshift(data);
           this.muatRepairPic([data]);
-          if (tanpaSentuh) this.flash("Repair tersimpan, tapi posisi sentuh belum bisa disimpan (database belum diperbarui).", true); else this.flash("Data Repair tersimpan.");
+          if (tanpaSentuh || tanpaOkNg) this.flash("Repair tersimpan, tapi " + (tanpaOkNg ? "OK/NG" : "posisi sentuh") + " belum bisa disimpan (database belum diperbarui).", true); else this.flash("Data Repair tersimpan.");
         }
         this.closeRepairModal();
       } catch (err) {

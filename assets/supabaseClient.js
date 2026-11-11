@@ -27,7 +27,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_6TV-ESdlX9EQ5HdrEFPIyg_as3XTP_c";
 //   ?supabase=on     -> paksa PAKAI Supabase
 //   ?supabase=reset  -> kembali ke aturan otomatis di atas
 // =========================================================
-const MODE_TANPA_SUPABASE = true;
+const MODE_TANPA_SUPABASE = false;
 
 const TANPA_SUPABASE_AKTIF = (() => {
   try {
