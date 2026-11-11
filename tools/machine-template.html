@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://esm.sh">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script>if (/[?&]solo3d=1/.test(location.search)) document.documentElement.classList.add("repair-solo");</script>
-<link rel="stylesheet" href="../assets/style.css?v=20261111d">
+<link rel="stylesheet" href="../assets/style.css?v=20261111e">
 <script src="../assets/pengaturan.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -21,11 +21,11 @@
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="../assets/supabaseClient.js?v=20261111d"></script>
+<script src="../assets/supabaseClient.js?v=20261111e"></script>
 <script src="../assets/realtime.js"></script>
 <script src="../assets/utils.js"></script>
 <script src="../assets/produksi-join.js"></script>
-<script src="../assets/machine-page.js?v=20261111d"></script>
+<script src="../assets/machine-page.js?v=20261111e"></script>
 <script src="../assets/andon.js"></script>
 <style>
   /* decor-bg-fix */
@@ -491,12 +491,14 @@
           <div id="pj-form" x-show="pjOpen" x-cloak x-effect="productionRows; nonProduksiRows; if (pjOpen && !pjDirty && !pjSibuk) $nextTick(() => { if (pjOpen && !pjDirty && !pjSibuk) pjMuat() })" x-init="$watch('nowTick', () => pjAutoCek())" class="pj-wrap">
           <div class="panel">
             <p class="panel-title">Input Produksi Per Jam <button type="button" class="btn-ghost btn-sm" style="float:right" @click="pjTutup()">Tutup</button></p>
-            <div class="pj-bar">
-              <div class="field"><label>Tanggal produksi</label><input type="date" x-model="pjTgl" :disabled="pjDirty" @change="pjGanti()"></div>
-              <div class="field"><label>Shift</label>
-                <select x-model="pjShift" :disabled="pjDirty" @change="pjGanti()"><option value="1">Shift 1</option><option value="2">Shift 2</option></select></div>
-              <div class="field" x-show="stationList().length > 1"><label>Stasiun</label>
-                <select x-model="pjStasiun" :disabled="pjDirty" @change="pjGanti()"><template x-for="st in stationList()" :key="st.id"><option :value="st.id" x-text="st.label"></option></template></select></div>
+            <div class="pj-atas">
+              <div class="pj-bar">
+                <div class="field"><label>Tanggal produksi</label><input type="date" x-model="pjTgl" :disabled="pjDirty" @change="pjGanti()"></div>
+                <div class="field"><label>Shift</label>
+                  <select x-model="pjShift" :disabled="pjDirty" @change="pjGanti()"><option value="1">Shift 1</option><option value="2">Shift 2</option></select></div>
+                <div class="field" x-show="stationList().length > 1"><label>Stasiun</label>
+                  <select x-model="pjStasiun" :disabled="pjDirty" @change="pjGanti()"><template x-for="st in stationList()" :key="st.id"><option :value="st.id" x-text="st.label"></option></template></select></div>
+              </div>
               <div class="pj-rekap" x-show="pjRekapPart().length" x-cloak>
                 <table>
                   <thead><tr><th>Part No.</th><th>Qty</th></tr></thead>
