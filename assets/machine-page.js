@@ -195,10 +195,14 @@ const MACHINE_OPTIONS = [
   { key: "E-06", label: "E-06" }, { key: "E-07", label: "E-07" },
 ];
 
-// ---------- Jadwal Shift & Break (tetap) ----------
-const SHIFT1_WEEKDAY = [[9,30,9,40],[12,5,12,45],[14,30,14,40],[16,0,16,15],[18,15,18,30]];
-const SHIFT1_FRIDAY  = [[9,30,9,40],[11,40,12,50],[14,30,14,40],[16,30,16,45],[18,15,18,30]];
-const SHIFT2_ALL     = [[21,30,21,40],[23,40,0,20],[2,30,2,40],[4,15,5,0]];
+// ---------- Jadwal Shift & Break ----------
+// Jam break TIDAK ditulis sebagai daftar tersendiri lagi. Break itu pada
+// dasarnya adalah JEDA ANTAR BLOK di DKD_TIME_TABLE, jadi sekarang dihitung
+// langsung dari tabel blok itu. Dulu keduanya ditulis terpisah dan sempat
+// melenceng: tabel blok bilang istirahat siang 11:50-12:30, tabel break
+// bilang 12:05-12:45, akibatnya baris 12:30-13:30 ikut dihitung break 15
+// menit padahal istirahatnya sudah selesai. Dengan cara ini, mengubah tabel
+// blok otomatis mengubah jam break-nya juga.
 
 function mkDate(base, h, m, addDay = 0) {
   const x = new Date(base); x.setDate(x.getDate() + addDay); x.setHours(h, m, 0, 0); return x;
@@ -219,21 +223,34 @@ function shiftPeriodFor(now) {
   return { shift: 2, start: prevS2start, end: s1start };
 }
 
-function breakWindowsForPeriod(period) {
-  const dateAnchor = new Date(period.start); dateAnchor.setHours(0, 0, 0, 0);
+// Jeda antar blok untuk satu jadwal ("senKam1" / "jumat1" / "shift2"),
+// dalam menit sejak 00:00 hari jangkar. Untuk shift 2, jam di bawah 19:00
+// berarti sudah lewat tengah malam, jadi ditambah 24 jam.
+function breakRangesFromBlocks(key) {
+  const blok = [];
+  for (let i = 1; i <= 11; i++) {
+    const v = DKD_TIME_TABLE[i] && DKD_TIME_TABLE[i][key];
+    if (!v) continue;
+    let a = dkdTimeToMinutes(v[0]), z = dkdTimeToMinutes(v[1]);
+    if (key === "shift2") { if (a < 19 * 60) a += 1440; if (z <= 19 * 60) z += 1440; }
+    blok.push([a, z]);
+  }
+  blok.sort((p, q) => p[0] - q[0]);
   const out = [];
-  if (period.shift === 1) {
-    const sched = dateAnchor.getDay() === 5 ? SHIFT1_FRIDAY : SHIFT1_WEEKDAY;
-    sched.forEach(([sh, sm, eh, em]) => out.push({ start: mkDate(dateAnchor, sh, sm), end: mkDate(dateAnchor, eh, em) }));
-  } else {
-    SHIFT2_ALL.forEach(([sh, sm, eh, em]) => {
-      out.push({
-        start: mkDate(dateAnchor, sh, sm, sh < 19 ? 1 : 0),
-        end: mkDate(dateAnchor, eh, em, eh < 19 ? 1 : 0),
-      });
-    });
+  for (let i = 1; i < blok.length; i++) {
+    if (blok[i][0] > blok[i - 1][1]) out.push([blok[i - 1][1], blok[i][0]]);
   }
   return out;
+}
+
+function breakWindowsForPeriod(period) {
+  const dateAnchor = new Date(period.start); dateAnchor.setHours(0, 0, 0, 0);
+  const key = period.shift === 1 ? (dateAnchor.getDay() === 5 ? "jumat1" : "senKam1") : "shift2";
+  // setHours menerima menit lebih dari 59, jadi 1460 menit = besok 00:20.
+  return breakRangesFromBlocks(key).map(([a, z]) => ({
+    start: mkDate(dateAnchor, 0, a % 1440, Math.floor(a / 1440)),
+    end: mkDate(dateAnchor, 0, z % 1440, Math.floor(z / 1440)),
+  }));
 }
 
 // Berapa menit dari [wa,wk] yang jatuh di jadwal break resmi (otomatis).
@@ -420,7 +437,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261110a";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261111a";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:40", "20:30"] },
@@ -428,8 +445,8 @@ const DKD_TIME_TABLE = {
   3:  { senKam1: ["09:00", "09:30"], jumat1: ["09:00", "09:30"], shift2: ["21:40", "22:40"] },
   4:  { senKam1: ["09:40", "11:00"], jumat1: ["09:40", "11:00"], shift2: ["22:40", "23:40"] },
   5:  { senKam1: ["11:00", "11:50"], jumat1: ["11:00", "11:30"], shift2: ["00:20", "01:30"] },
-  6:  { senKam1: ["12:30", "13:30"], jumat1: ["12:40", "13:30"], shift2: ["01:30", "02:30"] },
-  7:  { senKam1: ["13:30", "14:30"], jumat1: ["13:30", "14:30"], shift2: ["02:40", "03:30"] },
+  6:  { senKam1: ["12:30", "13:30"], jumat1: ["12:40", "13:30"], shift2: ["01:30", "02:20"] },
+  7:  { senKam1: ["13:30", "14:30"], jumat1: ["13:30", "14:30"], shift2: ["02:30", "03:30"] },
   8:  { senKam1: ["14:40", "15:50"], jumat1: ["14:40", "16:15"], shift2: ["03:30", "04:15"] },
   9:  { senKam1: ["16:15", "17:15"], jumat1: ["16:45", "17:15"], shift2: ["05:00", "06:00"] },
   10: { senKam1: ["17:15", "18:15"], jumat1: ["17:15", "18:15"], shift2: ["06:00", "07:00"] },
