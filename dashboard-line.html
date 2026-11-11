@@ -188,21 +188,21 @@
         </div>
         <span class="dl-sub" x-show="memuat">Memuat…</span>
         <span class="error-msg" x-show="pesan" x-text="pesan"></span>
-        <label x-show="tampil === 'dashboard'">Bulan
+        <label x-show="tampil === 'dashboard' || tampil === 'harian'">Bulan
           <select x-model.number="bulan" @change="ubahPeriode()">
             <template x-for="(nm, i) in BULAN_LABELS" :key="i"><option :value="i + 1" :selected="i + 1 === bulan" x-text="nm"></option></template>
           </select>
         </label>
-        <label x-show="tampil === 'dashboard'">Tahun
+        <label x-show="tampil === 'dashboard' || tampil === 'harian'">Tahun
           <select x-model.number="tahun" @change="ubahPeriode()">
             <template x-for="y in tahunOptions" :key="y"><option :value="y" :selected="y === tahun" x-text="y"></option></template>
           </select>
         </label>
-        <label x-show="tampil === 'dashboard'">Tanggal
-          <input type="date" x-model="perjamTgl" @change="tandaiManual(); muatPerjam()">
+        <label x-show="tampil === 'dashboard' || tampil === 'harian'">Tanggal
+          <input type="date" x-model="perjamTgl" @change="tandaiManual(); muatPerjam(); muat(true)">
         </label>
         <label x-show="tampil === 'dashboard'">Shift
-          <select x-model="perjamShift" @change="tandaiManual(); muatPerjam()">
+          <select x-model="perjamShift" @change="tandaiManual(); muatPerjam(); muat(true)">
             <option value="1">Shift 1</option>
             <option value="2">Shift 2</option>
           </select>
@@ -232,10 +232,13 @@
           <button type="button" class="dl-tool dl-foto-tutup" title="Tutup (Esc)" @click="fotoBesar = false">&#10005;</button>
         </div>
       </div>
-      <template x-for="m in ['harian','bulanan','tahunan']" :key="m">
+      <!-- Tab Harian tidak punya iframe sendiri: dia memakai SUSUNAN CONTROL BOARD
+           di bawah, cuma datanya sehari penuh. Yang pakai iframe cuma Bulanan & Tahunan. -->
+      <template x-for="m in ['bulanan','tahunan']" :key="m">
         <iframe class="dl-perf" x-show="tampil === m" x-cloak :src="perfSrc[m] || 'about:blank'" title="Performance"></iframe>
       </template>
-      <div class="dl-body" x-show="tampil === 'dashboard'">
+
+      <div class="dl-body" x-show="tampil === 'dashboard' || tampil === 'harian'">
         <!-- Model 3D versi besar -->
         <div class="dl-r3d-modal" x-show="r3dBesar" x-cloak @click.self="r3dBesar = false">
           <div class="dl-r3d-modal-box">
@@ -305,8 +308,7 @@
           <div class="dl-split">
             <section class="dl-box dl-split-chart dl-repair3d">
               <div class="dl-head dl-head-tengah"><span class="dl-box-title">Titik Point NG Inline dan Repair</span><button type="button" class="dl-pj-btn dl-r3d-besar-btn" title="Lihat layar besar" @click="r3dBesar = true">&#128065;</button></div>
-              <div class="dl-r3d-ver" :class="{ lama: r3dVer === 'lama' }" x-show="r3dVer" x-text="r3dVer === 'lama' ? 'FILE 3D LAMA - unggah assets/machine-page.js + folder machines/' : '3D v' + r3dVer"></div>
-              <iframe class="dl-r3d" @load="if (tampil === 'dashboard') r3dCek()" :src="tampil === 'dashboard' ? repair3dUrl : 'about:blank'" title="Model 3D Repair"></iframe>
+              <iframe class="dl-r3d" @load="if (tampil === 'dashboard' || tampil === 'harian') r3dCek()" :src="(tampil === 'dashboard' || tampil === 'harian') ? repair3dUrl : 'about:blank'" title="Model 3D Repair"></iframe>
             </section>
             <section class="dl-box dl-split-foto">
               <div class="dl-head">
@@ -328,15 +330,15 @@
             </section>
           </div>
           <section class="dl-box dl-o9">
-            <div class="dl-head"><span class="dl-box-title">Problem Followup Sheets</span></div>
+            <div class="dl-head"><span class="dl-box-title">Problem Followup Sheets</span><span class="dl-sub" x-text="labelShift"></span></div>
             <div class="dl-sheet-wrap">
             <table class="dl-sheet">
               <thead><tr><th style="width:4%">No</th><th style="width:22%">Problem</th><th style="width:9%">Date</th><th style="width:6%">Shift</th><th style="width:44%">Penanganan</th><th style="width:7%">Waktu</th><th style="width:8%">PIC</th></tr></thead>
               <tbody>
-                <template x-for="(r, i) in problemRows" :key="i">
+                <template x-for="(r, i) in papanProblem" :key="i">
                   <tr><td x-text="i + 1"></td><td class="dl-kiri" :title="r.problem" x-text="r.problem"></td><td :title="r.tanggal" x-text="r.tanggal"></td><td x-text="r.shift"></td><td class="dl-kiri" :title="r.penanganan" x-text="r.penanganan"></td><td :title="r.waktu + ' mnt'" x-text="r.waktu + ' mnt'"></td><td :title="r.pic" x-text="r.pic"></td></tr>
                 </template>
-                <template x-for="k in Math.max(0, 6 - problemRows.length)" :key="'kosong' + k">
+                <template x-for="k in Math.max(0, 6 - papanProblem.length)" :key="'kosong' + k">
                   <tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
                 </template>
                 </tbody>
@@ -344,15 +346,15 @@
             </div>
           </section>
           <section class="dl-box dl-o8">
-            <div class="dl-head"><span class="dl-box-title">Problem Terbanyak</span><span class="dl-sub" x-text="BULAN_LABELS[bulan - 1] + ' ' + tahun + ' — urut paling sering'"></span></div>
+            <div class="dl-head"><span class="dl-box-title">Problem Terbanyak</span></div>
             <div class="dl-sheet-wrap">
               <table class="dl-sheet">
                 <thead><tr><th style="width:6%">No</th><th style="width:22%">Problem</th><th style="width:23%">Penyebab Utama</th><th style="width:8%">Kali</th><th style="width:9%">Menit</th><th style="width:32%">Penanganan Terakhir</th></tr></thead>
                 <tbody>
-                  <template x-for="(r, i) in topRows" :key="r.problem">
+                  <template x-for="(r, i) in papanTop" :key="r.problem">
                     <tr :class="i === 0 ? 'dl-top1' : ''"><td x-text="i + 1"></td><td class="dl-kiri" :title="r.problem" x-text="r.problem"></td><td class="dl-kiri dl-klik" :title="'Klik: lihat semua penyebab'" @click="bukaDetail(r, 'sebab')" x-text="r.sebab || '-'"></td><td x-text="r.kali"></td><td class="dl-klik" :title="'Klik: lihat menit tiap kejadian'" @click="bukaDetail(r, 'menit')" x-text="r.menit"></td><td class="dl-kiri dl-klik" :title="'Klik: lihat semua penanganan'" @click="bukaDetail(r, 'tindak')" x-text="r.tindak || '-'"></td></tr>
                   </template>
-                  <template x-for="k in Math.max(0, 5 - topRows.length)" :key="'tk' + k">
+                  <template x-for="k in Math.max(0, 5 - papanTop.length)" :key="'tk' + k">
                     <tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>
                   </template>
                 </tbody>
@@ -362,23 +364,23 @@
           </div>
           <div class="dl-kol5">
           <section class="dl-box dl-o3">
-            <div class="dl-head"><span class="dl-box-title">Grafik Availability</span><span class="dl-sub" x-text="'Rata-rata ' + fmtNum(rataAvail) + '%'"></span></div>
+            <div class="dl-head"><span class="dl-box-title">Grafik Availability</span><span class="dl-sub" x-text="labelShift + ' · rata-rata ' + fmtNum(rataAvailPapan) + '%'"></span></div>
             <div class="dl-chart"><canvas id="dlAvailability"></canvas></div>
           </section>
           <section class="dl-box dl-o4">
-            <div class="dl-head"><span class="dl-box-title">Downtime Harian</span><span class="dl-sub" x-text="'Total ' + fmtNum(totalDowntime) + ' menit'"></span></div>
+            <div class="dl-head"><span class="dl-box-title">Downtime Harian</span><span class="dl-sub" x-text="labelShift + ' · total ' + fmtNum(totalDowntimePapan) + ' menit'"></span></div>
             <div class="dl-chart"><canvas id="dlDowntime"></canvas></div>
           </section>
           <section class="dl-box dl-o5">
-            <div class="dl-head"><span class="dl-box-title">Grafik NG Inline</span></div>
+            <div class="dl-head"><span class="dl-box-title">Grafik NG Inline</span><span class="dl-sub" x-text="labelShift"></span></div>
             <div class="dl-chart"><canvas id="dlNgInline"></canvas></div>
           </section>
           <section class="dl-box dl-o6">
-            <div class="dl-head"><span class="dl-box-title">Grafik NG Trial</span></div>
+            <div class="dl-head"><span class="dl-box-title">Grafik NG Trial</span><span class="dl-sub" x-text="labelShift"></span></div>
             <div class="dl-chart"><canvas id="dlNgTrial"></canvas></div>
           </section>
           <section class="dl-box dl-o7">
-            <div class="dl-head"><span class="dl-box-title">Grafik Straightpass</span></div>
+            <div class="dl-head"><span class="dl-box-title">Grafik Straightpass</span><span class="dl-sub" x-text="labelShift"></span></div>
             <div class="dl-chart"><canvas id="dlStraightpass"></canvas></div>
           </section>
           </div>

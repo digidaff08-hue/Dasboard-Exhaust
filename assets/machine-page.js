@@ -437,7 +437,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261111j";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261111r";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:40", "20:30"] },
@@ -5265,12 +5265,16 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
 
     // ================= REPAIR (klik titik di gambar -> popup) =================
-    // Dashboard Line: tanggal dikirim induk lewat postMessage {repairSet:{tanggal}}.
+    // Dashboard Line: tanggal & shift dikirim induk lewat postMessage
+    // {repairSet:{tanggal, shift}}. Shift boleh kosong -> semua shift dipakai
+    // (itu yang terjadi kalau kotak 3D dibuka dari halaman mesin sendiri).
+    repairHeatShift: "",
     repairSoloMulai() {
       window.addEventListener("message", (e) => {
         const st = e.data && e.data.repairSet;
         if (!st || !st.tanggal) return;
         this.repairHeatTgl = st.tanggal;
+        this.repairHeatShift = st.shift ? String(st.shift) : "";
         this.muatRepairHeat(true);
       });
       try { window.parent.postMessage({ repairSiap: true, repair3dBuild: DKD_BUILD }, "*"); } catch (e) {}
@@ -5284,11 +5288,22 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         const { data, error } = await supabaseClient.from("repair_log").select("*").eq("mesin", machineKey).eq("tanggal", tgl).order("jam").limit(5000);
         if (error) throw error;
         if (tok !== this._rhTok) return;
-        this.repairHariRows = data || [];
+        // Shift baris Repair diambil dari kolom jam: 07:00-19:30 Shift 1,
+        // selebihnya Shift 2. Baris tanpa jam ikut ditampilkan supaya tidak hilang.
+        const sh = this.repairHeatShift;
+        const saring = sh
+          ? (data || []).filter((r) => {
+              if (!r.jam) return true;
+              const [h, mn] = String(r.jam).split(":").map(Number);
+              const t = (h || 0) * 60 + (mn || 0);
+              return (t >= 420 && t < 1170 ? "1" : "2") === sh;
+            })
+          : (data || []);
+        this.repairHariRows = saring;
         this.repairHeat = this.hitungRepairHeat(this.repairHariRows);
         const heat = this.repairHeat; let total = 0;
-        (data || []).forEach((r) => { total += Number(r.qty) || 0; });
-        this.muatRepairPic(data || []);
+        saring.forEach((r) => { total += Number(r.qty) || 0; });
+        this.muatRepairPic(saring);
         // Tanggal baru & model yang tampil tidak punya Repair, tapi model/part lain punya -> pindah ke part itu.
         if (ganti && !Object.keys(heat).length && (this.repairViews || []).length > 1) {
           const perView = {};
