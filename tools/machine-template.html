@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://esm.sh">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script>if (/[?&]solo3d=1/.test(location.search)) document.documentElement.classList.add("repair-solo");</script>
-<link rel="stylesheet" href="../assets/style.css?v=20261111c">
+<link rel="stylesheet" href="../assets/style.css?v=20261111d">
 <script src="../assets/pengaturan.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -21,11 +21,11 @@
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="../assets/supabaseClient.js?v=20261111c"></script>
+<script src="../assets/supabaseClient.js?v=20261111d"></script>
 <script src="../assets/realtime.js"></script>
 <script src="../assets/utils.js"></script>
 <script src="../assets/produksi-join.js"></script>
-<script src="../assets/machine-page.js?v=20261111c"></script>
+<script src="../assets/machine-page.js?v=20261111d"></script>
 <script src="../assets/andon.js"></script>
 <style>
   /* decor-bg-fix */
@@ -497,6 +497,17 @@
                 <select x-model="pjShift" :disabled="pjDirty" @change="pjGanti()"><option value="1">Shift 1</option><option value="2">Shift 2</option></select></div>
               <div class="field" x-show="stationList().length > 1"><label>Stasiun</label>
                 <select x-model="pjStasiun" :disabled="pjDirty" @change="pjGanti()"><template x-for="st in stationList()" :key="st.id"><option :value="st.id" x-text="st.label"></option></template></select></div>
+              <div class="pj-rekap" x-show="pjRekapPart().length" x-cloak>
+                <table>
+                  <thead><tr><th>Part No.</th><th>Qty</th></tr></thead>
+                  <tbody>
+                    <template x-for="r in pjRekapPart()" :key="r.part">
+                      <tr><td x-text="r.part"></td><td x-text="fmtNum(r.qty)"></td></tr>
+                    </template>
+                  </tbody>
+                  <tfoot><tr><td>Total</td><td x-text="fmtNum(pjRekapTotal())"></td></tr></tfoot>
+                </table>
+              </div>
             </div>
           </div>
           <div class="panel pj-panel">
@@ -522,7 +533,7 @@
                       <td class="pj-ro" :class="b.id && !b.ubah && b.kat !== '3' ? 'pj-dt-klik' : ''"
                           :title="b.kat === '3' ? 'Baris Non-Produksi tidak bisa diisi downtime' : (b.id && !b.ubah ? 'Klik untuk mengisi downtime di blok jam ini' : 'Simpan dulu barisnya supaya downtime bisa diisi dari sini')"
                           @click="document.activeElement && document.activeElement.blur(); pjBukaDowntime(b)"
-                          x-text="b.downtime || (b.id && !b.ubah && b.kat !== '3' ? '+' : '')"></td>
+                          x-text="b.downtime"></td>
                     </tr>
                   </template>
                 </tbody>
