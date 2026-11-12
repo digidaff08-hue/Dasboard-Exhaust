@@ -18,7 +18,7 @@
   const COL = { productivity: "#0EA5E9", availability: "#10B981", downtime: "#F97316", ngInline: "#F43F5E", money: "#1D4ED8", straight: "#14B8A6", perjam: "#6366F1", trend: "#2563EB" };
 
   // Naikkan setiap kali file Dekidaka (machine-page.js, style.css, dekidaka-line.html) berubah.
-  const DEKI_VER = "20261111r";
+  const DEKI_VER = "20261112l";
 
   const mgCache = {};   // hasil Trend Volume per line|tahun|bulan -> tidak hitung ulang saat pindah line (berlaku 10 menit)
   const pad2 = (n) => String(n).padStart(2, "0");
@@ -166,16 +166,36 @@
       perjamManual: false,     // true kalau user memilih sendiri tanggal/shift -> jangan di-otomatis
       perjamPanels: [],
       perjamChips: [],
+      perjamBulan: null,    // hasil Grafik Perjam bulanan (tab Bulanan)
+      // Minta papan Dekidaka menghitung Grafik Perjam sebulan. Shiftnya ikut
+      // papan Dekidaka, bukan bar atas -- blok jam dua shift memang berbeda.
+      mintaPerjamBulan() {
+        const sh = (this.dekiData && this.dekiData.shift) || this.perjamShift;
+        const kunci = this.activeTab + "|" + this.tahun + "|" + this.bulan + "|" + sh;
+        if (this._pbKunci === kunci) return;
+        this._pbKunci = kunci;
+        this.perjamMemuat = true;
+        document.querySelectorAll(".dl-deki iframe").forEach((fr) => {
+          if (fr && fr.contentWindow) { try { fr.contentWindow.postMessage({ dekidakaPerjamBulan: { line: this.activeTab, tahun: this.tahun, bulan: this.bulan, shift: String(sh) } }, "*"); } catch (e) {} }
+        });
+      },
       repair3dTotal: null,     // {qty, titik} dikirim kotak 3D
       repairSinkron() {
-        if (!this.perjamTgl) return;
+        if (!this.perjamTgl && this.tampil !== "bulanan") return;
         const kirim = (sel, isi) => document.querySelectorAll(sel).forEach((fr) => {
           if (fr && fr.contentWindow) { try { fr.contentWindow.postMessage({ repairSet: isi }, "*"); } catch (e) {} }
         });
-        // Control Board: 1 shift. Tab Harian: tanpa shift -> dua shift digabung.
-        kirim(".dl-r3d, .dl-r3d-big", this.tampil === "harian"
-          ? { tanggal: this.perjamTgl }
-          : { tanggal: this.perjamTgl, shift: this.perjamShift });
+        // Control Board : 1 hari, 1 shift
+        // Tab Harian     : 1 hari, dua shift
+        // Tab Bulanan    : sebulan penuh ditumpuk
+        let isi;
+        if (this.tampil === "bulanan") {
+          const p2 = (x) => String(x).padStart(2, "0");
+          isi = { dari: this.tahun + "-" + p2(this.bulan) + "-01",
+                  sampai: (this.bulan === 12 ? this.tahun + 1 : this.tahun) + "-" + p2(this.bulan === 12 ? 1 : this.bulan + 1) + "-01" };
+        } else if (this.tampil === "harian") isi = { tanggal: this.perjamTgl };
+        else isi = { tanggal: this.perjamTgl, shift: this.perjamShift };
+        kirim(".dl-r3d, .dl-r3d-big", isi);
       },
       perjamPilih: [],         // pilihan manual (maks 2 kode part); kosong = otomatis
       pilihPerjam(kd) {
@@ -213,10 +233,13 @@
         this.bangunPerjam();
         this.muatProblem();
       },
-      // Problem Terbanyak: rangkuman downtime 1 hari produksi (Tanggal + Shift di bar atas)
-      // per Problem -> mana yang paling sering & lama di shift itu.
+      // Rangkuman downtime 1 BULAN per Problem -> dipakai tab Bulanan.
+      // Versi 1 harinya dihitung di muatProblem(), dari data hari yang sudah diambil
+      // di sana -- jadi tidak ada query tambahan.
       topRows: [],
-      topRowsAll: [],   // dua shift digabung -- dipakai tab Harian
+      topRowsAll: [],      // 1 hari, dua shift digabung -- tab Harian
+      topRowsBulan: [],    // 1 bulan, dua shift digabung -- tab Bulanan
+      susunTop: null,
       topDetail: null,   // {judul, sub, items:[{teks,kali,info}]} untuk jendela detail Penyebab / Penanganan
       bukaDetail(r, jenis) {
         const sebab = jenis === 'sebab', menit = jenis === 'menit';
@@ -225,13 +248,11 @@
       async muatTop() {
         if (!this.bolehLihat()) return;
         const tok = (this._topTok = (this._topTok || 0) + 1);
-        const line = this.activeTab, sh = this.perjamShift, tgl = this.perjamTgl;
-        if (!tgl) return;
-        const [y, m, d] = tgl.split("-").map(Number);
-        const awal = new Date(y, m - 1, d, 7, 0), akhir = new Date(y, m - 1, d + 1, 7, 0);
+        const line = this.activeTab, y = this.tahun, m = this.bulan;
+        const awal = new Date(y, m - 1, 1, 7, 0), akhir = new Date(y, m, 1, 7, 0);
         try {
           const { data, error } = await supabaseClient.from("downtime_log")
-            .select("waktu_awal,waktu_akhir,problem,area,penyebab,countermeasure")
+            .select("waktu_awal,waktu_akhir,problem,area,penyebab,countermeasure,pic")
             .eq("mesin", line).gte("waktu_awal", awal.toISOString()).lt("waktu_awal", akhir.toISOString()).order("waktu_awal");
           if (error) throw error;
           if (tok !== this._topTok) return;
@@ -264,13 +285,41 @@
             }),
           }));
           };
-          this.topRows = susun((data || []).filter((r) => shiftDari(r.waktu_awal) === sh));   // Control Board: 1 shift
-          this.topRowsAll = susun(data || []);                                                 // Harian: 2 shift digabung
-        } catch (e) { console.error("Gagal memuat Problem Terbanyak:", e); if (tok === this._topTok) { this.topRows = []; this.topRowsAll = []; } }
+          this.susunTop = susun;                      // dipakai lagi oleh muatProblem()
+          this.topRowsBulan = susun(data || []);      // Bulanan: sebulan penuh, 2 shift
+          this.problemRowsBulan = (data || []).map((r) => this.buatProblem(r)).reverse();   // terbaru di atas
+          if (this._pfData) this.hitungTopHarian();   // data harian sudah ada -> hitung sekarang
+        } catch (e) { console.error("Gagal memuat Problem Terbanyak:", e); if (tok === this._topTok) { this.topRowsBulan = []; this.problemRowsBulan = []; } }
       },
       // Problem Followup Sheets: downtime hari produksi terpilih (07:00-07:00), hanya shift yang dipilih di bar atas.
       problemRows: [],
-      problemRowsAll: [],   // dua shift digabung -- dipakai tab Harian
+      problemRowsAll: [],     // 1 hari, dua shift digabung -- tab Harian
+      problemRowsBulan: [],   // 1 bulan, dua shift digabung -- tab Bulanan
+      _pfData: null,
+      // Satu baris tabel Problem Followup. Tanggalnya diambil dari HARI PRODUKSI
+      // (07:00-07:00), bukan tanggal kalender, supaya baris dini hari Shift 2
+      // tetap tercatat di hari kerjanya.
+      buatProblem(r) {
+        const a = new Date(r.waktu_awal), mnt = a.getHours() * 60 + a.getMinutes();
+        const hp = new Date(a); if (mnt < 420) hp.setDate(hp.getDate() - 1);
+        const f = (t) => { const x = new Date(t); return pad2(x.getDate()) + "/" + pad2(x.getMonth() + 1) + "/" + x.getFullYear() + " " + pad2(x.getHours()) + ":" + pad2(x.getMinutes()); };
+        return {
+          problem: r.penyebab || r.problem || r.area || "(tanpa keterangan)",
+          tanggal: pad2(hp.getDate()) + "/" + pad2(hp.getMonth() + 1) + "/" + hp.getFullYear(),
+          shift: mnt >= 420 && mnt < 1170 ? "1" : "2",
+          penanganan: r.countermeasure || "",
+          waktu: Math.round((new Date(r.waktu_akhir) - a) / 60000),
+          selesai: f(r.waktu_akhir),
+          pic: r.pic || "",
+        };
+      },
+      // Problem Terbanyak versi 1 hari: dihitung dari baris hari yang sudah
+      // diambil muatProblem(), memakai penyusun milik muatTop().
+      hitungTopHarian() {
+        if (!this.susunTop || !this._pfData) return;
+        this.topRows = this.susunTop(this._pfData.filter((r) => shiftDari(r.waktu_awal) === this.perjamShift));
+        this.topRowsAll = this.susunTop(this._pfData);
+      },
       async muatProblem() {
         if (!this.bolehLihat()) return;
         const tok = (this._pfTok = (this._pfTok || 0) + 1);
@@ -284,32 +333,27 @@
             .eq("mesin", line).gte("waktu_awal", awal.toISOString()).lt("waktu_awal", akhir.toISOString()).order("waktu_awal");
           if (error) throw error;
           if (tok !== this._pfTok) return;
-          const f = (t) => { const x = new Date(t); return pad2(x.getDate()) + "/" + pad2(x.getMonth() + 1) + "/" + x.getFullYear() + " " + pad2(x.getHours()) + ":" + pad2(x.getMinutes()); };
-          const buat = (r) => {
-            const a = new Date(r.waktu_awal), mnt = a.getHours() * 60 + a.getMinutes();
-            return {
-              problem: r.penyebab || r.problem || r.area || "(tanpa keterangan)",
-              tanggal: pad2(d) + "/" + pad2(m) + "/" + y,
-              shift: mnt >= 420 && mnt < 1170 ? "1" : "2",
-              penanganan: r.countermeasure || "",
-              waktu: Math.round((new Date(r.waktu_akhir) - a) / 60000),
-              selesai: f(r.waktu_akhir),
-              pic: r.pic || "",
-            };
-          };
-          this.problemRows = (data || []).filter((r) => shiftDari(r.waktu_awal) === this.perjamShift).map(buat);
-          this.problemRowsAll = (data || []).map(buat);   // Harian: 2 shift digabung
+          this._pfData = data || [];
+          this.problemRows = this._pfData.filter((r) => shiftDari(r.waktu_awal) === this.perjamShift).map((r) => this.buatProblem(r));
+          this.problemRowsAll = this._pfData.map((r) => this.buatProblem(r));   // Harian: 2 shift digabung
+          this.hitungTopHarian();
         } catch (e) { console.error("Gagal memuat Problem Followup:", e); if (tok === this._pfTok) { this.problemRows = []; this.problemRowsAll = []; } }
       },
       async bangunPerjam() {
         if (!this.bolehLihat() || typeof Chart === "undefined") return;
         const token = (this._pjTok = (this._pjTok || 0) + 1);
-        const line = this.activeTab, sh = this.perjamShift;
-        const dd = this.dekiData;
-        const cocok = dd && dd.line === line && dd.tanggal === this.perjamTgl && String(dd.shift) === String(sh);
+        const line = this.activeTab;
+        const bulanan = this.tampil === "bulanan";
+        // Tab Bulanan: sumbernya hasil hitungan sebulan dari papan Dekidaka.
+        // Tab lain: kiriman papan Dekidaka untuk tanggal & shift yang tampil.
+        const dd = bulanan ? this.perjamBulan : this.dekiData;
+        const sh = bulanan ? ((dd && dd.shift) || this.perjamShift) : this.perjamShift;
+        const cocok = bulanan
+          ? (dd && dd.line === line && dd.tahun === this.tahun && dd.bulan === this.bulan)
+          : (dd && dd.line === line && dd.tanggal === this.perjamTgl && String(dd.shift) === String(sh));
         const baris = cocok ? (dd.baris || []) : [];
         const daftar = PERJAM_PART[line] || [];
-        const kunci = line + "|" + this.perjamTgl + "|" + sh;
+        const kunci = line + "|" + (bulanan ? "B" + this.tahun + "-" + this.bulan : this.perjamTgl) + "|" + sh;
         if (this._pjKunci !== kunci) { this._pjKunci = kunci; this.perjamPilih = []; }   // ganti line/tanggal/shift -> kembali otomatis
         const data = {};
         daftar.forEach((kd) => {
@@ -338,7 +382,7 @@
         const panels = pilih.map((k) => data[k]);
         while (panels.length < 2) panels.push({ part: "", pct: Array(11).fill(null), qty: Array(11).fill(0) });
         this.hapusPerjam();
-        this.perjamPanels = panels; this.perjamMemuat = false;
+        this.perjamPanels = panels; this.perjamMemuat = bulanan && !cocok;
         await this.$nextTick();
         if (token !== this._pjTok) return;
         panels.forEach((pn, i) => this.gambarPerjam(pn, i, sh));
@@ -348,10 +392,10 @@
       tampil: "dashboard",
       // Tiap tampilan Performance (Harian/Bulanan/Tahunan) punya iframe sendiri yang DIPERTAHANKAN: pindah tab bolak-balik
       // tidak memuat ulang. Baru dimuat saat pertama dibuka; ganti line -> dimuat ulang saat dibuka lagi.
-      perfSrc: { bulanan: "", tahunan: "" },
+      perfSrc: { tahunan: "" },
       perfUrlFor(m) { return "machines/" + this.activeTab.toLowerCase() + ".html?tab=performance&bagian=" + m + "&v=" + DEKI_VER; },
       perfSegarkan() {
-        ["bulanan", "tahunan"].forEach((m) => {
+        ["tahunan"].forEach((m) => {
           if (m === this.tampil) { if (this.perfSrc[m] !== this.perfUrlFor(m)) this.perfSrc[m] = this.perfUrlFor(m); }
           else if (this.perfSrc[m] && this.perfSrc[m] !== this.perfUrlFor(m)) this.perfSrc[m] = "";   // line lain: lepas, muat lagi nanti
         });
@@ -359,8 +403,9 @@
       setTampil(t) {
         this.tampil = t;
         this.perfSegarkan();
-        if (t === "harian" || t === "dashboard") {
+        if (t !== "tahunan") {
           this.repairSinkron();
+          if (t !== "bulanan") this.bangunPerjam();
           // Kanvas tadi lebar 0 waktu tab ini tersembunyi -> gambar ulang.
           this.$nextTick(() => { window.dispatchEvent(new Event("resize")); this.gambar(); });
         }
@@ -438,15 +483,36 @@
         // Dua-duanya dihitung dari SATU kali ambil data, jadi tidak ada query tambahan
         // dan angkanya mustahil berbeda antar tab.
         const hasil = kosong(), semua = kosong();
+        semua.gsph = Array(n).fill(null); semua.gsphTarget = Array(n).fill(null); semua.qtyHari = Array(n).fill(0);
+        const whHari = Array(n).fill(0), tgtHari = Array(n).fill(0);
         try {
           const [prodRes, ngRes, repRes, spRes, tgRes, trRes] = await Promise.all([
             supabaseClient.rpc("dashboard_harian_produksi_shift", { p_start: awal.toISOString(), p_end: akhir.toISOString(), p_mesin: line }),
             ambilSemua("dashboard_qc_ng_detail_range_shift", { p_type_ng: "NG PRODUKSI", p_start: sAwal, p_end: sAkhir }),
             // Straightpass: stroke (qty) & repair diambil LANGSUNG dari production_log -- sumber yang sama
             // dengan Dekidaka / tab Performance. Hari produksi = 07:00 s/d 07:00 berikutnya.
-            supabaseClient.from("production_log").select("waktu_awal,qty,repair").eq("mesin", line)
+            supabaseClient.from("production_log").select("id,stasiun,waktu_awal,waktu_akhir,qty,repair,part_number,dandori_menit,break_menit").eq("mesin", line)
               .gte("waktu_awal", sAwal + "T07:00:00+07:00").lt("waktu_awal", sAkhir + "T07:00:00+07:00").limit(5000),
-            Promise.resolve({ data: [], error: null }),
+            // NG per part, pengaturan target GSPH, dan downtime sebulan.
+            // Downtime per part SENGAJA diambil dari downtime_log, bukan dari kolom
+            // production_log.downtime_menit -- kolom itu cuma salinan yang diisi
+            // trigger, dan di data lama banyak yang masih kosong. downtime_log
+            // adalah sumber yang sama dengan angka Downtime di Ringkasan Bulan,
+            // jadi dua angka itu dijamin tidak akan berselisih.
+            Promise.all([
+              supabaseClient.from("ng_inline_log").select("tanggal,jam,qty,part_number,type_ng")
+                .eq("mesin", line).in("type_ng", ["NG PRODUKSI", "NG TRIAL"]).gte("tanggal", sAwal).lt("tanggal", sAkhir).limit(20000),
+              supabaseClient.from("mesin_settings").select("gsph_target_mode,gsph_target_fixed").eq("mesin", line).maybeSingle(),
+              (async () => {
+                // Kalau kolom "stasiun" tidak ada di downtime_log, permintaannya
+                // gagal TOTAL dan kolom Downtime jadi kosong tanpa pesan apa pun.
+                // Jadi diulang sekali tanpa kolom itu.
+                const ambil = (kol) => supabaseClient.from("downtime_log").select(kol).eq("mesin", line)
+                  .gte("waktu_awal", sAwal + "T07:00:00+07:00").lt("waktu_awal", sAkhir + "T07:00:00+07:00").limit(20000);
+                const r = await ambil("stasiun,waktu_awal,waktu_akhir");
+                return r.error ? await ambil("waktu_awal,waktu_akhir") : r;
+              })(),
+            ]),
             supabaseClient.from("productivity_target").select("tahun,bulan,target").eq("tahun", y).eq("bulan", m),
             ambilSemua("dashboard_qc_ng_detail_range_shift", { p_type_ng: "NG TRIAL", p_start: sAwal, p_end: sAkhir }),
           ]);
@@ -467,6 +533,8 @@
             const dt = sm.reduce((t, x) => t + (Number(x.downtime_menit) || 0), 0);
             if (wh) semua.avail[d - 1] = Number((((wh - dt) / wh) * 100).toFixed(1));
             semua.downtime[d - 1] = Math.round(dt);
+            whHari[d - 1] = wh;
+            tgtHari[d - 1] = sm.reduce((t, x) => t + (Number(x.target_std_menit) || 0), 0);
           }
           // NG Inline & Repair per hari, disaring line ini
           const hariDari = (tgl) => parseInt((tgl || "").slice(8, 10), 10);
@@ -492,6 +560,76 @@
           } else {
             const stroke = Array(n).fill(0), ada = Array(n).fill(false);
             const strokeA = Array(n).fill(0), adaA = Array(n).fill(false);
+            const peta = new Map();   // part -> {qty, repair, ng, trial, dt}
+            const barisProd = [];                  // untuk mencocokkan downtime ke part
+            const jendela = new Map();             // (stasiun|awal|akhir) -> {dandori, break}
+            (repRes.data || []).forEach((r) => {
+              const pn = r.part_number || "(tanpa part)";
+              const o = peta.get(pn) || { part: pn, qty: 0, repair: 0, ng: 0, trial: 0, dt: 0 };
+              o.qty += Number(r.qty) || 0; o.repair += Number(r.repair) || 0; peta.set(pn, o);
+              if (r.waktu_awal && r.waktu_akhir) {
+                barisProd.push({ st: r.stasiun || null, a: Date.parse(r.waktu_awal), z: Date.parse(r.waktu_akhir), pn });
+              }
+              // Dandori & Break ditulis sama di SEMUA part yang berbagi satu
+              // jendela waktu. Kalau dijumlah apa adanya, jendela berisi dua part
+              // terhitung dua kali -- jadi diambil yang terbesar per jendela,
+              // sama persis dengan cara performance_aggregate menghitungnya.
+              const k = (r.stasiun || "") + "|" + r.waktu_awal + "|" + r.waktu_akhir;
+              const j = jendela.get(k) || { dandori: 0, brk: 0 };
+              j.dandori = Math.max(j.dandori, Number(r.dandori_menit) || 0);
+              j.brk = Math.max(j.brk, Number(r.break_menit) || 0);
+              jendela.set(k, j);
+            });
+            let dandoriB = 0, breakB = 0;
+            jendela.forEach((j) => { dandoriB += j.dandori; breakB += j.brk; });
+            const [ngPartRes, setRes, dtRes] = spRes || [];
+            if (dtRes && dtRes.error) console.error("Gagal memuat downtime_log untuk Rekap per Part:", dtRes.error);
+            // Downtime per part: tiap baris downtime dijatuhkan ke baris produksi
+            // yang menampungnya, dicocokkan dari JAMNYA -- aturan yang sama dengan
+            // trigger link_and_validate_downtime di database. Sengaja tidak
+            // memakai kolom production_log_id supaya tidak bergantung pada kolom
+            // yang mungkin belum terisi di baris-baris lama.
+            barisProd.sort((x, y) => x.a - y.a);
+            let dtLepas = 0;
+            const dtHari = Array(n).fill(0);
+            let adaDt = false;
+            (dtRes && dtRes.data ? dtRes.data : []).forEach((r) => {
+              const a = Date.parse(r.waktu_awal), z = Date.parse(r.waktu_akhir);
+              // Dibulatkan ke menit utuh PER BARIS. Baris downtime lama dari
+              // stopwatch menyimpan detik; kalau detiknya dibiarkan, jumlah yang
+              // dibulatkan belakangan bisa meleset semenit dari jumlah per part.
+              const menit = Math.round((z - a) / 60000);
+              if (!(menit > 0)) return;
+              adaDt = true;
+              const d = hariDari(new Date(a).toISOString());
+              if (d >= 1 && d <= n) dtHari[d - 1] += menit;
+              const st = r.stasiun || null;
+              const cocok = barisProd.find((b) => b.a <= a && b.z >= z && (b.st === st || b.st === null || st === null));
+              if (!cocok) { dtLepas += menit; return; }
+              const o = peta.get(cocok.pn); if (o) o.dt += menit;
+            });
+            this.rekapDtLepas = dtLepas;
+            // Downtime harian versi gabungan diambil dari baris downtime_log yang
+            // sama dengan Rekap per Part. Satu sumber, satu cara membulatkan ->
+            // grafik, kartu Ringkasan, dan tabel Rekap mustahil berselisih.
+            if (adaDt) for (let d = 1; d <= n; d++) semua.downtime[d - 1] = dtHari[d - 1];
+            (ngPartRes && ngPartRes.data ? ngPartRes.data : []).forEach((r) => {
+              const pn = r.part_number || "(tanpa part)";
+              const o = peta.get(pn) || { part: pn, qty: 0, repair: 0, ng: 0, trial: 0, dt: 0 };
+              if (r.type_ng === "NG TRIAL") o.trial += Number(r.qty) || 0;
+              else o.ng += Number(r.qty) || 0;
+              peta.set(pn, o);
+            });
+            // Baris Non-Produksi (A, C, K, G1 dan sejenisnya) dibuang -- tabel ini
+            // khusus part number. Part asli selalu berbentuk 25051-BZ260: ada tanda
+            // hubung, atau setidaknya berangka dan panjangnya 4 huruf ke atas.
+            const partAsli = (pn) => /-/.test(pn) || (/\d/.test(pn) && pn.length >= 4);
+            this.rekapPart = [...peta.values()].filter((o) => partAsli(o.part)).map((o) => ({
+              ...o,
+              rasio: o.qty > 0 ? Number(((o.ng / o.qty) * 100).toFixed(2)) : null,
+              sp: o.qty > 0 ? Number((((o.qty - o.repair) / o.qty) * 100).toFixed(1)) : null,
+            })).sort((a, b) => b.qty - a.qty || a.part.localeCompare(b.part));
+            this.mesinSet = (setRes && setRes.data) || null;
             (repRes.data || []).forEach((r) => {
               const d = hariDari(new Date(r.waktu_awal).toISOString());
               if (d < 1 || d > n) return;
@@ -506,6 +644,28 @@
               if (lewat(d)) continue;
               if (ada[d - 1] && stroke[d - 1]) hasil.spPct[d - 1] = Number((((stroke[d - 1] - hasil.repQty[d - 1]) / stroke[d - 1]) * 100).toFixed(1));
               if (adaA[d - 1] && strokeA[d - 1]) semua.spPct[d - 1] = Number((((strokeA[d - 1] - semua.repQty[d - 1]) / strokeA[d - 1]) * 100).toFixed(1));
+            }
+            // ---- Ringkasan sebulan ----
+            // Dihitung dari TOTAL sebulan, bukan rata-rata angka harian. Hari yang
+            // cuma jalan 2 jam tidak boleh punya bobot sama dengan hari penuh.
+            const jml = (a) => a.reduce((t, x) => t + (Number(x) || 0), 0);
+            const whB = jml(whHari), dtB = jml(semua.downtime), qtyB = jml(strokeA);
+            const ngB = jml(semua.ngQty), repB = jml(semua.repQty), tgtB = jml(tgtHari);
+            semua.ringkas = { whB, dtB, qtyB, ngB, repB, tgtB, dandoriB, breakB };
+
+            // ---- Perjam harian (dua shift digabung) -- rumusnya disamakan dengan tab Performance ----
+            //   Perjam Aktual = Qty Produksi / jam kerja
+            //   Perjam Target = ikut pengaturan mesin (tetap, atau dihitung per part)
+            const mode = this.mesinSet && this.mesinSet.gsph_target_mode;
+            const tetap = Number(this.mesinSet && this.mesinSet.gsph_target_fixed) || 0;
+            for (let d = 1; d <= n; d++) {
+              if (lewat(d)) continue;
+              const wh = whHari[d - 1], tgt = tgtHari[d - 1], st = strokeA[d - 1];
+              semua.qtyHari[d - 1] = st;
+              if (!wh || !st) continue;
+              semua.gsph[d - 1] = Number((st / (wh / 60)).toFixed(1));
+              const gt = mode === "per_part" && tgt > 0 ? st / (tgt / 60) : tetap;
+              if (gt > 0) semua.gsphTarget[d - 1] = Number(gt.toFixed(1));
             }
           }
           const t = (tgRes.data || [])[0];
@@ -523,7 +683,75 @@
       },
 
       data: null,
-      dataAll: null,   // dua shift digabung -- dipakai tab Harian
+      dataAll: null,   // dua shift digabung -- dipakai tab Harian & Bulanan
+      rekapPart: [],   // rekap sebulan per part number -- tab Bulanan
+      rekapDtLepas: 0, // menit downtime yang tidak terhubung ke baris produksi mana pun
+      mesinSet: null,  // pengaturan GSPH target, untuk rumus OEE
+      get rekapPartTotal() {
+        const t = this.rekapPart.reduce((a, r) => ({ qty: a.qty + r.qty, dt: a.dt + Math.round(r.dt), ng: a.ng + r.ng, trial: a.trial + r.trial, repair: a.repair + r.repair }), { qty: 0, dt: 0, ng: 0, trial: 0, repair: 0 });
+        return { ...t,
+          rasio: t.qty > 0 ? Number(((t.ng / t.qty) * 100).toFixed(2)) : null,
+          sp: t.qty > 0 ? Number((((t.qty - t.repair) / t.qty) * 100).toFixed(1)) : null };
+      },
+      get totalQtyBulan() {
+        return ((this.dataAll && this.dataAll.qtyHari) || []).reduce((a, b) => a + b, 0);
+      },
+      // Kartu Ringkasan Bulan. Bentuknya disamakan dengan kartu Performance di
+      // halaman mesin (kelas CSS-nya memang dipakai bersama), isinya total sebulan.
+      get ringkas() {
+        const r = (this.dataAll && this.dataAll.ringkas) || {};
+        const whB = r.whB || 0, dtB = r.dtB || 0, qtyB = r.qtyB || 0, ngB = r.ngB || 0, repB = r.repB || 0, tgtB = r.tgtB || 0;
+        const mode = this.mesinSet && this.mesinSet.gsph_target_mode;
+        const tetap = Number(this.mesinSet && this.mesinSet.gsph_target_fixed) || 0;
+        const jam = whB / 60;
+        const gsph = jam > 0 ? qtyB / jam : 0;
+        const gsphTarget = mode === "per_part" && tgtB > 0 ? qtyB / (tgtB / 60) : tetap;
+        const A = whB > 0 ? Math.max(0, (whB - dtB) / whB) * 100 : 0;
+        const P = gsphTarget > 0 ? Math.min(gsph / gsphTarget, 1) * 100 : 0;
+        const Q = qtyB > 0 ? Math.max(0, (qtyB - ngB) / qtyB) * 100 : 100;
+        return {
+          oee: (A / 100) * (P / 100) * (Q / 100) * 100, availability: A, performanceFactor: P, quality: Q,
+          gsph, stroke: qtyB, ng: ngB, repairQty: repB,
+          ngRatio: qtyB > 0 ? (ngB / qtyB) * 100 : 0,
+          straightPass: qtyB > 0 ? ((qtyB - repB) / qtyB) * 100 : 0,
+          downtimeMenit: Math.round(dtB), dandoriMenit: Math.round(r.dandoriB || 0),
+          breakMenit: Math.round(r.breakB || 0), whJam: Number(jam.toFixed(1)),
+        };
+      },
+      ringkasKelas() {
+        const d = this.ringkas;
+        if (!d.stroke) return "status-none";
+        const n = Number(d.oee) || 0;
+        return n >= 75 ? "status-good" : (n >= 50 ? "status-warn" : "status-bad");
+      },
+      lebarBar(v) { return Math.max(0, Math.min(100, Number(v) || 0)); },
+      get ringkasBulan() {
+        const r = (this.dataAll && this.dataAll.ringkas) || { whB: 0, dtB: 0, qtyB: 0, ngB: 0, repB: 0, tgtB: 0 };
+        const n = (v, d) => Number(v).toLocaleString("id-ID", { maximumFractionDigits: d === undefined ? 0 : d });
+        const mode = this.mesinSet && this.mesinSet.gsph_target_mode;
+        const tetap = Number(this.mesinSet && this.mesinSet.gsph_target_fixed) || 0;
+        const jam = r.whB / 60;
+        const gsph = jam > 0 ? r.qtyB / jam : 0;
+        const gsphTarget = mode === "per_part" && r.tgtB > 0 ? (r.tgtB > 0 ? r.qtyB / (r.tgtB / 60) : 0) : tetap;
+        const A = r.whB > 0 ? Math.max(0, (r.whB - r.dtB) / r.whB) : 0;
+        const P = gsphTarget > 0 ? Math.min(gsph / gsphTarget, 1) : 0;
+        const Q = r.qtyB > 0 ? Math.max(0, (r.qtyB - r.ngB) / r.qtyB) : 1;
+        const sp = r.qtyB > 0 ? ((r.qtyB - r.repB) / r.qtyB) * 100 : null;
+        return [
+          { label: "Qty Produksi", nilai: n(r.qtyB), satuan: "pcs" },
+          { label: "Jam Kerja", nilai: n(jam, 1), satuan: "jam" },
+          { label: "Downtime", nilai: n(r.dtB), satuan: "mnt" },
+          { label: "Perjam Aktual", nilai: n(gsph, 1), satuan: "" },
+          { label: "Availability", nilai: n(A * 100, 1) + "%", satuan: "" },
+          { label: "Performance", nilai: n(P * 100, 1) + "%", satuan: "" },
+          { label: "Quality", nilai: n(Q * 100, 1) + "%", satuan: "" },
+          { label: "OEE", nilai: n(A * P * Q * 100, 1) + "%", satuan: "" },
+          { label: "Straightpass", nilai: sp === null ? "-" : n(sp, 1) + "%", satuan: "" },
+          { label: "NG Inline", nilai: n(r.ngB), satuan: "pcs" },
+          { label: "Repair", nilai: n(r.repB), satuan: "pcs" },
+          { label: "Hari Produksi", nilai: n(((this.dataAll && this.dataAll.qtyHari) || []).filter((x) => x > 0).length), satuan: "hari" },
+        ];
+      },
       get totalDowntime() { return this.data ? this.data.downtime.reduce((a, b) => a + b, 0) : 0; },
       get totalDowntimeAll() { return this.dataAll ? this.dataAll.downtime.reduce((a, b) => a + b, 0) : 0; },
       rataDari(d) {
@@ -536,10 +764,16 @@
       // Susunan panel dipakai bersama Control Board & tab Harian. Yang membedakan
       // cuma SUMBER DATANYA: Control Board 1 shift, Harian sehari penuh (2 shift).
       get papanHarian() { return this.tampil === "harian"; },
-      get papanData() { return this.papanHarian ? this.dataAll : this.data; },
-      get papanProblem() { return this.papanHarian ? this.problemRowsAll : this.problemRows; },
-      get papanTop() { return this.papanHarian ? this.topRowsAll : this.topRows; },
-      get labelShift() { return this.papanHarian ? "Shift 1 + 2" : "Shift " + this.perjamShift; },
+      get papanBulanan() { return this.tampil === "bulanan"; },
+      get papanGabung() { return this.papanHarian || this.papanBulanan; },
+      get papanData() { return this.papanGabung ? this.dataAll : this.data; },
+      get papanProblem() { return this.papanBulanan ? this.problemRowsBulan : (this.papanHarian ? this.problemRowsAll : this.problemRows); },
+      get papanTop() { return this.papanBulanan ? this.topRowsBulan : (this.papanHarian ? this.topRowsAll : this.topRows); },
+      // Di tab Harian tidak ditulis apa-apa: panelnya memang sehari penuh, jadi
+      // keterangan shift cuma jadi hiasan. Control Board tetap ditulis, di sana
+      // penting supaya tidak salah baca shift mana yang sedang tampil.
+      get labelShift() { return this.papanGabung ? "" : "Shift " + this.perjamShift; },
+      get labelShiftAwal() { return this.labelShift ? this.labelShift + " · " : ""; },
       get rataAvailPapan() { return this.rataDari(this.papanData); },
       get totalDowntimePapan() { return this.papanData ? this.papanData.downtime.reduce((a, b) => a + b, 0) : 0; },
       fmtNum,
@@ -551,7 +785,7 @@
       // yang berganti cuma datanya. Digambar ulang tiap pindah tab.
       gambar() {
         if (typeof Chart === "undefined") return;
-        if (this.tampil !== "dashboard" && this.tampil !== "harian") return;
+        if (this.tampil === "tahunan") return;
         this.gambarSet("dl", this.papanData);
         const aman = (fn, nama) => { try { fn(); } catch (e) { console.error("Gagal gambar", nama, e); } };
         aman(() => this.gambarTrend(), "trend");
@@ -606,6 +840,72 @@
         aman(() => ganda(pre + "NgInline", COL.ngInline, COL.money, "Qty", "Value (ribu Rp)", false, D.ngQty, D.ngVal, "above"), "ngInline");
         aman(() => ganda(pre + "NgTrial", COL.ngInline, COL.money, "Qty", "Value (ribu Rp)", false, D.trQty || [], D.trVal || [], "above"), "ngTrial");
         aman(() => ganda(pre + "Straightpass", COL.straight, "#000000", "Qty Repair", "% Straightpass", true, D.repQty, D.spPct, "base"), "straightpass");
+
+        // Grafik Perjam Harian -- cuma ada di tab Bulanan, menggantikan Grafik
+        // Perjam per blok. Bentuknya disamakan dengan grafik Performance Bulanan
+        // di halaman mesin: batang hijau Aktual, garis merah Target, garis
+        // putus-putus kuning Qty Produksi di sumbu kanan (skalanya beda jauh).
+        if (this.tampil !== "bulanan") return;
+        aman(() => {
+          const c = this.kanvas("dlPerjamHari"); if (!c) return;
+          // Angka di TENGAH batang (supaya tidak bertabrakan dengan garis yang
+          // lewat di atasnya) dan di ATAS titik garis. Chart.js inti tidak punya
+          // ini, dan pustaka datalabels sengaja tidak dipakai di aplikasi ini --
+          // jadi plugin kecil sendiri, cuma dipasang di grafik ini.
+          const angkaPlugin = {
+            id: "dlAngkaPerjam",
+            afterDatasetsDraw(chart) {
+              const { ctx } = chart;
+              chart.data.datasets.forEach((ds, i) => {
+                const meta = chart.getDatasetMeta(i);
+                if (meta.hidden) return;
+                ctx.save();
+                ctx.textAlign = "center";
+                if (ds.type === "bar") {
+                  ctx.fillStyle = "#000000"; ctx.font = "bold 9px sans-serif"; ctx.textBaseline = "middle";
+                  meta.data.forEach((bar, k) => {
+                    const v = ds.data[k];
+                    if (v === null || v === undefined || Number(v) === 0) return;
+                    if (Math.abs(bar.base - bar.y) < 14) return;   // batang terlalu pendek -> angkanya tidak muat
+                    ctx.fillText(fmtNum(v), bar.x, (bar.y + bar.base) / 2);
+                  });
+                } else {
+                  ctx.fillStyle = ds.borderColor; ctx.font = "bold 9px sans-serif"; ctx.textBaseline = "bottom";
+                  meta.data.forEach((titik, k) => {
+                    const v = ds.data[k];
+                    if (v === null || v === undefined || Number(v) === 0) return;
+                    ctx.fillText(fmtNum(v), titik.x, titik.y - 4);
+                  });
+                }
+                ctx.restore();
+              });
+            },
+          };
+          this.charts.dlPerjamHari = new Chart(c, { type: "bar",
+            plugins: [angkaPlugin],
+            data: { labels: L, datasets: [
+              { type: "bar", label: "Perjam (Aktual)", data: D.gsph || kosong,
+                backgroundColor: COL.availability, borderRadius: 0, borderSkipped: false,
+                barPercentage: 0.7, categoryPercentage: 0.8, order: 2 },
+              { type: "line", label: "Perjam (Target)", data: D.gsphTarget || kosong,
+                borderColor: "#DC2626", backgroundColor: "#DC2626", borderWidth: 2,
+                pointRadius: 0, tension: 0, spanGaps: true, order: 1 },
+              { type: "line", label: "Qty Produksi (Harian)", data: D.qtyHari || kosong,
+                borderColor: "#D97706", backgroundColor: "transparent", borderWidth: 2,
+                borderDash: [5, 3], pointRadius: 0, tension: 0.25, spanGaps: true,
+                yAxisID: "y1", order: 0 },
+            ] },
+            options: { responsive: true, maintainAspectRatio: false, animation: noAnim,
+              layout: { padding: { top: 18, right: 6, left: 4 } },
+              plugins: { legend: legenda(true),
+                tooltip: { callbacks: { label: (it) => it.dataset.label + ": " + it.formattedValue } } },
+              scales: {
+                x: skalaX(),
+                y: { ...skalaY(), position: "left" },
+                y1: { ...skalaY(), position: "right", grid: { drawOnChartArea: false }, ticks: { ...tick, color: "#D97706" } },
+              } },
+          });
+        }, "perjamHari");
       },
 
       // ---------- Trend Volume (per minggu) ----------
@@ -660,7 +960,7 @@
       r3dCek() {
         
         setTimeout(() => {
-          if (this.r3dTerima || (this.tampil !== "dashboard" && this.tampil !== "harian")) return;
+          if (this.r3dTerima || this.tampil === "tahunan") return;
           this.r3dVer = "lama";
           this.pesan = "Kotak 3D masih memakai file lama - unggah assets/machine-page.js dan folder machines/, lalu Ctrl+F5.";
         }, 7000);
@@ -764,6 +1064,12 @@
             if (r.line === this.activeTab && r.tahun === this.tahun && r.bulan === this.bulan) { this.mingguHasil = r; this.mingguPesan = r.error || ""; if (!r.error) mgCache[`${r.line}|${r.tahun}|${r.bulan}`] = { r, t: Date.now() }; this.gambarTrend(); }
           }
           if (d.dekidakaData && !dariBesar) { this.dekiData = d.dekidakaData; this.bangunPerjam(); }
+          if (d.dekidakaPerjamBulanHasil && !dariBesar) {
+            const r = d.dekidakaPerjamBulanHasil;
+            if (r.line === this.activeTab && r.tahun === this.tahun && r.bulan === this.bulan) {
+              this.perjamBulan = r; this.perjamPesan = r.error || ""; this.bangunPerjam();
+            }
+          }
           if (d.dekidakaSetOk) { this._dekiAck = true; if (/Dekidaka belum ikut/.test(this.pesan)) this.pesan = ""; }
         });
         window.addEventListener("keydown", (e) => { if (e.key === "Escape") { if (this.topDetail) this.topDetail = null; else if (this.r3dBesar) this.r3dBesar = false; else if (this.fotoBesar) this.fotoBesar = false; else if (this.dekiBuka) this.tutupDekidaka(); } });
@@ -777,6 +1083,7 @@
         this.tandaiManual();
         this.muatPerjam();
         this.muat();
+        if (this.tampil === "bulanan") this.repairSinkron();
       },
       // ---------- Data baru langsung masuk (tanpa refresh) ----------
       // Realtime (Pusher/Supabase lewat RealtimeHub) + cadangan polling 45 dtk kalau realtime tidak aktif/putus.

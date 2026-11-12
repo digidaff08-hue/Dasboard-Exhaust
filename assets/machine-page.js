@@ -437,7 +437,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261111r";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261112l";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:40", "20:30"] },
@@ -1873,6 +1873,19 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
             terapkan(15);
             return;
           }
+          // Minta hitung Grafik Perjam 1 bulan (Dashboard Line tab Bulanan).
+          const pb = e.data && e.data.dekidakaPerjamBulan;
+          if (pb) {
+            const kunci = `${pb.line}|${pb.tahun}|${pb.bulan}|${pb.shift}`;
+            this._pbJanji = this._pbJanji || {};
+            if (!this._pbJanji[kunci]) {
+              this._pbJanji[kunci] = this.dekidakaHitungPerjamBulan(pb).then((r) => { if (r.error) delete this._pbJanji[kunci]; return r; });
+            }
+            this._pbJanji[kunci].then((r) => {
+              try { window.parent.postMessage({ dekidakaPerjamBulanHasil: r }, "*"); } catch (err) {}
+            });
+            return;
+          }
           // Minta hitung Aktual/Target per minggu untuk 1 bulan (Grafik Trend Volume di Dashboard Line).
           const mg = e.data && e.data.dekidakaMingguan;
           if (mg) {
@@ -2093,6 +2106,80 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // Aktual & Target per minggu (kalender Senin-Minggu, W1 = minggu yang memuat tanggal 1) untuk 1 bulan.
     // Sama dengan Rasio Dekidaka: per (hari produksi, shift, blok) -> Aktual = qty part yang dikenali kolom model,
     // Target = jumlah Target kolom model yang berproduksi di blok itu. Shift 1 + 2 digabung.
+    // Grafik Perjam versi BULANAN (Dashboard Line tab Bulanan).
+    // Menjumlahkan Qty dan Target tiap blok jam sepanjang satu bulan untuk SATU
+    // shift (blok jam Shift 1 dan Shift 2 berbeda, jadi tidak bisa ditumpuk).
+    // Bentuk kirimannya sengaja disamakan dengan kiriman harian, supaya induknya
+    // memakai rumus yang sama persis.
+    //
+    // Target hanya dihitung untuk (tanggal, blok, kolom) yang MEMANG berproduksi.
+    // Kalau semua hari ikut dihitung, blok yang jarang dipakai akan terlihat
+    // jeblok padahal memang tidak dijadwalkan.
+    async dekidakaHitungPerjamBulan({ line, tahun, bulan, shift }) {
+      const hasil = { line, tahun, bulan, shift: String(shift), target: [], baris: [], error: "" };
+      try {
+        const jumlahHari = new Date(tahun, bulan, 0).getDate();
+        const pad = (n) => String(n).padStart(2, "0");
+        const data = []; let error = null, idx = 0;
+        const pekerja = async () => {
+          while (idx < jumlahHari && !error) {
+            const d = idx++ + 1;
+            let res = null;
+            for (let coba = 0; coba < 3; coba++) {
+              res = await supabaseClient.rpc("dashboard_dekidaka_production_rows", {
+                p_mesin: line, p_start: new Date(tahun, bulan - 1, d).toISOString(),
+                p_end: new Date(tahun, bulan - 1, d + 1).toISOString(), p_shift: String(shift),
+              });
+              if (!res.error) break;
+              await new Promise((ok) => setTimeout(ok, 600 * (coba + 1)));
+            }
+            if (res.error) { error = res.error; return; }
+            (res.data || []).forEach((r) => data.push({ ...r, tanggal: `${tahun}-${pad(bulan)}-${pad(d)}` }));
+          }
+        };
+        await Promise.all([pekerja(), pekerja(), pekerja(), pekerja()]);
+        if (error) { hasil.error = "Gagal memuat data bulanan: " + (error.message || ""); return hasil; }
+
+        const colModels = this.dekidakaColumnModels(line), labels = dkdGetColumns(line);
+        const nKol = labels.length;
+        const part = Array.from({ length: DKD_TOTAL_BLOCKS }, () => new Map());   // blok -> part -> qty
+        const kolPart = new Map();                                                // blok|part -> kol
+        const menitSekali = new Map();                                            // tanggal|blok|kol -> menit blok
+        data.forEach((r) => {
+          const t = dkdTimeToMinutes(r.jam), q = Number(r.qty) || 0;
+          const kol = this.dekidakaColumnIndexFor(colModels, { model: r.model, partNumber: r.part_number });
+          if (kol < 0 || q <= 0) return;
+          const [y, m, d] = String(r.tanggal).split("-").map(Number);
+          const jumat = new Date(y, m - 1, d).getDay() === 5;
+          for (let n = 1; n <= DKD_TOTAL_BLOCKS; n++) {
+            const sch = DKD_TIME_TABLE[n];
+            const w = String(shift) === "2" ? sch.shift2 : (jumat ? sch.jumat1 : sch.senKam1);
+            if (!w) continue;
+            const sm = dkdTimeToMinutes(w[0]), em = dkdTimeToMinutes(w[1]);
+            if (!dkdIsMinuteInRange(t, sm, em)) continue;
+            const pn = r.part_number || "";
+            part[n - 1].set(pn, (part[n - 1].get(pn) || 0) + q);
+            kolPart.set(n + "|" + pn, kol);
+            menitSekali.set(r.tanggal + "|" + n + "|" + kol, ((em - sm) + 1440) % 1440);
+            break;
+          }
+        });
+        const target = Array.from({ length: DKD_TOTAL_BLOCKS }, () => Array(nKol).fill(0));
+        menitSekali.forEach((menit, key) => {
+          const bagian = key.split("|"), n = Number(bagian[1]), kol = Number(bagian[2]);
+          target[n - 1][kol] += dkdTargetBlok(line, labels[kol], menit) || 0;
+        });
+        const baris = [];
+        part.forEach((peta, i) => peta.forEach((q, pn) => {
+          if (q > 0) baris.push({ blok: i + 1, kol: kolPart.get((i + 1) + "|" + pn), part: pn, qty: q });
+        }));
+        hasil.target = target; hasil.baris = baris;
+      } catch (e) {
+        console.error("Gagal hitung Grafik Perjam bulanan:", e);
+        hasil.error = "Gagal menghitung Grafik Perjam bulanan";
+      }
+      return hasil;
+    },
     async dekidakaHitungMingguan({ line, tahun, bulan }) {
       const hasil = { line, tahun, bulan, minggu: [], error: "" };
       try {
@@ -5269,11 +5356,18 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // {repairSet:{tanggal, shift}}. Shift boleh kosong -> semua shift dipakai
     // (itu yang terjadi kalau kotak 3D dibuka dari halaman mesin sendiri).
     repairHeatShift: "",
+    repairHeatDari: "",
+    repairHeatSampai: "",
     repairSoloMulai() {
       window.addEventListener("message", (e) => {
         const st = e.data && e.data.repairSet;
-        if (!st || !st.tanggal) return;
-        this.repairHeatTgl = st.tanggal;
+        if (!st) return;
+        // {dari, sampai} = rentang (tab Bulanan: sebulan penuh ditumpuk).
+        // {tanggal}      = satu hari (Control Board & tab Harian).
+        this.repairHeatDari = st.dari || "";
+        this.repairHeatSampai = st.sampai || "";
+        if (!st.dari && !st.tanggal) return;
+        this.repairHeatTgl = st.tanggal || st.dari;
         this.repairHeatShift = st.shift ? String(st.shift) : "";
         this.muatRepairHeat(true);
       });
@@ -5285,7 +5379,11 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (!tgl) return;
       const tok = (this._rhTok = (this._rhTok || 0) + 1);
       try {
-        const { data, error } = await supabaseClient.from("repair_log").select("*").eq("mesin", machineKey).eq("tanggal", tgl).order("jam").limit(5000);
+        let q = supabaseClient.from("repair_log").select("*").eq("mesin", machineKey);
+        q = this.repairHeatDari && this.repairHeatSampai
+          ? q.gte("tanggal", this.repairHeatDari).lt("tanggal", this.repairHeatSampai)   // rentang (sebulan)
+          : q.eq("tanggal", tgl);                                                        // satu hari
+        const { data, error } = await q.order("jam").limit(20000);
         if (error) throw error;
         if (tok !== this._rhTok) return;
         // Shift baris Repair diambil dari kolom jam: 07:00-19:30 Shift 1,

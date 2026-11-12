@@ -35,6 +35,12 @@
   .dl-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
   .dl-grid { flex: 1 1 auto; min-height: 760px; display: grid; grid-template-columns: minmax(0, 33fr) minmax(0, 36fr) minmax(0, 31fr); grid-template-rows: minmax(0, 1fr); gap: 5px; }
   .dl-box { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px 4px; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+  /* Kolom kiri tab Bulanan: tabel Rekap per Part di atas, kartu ringkasan di bawah. */
+  .dl-ringkas-isi { padding: 2px 0 6px; overflow: auto; flex: 1 1 auto; min-height: 0; }
+  .dl-ringkas-rasio { margin-top: 6px; }
+  .dl-ringkas .perf-value-xl { font-size: 1.75rem; }
+  .dl-ringkas .perf-card { padding: 7px 10px; }
+  .dl-ringkas .perf-group-label { margin: 9px 0 4px; }
   .dl-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 2px; flex: 0 0 auto; }
   .dl-box-title { font-size: 0.6875rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
   .dl-sub { font-size: 0.6875rem; font-weight: 700; color: var(--muted); }
@@ -188,12 +194,12 @@
         </div>
         <span class="dl-sub" x-show="memuat">Memuat…</span>
         <span class="error-msg" x-show="pesan" x-text="pesan"></span>
-        <label x-show="tampil === 'dashboard' || tampil === 'harian'">Bulan
+        <label x-show="tampil !== 'tahunan'">Bulan
           <select x-model.number="bulan" @change="ubahPeriode()">
             <template x-for="(nm, i) in BULAN_LABELS" :key="i"><option :value="i + 1" :selected="i + 1 === bulan" x-text="nm"></option></template>
           </select>
         </label>
-        <label x-show="tampil === 'dashboard' || tampil === 'harian'">Tahun
+        <label x-show="tampil !== 'tahunan'">Tahun
           <select x-model.number="tahun" @change="ubahPeriode()">
             <template x-for="y in tahunOptions" :key="y"><option :value="y" :selected="y === tahun" x-text="y"></option></template>
           </select>
@@ -232,13 +238,14 @@
           <button type="button" class="dl-tool dl-foto-tutup" title="Tutup (Esc)" @click="fotoBesar = false">&#10005;</button>
         </div>
       </div>
-      <!-- Tab Harian tidak punya iframe sendiri: dia memakai SUSUNAN CONTROL BOARD
-           di bawah, cuma datanya sehari penuh. Yang pakai iframe cuma Bulanan & Tahunan. -->
-      <template x-for="m in ['bulanan','tahunan']" :key="m">
+      <!-- Tab Harian & Bulanan tidak punya iframe sendiri: keduanya memakai SUSUNAN
+           CONTROL BOARD di bawah, yang berbeda cuma cakupan datanya.
+           Yang masih pakai iframe Performance cuma Tahunan. -->
+      <template x-for="m in ['tahunan']" :key="m">
         <iframe class="dl-perf" x-show="tampil === m" x-cloak :src="perfSrc[m] || 'about:blank'" title="Performance"></iframe>
       </template>
 
-      <div class="dl-body" x-show="tampil === 'dashboard' || tampil === 'harian'">
+      <div class="dl-body" x-show="tampil === 'dashboard' || tampil === 'harian' || tampil === 'bulanan'">
         <!-- Model 3D versi besar -->
         <div class="dl-r3d-modal" x-show="r3dBesar" x-cloak @click.self="r3dBesar = false">
           <div class="dl-r3d-modal-box">
@@ -268,7 +275,80 @@
 
         <!-- Kategori dipilih lewat submenu di sidebar (dlMenu di JS: E-02 sampai E-07). -->
         <div class="dl-grid">
-          <section class="dl-box dl-deki">
+          <!-- Tab Bulanan: papan Dekidaka diganti Rekap per Part Number. Papan itu
+               lembar 1 hari 1 shift, menyesatkan di papan yang isinya sebulan. -->
+          <!-- Ringkasan Bulan + Rekap per Part Number dalam SATU kartu.
+               Bentuk kartunya sama dengan kartu Performance di halaman mesin,
+               kelas CSS-nya memang dipakai bersama supaya tidak ada dua rupa
+               untuk angka yang sama. -->
+          <section class="dl-box dl-ringkas" x-show="tampil === 'bulanan'" x-cloak>
+            <div class="dl-head"><span class="dl-box-title">Ringkasan Bulan</span><span class="dl-sub" x-text="BULAN_LABELS[bulan - 1] + ' ' + tahun"></span></div>
+            <div class="dl-ringkas-isi">
+              <div class="perf-card perf-card-oee" :class="ringkasKelas()">
+                <span class="perf-label">OEE</span>
+                <span class="perf-value perf-value-xl" x-text="fmtNum(ringkas.oee) + '%'"></span>
+                <div class="perf-apq-bars">
+                  <div class="perf-apq-row">
+                    <span class="perf-apq-tag">A</span>
+                    <div class="perf-apq-track"><div class="perf-apq-fill perf-apq-fill-a" :style="'width:' + lebarBar(ringkas.availability) + '%'"></div></div>
+                    <span class="perf-apq-num" x-text="fmtNum(ringkas.availability) + '%'"></span>
+                  </div>
+                  <div class="perf-apq-row">
+                    <span class="perf-apq-tag">P</span>
+                    <div class="perf-apq-track"><div class="perf-apq-fill perf-apq-fill-p" :style="'width:' + lebarBar(ringkas.performanceFactor) + '%'"></div></div>
+                    <span class="perf-apq-num" x-text="fmtNum(ringkas.performanceFactor) + '%'"></span>
+                  </div>
+                  <div class="perf-apq-row">
+                    <span class="perf-apq-tag">Q</span>
+                    <div class="perf-apq-track"><div class="perf-apq-fill perf-apq-fill-q" :style="'width:' + lebarBar(ringkas.quality) + '%'"></div></div>
+                    <span class="perf-apq-num" x-text="fmtNum(ringkas.quality) + '%'"></span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="perf-mini-grid dl-ringkas-rasio">
+                <div class="perf-card" :class="ringkas.ngRatio > 0 ? 'perf-card-warn' : ''"><span class="perf-label">NG Ratio</span><span class="perf-value" x-text="ringkas.stroke ? fmtNum(ringkas.ngRatio) + '%' : '-'"></span></div>
+                <div class="perf-card perf-card-accent"><span class="perf-label">Straight Pass</span><span class="perf-value" x-text="ringkas.stroke ? fmtNum(ringkas.straightPass) + '%' : '-'"></span></div>
+              </div>
+
+              <p class="perf-group-label">Produksi</p>
+              <div class="perf-mini-grid">
+                <div class="perf-card perf-card-accent"><span class="perf-label">Perjam Aktual</span><span class="perf-value" x-text="fmtNum(ringkas.gsph)"></span></div>
+                <div class="perf-card"><span class="perf-label">Qty Produksi</span><span class="perf-value" x-text="fmtNum(ringkas.stroke)"></span></div>
+                <div class="perf-card" :class="ringkas.ng > 0 ? 'perf-card-warn' : ''"><span class="perf-label">NG</span><span class="perf-value" x-text="fmtNum(ringkas.ng)"></span></div>
+                <div class="perf-card" :class="ringkas.repairQty > 0 ? 'perf-card-warn' : ''"><span class="perf-label">Repair</span><span class="perf-value" x-text="fmtNum(ringkas.repairQty)"></span></div>
+              </div>
+
+              <p class="perf-group-label">Waktu Kerja</p>
+              <div class="perf-mini-grid">
+                <div class="perf-card" :class="ringkas.downtimeMenit > 30 ? 'perf-card-bad' : (ringkas.downtimeMenit > 0 ? 'perf-card-warn' : '')"><span class="perf-label">Downtime</span><span class="perf-value" x-text="fmtNum(ringkas.downtimeMenit) + ' mnt'"></span></div>
+                <div class="perf-card"><span class="perf-label">Dandori</span><span class="perf-value" x-text="fmtNum(ringkas.dandoriMenit) + ' mnt'"></span></div>
+                <div class="perf-card"><span class="perf-label">Break</span><span class="perf-value" x-text="fmtNum(ringkas.breakMenit) + ' mnt'"></span></div>
+                <div class="perf-card"><span class="perf-label">Jam Kerja</span><span class="perf-value" x-text="fmtNum(ringkas.whJam) + ' jam'"></span></div>
+              </div>
+
+              <p class="perf-group-label">Rekap per Part Number
+                <span class="dl-sub" x-show="rekapDtLepas > 0" x-cloak
+                      :title="'Downtime sebanyak ' + fmtNum(rekapDtLepas) + ' menit tidak terhubung ke baris produksi mana pun, jadi tidak bisa dibagi per part. Angkanya tetap terhitung di Ringkasan Bulan.'"
+                      x-text="'(+' + fmtNum(rekapDtLepas) + ' mnt tanpa part)'"></span>
+              </p>
+              <div class="dl-rekap-part">
+              <table class="dl-sheet">
+                <thead><tr><th style="width:4%">No</th><th style="width:19%">Part No</th><th style="width:12%" title="Qty Produksi">Qty Prod.</th><th style="width:13%" title="Downtime (menit)">Downtime</th><th style="width:11%">NG Inline</th><th style="width:10%" title="NG Inline / Qty Produksi">NG Ratio</th><th style="width:10%">NG Trial</th><th style="width:9%">Repair</th><th style="width:12%" title="% Straightpass">% S.Pass</th></tr></thead>
+                <tbody>
+                  <template x-for="(r, i) in rekapPart" :key="r.part">
+                    <tr><td x-text="i + 1"></td><td class="dl-kiri" :title="r.part" x-text="r.part"></td><td x-text="fmtNum(r.qty)"></td><td x-text="fmtNum(Math.round(r.dt)) + ' mnt'"></td><td x-text="fmtNum(r.ng)"></td><td x-text="r.rasio === null ? '-' : r.rasio.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%'"></td><td x-text="fmtNum(r.trial)"></td><td x-text="fmtNum(r.repair)"></td><td x-text="r.sp === null ? '-' : fmtNum(r.sp) + '%'"></td></tr>
+                  </template>
+                  <template x-for="k in Math.max(0, 6 - rekapPart.length)" :key="'rp' + k">
+                    <tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  </template>
+                </tbody>
+                <tfoot><tr><td></td><td class="dl-kiri">Total</td><td x-text="fmtNum(rekapPartTotal.qty)"></td><td x-text="fmtNum(Math.round(rekapPartTotal.dt)) + ' mnt'"></td><td x-text="fmtNum(rekapPartTotal.ng)"></td><td x-text="rekapPartTotal.rasio === null ? '-' : rekapPartTotal.rasio.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%'"></td><td x-text="fmtNum(rekapPartTotal.trial)"></td><td x-text="fmtNum(rekapPartTotal.repair)"></td><td x-text="rekapPartTotal.sp === null ? '-' : fmtNum(rekapPartTotal.sp) + '%'"></td></tr></tfoot>
+              </table>
+              </div>
+            </div>
+          </section>
+          <section class="dl-box dl-deki" x-show="tampil !== 'bulanan'">
             <span class="dl-sub dl-deki-muat" x-show="!dekiSiap">Memuat Dekidaka…</span>
             <template x-if="bolehLihat()">
               <iframe :src="dekiUrl" title="Dekidaka" :style="dekiSiap ? '' : 'opacity:0'" @load="dekiSiap = dekiSiap"></iframe>
@@ -286,7 +366,11 @@
           </section>
           <div class="dl-tengah">
           <div class="dl-pjrow">
-            <section class="dl-box">
+            <section class="dl-box" x-show="tampil === 'bulanan'" x-cloak>
+              <div class="dl-head"><span class="dl-box-title">Grafik Perjam</span><span class="dl-sub" x-text="'Total ' + fmtNum(totalQtyBulan) + ' pcs'"></span></div>
+              <div class="dl-chart"><canvas id="dlPerjamHari"></canvas></div>
+            </section>
+            <section class="dl-box" x-show="tampil !== 'bulanan'">
               <div class="dl-head dl-head-tengah"><span class="dl-box-title">Grafik Perjam</span></div>
               <div class="dl-pj-chips" x-show="perjamChips.length">
                 <template x-for="c in perjamChips" :key="c.kode">
@@ -308,7 +392,7 @@
           <div class="dl-split">
             <section class="dl-box dl-split-chart dl-repair3d">
               <div class="dl-head dl-head-tengah"><span class="dl-box-title">Titik Point NG Inline dan Repair</span><button type="button" class="dl-pj-btn dl-r3d-besar-btn" title="Lihat layar besar" @click="r3dBesar = true">&#128065;</button></div>
-              <iframe class="dl-r3d" @load="if (tampil === 'dashboard' || tampil === 'harian') r3dCek()" :src="(tampil === 'dashboard' || tampil === 'harian') ? repair3dUrl : 'about:blank'" title="Model 3D Repair"></iframe>
+              <iframe class="dl-r3d" @load="if (tampil !== 'tahunan') r3dCek()" :src="tampil !== 'tahunan' ? repair3dUrl : 'about:blank'" title="Model 3D Repair"></iframe>
             </section>
             <section class="dl-box dl-split-foto">
               <div class="dl-head">
@@ -364,11 +448,11 @@
           </div>
           <div class="dl-kol5">
           <section class="dl-box dl-o3">
-            <div class="dl-head"><span class="dl-box-title">Grafik Availability</span><span class="dl-sub" x-text="labelShift + ' · rata-rata ' + fmtNum(rataAvailPapan) + '%'"></span></div>
+            <div class="dl-head"><span class="dl-box-title">Grafik Availability</span><span class="dl-sub" x-text="labelShiftAwal + 'rata-rata ' + fmtNum(rataAvailPapan) + '%'"></span></div>
             <div class="dl-chart"><canvas id="dlAvailability"></canvas></div>
           </section>
           <section class="dl-box dl-o4">
-            <div class="dl-head"><span class="dl-box-title">Downtime Harian</span><span class="dl-sub" x-text="labelShift + ' · total ' + fmtNum(totalDowntimePapan) + ' menit'"></span></div>
+            <div class="dl-head"><span class="dl-box-title">Downtime Harian</span><span class="dl-sub" x-text="labelShiftAwal + 'total ' + fmtNum(totalDowntimePapan) + ' menit'"></span></div>
             <div class="dl-chart"><canvas id="dlDowntime"></canvas></div>
           </section>
           <section class="dl-box dl-o5">
