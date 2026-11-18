@@ -83,6 +83,14 @@ async function requireAuth() {
     window.location.href = getBasePath() + "andon.html";
     return null;
   }
+  // Akun LINE (operator satu line tertentu, mis. E-05) hanya boleh
+  // membuka Dashboard Line -- halaman lain langsung dipantulkan ke sana,
+  // termasuk kalau alamatnya diketik manual. Line sendiri dikunci di
+  // dashboard-line.html (lihat profile.kode_line), bukan di sini.
+  if (!isDashboardLinePage() && !isDekidakaEmbed() && !isSolo3dEmbed() && myRole === "line") {
+    window.location.href = getBasePath() + "dashboard-line.html";
+    return null;
+  }
   return session;
 }
 
@@ -174,6 +182,14 @@ async function requireStaff(session) {
   if (r === "supporting") {
     if (isAndonPage()) return true;
     window.location.href = getBasePath() + "andon.html";
+    return false;
+  }
+  // LINE: operator satu line tertentu (mis. E-05) -- hanya boleh membuka
+  // Dashboard Line, halaman lain dipantulkan ke sana. Baru lihat saja,
+  // sama seperti guest (lihat migration_role_line.sql).
+  if (r === "line") {
+    if (isDashboardLinePage() || isDekidakaEmbed() || isSolo3dEmbed()) return true;
+    window.location.href = getBasePath() + "dashboard-line.html";
     return false;
   }
   const boleh = ["admin", "leader"].includes(r) || ["admin", "leader"].includes(j);

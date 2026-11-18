@@ -580,6 +580,71 @@
                 </table>
               </div>
             </div>
+
+            <!-- Target KPI bulanan: satu angka per bulan, berlaku untuk SEMUA
+                 line. Dibaca kartu "Ringkasan Bulan" di Dashboard Line untuk
+                 menentukan emotikon pencapaian. -->
+            <div class="panel">
+              <p class="panel-title">Target KPI Bulanan <span class="count">NG Ratio &amp; Straight Pass &middot; semua line</span></p>
+              <p class="hint" style="margin-bottom:12px;">
+                Dipakai kartu Ringkasan Bulan di Dashboard Line. Bulan yang kosong
+                targetnya tampil polos tanpa emotikon. Boleh diisi salah satu saja.
+              </p>
+
+              <div class="form-grid">
+                <div class="field"><label>Bulan</label>
+                  <select x-model.number="kpMonth" @change="onKpPeriodChange()">
+                    <template x-for="(nm, i) in BULAN_LABELS" :key="'kp-bln-'+i">
+                      <option :value="i+1" x-text="nm"></option>
+                    </template>
+                  </select>
+                </div>
+                <div class="field"><label>Tahun</label>
+                  <select x-model.number="kpYear" @change="onKpPeriodChange()">
+                    <template x-for="y in kwYearOptions" :key="'kp-thn-'+y"><option :value="y" x-text="y"></option></template>
+                  </select>
+                </div>
+                <div class="field"><label>NG Ratio (%) &mdash; makin kecil makin bagus</label>
+                  <input type="text" inputmode="decimal" class="mono"
+                         :disabled="!isLeaderOrAdmin()"
+                         :value="kpNg"
+                         @input="kpNg = pvSanitize($event.target.value); $event.target.value = kpNg"
+                         placeholder="0,05">
+                </div>
+                <div class="field"><label>Straight Pass (%) &mdash; makin besar makin bagus</label>
+                  <input type="text" inputmode="decimal" class="mono"
+                         :disabled="!isLeaderOrAdmin()"
+                         :value="kpSp"
+                         @input="kpSp = pvSanitize($event.target.value); $event.target.value = kpSp"
+                         placeholder="95">
+                </div>
+              </div>
+
+              <div class="form-actions" x-show="isLeaderOrAdmin()">
+                <button type="button" class="btn-primary" @click="saveKpi()" :disabled="kpSaving"
+                        x-text="kpSaving ? 'Menyimpan...' : 'Simpan Target KPI'"></button>
+                <button type="button" class="btn-secondary" @click="hapusKpi()" :disabled="kpSaving || !kpAda()">Hapus Target Bulan Ini</button>
+              </div>
+
+              <p class="hint" x-show="kpError" style="margin-top:10px; color:var(--danger, #DC2626); font-weight:600;" x-text="kpError"></p>
+
+              <div class="table-wrap" style="margin-top:14px;">
+                <table>
+                  <thead><tr><th>Periode</th><th>NG Ratio</th><th>Straight Pass</th><th x-show="isLeaderOrAdmin()">Aksi</th></tr></thead>
+                  <tbody>
+                    <template x-for="r in kpRows" :key="'kp-'+r.tahun+'-'+r.bulan">
+                      <tr>
+                        <td class="mono" x-text="BULAN_LABELS[r.bulan - 1] + ' ' + r.tahun"></td>
+                        <td class="mono" x-text="r.ng_ratio_target == null ? '—' : fmtNum(r.ng_ratio_target) + '%'"></td>
+                        <td class="mono" x-text="r.straight_pass_target == null ? '—' : fmtNum(r.straight_pass_target) + '%'"></td>
+                        <td x-show="isLeaderOrAdmin()"><button class="btn-secondary btn-sm" @click="editKpi(r)">Edit</button></td>
+                      </tr>
+                    </template>
+                    <tr x-show="kpRows.length === 0"><td colspan="4" class="empty-state">Belum ada target KPI tersimpan.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
             </div>
           </div>
         </template>
@@ -880,7 +945,7 @@ function masterDataPage() {
       this.activeTab = tab;
       // Data baru ditarik saat tabnya dibuka supaya halaman tidak lambat saat pertama load.
       if (tab === "productivity" && this.pvLoadedKey !== this.pvYear + "-" + this.pvMonth) this.fetchProductivity();
-      if (tab === "productivity" && !this.kwLoaded) { this.kwLoaded = true; this.fetchKoefisien(); this.fetchTarget(); }
+      if (tab === "productivity" && !this.kwLoaded) { this.kwLoaded = true; this.fetchKoefisien(); this.fetchTarget(); this.fetchKpi(); }
       if (tab === "fy" && !this.fyLoaded) { this.fyLoaded = true; this.fetchFy(); }
     },
     // ---- Total Orang (Bulanan) ----
@@ -930,6 +995,14 @@ function masterDataPage() {
     tgRows: [],
     tgSaving: false,
     tgError: "",
+    // ---- Target KPI Bulanan (NG Ratio & Straight Pass) ----
+    kpMonth: new Date().getMonth() + 1,
+    kpYear: new Date().getFullYear(),
+    kpNg: "",
+    kpSp: "",
+    kpRows: [],
+    kpSaving: false,
+    kpError: "",
     // Pilihan Tahun buat dropdown Total Orang (Bulanan) -- 2 tahun ke
     // belakang s/d 1 tahun ke depan, cukup buat kebutuhan input.
     get tahunOptions() {
@@ -1442,6 +1515,84 @@ function masterDataPage() {
         this.flash("Target " + nm + " dihapus.");
       } finally {
         this.tgSaving = false;
+      }
+    },
+
+    // ---- Target KPI Bulanan (NG Ratio & Straight Pass) ----
+    // Satu baris per bulan, berlaku untuk semua line. Dibaca kartu
+    // "Ringkasan Bulan" di Dashboard Line buat menentukan emotikon.
+    async fetchKpi() {
+      const { data, error } = await supabaseClient.from("kpi_target")
+        .select("*").order("tahun", { ascending: false }).order("bulan", { ascending: false });
+      if (error) {
+        this.kpError = "Gagal memuat target KPI: " + error.message
+          + (String(error.message).toLowerCase().includes("kpi_target")
+              ? " — sepertinya tabel kpi_target belum ada. Jalankan migration_kpi_target.sql di Supabase SQL Editor."
+              : "");
+        return;
+      }
+      this.kpError = "";
+      this.kpRows = data || [];
+      this.onKpPeriodChange();
+    },
+    kpFor(tahun, bulan) {
+      return this.kpRows.find((x) => Number(x.tahun) === Number(tahun) && Number(x.bulan) === Number(bulan)) || null;
+    },
+    kpAda() { return this.kpFor(this.kpYear, this.kpMonth) !== null; },
+    onKpPeriodChange() {
+      const r = this.kpFor(this.kpYear, this.kpMonth);
+      this.kpNg = r && r.ng_ratio_target != null ? String(r.ng_ratio_target).replace(".", ",") : "";
+      this.kpSp = r && r.straight_pass_target != null ? String(r.straight_pass_target).replace(".", ",") : "";
+    },
+    editKpi(r) {
+      this.kpYear = Number(r.tahun);
+      this.kpMonth = Number(r.bulan);
+      this.onKpPeriodChange();
+      window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+    },
+    async saveKpi() {
+      if (!this.isLeaderOrAdmin()) { this.flash("Hanya admin/leader yang bisa menyimpan.", true); return; }
+      const tahun = Number(this.kpYear), bulan = Number(this.kpMonth);
+      if (!Number.isInteger(tahun) || tahun < 2000 || tahun > 2100 || !Number.isInteger(bulan) || bulan < 1 || bulan > 12) {
+        this.kpError = "Bulan/Tahun tidak valid. Pilih ulang."; return;
+      }
+      // null = sengaja dikosongkan; kartunya nanti tampil tanpa emotikon.
+      const ng = this.pvNum(this.kpNg), sp = this.pvNum(this.kpSp);
+      if (ng === null && sp === null) { this.kpError = "Isi minimal salah satu target."; return; }
+      if (ng !== null && (ng < 0 || ng > 100)) { this.kpError = "NG Ratio harus antara 0 dan 100."; return; }
+      if (sp !== null && (sp < 0 || sp > 100)) { this.kpError = "Straight Pass harus antara 0 dan 100."; return; }
+      this.kpSaving = true;
+      this.kpError = "";
+      try {
+        const { data, error } = await supabaseClient.from("kpi_target")
+          .upsert({ tahun, bulan, ng_ratio_target: ng, straight_pass_target: sp, updated_at: new Date().toISOString() },
+                  { onConflict: "tahun,bulan" }).select();
+        if (error) { this.kpError = "Gagal simpan target KPI: " + error.message; return; }
+        if (!data || data.length === 0) {
+          this.kpError = "Tersimpan tapi tidak ada baris yang dikembalikan — biasanya karena hak akses (role kamu harus 'admin' atau 'leader' di tabel profiles).";
+          return;
+        }
+        await this.fetchKpi();
+        this.flash("Target KPI " + this.BULAN_LABELS[bulan - 1] + " " + tahun + " tersimpan.");
+      } finally {
+        this.kpSaving = false;
+      }
+    },
+    async hapusKpi() {
+      if (!this.isLeaderOrAdmin()) return;
+      const tahun = Number(this.kpYear), bulan = Number(this.kpMonth);
+      const nm = this.BULAN_LABELS[bulan - 1] + " " + tahun;
+      if (!window.confirm("Hapus target KPI " + nm + "?\n\nKartu NG Ratio & Straight Pass akan tampil tanpa target dan tanpa emotikon.")) return;
+      this.kpSaving = true;
+      this.kpError = "";
+      try {
+        const { error } = await supabaseClient.from("kpi_target")
+          .delete().eq("tahun", tahun).eq("bulan", bulan);
+        if (error) { this.kpError = "Gagal hapus target KPI: " + error.message; return; }
+        await this.fetchKpi();
+        this.flash("Target KPI " + nm + " dihapus.");
+      } finally {
+        this.kpSaving = false;
       }
     },
 

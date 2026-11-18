@@ -18,7 +18,7 @@
   const COL = { productivity: "#0EA5E9", availability: "#10B981", downtime: "#F97316", ngInline: "#F43F5E", money: "#1D4ED8", straight: "#14B8A6", perjam: "#6366F1", trend: "#2563EB" };
 
   // Naikkan setiap kali file Dekidaka (machine-page.js, style.css, dekidaka-line.html) berubah.
-  const DEKI_VER = "20261112l";
+  const DEKI_VER = "20261113a";
 
   const mgCache = {};   // hasil Trend Volume per line|tahun|bulan -> tidak hitung ulang saat pindah line (berlaku 10 menit)
   const pad2 = (n) => String(n).padStart(2, "0");
@@ -105,6 +105,10 @@
   const skalaX = () => ({ ticks: { color: "#000", font: { size: 8.5 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false } });
   const skalaY = (extra = {}) => ({ ticks: { ...tick, maxTicksLimit: 5 }, grid: { color: "#e2e8f0", drawTicks: false }, beginAtZero: true, ...extra });
   const legenda = (tampil = true) => ({ display: tampil, position: "bottom", labels: { color: "#000", boxWidth: 5, boxHeight: 5, usePointStyle: true, pointStyle: "circle", font: { size: 8 }, padding: 4 } });
+  // Keterangan satuan di sumbu. Chart.js memutar judul sumbu Y 90 derajat
+  // dengan sendirinya (kiri terbaca dari bawah, kanan dari atas), jadi cukup
+  // teksnya saja. Dibuat kecil supaya tidak memakan lebar area grafik.
+  const judulAs = (teks) => ({ display: true, text: teks, color: "#000", font: { size: 8.5, weight: "700" }, padding: { top: 0, bottom: 0 } });
 
 
   // Blok jam Dekidaka (sama dengan DKD_TIME_TABLE di machine-page.js) dan
@@ -418,7 +422,10 @@
         const L = LABEL_SHIFT[sh];
         const nilai = pn.pct.filter((v) => v != null);
         const ymin = Math.min(50, nilai.length ? Math.floor(Math.min(...nilai) / 10) * 10 : 50);
-        const ymax = Math.max(100, nilai.length ? Math.ceil(Math.max(...nilai) / 10) * 10 : 100);
+        // Selalu sisakan satu langkah (10) di atas nilai tertinggi. Dulu ymax
+        // persis 100, jadi garis Target 100% jatuh tepat di garis tepi atas dan
+        // tertutup bingkai hitam -- kelihatannya seperti tidak ada garis target.
+        const ymax = Math.max(100, nilai.length ? Math.ceil(Math.max(...nilai) / 10) * 10 : 100) + 10;
         const kotak = { id: "pjKotak", afterDraw(ch) { const a = ch.chartArea, x = ch.ctx; x.save(); x.strokeStyle = "#000"; x.lineWidth = 1.6; x.strokeRect(a.left, a.top, a.width, a.height); x.restore(); } };
         const titik = (id) => ({ id, afterDatasetsDraw(ch) {
           const m = ch.getDatasetMeta(1), ds = ch.data.datasets[1], x = ch.ctx;
@@ -461,7 +468,12 @@
       dekiBesarSiap: false,
       dekiZoomBesar: "",
 
-      async setTab(tab) { this.dekiSiap = false; this.activeTab = tab; this.perfSegarkan(); this.muatPerjam(); this.muatFoto(); this.mulaiRealtime(); await this.muat(); },
+      // Akun Line dikunci ke line miliknya sendiri -- tidak boleh pindah
+      // tab walau dipanggil manual (mis. lewat console).
+      async setTab(tab) {
+        if (this.isLine()) return;
+        this.dekiSiap = false; this.activeTab = tab; this.perfSegarkan(); this.muatPerjam(); this.muatFoto(); this.mulaiRealtime(); await this.muat();
+      },
 
       async muat(senyap) {
         if (!this.bolehLihat() || typeof Chart === "undefined") return;
@@ -486,7 +498,7 @@
         semua.gsph = Array(n).fill(null); semua.gsphTarget = Array(n).fill(null); semua.qtyHari = Array(n).fill(0);
         const whHari = Array(n).fill(0), tgtHari = Array(n).fill(0);
         try {
-          const [prodRes, ngRes, repRes, spRes, tgRes, trRes] = await Promise.all([
+          const [prodRes, ngRes, repRes, spRes, tgRes, trRes, kpiRes] = await Promise.all([
             supabaseClient.rpc("dashboard_harian_produksi_shift", { p_start: awal.toISOString(), p_end: akhir.toISOString(), p_mesin: line }),
             ambilSemua("dashboard_qc_ng_detail_range_shift", { p_type_ng: "NG PRODUKSI", p_start: sAwal, p_end: sAkhir }),
             // Straightpass: stroke (qty) & repair diambil LANGSUNG dari production_log -- sumber yang sama
@@ -515,8 +527,18 @@
             ]),
             supabaseClient.from("productivity_target").select("tahun,bulan,target").eq("tahun", y).eq("bulan", m),
             ambilSemua("dashboard_qc_ng_detail_range_shift", { p_type_ng: "NG TRIAL", p_start: sAwal, p_end: sAkhir }),
+            // Target KPI bulanan (NG Ratio & Straight Pass). Satu angka per
+            // bulan untuk semua line. Kalau tabelnya belum dibuat di Supabase,
+            // errornya DITELAN -- kartu cuma tampil tanpa target, dashboard
+            // lainnya tidak boleh ikut mati gara-gara ini.
+            supabaseClient.from("kpi_target").select("ng_ratio_target,straight_pass_target")
+              .eq("tahun", y).eq("bulan", m).maybeSingle().then((r) => r, () => ({ data: null })),
           ]);
           if (token !== this._tok) return;   // sudah ganti line/bulan lagi -> abaikan hasil lama
+          // Di luar blok mana pun: target harus tetap terpasang walau bagian
+          // lain gagal, dan harus DIKOSONGKAN waktu ganti bulan supaya kartu
+          // tidak memakai target bulan sebelumnya.
+          this.kpiTarget = (kpiRes && kpiRes.data) || null;
 
           // Availability & Downtime harian
           if (prodRes.error) throw prodRes.error;
@@ -687,6 +709,7 @@
       rekapPart: [],   // rekap sebulan per part number -- tab Bulanan
       rekapDtLepas: 0, // menit downtime yang tidak terhubung ke baris produksi mana pun
       mesinSet: null,  // pengaturan GSPH target, untuk rumus OEE
+      kpiTarget: null, // target NG Ratio & Straight Pass bulan yang dipilih
       get rekapPartTotal() {
         const t = this.rekapPart.reduce((a, r) => ({ qty: a.qty + r.qty, dt: a.dt + Math.round(r.dt), ng: a.ng + r.ng, trial: a.trial + r.trial, repair: a.repair + r.repair }), { qty: 0, dt: 0, ng: 0, trial: 0, repair: 0 });
         return { ...t,
@@ -725,6 +748,45 @@
         return n >= 75 ? "status-good" : (n >= 50 ? "status-warn" : "status-bad");
       },
       lebarBar(v) { return Math.max(0, Math.min(100, Number(v) || 0)); },
+
+      // --- Target KPI bulanan & emotikon -------------------------------
+      // Dua KPI, dua arah: NG Ratio makin KECIL makin bagus, Straight Pass
+      // makin BESAR makin bagus. Supaya aturannya cuma satu, Straight Pass
+      // dibalik dulu jadi SISA-nya (100 - nilai). Tanpa itu, SP 94,4% vs
+      // target 95% jadi 0,99 -- kelihatan "hampir tercapai" padahal sisanya
+      // 5,6% lawan 5,0%, yaitu meleset 12%.
+      kpiRasio(aktual, target, besarLebihBaik) {
+        const a = Number(aktual), t = Number(target);
+        if (!isFinite(a) || !isFinite(t)) return null;
+        const na = besarLebihBaik ? 100 - a : a;
+        const nt = besarLebihBaik ? 100 - t : t;
+        // Target sempurna (NG 0% atau SP 100%): tidak ada pembagi. Pas = 🙂,
+        // meleset sedikit pun = 🙁; tidak mungkin "melampaui".
+        if (nt <= 0) return na <= 0 ? 1 : 99;
+        return na / nt;
+      },
+      // 4 tingkat, ambang 10% dari target -- disepakati bersama user.
+      kpiEmoji(r) { return r == null ? "" : (r <= 0.9 ? "🤩" : (r <= 1 ? "🙂" : (r <= 1.1 ? "😐" : "🙁"))); },
+      kpiJudul(r) {
+        return r == null ? "" : (r <= 0.9 ? "Melampaui target" : (r <= 1 ? "Target tercapai"
+          : (r <= 1.1 ? "Hampir tercapai (meleset di bawah 10%)" : "Meleset dari target")));
+      },
+      // null = target bulan ini belum diisi -> kartu tampil polos.
+      get kpiNg() {
+        const t = this.kpiTarget && this.kpiTarget.ng_ratio_target;
+        if (t == null || t === "" || !this.ringkas.stroke) return null;
+        const r = this.kpiRasio(this.ringkas.ngRatio, t, false);
+        return { target: Number(t), rasio: r, emoji: this.kpiEmoji(r), judul: this.kpiJudul(r) };
+      },
+      get kpiSp() {
+        const t = this.kpiTarget && this.kpiTarget.straight_pass_target;
+        if (t == null || t === "" || !this.ringkas.stroke) return null;
+        const r = this.kpiRasio(this.ringkas.straightPass, t, true);
+        return { target: Number(t), rasio: r, emoji: this.kpiEmoji(r), judul: this.kpiJudul(r) };
+      },
+      // NG Ratio sering di bawah 0,1% -- 1 desimal membuatnya tampil "0%"
+      // padahal ada NG. Dua desimal, sama dengan kolom di tabel Rekap.
+      fmtNg(v) { return Number(v).toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
       get ringkasBulan() {
         const r = (this.dataAll && this.dataAll.ringkas) || { whB: 0, dtB: 0, qtyB: 0, ngB: 0, repB: 0, tgtB: 0 };
         const n = (v, d) => Number(v).toLocaleString("id-ID", { maximumFractionDigits: d === undefined ? 0 : d });
@@ -824,7 +886,7 @@
         }, "downtime");
 
         // Dua sumbu: batang (Qty) + garis (Value Rp ribuan / % Straightpass)
-        const ganda = (id, hexBar, hexLine, lblBar, lblLine, persen, dBar, dLine, posBar) => {
+        const ganda = (id, hexBar, hexLine, lblBar, lblLine, persen, dBar, dLine, posBar, judulKiri, judulKanan) => {
           const c = this.kanvas(id); if (!c) return;
           this.charts[id] = new Chart(c, {
             data: { labels: L, datasets: [
@@ -832,14 +894,14 @@
               { order: 1, type: "line", label: lblLine, data: dLine, borderColor: hexLine, backgroundColor: persen ? hexLine : "rgba(29,78,216,0.1)", fill: !persen, borderWidth: 1.2, yAxisID: "y1", pointRadius: 1, tension: 0.3, spanGaps: true },
             ] },
             options: { responsive: true, maintainAspectRatio: false, animation: noAnim, layout: { padding: { top: 30 } }, plugins: { legend: legenda(true) },
-              scales: { x: skalaX(), y: skalaY({ position: "left", grace: "12%" }),
-                y1: { position: "right", ticks: { ...tick, callback: (v) => (persen ? v + "%" : fmtNum(Math.round(v / 1000))) }, grid: { display: false }, beginAtZero: true, grace: persen ? "8%" : "12%", ...(persen ? { suggestedMax: 100 } : {}) } } },
+              scales: { x: skalaX(), y: skalaY({ position: "left", grace: "12%", ...(judulKiri ? { title: judulAs(judulKiri) } : {}) }),
+                y1: { position: "right", ticks: { ...tick, callback: (v) => (persen ? v + "%" : fmtNum(Math.round(v / 1000))) }, grid: { display: false }, beginAtZero: true, grace: persen ? "8%" : "12%", ...(persen ? { suggestedMax: 100 } : {}), ...(judulKanan ? { title: judulAs(judulKanan) } : {}) } } },
             plugins: [labelBatang((v) => fmtNum(v), 0, posBar), labelGaris((v) => (persen ? v + "%" : fmtNum(Math.round(v / 1000))), 1)],
           });
         };
-        aman(() => ganda(pre + "NgInline", COL.ngInline, COL.money, "Qty", "Value (ribu Rp)", false, D.ngQty, D.ngVal, "above"), "ngInline");
-        aman(() => ganda(pre + "NgTrial", COL.ngInline, COL.money, "Qty", "Value (ribu Rp)", false, D.trQty || [], D.trVal || [], "above"), "ngTrial");
-        aman(() => ganda(pre + "Straightpass", COL.straight, "#000000", "Qty Repair", "% Straightpass", true, D.repQty, D.spPct, "base"), "straightpass");
+        aman(() => ganda(pre + "NgInline", COL.ngInline, COL.money, "Qty", "Value (ribu Rp)", false, D.ngQty, D.ngVal, "above", "Pcs", "Value"), "ngInline");
+        aman(() => ganda(pre + "NgTrial", COL.ngInline, COL.money, "Qty", "Value (ribu Rp)", false, D.trQty || [], D.trVal || [], "above", "Pcs", "Value"), "ngTrial");
+        aman(() => ganda(pre + "Straightpass", COL.straight, "#000000", "Qty Repair", "% Straightpass", true, D.repQty, D.spPct, "base", "Pcs", "%"), "straightpass");
 
         // Grafik Perjam Harian -- cuma ada di tab Bulanan, menggantikan Grafik
         // Perjam per blok. Bentuknya disamakan dengan grafik Performance Bulanan

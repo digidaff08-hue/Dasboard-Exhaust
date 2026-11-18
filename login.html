@@ -14,10 +14,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/supabaseClient.js"></script>
 <style>
-  /* Tab jenis login: Karyawan / Administrator / Guest */
-  .login-jenis { display: flex; gap: 6px; margin: 4px 0 14px; }
+  /* Tab jenis login: Karyawan / Administrator / Guest / Line */
+  .login-jenis { display: flex; gap: 5px; margin: 4px 0 14px; }
   .login-jenis button {
-    flex: 1; padding: 8px 6px; font-size: 0.7812rem; font-weight: 600;
+    flex: 1; padding: 8px 4px; font-size: 0.7rem; font-weight: 600;
     border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.55);
     background: rgba(255, 255, 255, 0.10); color: #fff; cursor: pointer;
   }
@@ -115,10 +115,11 @@
       <div class="success-msg" x-text="infoMsg"></div>
     </template>
 
-    <div class="login-jenis" x-show="['login', 'admin', 'guest'].includes(mode)">
+    <div class="login-jenis" x-show="['login', 'admin', 'guest', 'line'].includes(mode)">
       <button type="button" :class="mode === 'login' ? 'aktif' : ''" @click="gantiJenis('login')">Karyawan</button>
       <button type="button" :class="mode === 'admin' ? 'aktif' : ''" @click="gantiJenis('admin')">Administrator</button>
       <button type="button" :class="mode === 'guest' ? 'aktif' : ''" @click="gantiJenis('guest')">Guest</button>
+      <button type="button" :class="mode === 'line' ? 'aktif' : ''" @click="gantiJenis('line')">Line</button>
     </div>
 
     <div class="login-form-area">
@@ -126,6 +127,32 @@
         <form @submit.prevent="loginKhusus(mode)" autocomplete="off">
           <div class="field">
             <label x-text="mode === 'admin' ? 'Password Administrator' : 'Password Guest'"></label>
+            <div class="password-wrap input-icon-wrap">
+              <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="3.2"/><path d="M10.5 12.5 19 4M16 6l2 2M13.5 9l2 2"/></svg>
+              <input :type="showPassword ? 'text' : 'password'" class="has-icon" x-model="password" required autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" placeholder="Masukkan Password">
+              <button type="button" class="password-toggle" @click="showPassword = !showPassword" :aria-label="showPassword ? 'Sembunyikan password' : 'Tampilkan password'" tabindex="-1">
+                <span x-text="showPassword ? '🙈' : '👁️'"></span>
+              </button>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary" :disabled="busy">
+            <span x-show="!busy">Masuk</span>
+            <span x-show="busy">Memproses…</span>
+          </button>
+        </form>
+      </template>
+
+      <template x-if="mode === 'line'">
+        <form @submit.prevent="loginLine" autocomplete="off">
+          <div class="field">
+            <label>Kode Line</label>
+            <div class="input-icon-wrap">
+              <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h4v8H3zM10 3h4v18h-4zM17 8h4v13h-4z"/></svg>
+              <input type="text" class="has-icon" x-model="kodeLine" required autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" placeholder="Contoh: E-05" style="text-transform:uppercase">
+            </div>
+          </div>
+          <div class="field">
+            <label>Password</label>
             <div class="password-wrap input-icon-wrap">
               <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="3.2"/><path d="M10.5 12.5 19 4M16 6l2 2M13.5 9l2 2"/></svg>
               <input :type="showPassword ? 'text' : 'password'" class="has-icon" x-model="password" required autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" placeholder="Masukkan Password">
@@ -247,7 +274,7 @@
 function loginPage() {
   return {
     mode: "login",
-    nik: "", email: "", password: "", fullName: "",
+    nik: "", email: "", password: "", fullName: "", kodeLine: "",
     showPassword: false,
     errorMsg: "", infoMsg: "", busy: false,
 
@@ -295,6 +322,7 @@ function loginPage() {
       if (role === "guest") return "dashboard-exhaust.html"; // guest: hanya Dashboard Exhaust
       if (role === "viewer") return "dashboard-exhaust.html"; // viewer: Dashboard Exhaust + Attendance
       if (role === "supporting") return "andon.html"; // supporting: hanya Andon
+      if (role === "line") return "dashboard-line.html"; // line: hanya Dashboard Line (line-nya sendiri)
       if (admin) return "dashboard-exhaust.html";
       if (leader) return "input-produksi.html";
       return "input-attendance.html";
@@ -323,7 +351,7 @@ function loginPage() {
     },
 
     gantiJenis(jenis) {
-      this.mode = jenis; this.errorMsg = ""; this.infoMsg = ""; this.password = "";
+      this.mode = jenis; this.errorMsg = ""; this.infoMsg = ""; this.password = ""; this.kodeLine = "";
     },
 
     // Tab Administrator / Guest: cukup password. login_khusus (lihat
@@ -369,6 +397,49 @@ function loginPage() {
 
     goReset() {
       this.errorMsg = ""; this.infoMsg = ""; this.mode = "reset";
+    },
+
+    // Tab Line: akun operator 1 line tertentu (mis. E-05), login pakai
+    // Kode Line + password -- bukan NIK. login_line (lihat
+    // migration_role_line.sql) mencari akun ber-role 'line' dengan
+    // kode_line yang cocok dan password yang cocok. Beda dari tab
+    // Administrator/Guest: password pendek/sederhana TIDAK ditolak di
+    // sini -- akun ini memang disengaja pakai password singkat untuk
+    // dipakai bersama di lantai produksi, dan haknya cuma lihat
+    // Dashboard Line line-nya sendiri (lihat catatan keamanan di migration).
+    async loginLine() {
+      this.busy = true; this.errorMsg = ""; this.infoMsg = "";
+      const { data: hasil, error: rpcErr } = await supabaseClient.rpc("login_line", {
+        p_kode: this.kodeLine, p_password: this.password,
+      });
+      if (rpcErr || !hasil) {
+        this.busy = false;
+        this.errorMsg = "Login sedang tidak bisa dipakai. Coba lagi sebentar.";
+        console.error("login_line:", rpcErr);
+        return;
+      }
+      if (!hasil.ok) {
+        this.busy = false;
+        if (hasil.kode === "terkunci") {
+          this.errorMsg = "Terlalu banyak percobaan salah. Login Line ini dikunci sementara, coba lagi dalam " + (hasil.menit || 15) + " menit.";
+        } else {
+          this.errorMsg = "Kode Line atau password salah.";
+        }
+        return;
+      }
+      const { data: masuk, error } = await supabaseClient.auth.signInWithPassword({
+        email: hasil.email, password: this.password,
+      });
+      if (error) { this.busy = false; this.errorMsg = "Kode Line atau password salah."; return; }
+      // Jaga-jaga: pastikan akun yang masuk memang ber-role 'line'.
+      const { data: prof } = await supabaseClient.from("profiles").select("role").eq("id", masuk.user.id).maybeSingle();
+      if (((prof && prof.role) || "").toLowerCase() !== "line") {
+        await supabaseClient.auth.signOut();
+        this.busy = false;
+        this.errorMsg = "Akun ini bukan akun Line.";
+        return;
+      }
+      window.location.href = await this.tujuanSetelahLogin(masuk.user.id);
     },
 
     async login() {
