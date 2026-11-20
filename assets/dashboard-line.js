@@ -463,7 +463,7 @@
         const isi = this.tampil === "harian" ? { tanggal: this.perjamTgl } : { tanggal: this.perjamTgl, shift: this.perjamShift };
         // Takt Time bulan terpilih ikut dikirim tiap papan Dekidaka disinkronkan,
         // supaya angkanya selalu ikut Bulan/Tahun yang lagi dibuka di atas.
-        const tt = { taktTime: this.talkTime.taktTime };
+        const tt = this.talkTime;
         frames.forEach((fr) => { if (fr && fr.contentWindow) { fr.contentWindow.postMessage({ dekidakaSet: isi }, "*"); fr.contentWindow.postMessage({ dekidakaTalkTime: tt }, "*"); if (fr.closest(".dl-deki")) kecil = true; } });
         if (kecil) { this._dekiAck = false; setTimeout(() => { if (this.dekiSiap && !this._dekiAck) this.pesan = "Papan Dekidaka belum ikut tanggal/shift - tekan Ctrl+F5 sekali."; }, 6000); }
       },
@@ -757,7 +757,14 @@
       get talkTime() {
         const r = (this.dataAll && this.dataAll.ringkas) || {};
         const whDtk = (r.whB || 0) * 60, qty = r.qtyB || 0;
-        return { taktTime: qty > 0 ? whDtk / qty : 0 };
+        return {
+          taktTime: qty > 0 ? whDtk / qty : 0,
+          // Angka mentah aslinya (persis sama dengan yang tertulis di kartu
+          // "Ringkasan Bulan": Jam Kerja & Qty Produksi) -- dikirim supaya
+          // bisa ditampilkan apa adanya, bukan cuma hasil akhirnya.
+          whJam: (r.whB || 0) / 60,
+          qty,
+        };
       },
       ringkasKelas() {
         const d = this.ringkas;

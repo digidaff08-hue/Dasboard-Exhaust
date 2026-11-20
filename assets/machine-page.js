@@ -633,7 +633,8 @@ function dkdBuildTalkHTML(line) {
   return `<table class="dkd-ref-tbl dkd-ref-talk"><tbody>
       <tr><td class="dkd-ref-l">Cycle Time</td><td class="dkd-ref-n">${esc(ctVal)}</td><td>detik</td></tr>
       <tr><td class="dkd-ref-l">Takt Time</td><td class="dkd-ref-n dkd-takt-val">-</td><td>detik</td></tr>
-    </tbody></table>`;
+    </tbody></table>
+    <div class="dkd-talk-mentah">Jam Kerja: <span class="dkd-talk-wh">-</span> | Qty Produksi: <span class="dkd-talk-qty">-</span></div>`;
 }
 // Kolom model di samping "Desc": dasarnya DKD_COLUMN_LABELS, lalu disesuaikan dengan tabel
 // CT TARGET line itu: (1) kolom gabungan (mis. "D40/D13") dipecah kalau tiap modelnya
@@ -1887,6 +1888,14 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
               const el = c && c.querySelector(".dkd-takt-val");
               if (!el) { if (sisa > 0) setTimeout(() => tulis(sisa - 1), 300); return; }
               el.textContent = tt.taktTime ? Number(tt.taktTime).toLocaleString("id-ID", { maximumFractionDigits: 1 }) : "-";
+              // Angka mentah aslinya -- ditulis langsung, bukan tooltip --
+              // supaya kelihatan tanpa perlu hover: ini persis sama dengan
+              // "Jam Kerja" & "Qty Produksi" di kartu Ringkasan Bulan.
+              const idr = (n) => Number(n || 0).toLocaleString("id-ID");
+              const elWh = c.querySelector(".dkd-talk-wh");
+              const elQty = c.querySelector(".dkd-talk-qty");
+              if (elWh) elWh.textContent = idr(Math.round((tt.whJam || 0) * 10) / 10) + " jam";
+              if (elQty) elQty.textContent = idr(tt.qty) + " pcs";
             };
             tulis(15);
             return;

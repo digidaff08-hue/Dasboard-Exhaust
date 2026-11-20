@@ -1174,6 +1174,7 @@ td.mono, .mono { font-family: var(--font-mono); }
    dilepas dari alur flex baris ini -- supaya tidak ikut geser tulisan besar
    nama line (dkd-big-line) atau apa pun yang lain di baris ini. */
 .dkd-talk-wrap{ position:absolute; left:0; top:0; }
+.dkd-talk-mentah{ font-size:0.6rem; color:#666; margin-top:3px; white-space:nowrap; }
 .dkd-big-line{ font-size:5.625rem; font-weight:900; line-height:1; color:var(--dkd-accent, #111); letter-spacing:-2px; white-space:nowrap; }
 .dkd-tables-wrap{ display:flex; align-items:flex-start; gap:28px; margin-left:auto; }
 /* Placeholder "menyusul" -- dulu di sini ada tabel referensi (Cleaning
