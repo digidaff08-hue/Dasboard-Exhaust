@@ -1932,8 +1932,16 @@ function dataMentah() {
           'Work Class': r.work_class??'-',
           'No Parts': r.no_parts||'-',
           'Count Stroke': r.count_stroke??'',
-          'Start (H)': r.start_h??'', 'Start (M)': r.start_m??'',
-          'Finish (H)': r.finish_h??'', 'Finish (M)': r.finish_m??'',
+          // start_h/start_m/finish_h/finish_m di tabel disimpan sebagai teks
+          // 2 digit ("07") biar rapi di layar. Tapi kalau dibawa apa adanya
+          // ke Excel, sel nya kebaca sebagai TEKS, bukan angka -- rumus yang
+          // ngali *60 di file laporan jadi #VALUE!. Makanya di sini dipaksa
+          // balik jadi angka (Number) khusus pas export, tampilan di layar
+          // tidak berubah.
+          'Start (H)': r.start_h===''||r.start_h==null ? '' : Number(r.start_h),
+          'Start (M)': r.start_m===''||r.start_m==null ? '' : Number(r.start_m),
+          'Finish (H)': r.finish_h===''||r.finish_h==null ? '' : Number(r.finish_h),
+          'Finish (M)': r.finish_m===''||r.finish_m==null ? '' : Number(r.finish_m),
           'Manpower': r.manpower??'', 'Routing': r.routing||'-',
           'No. Machine': r.no_machine||'-',
           'Dandori': r.dandori??'',
