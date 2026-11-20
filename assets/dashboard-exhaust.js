@@ -1463,6 +1463,12 @@ function dashboardExhaust() {
     // satunya. Dulu keduanya pakai 1 variabel yang sama (dxyLineFilter),
     // makanya kelihatan "nge-link".
     dxyLineFilterBulanan: AppPref.lineFavorit() || "ALL",
+    // dxySuppFilterBulanan: dropdown "Supporting" (PIC) di sebelah dropdown
+    // Line, KHUSUS tab Kontrol Downtime. "ALL" = semua PIC (persis seperti
+    // sebelum fitur ini ada). Isinya sama dengan label grafik Downtime
+    // Supporting. Digabung (AND) dengan filter Line.
+    dxySuppFilterBulanan: "ALL",
+    PIC_REF: ["PE", "MESIN", "DIES", "QC", "PC-SUPP", "PROD", "PRESS"],
     MACHINES_REF: MACHINES,
     async init() {
       this.profile = profilCacheAmbil();   // tampilkan menu dulu dari ingatan, dikoreksi di bawah
@@ -1744,7 +1750,8 @@ function dashboardExhaust() {
     //        terpisah, belum dibuat di Supabase.
     // -----------------------------------------------------------------
     async fetchBulanan(opts = {}) {
-      if (this.bulananLoaded && this._bulananLoadedLine === this.dxyLineFilterBulanan) return;
+      if (this.bulananLoaded && this._bulananLoadedLine === this.dxyLineFilterBulanan
+          && this._bulananLoadedPic === this.dxySuppFilterBulanan) return;
       // silent=true dipakai oleh refresh realtime -- data tetap diambil ulang,
       // tapi TIDAK menampilkan skeleton "Memuat data..." (yang bikin seluruh
       // panel sempat blank/kedip karena x-if melepas-lalu-pasang ulang DOM).
@@ -1768,6 +1775,16 @@ function dashboardExhaust() {
         // line, cuma line terpilih di-highlight di renderBulananCharts().
         const mesinFilter = this.dxyLineFilterBulanan !== "ALL" ? this.dxyLineFilterBulanan : null;
 
+        // Filter "Supporting" (PIC). null = semua PIC -> SEMUA angka di tab
+        // ini diambil lewat jalur lama persis seperti sebelum fitur ini ada,
+        // jadi tidak ada risiko angkanya bergeser. Kalau diisi (mis. "PE"),
+        // panel-panel downtime memakai fungsi *_pic di Supabase yang isinya
+        // sama, cuma ditambah saringan PIC.
+        // Productivity, Availability, dan grafik Downtime Supporting SENGAJA
+        // TIDAK ikut filter ini (lihat catatan di masing-masing bagian).
+        const picFilter = this.dxySuppFilterBulanan !== "ALL" ? this.dxySuppFilterBulanan : null;
+        const kosong = Promise.resolve({ data: null });
+
         // Range FY (Apr..Mar) yang MEMUAT bulan/tahun yang lagi dipilih di
         // tab Bulanan -- dipakai KHUSUS buat chart "Downtime Exhaust" (12
         // bulan), supaya bisa ikut filter Line (mesinFilter) yang sama
@@ -1779,7 +1796,8 @@ function dashboardExhaust() {
         const fyEnd = new Date(fyStartYear + 1, 3, 1);
 
         const prevFyStartBln = new Date(fyStartYear - 1, 3, 1);
-        const [prodRes, picRes, lineRes, weeklyRes, topProblemSummaryRes, dtExhaustRes, dtExhaustPrevRes] = await Promise.all([
+        const [prodRes, picRes, lineRes, weeklyRes, topProblemSummaryRes, dtExhaustRes, dtExhaustPrevRes,
+               pHarianRes, pFyRes, pPrevFyRes, pLineRes, pWeeklyRes, pTopRes] = await Promise.all([
           supabaseClient.rpc("dashboard_harian_produksi", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_mesin: mesinFilter }),
           supabaseClient.rpc("dashboard_harian_downtime_by_pic", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_mesin: mesinFilter }),
           supabaseClient.rpc("dashboard_harian_downtime_by_line", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString() }),
@@ -1789,7 +1807,20 @@ function dashboardExhaust() {
           // FY SEBELUMNYA -- untuk garis pembanding per bulan di chart
           // Downtime Exhaust. Satu panggilan tambahan, ikut filter Line.
           supabaseClient.rpc("dashboard_harian_produksi", { p_start: prevFyStartBln.toISOString(), p_end: fyStart.toISOString(), p_mesin: mesinFilter }),
+          // ---- Enam permintaan di bawah ini CUMA jalan kalau filter
+          // Supporting (PIC) sedang dipakai. Kalau "Semua Supporting",
+          // semuanya dilewati (tidak ada beban tambahan sama sekali).
+          picFilter ? supabaseClient.rpc("dashboard_downtime_harian_pic", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_mesin: mesinFilter, p_pic: picFilter }) : kosong,
+          picFilter ? supabaseClient.rpc("dashboard_downtime_harian_pic", { p_start: fyStart.toISOString(), p_end: fyEnd.toISOString(), p_mesin: mesinFilter, p_pic: picFilter }) : kosong,
+          picFilter ? supabaseClient.rpc("dashboard_downtime_harian_pic", { p_start: prevFyStartBln.toISOString(), p_end: fyStart.toISOString(), p_mesin: mesinFilter, p_pic: picFilter }) : kosong,
+          picFilter ? supabaseClient.rpc("dashboard_downtime_by_line_pic", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_pic: picFilter }) : kosong,
+          picFilter ? supabaseClient.rpc("dashboard_bulanan_weekly_pic", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_pic: picFilter }) : kosong,
+          picFilter ? supabaseClient.rpc("dashboard_bulanan_top_problems_summary_pic", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_limit: 10, p_mesin: mesinFilter, p_pic: picFilter }) : kosong,
         ]);
+        // Satu pintu: kalau filter PIC aktif -> pakai hasil *_pic, kalau tidak
+        // -> pakai hasil lama. Bentuk datanya sengaja dibikin sama persis
+        // (tanggal + downtime_menit, dst) supaya kode di bawah tidak berubah.
+        const dtHarianRows = picFilter ? ((pHarianRes && pHarianRes.data) || []) : prodRes.data || [];
         const prodRows = prodRes.data || [];
         const dayKeyStr = (day) => localDateStr(new Date(year, month - 1, day));
         const findRow = (rows, day) => rows.find((r) => r.tanggal === dayKeyStr(day));
@@ -1864,15 +1895,20 @@ function dashboardExhaust() {
         const productivityValue = [...productivityActual].reverse().find((v) => v !== null) ?? 0;
         const availabilityValue = lastRow ? Number((((lastRow.wh_menit - lastRow.downtime_menit) / lastRow.wh_menit) * 100).toFixed(1)) : 0;
 
-        // Downtime harian 1-31 (menit)
+        // Downtime harian 1-31 (menit) -- ikut filter Supporting (PIC).
+        // CATATAN: Availability di atas TETAP memakai prodRows (downtime
+        // semua PIC), sesuai kesepakatan -- supaya angkanya tidak berubah
+        // jadi "availability versi 1 PIC" yang menyesatkan.
         const downtimeHarianValues = dayLabels.map((_, i) => {
-          const row = findRow(prodRows, i + 1);
+          const row = findRow(dtHarianRows, i + 1);
           return row ? Math.round(Number(row.downtime_menit) || 0) : 0;
         });
 
         // Downtime Supporting (per PIC) & Downtime Line (per mesin) -- total sebulan
+        // picRows (grafik Downtime Supporting) SENGAJA tidak ikut picFilter --
+        // grafik itu tetap menampilkan semua PIC sebagai pembanding.
         const picRows = picRes.data || [];
-        const lineRows = lineRes.data || [];
+        const lineRows = picFilter ? ((pLineRes && pLineRes.data) || []) : (lineRes.data || []);
         const PIC_ORDER = ["PE", "MESIN", "DIES", "QC", "PC-SUPP", "PROD", "PRESS"];
         const downtimeSupporting = {
           labels: PIC_ORDER,
@@ -1886,7 +1922,7 @@ function dashboardExhaust() {
         // Weekly Breakdown (ISO week, Senin-Minggu) untuk bulan terpilih.
         // Selalu tampilkan semua minggu kalender di bulan ini, sampai Week 5,
         // supaya layout konsisten walau bulan tsb cuma punya 4 minggu.
-        const weeklyRows = weeklyRes.data || [];
+        const weeklyRows = picFilter ? ((pWeeklyRes && pWeeklyRes.data) || []) : (weeklyRes.data || []);
         const isoWeekStart = (d) => {
           const day = d.getDay(); // 0=Minggu .. 6=Sabtu
           const diffToMonday = (day + 6) % 7; // Senin = 0
@@ -1943,7 +1979,12 @@ function dashboardExhaust() {
 
         // Downtime Terbesar SEBULAN (digabung semua line, per Problem) --
         // untuk panel baru yang sejajar dengan tabel Downtime Line.
-        const downtimeTerbesarBulan = ((topProblemSummaryRes && topProblemSummaryRes.data) || []).map((r) => ({
+        // Tabel "Downtime Terbesar" -- saringan PIC-nya dikerjakan di
+        // database (fungsi *_pic), BUKAN di sini, karena hasilnya dibatasi
+        // 10 problem terbesar; kalau disaring belakangan daftarnya bisa jadi
+        // kurang dari 10 atau malah kosong.
+        const topSummarySrc = picFilter ? pTopRes : topProblemSummaryRes;
+        const downtimeTerbesarBulan = ((topSummarySrc && topSummarySrc.data) || []).map((r) => ({
           problem: r.problem || "",
           menit: Math.round(Number(r.total_menit) || 0),
           frekuensi: Number(r.frekuensi) || 0,
@@ -1985,7 +2026,7 @@ function dashboardExhaust() {
         // produksi) -- BUKAN dashboard_bulanan_produksi -- karena RPC bulanan
         // tidak mendukung parameter p_mesin (filter per-Line). Baris-baris
         // harian se-FY dijumlahkan sendiri per bulan di sini.
-        const dtExhaustRows = (dtExhaustRes && dtExhaustRes.data) || [];
+        const dtExhaustRows = picFilter ? ((pFyRes && pFyRes.data) || []) : ((dtExhaustRes && dtExhaustRes.data) || []);
         const monthLabelId = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
         const fyMonths = [];
         for (let i = 0; i < 12; i++) fyMonths.push(new Date(fyStartYear, 3 + i, 1));
@@ -2009,7 +2050,11 @@ function dashboardExhaust() {
           const { data: ovH } = await supabaseClient
             .from("fy_override").select("*").eq("fy", fyStartYear).maybeSingle();
           ovHeadBln = ovH || null;   // dipakai juga utk kolom FY sebelumnya
-          if (ovH && ovH.aktif) {
+          // Angka manual FY (Master Data > Dashboard FY) itu TOTAL semua PIC,
+          // tidak ada rinciannya per PIC. Jadi begitu filter Supporting
+          // dipakai, angka manual itu dilewati dan chart memakai angka
+          // sistem yang memang bisa disaring per PIC.
+          if (ovH && ovH.aktif && !picFilter) {
             if (!mesinFilter) {
               const { data: ovB } = await supabaseClient
                 .from("fy_override_bulan").select("bulan,downtime_exhaust_menit").eq("fy", fyStartYear);
@@ -2033,7 +2078,7 @@ function dashboardExhaust() {
         // Exhaust -- sama seperti di tab Tahunan. FY sebelumnya diisi tangan
         // di Master Data; FY berjalan = rata-rata menit per bulan.
         // Garis pembanding: downtime per bulan FY sebelumnya.
-        const dtPrevRows = (dtExhaustPrevRes && dtExhaustPrevRes.data) || [];
+        const dtPrevRows = picFilter ? ((pPrevFyRes && pPrevFyRes.data) || []) : ((dtExhaustPrevRes && dtExhaustPrevRes.data) || []);
         const dtPrevBulan = Array.from({ length: 12 }, (_, i) => {
           const d = new Date(fyStartYear - 1, 3 + i, 1);
           const y = d.getFullYear(), m = d.getMonth();
@@ -2049,7 +2094,9 @@ function dashboardExhaust() {
           fyTickLabel(fyStartYear - 1), fyTickLabel(fyStartYear), ...downtimeExhaust.labels,
         ];
         downtimeExhaust.values = [
-          angkaManual(ovHeadBln && ovHeadBln.downtime_fy_prev_menit),
+          // Kolom "FY sebelumnya" juga angka manual total semua PIC ->
+          // dikosongkan saat filter Supporting dipakai.
+          angkaManual(picFilter ? null : (ovHeadBln && ovHeadBln.downtime_fy_prev_menit)),
           rataBulanan(downtimeExhaust.values),
           ...downtimeExhaust.values,
         ];
@@ -2071,6 +2118,7 @@ function dashboardExhaust() {
         };
         this.bulananLoaded = true;
         this._bulananLoadedLine = this.dxyLineFilterBulanan;
+        this._bulananLoadedPic = this.dxySuppFilterBulanan;
       } catch (e) {
         console.error("Gagal mengambil data Bulanan (harian):", e);
       } finally {
@@ -3168,6 +3216,15 @@ function dashboardExhaust() {
       this.qcColFilters = { ...this.qcColFilters, bulananDowntime: {}, bulananTopProblem: {} };
       this.$nextTick(() => this.renderBulananCharts());
     },
+    // Dropdown "Supporting" (PIC) di tab Kontrol Downtime. Alurnya dibuat
+    // sama persis dengan onBulananLineFilterChange() di atas supaya
+    // perilakunya (tanpa kedip / tanpa skeleton) juga sama.
+    async onBulananSuppFilterChange() {
+      this.bulananLoaded = false;   // paksa ambil ulang dengan PIC baru
+      await this.fetchBulanan({ silent: true });
+      this.qcColFilters = { ...this.qcColFilters, bulananDowntime: {}, bulananTopProblem: {} };
+      this.$nextTick(() => this.renderBulananCharts());
+    },
     // Ambil SEMUA Downtime per line untuk rentang [start, end) tertentu --
     // dipakai untuk satu tanggal spesifik (tabel ini selalu per-tanggal,
     // tidak pernah agregat sebulan).
@@ -3184,8 +3241,14 @@ function dashboardExhaust() {
       // selain itu -> 1 line saja (lebih hemat request, dan otomatis
       // ke-filter). Fungsi ini cuma dipanggil dari alur Bulanan.
       const activeMachines = this.dxyLineFilterBulanan === "ALL" ? MACHINES : MACHINES.filter((m) => m.key === this.dxyLineFilterBulanan);
+      // Ikut filter Supporting (PIC) juga. "ALL" -> pakai fungsi lama persis
+      // seperti sebelumnya; selain itu -> fungsi *_pic yang isinya sama,
+      // cuma ditambah saringan PIC.
+      const picFilter = this.dxySuppFilterBulanan !== "ALL" ? this.dxySuppFilterBulanan : null;
       const topRes = await Promise.all(activeMachines.map((m) =>
-        supabaseClient.rpc("dashboard_harian_top_problems", { p_mesin: m.key, p_start: start.toISOString(), p_end: end.toISOString(), p_limit: 1000 })
+        picFilter
+          ? supabaseClient.rpc("dashboard_harian_top_problems_pic", { p_mesin: m.key, p_start: start.toISOString(), p_end: end.toISOString(), p_limit: 1000, p_pic: picFilter })
+          : supabaseClient.rpc("dashboard_harian_top_problems", { p_mesin: m.key, p_start: start.toISOString(), p_end: end.toISOString(), p_limit: 1000 })
       ));
       return activeMachines.map((m, idx) => {
         const rows = ((topRes[idx] && topRes[idx].data) || []).map((r) => ({
@@ -3728,6 +3791,22 @@ function dashboardExhaust() {
         // sumbu) dan angka garis FY sebelumnya di ATAS titiknya. Ditulis di
         // sini, bukan dipakai bersama, supaya chart lain di tab ini tidak
         // ikut berubah.
+        // Daftar kotak yang sudah terpakai angka -- dipakai BERSAMA oleh dua
+        // penulis angka di bawah supaya angka garis FY lalu tidak pernah
+        // menimpa angka batang (dulu bertabrakan di bulan yang garisnya
+        // turun rendah). Diisi ulang tiap kali chart digambar.
+        const kotakAngka = [];
+        const bertabrakan = (a) => kotakAngka.some((k) =>
+          !(a.x2 <= k.x1 || a.x1 >= k.x2 || a.y2 <= k.y1 || a.y1 >= k.y2));
+        // Angka ditulis dengan garis tepi putih tipis supaya tetap terbaca
+        // walau kebetulan jatuh di atas batang atau garis.
+        const tulisAngka = (ctx, txt, x, y) => {
+          ctx.save();
+          ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.lineJoin = "round";
+          ctx.strokeText(txt, x, y);
+          ctx.fillText(txt, x, y);
+          ctx.restore();
+        };
         const angkaBatangBawah = (datasetIndex) => ({
           id: "dxbDtBarBase",
           afterDatasetsDraw(chart) {
@@ -3735,6 +3814,7 @@ function dashboardExhaust() {
             const meta = chart.getDatasetMeta(datasetIndex);
             const ds = chart.data.datasets[datasetIndex];
             if (!meta || !ds || meta.type !== "bar" || !meta.data) return;
+            kotakAngka.length = 0;   // penulis pertama -> mulai dari bersih
             const n = meta.data.length;
             const slot = chartArea && n ? chartArea.width / n : 30;
             const fs = slot < 18 ? 6.5 : slot < 26 ? 7.5 : slot < 40 ? 8.5 : 9.5;
@@ -3751,7 +3831,9 @@ function dashboardExhaust() {
               let r = 0;
               while (r < baris.length && x - setengah < baris[r]) r++;
               baris[r] = x + setengah;
-              ctx.fillText(txt, x, base - 3 - r * (fs + 3));
+              const y = base - 3 - r * (fs + 3);
+              tulisAngka(ctx, txt, x, y);
+              kotakAngka.push({ x1: x - setengah, x2: x + setengah, y1: y - fs, y2: y + 2 });
             });
             ctx.restore();
           },
@@ -3774,7 +3856,30 @@ function dashboardExhaust() {
               if (ds.data[i] === null || ds.data[i] === undefined || Number.isNaN(v) || v === 0) return;
               const { x, y } = titik.getProps(["x", "y"], true);
               const atasAman = chartArea ? chartArea.top + fs : -Infinity;
-              ctx.fillText(fmtNum(v), x, Math.max(atasAman, y - 5));
+              const txt = fmtNum(v);
+              const setengah = ctx.measureText(txt).width / 2 + 3;
+              const kotakDi = (yy) => ({ x1: x - setengah, x2: x + setengah, y1: yy - fs, y2: yy + 2 });
+              // Mulai dari posisi normal (di atas titik), lalu digeser naik
+              // selangkah demi selangkah selama masih menabrak angka batang.
+              let yy = Math.max(atasAman, y - 5);
+              let aman = !bertabrakan(kotakDi(yy));
+              for (let coba = 0; !aman && coba < 10; coba++) {
+                const calon = yy - (fs + 3);
+                if (calon < atasAman) break;        // sudah mentok atas
+                yy = calon;
+                aman = !bertabrakan(kotakDi(yy));
+              }
+              // Kalau tetap tidak dapat tempat di atas, taruh di BAWAH titik.
+              if (!aman) {
+                let turun = y + fs + 6;
+                const batasBawah = chartArea ? chartArea.bottom - 2 : Infinity;
+                for (let coba = 0; coba < 10 && bertabrakan(kotakDi(turun)) && turun + fs + 3 < batasBawah; coba++) {
+                  turun += fs + 3;
+                }
+                if (turun < batasBawah) yy = turun;
+              }
+              tulisAngka(ctx, txt, x, yy);
+              kotakAngka.push(kotakDi(yy));
             });
             ctx.restore();
           },
@@ -3894,7 +3999,15 @@ function dashboardExhaust() {
           plugins: [barValueLabels((v) => fmtNum(v)), barBevelInset(0)],
         });
       };
-      safe(() => donut("dxbDowntimeSupporting", b.downtimeSupporting.labels, b.downtimeSupporting.act, (pic) => CALM_PIC[pic] || "#B8BEC7"), "downtimeSupporting");
+      // PIC yang lagi dipilih di picker Supporting di-highlight full warna;
+      // PIC lain dipudarkan (alpha 40) -- pola yang sama persis dengan chart
+      // Downtime Line di bawah. Grafik ini sengaja TETAP menampilkan semua
+      // PIC (tidak ikut disaring) supaya porsinya masih bisa dibandingkan.
+      safe(() => donut("dxbDowntimeSupporting", b.downtimeSupporting.labels, b.downtimeSupporting.act, (pic) => {
+        const base = CALM_PIC[pic] || "#B8BEC7";
+        if (this.dxySuppFilterBulanan !== "ALL" && pic !== this.dxySuppFilterBulanan) return base + "40";
+        return base;
+      }), "downtimeSupporting");
       safe(() => {
         const lineColors = [CALM.blue, CALM.sage, CALM.sand, CALM.lavender, CALM.rose, CALM.teal];
         // Line yang lagi dipilih (dxyLineFilterBulanan) di-highlight full

@@ -33,13 +33,20 @@
      layar seperti biasa, cuma teks "Memuat..."-nya aja yang gak ditampilkan. */
   .dl-sub-loading { display: none; }
   .dl-bar label { display: flex; flex-direction: column; gap: 2px; font-size: 0.625rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-  .dl-bar input[type=date] { font: inherit; font-size: 0.75rem; padding: 5px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); }
-  .dl-bar select { font: inherit; font-size: 0.75rem; padding: 5px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); min-width: 120px; }
-  .dl-modes { display: flex; gap: 4px; align-self: flex-end; }
-  .dl-mode { font: 800 0.6875rem inherit; font-family: inherit; padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: #000; cursor: pointer; }
+  .dl-bar input[type=date] { font: inherit; font-size: 0.75rem; padding: 2px 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); }
+  .dl-bar select { font: inherit; font-size: 0.75rem; padding: 2px 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); min-width: 120px; }
+  /* Judul dan tombol mode ditumpuk ke bawah (tombol di bawah judul). */
+  .dl-top-kiri { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
+  .dl-modes { display: flex; gap: 4px; }
+  .dl-mode { font: 800 0.65rem inherit; font-family: inherit; padding: 3px 11px; border: 1px solid var(--border); border-radius: 7px; background: var(--panel); color: #000; cursor: pointer; }
   .dl-mode.on { background: #0f172a; color: #fff; border-color: #0f172a; }
   .dl-wrap { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
   .dl-perf { flex: 1 1 auto; min-height: 560px; width: 100%; border: 0; background: transparent; display: block; }
+  /* Tab Tahunan: isinya dikosongkan dulu, diganti "Coming Soon". */
+  .dl-soon { flex: 1 1 auto; min-height: 560px; display: flex; align-items: center; justify-content: center; }
+  .dl-soon-box { text-align: center; color: var(--muted, #64748b); }
+  .dl-soon-judul { font-size: 2rem; font-weight: 800; letter-spacing: 1px; color: var(--muted, #64748b); }
+  .dl-soon-sub { margin-top: 6px; font-size: 0.9rem; }
   .dl-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
   .dl-grid { flex: 1 1 auto; min-height: 760px; display: grid; grid-template-columns: minmax(0, 33fr) minmax(0, 36fr) minmax(0, 31fr); grid-template-rows: minmax(0, 1fr); gap: 5px; }
   .dl-box { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px 4px; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
@@ -200,13 +207,17 @@
 
   <main class="main dl-main">
     <div class="dl-top">
-      <h1 class="dl-title">PERFORMANCE <span x-text="activeTab"></span></h1>
-      <div class="dl-bar">
+      <!-- Judul + tombol mode ditumpuk: tombolnya tepat di bawah tulisan
+           PERFORMANCE, bukan lagi sebaris di kanannya. -->
+      <div class="dl-top-kiri">
+        <h1 class="dl-title">PERFORMANCE <span x-text="activeTab"></span></h1>
         <div class="dl-modes">
           <template x-for="m in [['dashboard','Control Board'],['harian','Harian'],['bulanan','Bulanan'],['tahunan','Tahunan']]" :key="m[0]">
             <button type="button" class="dl-mode" :class="tampil === m[0] ? 'on' : ''" @click="setTampil(m[0])" x-text="m[1]"></button>
           </template>
         </div>
+      </div>
+      <div class="dl-bar">
         <span class="error-msg" x-show="pesan" x-text="pesan"></span>
         <label x-show="tampil !== 'tahunan'">Bulan
           <select x-model.number="bulan" @change="ubahPeriode()">
@@ -256,9 +267,17 @@
       <!-- Tab Harian & Bulanan tidak punya iframe sendiri: keduanya memakai SUSUNAN
            CONTROL BOARD di bawah, yang berbeda cuma cakupan datanya.
            Yang masih pakai iframe Performance cuma Tahunan. -->
-      <template x-for="m in ['tahunan']" :key="m">
-        <iframe class="dl-perf" x-show="tampil === m" x-cloak :src="perfSrc[m] || 'about:blank'" title="Performance"></iframe>
-      </template>
+      <!-- Tab Tahunan: iframe Performance Tahunan SENGAJA tidak dipasang dulu
+           (isinya diganti "Coming Soon"). Kodenya di assets/dashboard-line.js
+           (perfSrc / perfUrlFor / perfSegarkan) sengaja dibiarkan utuh supaya
+           gampang dihidupkan lagi nanti: tinggal kembalikan <iframe> di bawah
+           ini seperti semula. -->
+      <div class="dl-soon" x-show="tampil === 'tahunan'" x-cloak>
+        <div class="dl-soon-box">
+          <div class="dl-soon-judul">Coming Soon</div>
+          <div class="dl-soon-sub">Performance Tahunan sedang disiapkan</div>
+        </div>
+      </div>
 
       <div class="dl-body" x-show="tampil === 'dashboard' || tampil === 'harian' || tampil === 'bulanan'">
         <!-- Model 3D versi besar -->

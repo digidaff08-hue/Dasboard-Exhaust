@@ -214,6 +214,16 @@
                   <template x-for="m in MACHINES_REF" :key="'bl-'+m.key"><option :value="m.key" x-text="m.key"></option></template>
                 </select>
               </div>
+              <!-- Picker Supporting (PIC): isinya sama dengan label grafik
+                   Downtime Supporting. Digabung dengan picker Line di
+                   sampingnya (mis. Line E-03 + PE = downtime PE di E-03). -->
+              <div class="dxy-field">
+                <label>Supporting</label>
+                <select class="dxy-select" x-model="dxySuppFilterBulanan" @change="onBulananSuppFilterChange()">
+                  <option value="ALL">Semua Supporting</option>
+                  <template x-for="p in PIC_REF" :key="'bp-'+p"><option :value="p" x-text="p"></option></template>
+                </select>
+              </div>
               <div class="dxy-spacer"></div>
             </div>
 
