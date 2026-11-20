@@ -150,7 +150,7 @@
       </template>
     </div>
 
-    <template x-if="loading"><div class="empty-state">Memuat...</div></template>
+    <template x-if="false"><div class="empty-state">Memuat...</div></template>
 
     <template x-if="!loading">
       <div>
@@ -402,7 +402,7 @@
               <template x-if="timPesan"><div :class="timPesanError ? 'andon-modal-error' : 'atim-ok'" x-text="timPesan"></div></template>
 
               <div class="atim-list">
-                <template x-if="timLoading"><div class="atim-empty">Memuat...</div></template>
+                <template x-if="false"><div class="atim-empty">Memuat...</div></template>
                 <template x-if="!timLoading && !timAnggota.length"><div class="atim-empty">Belum ada anggota tim supporting.</div></template>
                 <template x-for="a in timAnggota" :key="a.nik">
                   <div class="atim-row" :style="'--c:' + info(a.tim).warna">

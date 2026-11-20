@@ -29,7 +29,9 @@
      Jadi munculnya "Memuat..." gak akan pernah geser elemen lain di baris
      ini lagi -- mau lagi di tab mana pun (dashboard/harian/bulanan/tahunan),
      picker Bulan/Tahun/Tanggal/Shift semua diam di tempat. */
-  .dl-sub-loading { position: absolute; left: 0; top: 100%; margin-top: 4px; }
+  /* Diminta disembunyikan total -- data tetap jalan dimuat ulang di balik
+     layar seperti biasa, cuma teks "Memuat..."-nya aja yang gak ditampilkan. */
+  .dl-sub-loading { display: none; }
   .dl-bar label { display: flex; flex-direction: column; gap: 2px; font-size: 0.625rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
   .dl-bar input[type=date] { font: inherit; font-size: 0.75rem; padding: 5px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); }
   .dl-bar select { font: inherit; font-size: 0.75rem; padding: 5px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); min-width: 120px; }
@@ -269,7 +271,7 @@
         <!-- Dekidaka versi besar (layar penuh) -->
         <div class="dl-besar" x-show="dekiBuka" x-cloak @click.self="tutupDekidaka()">
           <div class="dl-besar-box">
-            <span class="dl-sub dl-deki-muat" x-show="!dekiBesarSiap">Memuat Dekidaka…</span>
+            <span class="dl-sub dl-deki-muat" x-show="false">Memuat Dekidaka…</span>
             <template x-if="dekiBuka">
               <iframe :src="dekiUrl + '&penuh=1'" title="Dekidaka besar" :style="dekiBesarSiap ? '' : 'opacity:0'"></iframe>
             </template>
@@ -376,7 +378,7 @@
             </div>
           </section>
           <section class="dl-box dl-deki" x-show="tampil !== 'bulanan'">
-            <span class="dl-sub dl-deki-muat" x-show="!dekiSiap">Memuat Dekidaka…</span>
+            <span class="dl-sub dl-deki-muat" x-show="false">Memuat Dekidaka…</span>
             <template x-if="bolehLihat()">
               <iframe :src="dekiUrl" title="Dekidaka" :style="dekiSiap ? '' : 'opacity:0'" @load="dekiSiap = dekiSiap"></iframe>
             </template>
@@ -406,7 +408,7 @@
                 <button type="button" class="dl-pj-chip oto" x-show="perjamPilih.length" @click="perjamOtomatis()">Otomatis</button>
               </div>
               <div class="dl-pj-wrap dl-pj-baris">
-                <span class="dl-sub dl-pj-kosong" x-show="!perjamPanels.length" x-text="perjamMemuat ? 'Memuat…' : perjamPesan"></span>
+                <span class="dl-sub dl-pj-kosong" x-show="!perjamPanels.length && !perjamMemuat" x-text="perjamPesan"></span>
                 <template x-for="(pn, i) in perjamPanels" :key="pn.part + '|' + perjamShift + '|' + i">
                   <div class="dl-pj-panel">
                     <div class="dl-pj-judul" x-text="pn.part"></div>

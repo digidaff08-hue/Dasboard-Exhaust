@@ -646,7 +646,7 @@
             ditampilkan. Minta admin mengisinya di tabel profiles.
           </p>
 
-          <template x-if="sisaLoading"><p class="empty-state">Memuat sisa cuti...</p></template>
+          <template x-if="false"><p class="empty-state">Memuat sisa cuti...</p></template>
 
           <p class="hint" x-show="sisaError" style="color:var(--red); font-weight:600;" x-text="sisaError"></p>
 
@@ -719,7 +719,7 @@
             <div class="panel">
               <p class="panel-title">Status Pengajuan Cuti Saya <span class="count" x-text="statusCutiRows.length + ' baris'"></span></p>
               <p class="hint" style="margin-bottom:14px;">Daftar cuti yang kamu ajukan dan status persetujuannya.</p>
-              <template x-if="statusCutiLoading"><p class="empty-state">Memuat data...</p></template>
+              <template x-if="false"><p class="empty-state">Memuat data...</p></template>
               <template x-if="!statusCutiLoading && statusCutiRows.length === 0">
                 <p class="empty-state">Belum ada pengajuan cuti.</p>
               </template>
@@ -787,7 +787,7 @@
                 </div>
               </template>
 
-              <template x-if="approveLoading"><p class="empty-state">Memuat data...</p></template>
+              <template x-if="false"><p class="empty-state">Memuat data...</p></template>
               <template x-if="!approveLoading && pendingApprovals.length === 0">
                 <p class="empty-state">Tidak ada pengajuan yang menunggu persetujuan kamu.</p>
               </template>

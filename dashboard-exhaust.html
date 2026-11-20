@@ -185,7 +185,7 @@
               <div class="dxy-skeleton"></div><div class="dxy-skeleton"></div>
               <div class="dxy-skeleton"></div><div class="dxy-skeleton"></div>
             </div>
-            <p class="empty-state">Memuat data bulanan...</p>
+            <p class="empty-state" x-show="false">Memuat data bulanan...</p>
           </div>
         </template>
         <template x-if="!bulananLoading">
@@ -377,7 +377,7 @@
               <div class="dxy-skeleton"></div><div class="dxy-skeleton"></div>
               <div class="dxy-skeleton"></div><div class="dxy-skeleton"></div>
             </div>
-            <p class="empty-state">Memuat data tahunan...</p>
+            <p class="empty-state" x-show="false">Memuat data tahunan...</p>
           </div>
         </template>
         <template x-if="!tahunanLoading">
@@ -855,7 +855,7 @@
                   <span class="dxy-panel-title">📊 Rekap Tahunan</span>
                   <span class="dxy-panel-sub" x-text="'FY ' + attendanceYear + ' (Apr ' + attendanceYear + ' - Mar ' + (attendanceYear + 1) + ')'"></span>
                 </div>
-                <template x-if="attendanceTahunanLoading">
+                <template x-if="false">
                   <p class="empty-state">Memuat data rekap tahunan...</p>
                 </template>
                 <div class="dxy-chart-box dxy-attn-tahunan-box" x-show="!attendanceTahunanLoading"><canvas id="dxaRekapTahunan"></canvas></div>
@@ -1267,7 +1267,7 @@
           </div>
         </div>
 
-        <template x-if="planLoading">
+        <template x-if="false">
           <p style="text-align:center;padding:32px;color:var(--muted);">Memuat data...</p>
         </template>
 
@@ -1532,7 +1532,7 @@
         </div>
         <div class="dxy-pd-sub" x-text="bulananMonthLabel + ' ' + bulananYear"></div>
         <div class="dxy-pd-body">
-          <div class="dxy-pd-loading" x-show="dxyProblemDetail.loading">Memuat detail...</div>
+          <div class="dxy-pd-loading" x-show="false">Memuat detail...</div>
           <template x-if="!dxyProblemDetail.loading">
             <div>
               <table class="dxy-pd-table" x-show="dxyProblemDetail.rows.length">

@@ -751,7 +751,7 @@ input[type="month"]:focus {
             <template x-if="!f.nippo.bulan && !f.nippo.tanggal && !f.nippo.line"><span style="font-size:.78rem;color:var(--muted);">Semua data</span></template>
           </div>
 
-          <div class="dm-loading" x-show="loading.nippo"><div class="spinner"></div><span>Memuat data nippo...</span></div>
+          <div class="dm-loading" x-show="loading.nippo"><div class="spinner"></div></div>
 
           <template x-if="!loading.nippo">
             <div>
@@ -885,7 +885,7 @@ input[type="month"]:focus {
           </div>
 
           <div class="dm-loading" x-show="loading.produksi">
-            <div class="spinner"></div><span>Memuat data produksi...</span>
+            <div class="spinner"></div>
           </div>
 
           <template x-if="!loading.produksi">
@@ -973,7 +973,7 @@ input[type="month"]:focus {
             <template x-if="f.downtime.line"><span class="dm-filter-active-tag">🏭 <span x-text="f.downtime.line"></span></span></template>
             <template x-if="!f.downtime.bulan && !f.downtime.tanggal && !f.downtime.line"><span style="font-size:.78rem;color:var(--muted);">Semua data</span></template>
           </div>
-          <div class="dm-loading" x-show="loading.downtime"><div class="spinner"></div><span>Memuat data downtime...</span></div>
+          <div class="dm-loading" x-show="loading.downtime"><div class="spinner"></div></div>
           <template x-if="!loading.downtime">
             <div>
               <template x-if="data.downtime.length === 0">
@@ -1071,7 +1071,7 @@ input[type="month"]:focus {
             <template x-if="f.ng_inline.line"><span class="dm-filter-active-tag">🏭 <span x-text="f.ng_inline.line"></span></span></template>
             <template x-if="!f.ng_inline.bulan && !f.ng_inline.tanggal && !f.ng_inline.line"><span style="font-size:.78rem;color:var(--muted);">Semua data</span></template>
           </div>
-          <div class="dm-loading" x-show="loading.ng_inline"><div class="spinner"></div><span>Memuat data NG Inline...</span></div>
+          <div class="dm-loading" x-show="loading.ng_inline"><div class="spinner"></div></div>
           <template x-if="!loading.ng_inline">
             <div>
               <template x-if="data.ng_inline.length === 0">
@@ -1157,7 +1157,7 @@ input[type="month"]:focus {
             <template x-if="f.repair.line"><span class="dm-filter-active-tag">🏭 <span x-text="f.repair.line"></span></span></template>
             <template x-if="!f.repair.bulan && !f.repair.tanggal && !f.repair.line"><span style="font-size:.78rem;color:var(--muted);">Semua data</span></template>
           </div>
-          <div class="dm-loading" x-show="loading.repair"><div class="spinner"></div><span>Memuat data repair...</span></div>
+          <div class="dm-loading" x-show="loading.repair"><div class="spinner"></div></div>
           <template x-if="!loading.repair">
             <div>
               <template x-if="data.repair.length === 0">
@@ -1246,7 +1246,7 @@ input[type="month"]:focus {
           </div>
 
           <div class="dm-loading" x-show="loading.total_produksi">
-            <div class="spinner"></div><span>Memuat total produksi...</span>
+            <div class="spinner"></div>
           </div>
 
           <template x-if="!loading.total_produksi">

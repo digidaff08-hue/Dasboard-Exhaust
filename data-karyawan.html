@@ -831,7 +831,7 @@
                   </tfoot>
                 </table>
               </div>
-              <p x-show="absensiLoading" class="hint">Memuat...</p>
+              <p x-show="false" class="hint">Memuat...</p>
             </div>
             </div>
             </template>
@@ -866,7 +866,7 @@
 
               <p class="hint" x-show="ctError" style="color:var(--danger, #DC2626); font-weight:600; margin-bottom:10px;" x-text="ctError"></p>
 
-              <template x-if="ctLoading">
+              <template x-if="false">
                 <p class="empty-state">Memuat data cuti...</p>
               </template>
 
@@ -967,7 +967,7 @@
                   <span class="hint">Untuk baris Cuti lama yang Total Hari-nya masih 0 (mis. Ganti Hari baru ditambahkan belakangan). Hanya memproses baris sesuai filter di atas. Kalau setelah dijalankan masih ada yang 0 (ditandai merah), arahkan mouse ke angkanya untuk lihat alasannya.</span>
                 </div>
 
-                <template x-if="rkLoading"><p class="empty-state">Memuat rekap...</p></template>
+                <template x-if="false"><p class="empty-state">Memuat rekap...</p></template>
 
                 <template x-if="!rkLoading">
                   <div class="table-wrap">
@@ -1087,7 +1087,7 @@
 
             <p class="hint" x-show="mkError" style="color:var(--danger, #DC2626); font-weight:600; margin-bottom:10px;" x-text="mkError"></p>
 
-            <template x-if="mkLoading"><p class="empty-state">Memuat data karyawan...</p></template>
+            <template x-if="false"><p class="empty-state">Memuat data karyawan...</p></template>
 
             <template x-if="!mkLoading">
               <div class="table-wrap">
@@ -1159,7 +1159,7 @@
 
               <p class="hint" x-show="spError" style="color:var(--danger, #DC2626); font-weight:600; margin-bottom:10px;" x-text="spError"></p>
 
-              <template x-if="spLoading"><p class="empty-state">Memuat Tim Supporting...</p></template>
+              <template x-if="false"><p class="empty-state">Memuat Tim Supporting...</p></template>
 
               <template x-if="!spLoading">
                 <div class="table-wrap">
