@@ -530,11 +530,13 @@ function andonBoard() {
     _pertamaMuat: true,
 
     async init() {
+      this.profile = profilCacheAmbil();   // tampilkan menu dulu dari ingatan, dikoreksi di bawah
       const session = await requireAuth();
       if (!session) return;
       this.session = session;
       const { profile } = await andonProfilSaya();
       this.profile = profile;
+      profilCacheSimpan(profile);
       try {
         const f = JSON.parse(localStorage.getItem("andonFilterTim") || "[]");
         if (Array.isArray(f)) this.filterTim = f.filter((k) => ANDON_TIM.some((t) => t.kode === k)).slice(0, 1);

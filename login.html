@@ -13,18 +13,6 @@
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/supabaseClient.js"></script>
-<style>
-  /* Tab jenis login: Karyawan / Administrator / Guest / Line */
-  .login-jenis { display: flex; gap: 5px; margin: 4px 0 14px; }
-  .login-jenis button {
-    flex: 1; padding: 8px 4px; font-size: 0.7rem; font-weight: 600;
-    border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.55);
-    background: rgba(255, 255, 255, 0.10); color: #fff; cursor: pointer;
-  }
-  .login-jenis button.aktif {
-    background: var(--primary, #1a3fbf); border-color: var(--primary, #1a3fbf); color: #fff;
-  }
-</style>
 </head>
 <body>
 
@@ -115,66 +103,18 @@
       <div class="success-msg" x-text="infoMsg"></div>
     </template>
 
-    <div class="login-jenis" x-show="['login', 'admin', 'guest', 'line'].includes(mode)">
-      <button type="button" :class="mode === 'login' ? 'aktif' : ''" @click="gantiJenis('login')">Karyawan</button>
-      <button type="button" :class="mode === 'admin' ? 'aktif' : ''" @click="gantiJenis('admin')">Administrator</button>
-      <button type="button" :class="mode === 'guest' ? 'aktif' : ''" @click="gantiJenis('guest')">Guest</button>
-      <button type="button" :class="mode === 'line' ? 'aktif' : ''" @click="gantiJenis('line')">Line</button>
-    </div>
-
     <div class="login-form-area">
-      <template x-if="mode === 'admin' || mode === 'guest'">
-        <form @submit.prevent="loginKhusus(mode)" autocomplete="off">
-          <div class="field">
-            <label x-text="mode === 'admin' ? 'Password Administrator' : 'Password Guest'"></label>
-            <div class="password-wrap input-icon-wrap">
-              <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="3.2"/><path d="M10.5 12.5 19 4M16 6l2 2M13.5 9l2 2"/></svg>
-              <input :type="showPassword ? 'text' : 'password'" class="has-icon" x-model="password" required autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" placeholder="Masukkan Password">
-              <button type="button" class="password-toggle" @click="showPassword = !showPassword" :aria-label="showPassword ? 'Sembunyikan password' : 'Tampilkan password'" tabindex="-1">
-                <span x-text="showPassword ? '🙈' : '👁️'"></span>
-              </button>
-            </div>
-          </div>
-          <button type="submit" class="btn-primary" :disabled="busy">
-            <span x-show="!busy">Masuk</span>
-            <span x-show="busy">Memproses…</span>
-          </button>
-        </form>
-      </template>
-
-      <template x-if="mode === 'line'">
-        <form @submit.prevent="loginLine" autocomplete="off">
-          <div class="field">
-            <label>Kode Line</label>
-            <div class="input-icon-wrap">
-              <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h4v8H3zM10 3h4v18h-4zM17 8h4v13h-4z"/></svg>
-              <input type="text" class="has-icon" x-model="kodeLine" required autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" placeholder="Contoh: E-05" style="text-transform:uppercase">
-            </div>
-          </div>
-          <div class="field">
-            <label>Password</label>
-            <div class="password-wrap input-icon-wrap">
-              <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="3.2"/><path d="M10.5 12.5 19 4M16 6l2 2M13.5 9l2 2"/></svg>
-              <input :type="showPassword ? 'text' : 'password'" class="has-icon" x-model="password" required autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" placeholder="Masukkan Password">
-              <button type="button" class="password-toggle" @click="showPassword = !showPassword" :aria-label="showPassword ? 'Sembunyikan password' : 'Tampilkan password'" tabindex="-1">
-                <span x-text="showPassword ? '🙈' : '👁️'"></span>
-              </button>
-            </div>
-          </div>
-          <button type="submit" class="btn-primary" :disabled="busy">
-            <span x-show="!busy">Masuk</span>
-            <span x-show="busy">Memproses…</span>
-          </button>
-        </form>
-      </template>
-
+      <!-- Satu pintu masuk untuk semua jenis akun -- tidak ada tab lagi.
+           masukUniversal() menebak dari pola "ID Login" yang diketik:
+           angka semua -> NIK karyawan, kata admin/guest -> akun itu,
+           pola huruf+angka (mis. E-05) -> Kode Line. Lihat masukUniversal(). -->
       <template x-if="mode === 'login'">
-        <form @submit.prevent="login" autocomplete="off">
+        <form @submit.prevent="masukUniversal" autocomplete="off">
           <div class="field">
-            <label>NIK</label>
+            <label>ID Login</label>
             <div class="input-icon-wrap">
               <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6"/><circle cx="12" cy="8" r="4"/></svg>
-              <input type="text" inputmode="numeric" class="has-icon" x-model="nik" required autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" placeholder="Masukkan NIK Anda">
+              <input type="text" class="has-icon" x-model="idLogin" required autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" placeholder="NIK">
             </div>
           </div>
           <div class="field">
@@ -274,7 +214,7 @@
 function loginPage() {
   return {
     mode: "login",
-    nik: "", email: "", password: "", fullName: "", kodeLine: "",
+    nik: "", email: "", password: "", fullName: "", kodeLine: "", idLogin: "",
     showPassword: false,
     errorMsg: "", infoMsg: "", busy: false,
 
@@ -300,7 +240,14 @@ function loginPage() {
       const admin = role === "admin" || jabatan === "admin";
       const leader = role === "leader" || jabatan === "leader";
       const staff = admin || leader;
-      localStorage.setItem("judulLogin", staff ? "staff" : "operator");
+      // Judul "Control Attendance" KHUSUS buat yang beneran operator (satu-
+      // satunya halaman yang boleh dibuka memang Attendance). Role lain yang
+      // bukan staff -- guest, viewer, supporting, line -- punya halaman
+      // sendiri masing-masing (bukan Attendance), jadi jangan ikut dianggap
+      // "operator" di sini, walau sama-sama bukan admin/leader.
+      const rolesBukanStaffTapiBukanOperator = ["guest", "viewer", "supporting", "line"];
+      const judulOperator = !staff && !rolesBukanStaffTapiBukanOperator.includes(role);
+      localStorage.setItem("judulLogin", judulOperator ? "operator" : "staff");
       // Datang dari link approval cuti -> kembali ke link itu, bukan ke
       // halaman awal biasa.
       const balik = this.redirectAman();
@@ -350,8 +297,40 @@ function loginPage() {
       if (session) window.location.href = await this.tujuanSetelahLogin(session.user.id);
     },
 
-    gantiJenis(jenis) {
-      this.mode = jenis; this.errorMsg = ""; this.infoMsg = ""; this.password = ""; this.kodeLine = "";
+    // Satu pintu masuk -- menebak jenis akun dari pola "ID Login" yang
+    // diketik, lalu memanggil fungsi login yang sudah ada persis seperti
+    // sebelum ada form gabungan ini (login/loginKhusus/loginLine di bawah
+    // tidak berubah sama sekali, cuma dipanggil dari sini). Urutan
+    // pengecekan SENGAJA begini supaya tidak ambigu:
+    //   1) kata persis "admin"/"administrator" -> akun Administrator
+    //   2) kata persis "guest"                 -> akun Guest
+    //   3) angka semua                          -> NIK karyawan
+    //   4) pola huruf+angka (mis. E-05, E05)    -> Kode Line
+    async masukUniversal() {
+      this.errorMsg = ""; this.infoMsg = "";
+      const idRaw = (this.idLogin || "").trim();
+      const idLower = idRaw.toLowerCase();
+
+      if (idRaw === "") {
+        this.errorMsg = "ID Login wajib diisi.";
+        return;
+      }
+      if (idLower === "admin" || idLower === "administrator") {
+        return this.loginKhusus("admin");
+      }
+      if (idLower === "guest") {
+        return this.loginKhusus("guest");
+      }
+      if (/^[0-9]+$/.test(idRaw)) {
+        this.nik = idRaw;
+        return this.login();
+      }
+      const kodeNormal = idRaw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+      if (/^[A-Z]+[0-9]+$/.test(kodeNormal)) {
+        this.kodeLine = idRaw;
+        return this.loginLine();
+      }
+      this.errorMsg = "ID Login tidak dikenali. Isi NIK (angka), Kode Line (mis. E-05), atau ketik admin / guest.";
     },
 
     // Tab Administrator / Guest: cukup password. login_khusus (lihat
@@ -463,8 +442,8 @@ function loginPage() {
           this.errorMsg = "Terlalu banyak percobaan salah. NIK ini dikunci sementara, coba lagi dalam " + (hasil.menit || 15) + " menit.";
         } else if (hasil.kode === "akun_khusus") {
           this.errorMsg = hasil.role === "guest"
-            ? "Akun ini akun Guest. Silakan masuk lewat tab Guest."
-            : "Akun ini akun Administrator. Silakan masuk lewat tab Administrator.";
+            ? "Akun ini akun Guest. Ketik \"guest\" di kolom ID Login, bukan NIK."
+            : "Akun ini akun Administrator. Ketik \"admin\" di kolom ID Login, bukan NIK.";
         } else {
           this.errorMsg = "Login gagal: NIK atau password salah.";
         }

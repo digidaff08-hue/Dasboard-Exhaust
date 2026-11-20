@@ -61,6 +61,22 @@ const supabaseClient = TANPA_SUPABASE_AKTIF
     })()
   : window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// Cache ringan profil (role/jabatan/nama) di perangkat ini -- HANYA
+// dipakai untuk mempercepat TAMPILAN menu sidebar begitu halaman
+// dibuka (supaya tidak usah nunggu jaringan dulu baru menu lengkap
+// muncul). Akses sungguhan ke halaman/data tetap dijaga sepenuhnya oleh
+// requireAuth/requireStaff + RLS di database, sama sekali tidak
+// bergantung pada cache ini -- jadi kalaupun cache-nya salah/basi
+// (misal komputer dipakai bergantian beberapa orang), paling lama
+// sesaat sebelum dikoreksi otomatis, tidak pernah membuka akses yang
+// tidak semestinya.
+function profilCacheAmbil() {
+  try { return JSON.parse(localStorage.getItem("profil_cache_v1") || "null"); } catch (e) { return null; }
+}
+function profilCacheSimpan(data) {
+  try { localStorage.setItem("profil_cache_v1", JSON.stringify(data || null)); } catch (e) {}
+}
+
 // Helper: pastikan user sudah login, kalau belum redirect ke login.html
 async function requireAuth() {
   const { data: { session } } = await supabaseClient.auth.getSession();

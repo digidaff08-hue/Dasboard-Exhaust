@@ -1465,11 +1465,13 @@ function dashboardExhaust() {
     dxyLineFilterBulanan: AppPref.lineFavorit() || "ALL",
     MACHINES_REF: MACHINES,
     async init() {
+      this.profile = profilCacheAmbil();   // tampilkan menu dulu dari ingatan, dikoreksi di bawah
       this.session = await requireAuth();
       if (!await requireStaff(this.session)) return;
       if (!this.session) return;
       const { data } = await supabaseClient.from("profiles").select("*").eq("id", this.session.user.id).maybeSingle();
       this.profile = data;
+      profilCacheSimpan(data);
       this.loading = false;
       // ?tab=... -> langsung buka tab itu, mis.
       // dashboard-exhaust.html?tab=plan_harian. Berguna untuk tautan/

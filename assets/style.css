@@ -211,18 +211,29 @@ body:has(> .app-shell.embed-mode) {
      dkk. bawaan tema (gelap di tema terang, terang di tema gelap). */
   background: var(--sidebar-bg);
   border-right: 1px solid var(--sidebar-border);
-  padding: 24px 0;
+  padding: 18px 0;
   display: flex;
   flex-direction: column;
   position: relative;
   z-index: 1;
   transition: width 0.18s ease;
 }
-.sidebar.sidebar-collapsed { width: 52px; padding: 24px 0 12px; }
+.sidebar.sidebar-collapsed { width: 52px; padding: 18px 0 12px; }
+/* Spacer: dengan .sidebar-nav tidak lagi flex:1, konten (logo, profil,
+   menu, Pengaturan) numpuk rapat di atas -- elemen semu ini yang
+   "menampung" sisa tinggi sidebar supaya jatuhnya di paling bawah. */
+.sidebar::after { content: ""; flex: 1 1 auto; }
 .sidebar-collapse-btn {
   position: absolute;
   top: 18px; right: -12px;
   width: 24px; height: 24px;
+  min-width: 24px; min-height: 24px;
+  max-width: 24px; max-height: 24px;
+  padding: 0;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
   border-radius: 50%;
   background: var(--sidebar-bg);
   border: 1px solid var(--sidebar-border);
@@ -230,10 +241,12 @@ body:has(> .app-shell.embed-mode) {
   cursor: pointer;
   font-size: 0.875rem;
   line-height: 1;
-  display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   z-index: 5;
 }
 .sidebar-collapse-btn:hover { color: var(--sidebar-text-strong); border-color: var(--amber); }
+.sb-collapse-ico { width: 14px !important; height: 14px !important; flex: none; transition: transform 0.18s ease; display: block; }
+.sb-collapse-ico-rotated { transform: rotate(180deg); }
 .sidebar.sidebar-collapsed .sidebar-link {
   justify-content: center;
   padding: 10px 0;
@@ -267,7 +280,11 @@ body:has(> .app-shell.embed-mode) {
 }
 .sidebar-brand span { color: var(--amber); }
 
-.sidebar-nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+/* Dulu nav dikasih flex:1 supaya mendorong Pengaturan + profil ke paling
+   bawah sidebar. Sekarang Pengaturan & baris profil (sidebar-foot, sudah
+   dipindah ke atas, di bawah logo) ikut menempel rapat sesudah menu --
+   sisa ruang kosong didorong ke paling bawah lewat .sidebar::after. */
+.sidebar-nav { display: flex; flex-direction: column; gap: 2px; flex: 0 0 auto; }
 
 .sidebar-link {
   display: flex;
@@ -305,8 +322,12 @@ body:has(> .app-shell.embed-mode) {
 }
 .sidebar-foot .who { color: var(--sidebar-text-strong); font-weight: 600; }
 .sidebar-foot button {
-  margin-top: 10px;
-  width: 100%;
+  margin: 10px auto 0;
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 .sidebar-foot .btn-ghost { color: var(--sidebar-text); border-color: var(--sidebar-border); }
 .sidebar-foot .badge { background: var(--sidebar-chip-bg, rgba(255,255,255,0.08)); color: var(--amber); }
@@ -383,6 +404,24 @@ body:has(> .app-shell.embed-mode) {
   color: var(--muted);
   font-weight: 400;
 }
+/* Panel-title dengan icon kecil di kiri judul (dipakai di tab Data Shift 2
+   data-karyawan.html, bisa dipakai ulang di panel lain). */
+.panel-title-ico {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 8px; flex-shrink: 0;
+  background: var(--amber-dim, #fdf1e0); color: var(--amber, #c2600c);
+}
+.panel-title-ico svg { display: block; }
+.panel-title-txt { display: inline-flex; align-items: center; gap: 10px; }
+.count-pill {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--amber, #c2600c);
+  background: var(--amber-dim, #fdf1e0);
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
 
 /* ---------- Forms ---------- */
 .form-grid {
@@ -455,6 +494,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .page-header .btn-primary { background: var(--amber); color: #ffffff; }
 .btn-danger { background: transparent; color: var(--red); border-color: var(--red); }
 .btn-danger:hover { background: var(--red); color: #fff; }
+.btn-info { background: transparent; color: var(--blue); border-color: var(--blue); }
+.btn-info:hover { background: var(--blue); color: #fff; }
 .btn-ghost { background: transparent; color: var(--muted); border-color: var(--border); }
 .btn-sm { padding: 5px 10px; font-size: 0.75rem; }
 
@@ -470,6 +511,23 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   border-radius: 10px;
 }
 .table-wrap table { border: none; }
+/* Utilitas: bikin panel "riwayat" ikut memanjang sampai bawah layar
+   kalau isinya sedikit (bukan cuma shrink-wrap ke jumlah baris),
+   dipakai di beberapa sub-tab Attendance (data-karyawan.html). */
+.fill-col { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.fill-panel { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+.fill-panel .table-wrap {
+  flex: 1 1 0% !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+}
+/* .fill-col/.fill-panel cuma bisa benar-benar "mentok" ke bawah layar
+   (scroll di DALAM kotak tabelnya, bukan di halaman) kalau .main
+   sendiri punya tinggi yang pasti (bukan auto ikut konten) -- dibatasi
+   ke data-karyawan.html saja lewat kelas dk-vh-page supaya halaman lain
+   tidak ikut berubah. */
+.dk-vh-page { height: 100vh; overflow-y: auto; }
 .table-wrap thead th:first-child { border-top-left-radius: 9px; }
 .table-wrap thead th:last-child { border-top-right-radius: 9px; }
 .table-wrap tbody tr:last-child td { border-bottom: none; }
@@ -3515,9 +3573,8 @@ table.plan-shift-table tr.plan-total-row td.balance-bad { color: #fca5a5; }
   grid-template-rows: auto auto;
   column-gap: 10px;
   align-items: center;
-  padding: 20px 16px 18px;
-  margin-bottom: 6px;
-  border-bottom: 1px solid var(--sbd-line);
+  padding: 14px 16px 10px;
+  margin-bottom: 0;
   color: var(--sbd-strong);
   letter-spacing: 0;
 }
@@ -3575,23 +3632,27 @@ table.plan-shift-table tr.plan-total-row td.balance-bad { color: #fca5a5; }
 .sidebar-logout-collapsed { color: #64748b; }
 .sidebar-logout-collapsed:hover { color: var(--red); }
 
-/* Footer: avatar + nama + jabatan, lalu tombol Keluar */
+/* Baris profil: dulu "kartu" vertikal yang nangkring paling bawah sidebar
+   (sesudah Pengaturan). Sekarang markupnya dipindah ke atas, di bawah
+   logo WELDING EXHAUST, dan tampilannya jadi satu baris horizontal:
+   avatar+nama di kiri, tombol Keluar (ikon saja, lewat margin-left:auto)
+   nempel di kanan. */
 .sidebar-foot {
-  display: grid;
-  grid-template-columns: 34px 1fr;
-  column-gap: 10px;
+  display: flex;
   align-items: center;
-  padding: 14px 16px 4px;
-  margin-top: 12px;
-  border-top: 1px solid var(--sbd-line);
+  gap: 10px;
+  margin: 0 12px 10px;
+  padding: 8px 10px;
+  border-bottom: none;
+  background: var(--sidebar-active-bg, #f1f5f9);
+  border-radius: 10px;
   color: var(--sbd-text);
 }
-.sidebar-foot > :not(.sb-av):not(.sb-user) { grid-column: 1 / -1; }
 .sidebar-foot .sb-av {
-  width: 34px; height: 34px; border-radius: 50%;
+  width: 32px; height: 32px; border-radius: 50%;
   background: linear-gradient(135deg, var(--sbd-top), var(--sbd-bottom)); color: #fff;
-  font-weight: 800; font-size: 0.875rem;
-  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 0.8125rem;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 .sidebar-foot .sb-user { min-width: 0; }
 .sidebar-foot .who {
@@ -3605,12 +3666,16 @@ table.plan-shift-table tr.plan-total-row td.balance-bad { color: #fca5a5; }
   color: #15803d; font-size: 0.6562rem; font-weight: 700;
   letter-spacing: 0.04em; text-transform: uppercase;
 }
-.sidebar-foot .net-status { margin-top: 8px; font-size: 0.6875rem; color: #64748b; }
+.sidebar-foot .net-status { margin-top: 2px; font-size: 0.6875rem; color: #64748b; }
 .sidebar-foot .net-status.net-online { color: #15803d; }
 .sidebar-foot .net-status.net-offline { color: var(--red); }
 .sidebar-foot button,
 .sidebar-foot .btn-ghost {
-  margin-top: 12px;
+  margin: 0 0 0 auto;
+  width: 30px; height: 30px; min-width: 30px; min-height: 30px;
+  padding: 0;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
   background: #fff;
   border: 1px solid #d7dbe6;
   color: #334155;

@@ -959,6 +959,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
 
     async init() {
+      this.profile = profilCacheAmbil();   // tampilkan menu dulu dari ingatan, dikoreksi di bawah
       this.session = await requireAuth();
       if (!await requireStaff(this.session)) return;
       if (!this.session) return;
@@ -990,6 +991,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         ]);
         if (profileRes.error) throw profileRes.error;
         this.profile = profileRes.data;
+        profilCacheSimpan(profileRes.data);
         this.ngForm.pic = this.profile?.full_name || "";
         this.restoreLocalState();
         await this.fetchProduksiPartNumberOptions();
