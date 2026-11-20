@@ -461,7 +461,10 @@
         // Di tab Harian shift SENGAJA tidak dikirim -- papan Dekidaka memakai
         // pemilih shift miliknya sendiri, karena panel lain di tab itu sehari penuh.
         const isi = this.tampil === "harian" ? { tanggal: this.perjamTgl } : { tanggal: this.perjamTgl, shift: this.perjamShift };
-        frames.forEach((fr) => { if (fr && fr.contentWindow) { fr.contentWindow.postMessage({ dekidakaSet: isi }, "*"); if (fr.closest(".dl-deki")) kecil = true; } });
+        // Takt Time bulan terpilih ikut dikirim tiap papan Dekidaka disinkronkan,
+        // supaya angkanya selalu ikut Bulan/Tahun yang lagi dibuka di atas.
+        const tt = { taktTime: this.talkTime.taktTime };
+        frames.forEach((fr) => { if (fr && fr.contentWindow) { fr.contentWindow.postMessage({ dekidakaSet: isi }, "*"); fr.contentWindow.postMessage({ dekidakaTalkTime: tt }, "*"); if (fr.closest(".dl-deki")) kecil = true; } });
         if (kecil) { this._dekiAck = false; setTimeout(() => { if (this.dekiSiap && !this._dekiAck) this.pesan = "Papan Dekidaka belum ikut tanggal/shift - tekan Ctrl+F5 sekali."; }, 6000); }
       },
       dekiAksi(a, besar) { const fr = document.querySelector(besar ? ".dl-besar iframe" : ".dl-deki iframe"); if (fr && fr.contentWindow) fr.contentWindow.postMessage({ dekidakaAksi: a }, "*"); },
@@ -702,6 +705,7 @@
         this.dataAll = semua;
         this.memuat = false;
         this.$nextTick(() => this.gambar());
+        this.dekiSinkron();   // dataAll baru terisi di sini -> Takt Time di papan Dekidaka ikut disegarkan
       },
 
       data: null,
@@ -741,22 +745,19 @@
           breakMenit: Math.round(r.breakB || 0), whJam: Number(jam.toFixed(1)),
         };
       },
-      // Cycle Time vs Takt Time, bulan terpilih. Dihitung dari angka MENTAH
-      // (whB/dtB/qtyB, belum dibulatkan) -- bukan dari this.ringkas -- supaya
-      // tidak numpuk pembulatan 2 kali.
-      //   Cycle Time = waktu kerja BERSIH (sudah dikurangi downtime) / qty
-      //     -> kecepatan AKTUAL rata-rata per pcs.
-      //   Takt Time  = waktu kerja TERSEDIA (sebelum dikurangi downtime) / qty
-      //     -> kecepatan yang seharusnya dicapai kalau tidak ada downtime.
-      // Catatan: belum ada data target/demand pengiriman bulanan yang terpisah
-      // di line ini, jadi qty pembaginya sama-sama pakai Qty Produksi aktual.
+      // Takt Time bulan terpilih = waktu kerja TERSEDIA sebulan (detik) / Qty
+      // Produksi sebulan -> kecepatan yang seharusnya dicapai kalau tidak ada
+      // downtime. Dikirim ke papan Dekidaka (iframe) lewat postMessage di
+      // dekiSinkron(), ditampilkan di situ sejajar Cleaning Nozzle. Cycle Time
+      // TIDAK dihitung di sini -- itu diambil apa adanya dari CT TARGET yang
+      // sudah ada di papan Dekidaka sendiri (DKD_REF_DATA di machine-page.js),
+      // supaya angkanya dijamin selalu sama, tidak pernah beda sendiri.
+      // Dihitung dari angka MENTAH (whB/dtB/qtyB) -- bukan dari this.ringkas
+      // yang sudah dibulatkan -- supaya tidak numpuk pembulatan 2 kali.
       get talkTime() {
         const r = (this.dataAll && this.dataAll.ringkas) || {};
-        const whDtk = (r.whB || 0) * 60, dtDtk = (r.dtB || 0) * 60, qty = r.qtyB || 0;
-        return {
-          cycleTime: qty > 0 ? Math.max(0, whDtk - dtDtk) / qty : 0,
-          taktTime: qty > 0 ? whDtk / qty : 0,
-        };
+        const whDtk = (r.whB || 0) * 60, qty = r.qtyB || 0;
+        return { taktTime: qty > 0 ? whDtk / qty : 0 };
       },
       ringkasKelas() {
         const d = this.ringkas;

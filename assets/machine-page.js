@@ -618,6 +618,23 @@ function dkdBuildRefHTML(line) {
     </div>
   </div>`;
 }
+// Cycle Time vs Takt Time -- kotak kecil TERPISAH, ditaruh di POJOK KIRI
+// papan (sebelum teks besar nama line), bukan di dalam dkd-ref-wrap yang
+// posisinya ketarik ke kanan (margin-left:auto).
+//   Cycle Time: diambil apa adanya dari kolom CT di tabel CT TARGET (baris
+//     pertama yang terisi) -- bukan dihitung ulang -- supaya angkanya
+//     dijamin selalu sama persis dengan CT TARGET, tidak pernah beda sendiri.
+//   Takt Time: "-" dulu, nanti diisi dari halaman induk (Dashboard Line)
+//     lewat postMessage "dekidakaTalkTime" (lihat listener di dekidakaInit).
+function dkdBuildTalkHTML(line) {
+  const d = DKD_REF_DATA[line];
+  const ctVal = d ? (d.ct.find((r) => r[2] !== "") || [])[2] || "" : "";
+  const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  return `<table class="dkd-ref-tbl dkd-ref-talk"><tbody>
+      <tr><td class="dkd-ref-l">Cycle Time</td><td class="dkd-ref-n">${esc(ctVal)}</td><td>detik</td></tr>
+      <tr><td class="dkd-ref-l">Takt Time</td><td class="dkd-ref-n dkd-takt-val">-</td><td>detik</td></tr>
+    </tbody></table>`;
+}
 // Kolom model di samping "Desc": dasarnya DKD_COLUMN_LABELS, lalu disesuaikan dengan tabel
 // CT TARGET line itu: (1) kolom gabungan (mis. "D40/D13") dipecah kalau tiap modelnya
 // berdiri sendiri di CT TARGET, (2) model CT TARGET yang belum punya kolom ditambahkan
@@ -724,6 +741,7 @@ function dkdBuildBoardHTML(line) {
   const yyyy = today.getFullYear(), mm = String(today.getMonth() + 1).padStart(2, "0"), dd = String(today.getDate()).padStart(2, "0");
   return `
     <div class="dkd-top-row">
+      <div class="dkd-talk-wrap">${dkdBuildTalkHTML(line)}</div>
       <div class="dkd-big-line">${line}</div>
       <div class="dkd-tables-wrap">
         ${dkdBuildRefHTML(line)}
@@ -1859,6 +1877,20 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (inline && window.parent !== window) {
         const kirimZoom = () => { try { window.parent.postMessage({ dekidakaZoom: this.dekidakaModalZoomLabel() }, "*"); } catch (e) {} };
         window.addEventListener("message", (e) => {
+          // Takt Time bulan terpilih dari halaman induk -> tulis ke sel di
+          // tabel referensi (sejajar Cleaning Nozzle), coba lagi kalau papan
+          // belum siap saat pesan datang.
+          const tt = e.data && e.data.dekidakaTalkTime;
+          if (tt) {
+            const tulis = (sisa) => {
+              const c = this._dkdModalContainer;
+              const el = c && c.querySelector(".dkd-takt-val");
+              if (!el) { if (sisa > 0) setTimeout(() => tulis(sisa - 1), 300); return; }
+              el.textContent = tt.taktTime ? Number(tt.taktTime).toLocaleString("id-ID", { maximumFractionDigits: 1 }) : "-";
+            };
+            tulis(15);
+            return;
+          }
           // Tanggal & shift dari halaman induk -> isi kolom di papan lalu picu "change".
           const st = e.data && e.data.dekidakaSet;
           if (st) {

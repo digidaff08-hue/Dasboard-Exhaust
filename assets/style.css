@@ -1169,7 +1169,11 @@ td.mono, .mono { font-family: var(--font-mono); }
 .dkd-kartu-bawah:not(.dkd-ringkas) .dkd-summary .dkd-card .dkd-card-lbl{ font-size:0.75rem; }
 .dkd-kartu-bawah:not(.dkd-ringkas) .dkd-summary .dkd-card .dkd-card-val{ font-size:1.5rem; }
 .dkd-ringkas .dkd-info-bar{ padding:4px 6px; }
-.dkd-top-row{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
+.dkd-top-row{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; position:relative; }
+/* Cycle Time / Takt Time -- pojok kiri papan. Posisinya SENGAJA absolute,
+   dilepas dari alur flex baris ini -- supaya tidak ikut geser tulisan besar
+   nama line (dkd-big-line) atau apa pun yang lain di baris ini. */
+.dkd-talk-wrap{ position:absolute; left:0; top:0; }
 .dkd-big-line{ font-size:5.625rem; font-weight:900; line-height:1; color:var(--dkd-accent, #111); letter-spacing:-2px; white-space:nowrap; }
 .dkd-tables-wrap{ display:flex; align-items:flex-start; gap:28px; margin-left:auto; }
 /* Placeholder "menyusul" -- dulu di sini ada tabel referensi (Cleaning
