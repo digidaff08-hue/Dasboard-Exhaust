@@ -741,6 +741,23 @@
           breakMenit: Math.round(r.breakB || 0), whJam: Number(jam.toFixed(1)),
         };
       },
+      // Cycle Time vs Takt Time, bulan terpilih. Dihitung dari angka MENTAH
+      // (whB/dtB/qtyB, belum dibulatkan) -- bukan dari this.ringkas -- supaya
+      // tidak numpuk pembulatan 2 kali.
+      //   Cycle Time = waktu kerja BERSIH (sudah dikurangi downtime) / qty
+      //     -> kecepatan AKTUAL rata-rata per pcs.
+      //   Takt Time  = waktu kerja TERSEDIA (sebelum dikurangi downtime) / qty
+      //     -> kecepatan yang seharusnya dicapai kalau tidak ada downtime.
+      // Catatan: belum ada data target/demand pengiriman bulanan yang terpisah
+      // di line ini, jadi qty pembaginya sama-sama pakai Qty Produksi aktual.
+      get talkTime() {
+        const r = (this.dataAll && this.dataAll.ringkas) || {};
+        const whDtk = (r.whB || 0) * 60, dtDtk = (r.dtB || 0) * 60, qty = r.qtyB || 0;
+        return {
+          cycleTime: qty > 0 ? Math.max(0, whDtk - dtDtk) / qty : 0,
+          taktTime: qty > 0 ? whDtk / qty : 0,
+        };
+      },
       ringkasKelas() {
         const d = this.ringkas;
         if (!d.stroke) return "status-none";
