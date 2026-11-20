@@ -83,7 +83,16 @@
   .dl-pj-judul { writing-mode: vertical-rl; transform: rotate(180deg); font: 700 0.8125rem Arial, sans-serif; letter-spacing: .04em; padding: 0 3px 0 4px; text-align: center; white-space: nowrap; }
   .dl-pj-kanvas { position: relative; flex: 1; min-width: 0; }
   .dl-chart { position: relative; flex: 1; min-height: 0; }
-  .dl-deki { grid-column: 1; padding: 0; flex-direction: row; }
+  /* Kolom 1 sekarang jadi bungkusan flex vertikal: kartu Cycle Time/Takt Time
+     (tinggi secukupnya) di atas, lalu Ringkasan Bulan ATAU papan Dekidaka
+     (bergantian, ngisi sisa tinggi) di bawahnya. */
+  .dl-kol1 { grid-column: 1; display: flex; flex-direction: column; gap: 5px; min-width: 0; min-height: 0; }
+  .dl-kol1 > .dl-ringkas, .dl-kol1 > .dl-deki { flex: 1 1 auto; min-height: 0; }
+  .dl-talktime { flex: 0 0 auto; flex-direction: row; align-items: center; gap: 16px; padding: 7px 12px 6px; }
+  .dl-tt-item { display: flex; align-items: baseline; gap: 6px; }
+  .dl-tt-lbl { font-size: 0.6875rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+  .dl-tt-val { font-size: 0.9375rem; font-weight: 800; }
+  .dl-deki { padding: 0; flex-direction: row; }
   .dl-deki-tools { flex: 0 0 32px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 4px; border-left: 1px solid var(--border); background: rgba(128,128,128,.05); }
   .dl-tool { width: 30px; height: 30px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); font: inherit; font-size: 0.9375rem; font-weight: 700; line-height: 1; cursor: pointer; padding: 0; }
   .dl-tool:hover { border-color: #4f5fe0; color: #4f5fe0; }
@@ -128,7 +137,7 @@
     .dl-main { height: auto; overflow: visible; }
     .dl-grid { grid-template-columns: 1fr; grid-template-rows: none; min-height: 0; }
     .dl-grid > * { grid-column: auto !important; min-width: 0; }
-    .dl-grid > .dl-deki { order: 1; height: 430px; }
+    .dl-grid > .dl-kol1 { order: 1; height: 430px; }
     .dl-grid > .dl-tengah { order: 2; grid-template-rows: none; grid-auto-rows: auto; }
     .dl-grid > .dl-kol5 { order: 3; grid-template-rows: none; grid-auto-rows: 290px; }
     .dl-pjrow { height: 300px; }
@@ -138,7 +147,7 @@
     .dl-top { flex-wrap: wrap; }
   }
   @media (min-width: 700px) and (max-width: 1100px) {
-    .dl-grid > .dl-deki { height: 600px; }
+    .dl-grid > .dl-kol1 { height: 600px; }
     .dl-grid > .dl-kol5 { grid-template-columns: 1fr 1fr; }
     .dl-kol5 > .dl-o7 { grid-column: 1 / -1; }
   }
@@ -290,6 +299,15 @@
 
         <!-- Kategori dipilih lewat submenu di sidebar (dlMenu di JS: E-02 sampai E-07). -->
         <div class="dl-grid">
+        <div class="dl-kol1">
+          <!-- Cycle Time (aktual, bulan terpilih) vs Takt Time (kecepatan yang
+               seharusnya dicapai kalau tidak ada downtime). Nempel di atas
+               papan Dekidaka, cuma tampil di tab Control Board & Harian --
+               tab Bulanan sudah punya kartu Ringkasan sendiri. -->
+          <div class="dl-box dl-talktime" x-show="tampil !== 'bulanan'" x-cloak>
+            <div class="dl-tt-item"><span class="dl-tt-lbl">Cycle Time</span><span class="dl-tt-val" x-text="fmtNum(talkTime.cycleTime) + ' dtk'"></span></div>
+            <div class="dl-tt-item"><span class="dl-tt-lbl">Takt Time</span><span class="dl-tt-val" x-text="fmtNum(talkTime.taktTime) + ' dtk'"></span></div>
+          </div>
           <!-- Tab Bulanan: papan Dekidaka diganti Rekap per Part Number. Papan itu
                lembar 1 hari 1 shift, menyesatkan di papan yang isinya sebulan. -->
           <!-- Ringkasan Bulan + Rekap per Part Number dalam SATU kartu.
@@ -393,6 +411,7 @@
               <button type="button" class="dl-tool" title="Lihat versi besar" @click="bukaDekidaka()"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
             </div>
           </section>
+        </div>
           <div class="dl-tengah">
           <div class="dl-pjrow">
             <section class="dl-box" x-show="tampil === 'bulanan'" x-cloak>
