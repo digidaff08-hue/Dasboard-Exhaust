@@ -18,7 +18,7 @@
   const COL = { productivity: "#0EA5E9", availability: "#10B981", downtime: "#F97316", ngInline: "#F43F5E", money: "#1D4ED8", straight: "#14B8A6", perjam: "#6366F1", trend: "#2563EB" };
 
   // Naikkan setiap kali file Dekidaka (machine-page.js, style.css, dekidaka-line.html) berubah.
-  const DEKI_VER = "20261120a";
+  const DEKI_VER = "20261113a";
 
   const mgCache = {};   // hasil Trend Volume per line|tahun|bulan -> tidak hitung ulang saat pindah line (berlaku 10 menit)
   const pad2 = (n) => String(n).padStart(2, "0");
@@ -463,7 +463,12 @@
         const isi = this.tampil === "harian" ? { tanggal: this.perjamTgl } : { tanggal: this.perjamTgl, shift: this.perjamShift };
         // Takt Time bulan terpilih ikut dikirim tiap papan Dekidaka disinkronkan,
         // supaya angkanya selalu ikut Bulan/Tahun yang lagi dibuka di atas.
-        const tt = this.talkTime;
+        // WAJIB disalin jadi objek biasa berisi ANGKA saja. this.talkTime itu
+        // objek reaktif Alpine (Proxy) -- kalau dikirim apa adanya,
+        // postMessage gagal ("could not be cloned") dan angkanya tidak pernah
+        // sampai ke papan Dekidaka.
+        const t0 = this.talkTime;
+        const tt = { taktTime: Number(t0.taktTime) || 0, whJam: Number(t0.whJam) || 0, qty: Number(t0.qty) || 0 };
         frames.forEach((fr) => { if (fr && fr.contentWindow) { fr.contentWindow.postMessage({ dekidakaSet: isi }, "*"); fr.contentWindow.postMessage({ dekidakaTalkTime: tt }, "*"); if (fr.closest(".dl-deki")) kecil = true; } });
         if (kecil) { this._dekiAck = false; setTimeout(() => { if (this.dekiSiap && !this._dekiAck) this.pesan = "Papan Dekidaka belum ikut tanggal/shift - tekan Ctrl+F5 sekali."; }, 6000); }
       },
