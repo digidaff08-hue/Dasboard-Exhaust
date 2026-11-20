@@ -148,21 +148,13 @@
   }
 </style>
 
-<script>
-  // Supaya browser pasti ambil file lokal terbaru (bukan dari cache lama)
-  // tiap kali filenya ditimpa -- tanpa ini, isi halaman kadang masih versi
-  // lama walau sudah Ctrl+F5, karena iframe Dekidaka di dalamnya bisa tetap
-  // memakai salinan lama dari cache.
-  document.write('<script src="assets/pengaturan.js?v=' + Date.now() + '"><\/script>');
-</script>
+<script src="assets/pengaturan.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-<script>
-  document.write('<script src="assets/supabaseClient.js?v=' + Date.now() + '"><\/script>');
-  document.write('<script src="assets/realtime.js?v=' + Date.now() + '"><\/script>');
-  document.write('<script src="assets/dashboard-line.js?v=' + Date.now() + '"><\/script>');
-</script>
+<script src="assets/supabaseClient.js"></script>
+<script src="assets/realtime.js"></script>
+<script src="assets/dashboard-line.js"></script>
 </head>
 <body>
 
