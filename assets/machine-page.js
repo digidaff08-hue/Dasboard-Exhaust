@@ -437,7 +437,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261113a";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261121h";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:40", "20:30"] },
@@ -896,6 +896,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     ngForm: { tanggal: localDateStr(new Date()), jam: localTimeStr(new Date()), type_ng: "", pic: "", model: "", part_number: "", area_id: "", area: "", ng_proses: "", qty: "", harga: 0, ng_kategori: "", reason: "" },
     ngFotoFile: null, ngFotoPreviewUrl: "", ngSaving: false, ngFotoCompressing: false,
     editingNgId: null, ngExistingFotoUrl: "",
+    // Alamat foto yang sedang dibuka besar di layar (kosong = tidak ada yang
+    // dibuka). Dipakai penampil foto di halaman yang sama, pengganti buka
+    // tab baru saat foto di tabel Riwayat NG Inline diklik.
+    fotoBesar: "",
 
     editingDowntimeId: null, dtForm: {},
     editingNonProduksiId: null, nonProduksiEditForm: {},
@@ -4410,7 +4414,19 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         // lapangan memang diisi kegiatan Non-Produksi seperti K dan C.
         // Syaratnya DI DEPAN blok pertama; jeda antar blok (jam istirahat)
         // sengaja dibiarkan kosong, bukan dibuatkan baris.
-        antre.unshift({ awal: mulai, akhir: blok[0].awal });
+        //
+        // KHUSUS SHIFT 1: jeda 07:00-07:15 dipecah jadi DUA baris,
+        // 07:00-07:05 dan 07:05-07:15, supaya kegiatan K dan C punya
+        // barisnya masing-masing. Pemecahan hanya dilakukan kalau jedanya
+        // masih utuh dari awal shift; kalau sudah terpotong kegiatan
+        // sebelumnya, sisanya tetap satu baris seperti biasa.
+        const awalShift = this.pjRentangShift().a;
+        const potong = new Date(mulai.getTime() + 5 * 60000);
+        if (this.pjShift === "1" && mulai.getTime() === awalShift.getTime() && potong < blok[0].awal) {
+          antre.unshift({ awal: mulai, akhir: potong }, { awal: potong, akhir: blok[0].awal });
+        } else {
+          antre.unshift({ awal: mulai, akhir: blok[0].awal });
+        }
       } else if (terakhir && terakhir > blok[0].awal && terakhir < blok[0].akhir) {
         // Kegiatan terakhir berhenti di tengah blok -> baris berikutnya
         // menyambung dari situ, bukan dari awal blok.
@@ -4455,14 +4471,19 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     pjTotalTarget() {
       return this.pjBaris.reduce((s, b) => s + (this.pjTargetJam(b) || 0), 0);
     },
-    // ---- Rekap Part No. satu hari produksi (Shift 1 + Shift 2 digabung) ----
+    // ---- Rekap Part No. SATU SHIFT (shift yang lagi dipilih saja) ----
     // Dasarnya baris yang SUDAH TERSIMPAN, bukan isian yang masih di layar,
     // supaya angkanya sama dengan yang ada di Riwayat.
+    // Saringannya sengaja memakai pjShiftDari() -- helper yang sama persis
+    // dengan yang dipakai pjMuat() untuk mengisi tabel di bawah. Jadi isi
+    // rekap ini dijamin selalu sama dengan baris yang tampil di layar:
+    // pindah ke Shift 2, rekapnya ikut mulai dari nol lagi.
     pjRekapPart() {
       const want = this.dbStasiun(this.pjStasiun), map = new Map();
       (this.productionRows || []).forEach((r) => {
         if (r._pending || (r.stasiun || null) !== want) return;
         if (this.hariProduksiBaris(r) !== this.pjTgl) return;
+        if (!r.waktu_awal || this.pjShiftDari(new Date(r.waktu_awal)) !== this.pjShift) return;
         const p = r.part_number || ""; if (!p) return;
         map.set(p, (map.get(p) || 0) + (Number(r.qty) || 0));
       });
@@ -4483,6 +4504,56 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
     PJ_HH: Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")),
     PJ_MM: Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0")),
+    // ---- Mode ketik jam untuk perangkat sentuh (iPad / HP) ----
+    // Di perangkat yang alat tunjuk UTAMAnya jari (pointer: coarse), roda
+    // Jam/Menit diganti dua kotak ketik. PC/laptop bermouse tidak terpengaruh:
+    // laptop berlayar sentuh yang dipakai dengan mouse pun tetap dianggap PC,
+    // karena yang diperiksa alat tunjuk utamanya, bukan ada-tidaknya layar
+    // sentuh. Baris kedua menangkap iPadOS yang menyamar jadi Mac
+    // (Safari "Request Desktop Website").
+    pjSentuh: (() => {
+      try {
+        const ua = String(navigator.userAgent || "");
+        const platform = String(navigator.platform || "");
+        const jariMax = Number(navigator.maxTouchPoints) || 0;
+        const mq = window.matchMedia ? (q) => window.matchMedia(q).matches : () => false;
+        // 1) iPhone / iPad / Android -- dikenali dari identitas perangkatnya,
+        //    jadi TETAP terdeteksi walaupun iPad-nya dipasangi mouse atau
+        //    trackpad (kasus ini yang bikin aturan lama meleset).
+        if (/iPhone|iPad|iPod|Android/i.test(ua)) return true;
+        // 2) iPadOS mode "situs desktop": ia mengaku Mac. Mac asli tidak
+        //    punya layar sentuh, jadi Mac + layar sentuh pasti iPad.
+        if (jariMax > 1 && /Mac/i.test(platform + " " + ua)) return true;
+        // Komputer meja/laptop: APA PUN hasil pemeriksaan di bawah, tampilan
+        // tidak diubah -- termasuk laptop Windows yang layarnya bisa disentuh.
+        if (/Windows NT|Linux x86|CrOS/i.test(ua)) return false;
+        // 3) Tablet lain: ADA alat tunjuk jari, walau mouse ikut terpasang.
+        if (mq("(any-pointer: coarse)")) return true;
+        // 4) Cadangan terakhir: alat tunjuk UTAMA memang jari.
+        return mq("(pointer: coarse)");
+      } catch (e) { return false; }
+    })(),
+    // Rapikan satu angka jam/menit: ambil digitnya saja, batasi 23 / 59,
+    // lalu jadikan 2 digit. Dipakai saat selesai mengetik dan saat tekan OK.
+    pjRapi(v, maks) {
+      const n = String(v == null ? "" : v).replace(/[^0-9]/g, "").slice(0, 2);
+      if (n === "") return "00";
+      return String(Math.min(Number(n), maks)).padStart(2, "0");
+    },
+    // Dipanggil tiap ketikan. Angka dibiarkan apa adanya dulu (belum dipotong
+    // ke 23/59) supaya mengetik "0" lalu "9" tidak diganggu; perapiannya
+    // dilakukan saat pindah kotak atau tekan OK.
+    pjKetikWaktu(e, bagian, lanjut) {
+      const v = String(e.target.value || "").replace(/[^0-9]/g, "").slice(0, 2);
+      this.pjPick[bagian] = v;
+      e.target.value = v;
+      // Dua digit di kotak Jam -> pindah sendiri ke kotak Menit.
+      if (bagian === "h" && v.length === 2 && lanjut) { lanjut.focus(); lanjut.select(); }
+    },
+    pjKetikBeres(bagian) {
+      if (!this.pjPick) return;
+      this.pjPick[bagian] = this.pjRapi(this.pjPick[bagian], bagian === "h" ? 23 : 59);
+    },
     // Pilihan jam 24-jam (tanpa AM/PM): bagian = "h" atau "m"
     pjBagian(jam, bagian) { const p = String(jam || "").split(":"); return bagian === "h" ? (p[0] || "") : (p[1] || ""); },
     pjSetJam(b, k, i, bagian, nilai) {
@@ -4619,6 +4690,9 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     pjPickGantiTgl(v) { if (!v) return; this.pjPick.tgl = v; this.pjPick.manual = true; },
     pjPickOk() {
       const q = this.pjPick; if (!q) return;
+      // Jaga-jaga kalau OK ditekan saat kotak ketik masih berisi "7" atau
+      // kosong: angkanya dirapikan dulu supaya yang tersimpan selalu HH:MM.
+      q.h = this.pjRapi(q.h, 23); q.m = this.pjRapi(q.m, 59);
       const b = this.pjBaris[q.i]; b[q.k] = q.h + ":" + q.m; b[q.k + "Tgl"] = q.manual ? q.tgl : "";
       this.pjPick = null; this.pjJam(b, q.k, q.i);
     },
@@ -5493,8 +5567,16 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         pointId, ids: ids || null,
         judul: "Titik " + ((pt && pt.label) || rows[0].point_label || "-"),
         tanggal: this.repairHeatTgl,
-        rows: rows.map((r) => ({ id: r.id, jam: String(r.jam || "").slice(0, 5), kategori: r.kategori_repair || "-", qty: Number(r.qty) || 0, part: String(r.part_number || "-").split("-").slice(1).join("-") || r.part_number || "-", pic: this.repairPic[r.created_by] || "" })),
+        rows: rows.map((r) => ({ id: r.id, jam: String(r.jam || "").slice(0, 5), kategori: r.kategori_repair || "-", qty: Number(r.qty) || 0, part: String(r.part_number || "-").split("-").slice(1).join("-") || r.part_number || "-", pic: this.repairPic[r.created_by] || "", okNg: String(r.ok_ng || "").toUpperCase() })),
         total: rows.reduce((t, r) => t + (Number(r.qty) || 0), 0),
+        // OK / NG diambil dari kolom OK/NG di Riwayat Repair (repair_log.ok_ng),
+        // dihitung dalam PCS (jumlah qty) -- satuannya sama dengan "Total ... pcs"
+        // di sebelahnya, jadi OK + NG selalu pas dengan totalnya.
+        // Baris lama yang kolom OK/NG-nya masih kosong tidak masuk hitungan
+        // mana pun -- qty-nya ditandai terpisah lewat "tanpaOkNg".
+        ok: rows.filter((r) => String(r.ok_ng || "").toUpperCase() === "OK").reduce((t, r) => t + (Number(r.qty) || 0), 0),
+        ng: rows.filter((r) => String(r.ok_ng || "").toUpperCase() === "NG").reduce((t, r) => t + (Number(r.qty) || 0), 0),
+        tanpaOkNg: rows.filter((r) => !String(r.ok_ng || "").trim()).reduce((t, r) => t + (Number(r.qty) || 0), 0),
       };
     },
     tutupKartuRepair() { this.repairKartu = null; },

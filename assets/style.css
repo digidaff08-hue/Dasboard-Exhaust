@@ -633,6 +633,38 @@ td.mono, .mono { font-family: var(--font-mono); }
 
 /* ---------- Thumbnail foto di tabel -- kasih border + efek zoom halus
    biar kelihatan jelas itu bisa diklik/dibesarin. ---------- */
+/* Penanda sel foto di tabel riwayat: "-" kalau baris memang tanpa foto,
+   dan peringatan kecil kalau alamat fotonya ada tapi gambarnya gagal
+   dimuat (biasanya karena bucket penyimpanan tidak publik). */
+.foto-kosong { color: #94a3b8; }
+/* Tombol pembungkus foto di tabel -- dibuat polos supaya tampilannya
+   persis seperti gambar biasa, bukan tombol. */
+.foto-btn { padding: 0; border: 0; background: none; cursor: zoom-in; display: inline-block; line-height: 0; }
+/* Penampil foto besar di halaman yang sama */
+.foto-lihat {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(15, 23, 42, 0.82);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px; cursor: zoom-out;
+}
+.foto-lihat-isi { display: flex; flex-direction: column; align-items: center; gap: 10px; cursor: default; max-width: 100%; }
+.foto-lihat-isi img {
+  max-width: min(92vw, 1100px); max-height: 82vh;
+  object-fit: contain; border-radius: 10px; background: #fff;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}
+.foto-lihat-aksi { display: flex; align-items: center; gap: 10px; }
+.foto-lihat-aksi a { color: #e2e8f0; font-size: 0.8rem; text-decoration: underline; }
+.foto-lihat-aksi button {
+  border: 0; border-radius: 8px; padding: 7px 18px; cursor: pointer;
+  background: #fff; color: #1f2937; font-weight: 700; font-size: 0.8rem; font-family: inherit;
+}
+.foto-gagal {
+  display: inline-block; white-space: nowrap;
+  font-size: 0.66rem; font-weight: 700; color: #b45309;
+  background: #fef3c7; border: 1px solid #fcd34d;
+  border-radius: 6px; padding: 2px 6px;
+}
 .table-thumb {
   width: 44px;
   height: 44px;
@@ -1081,7 +1113,7 @@ td.mono, .mono { font-family: var(--font-mono); }
 .pj-dt-klik { cursor: pointer; color: var(--blue, #2563eb); font-weight: 700; }
 .pj-dt-klik:hover { background: color-mix(in srgb, var(--blue, #2563eb) 10%, transparent); }
 
-.dkd-board{ --dkd-css-build:20261113a; width:1720px; background:#fff; padding:14px 14px 14px 18px; font-size:0.75rem; color:#111; font-family: Arial, Helvetica, sans-serif; border-left:8px solid var(--dkd-accent, #1f4e79); }
+.dkd-board{ --dkd-css-build:20261121h; width:1720px; background:#fff; padding:14px 14px 14px 18px; font-size:0.75rem; color:#111; font-family: Arial, Helvetica, sans-serif; border-left:8px solid var(--dkd-accent, #1f4e79); }
 /* Tombol kecil Print/Export PDF per board (muncul di dkd-info-bar, lihat
    dkdBuildBoardHTML) -- dipakai baik di tab Dekidaka ini maupun di modal
    "Lihat Dekidaka" (halaman line, assets/machine-page.js + assets/style.css
@@ -3674,6 +3706,7 @@ table.plan-shift-table tr.plan-total-row td.balance-bad { color: #fca5a5; }
 .sidebar-foot .net-status { margin-top: 2px; font-size: 0.6875rem; color: #64748b; }
 .sidebar-foot .net-status.net-online { color: #15803d; }
 .sidebar-foot .net-status.net-offline { color: var(--red); }
+.sidebar-foot .net-status.net-pending { color: #b45309; font-weight: 700; }
 .sidebar-foot button,
 .sidebar-foot .btn-ghost {
   margin: 0 0 0 auto;
@@ -4528,6 +4561,32 @@ html[data-ukuran="besar"] { font-size: 17.6px; }
 .pj-roda-list{height:170px;overflow-y:auto;-webkit-overflow-scrolling:touch;border:2px solid #c5d2e6;border-radius:12px;background:#f3f6fb;padding:2px}
 .pj-roda-list button{display:block;width:100%;height:34px;margin:0;padding:0;border:0;background:transparent;border-radius:8px;font-size:18px;font-weight:600;color:#334;cursor:pointer}
 .pj-roda-list button.on{background:#1f4e79;color:#fff}
+/* Kotak ketik Jam/Menit -- pengganti roda di perangkat sentuh (iPad/HP).
+   Gayanya sengaja mengikuti kotak roda (warna & sudut sama) supaya tampilan
+   popup tidak berubah rasa. Kotaknya dibuat besar agar enak ditekan jari. */
+.pj-ketik{display:flex;align-items:flex-end;justify-content:center;gap:10px;margin-bottom:12px}
+.pj-ketik em{font-style:normal;font-size:28px;font-weight:700;color:#1f4e79;padding-bottom:6px}
+.pj-ketik label{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#667;text-align:center}
+.pj-ketik input{width:100%;height:58px;box-sizing:border-box;border:2px solid #c5d2e6;border-radius:12px;background:#f3f6fb;text-align:center;font-size:30px;font-weight:700;color:#1f4e79;font-family:inherit;padding:0}
+.pj-ketik input:focus{outline:none;border-color:#1f4e79;background:#fff}
+/* --- Popup PEMILIH JAM dibuat lebih ringkas ---------------------------
+   Hanya berlaku untuk popup jam (kelas pj-pop-jam dipasang dari markup).
+   Popup lain -- Part No., kategori kerja, dsb -- ukurannya tidak berubah. */
+.pj-pop.pj-pop-jam{width:238px;padding:9px}
+.pj-pop-jam .pj-pop-head{margin-bottom:0}
+.pj-pop-jam .pj-pop-besar{font-size:24px;letter-spacing:1px}
+.pj-pop-jam .pj-tgl-row{gap:5px;margin:0 0 7px}
+.pj-pop-jam .pj-tgl-row > button{width:30px;height:30px;font-size:18px;border-radius:9px}
+.pj-pop-jam .pj-tgl-tengah b,.pj-pop-jam .pj-tgl-btn b{font-size:14px}
+.pj-pop-jam .pj-tgl-btn span{font-size:12px}
+.pj-pop-jam .pj-tgl-tengah i,.pj-pop-jam .pj-tgl-tengah a{font-size:10px}
+.pj-pop-jam .pj-ketik{gap:8px;margin-bottom:9px}
+.pj-pop-jam .pj-ketik em{font-size:20px;padding-bottom:3px}
+.pj-pop-jam .pj-ketik label{font-size:9.5px;gap:2px}
+.pj-pop-jam .pj-ketik input{height:40px;font-size:22px;border-radius:9px}
+.pj-pop-jam .pj-pop-aksi2{gap:7px}
+.pj-pop-jam .pj-pop-aksi2 button{height:34px;font-size:13px;border-radius:9px}
+.pj-pop-jam .pj-cal{margin-bottom:8px}
 .pj-tgl-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;border:0;background:transparent;cursor:pointer;padding:0}
 .pj-tgl-btn span{font-size:15px}
 .pj-cal{margin-bottom:12px}
@@ -4601,7 +4660,13 @@ html.repair-solo #repair-solo-zone .repair-kartu[style*="display: none"]{ displa
 .repair-kartu-x{ border:0; background:transparent; cursor:pointer; font-size:0.8125rem; color:#64748b; padding:0 2px; }
 .repair-kartu-baris{ padding:2px 0; border-bottom:1px dashed #e2e8f0; display:flex; flex-direction:column; }
 .repair-kartu-baris small{ color:#64748b; font-size:0.625rem; }
-.repair-kartu-total{ margin-top:3px; font-weight:800; text-align:right; }
+.repair-kartu-total{ margin-top:3px; font-weight:800; text-align:right; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+/* Ringkasan OK / NG di kartu titik Repair. Warnanya sengaja disamakan
+   dengan badge OK/NG di tabel Riwayat Repair (.tag-chip.rp-ok / .rp-ng). */
+.repair-kartu-okng{ display:inline-flex; align-items:center; gap:6px; font-size:0.72rem; }
+.repair-kartu-okng .rk-ok{ background:#dcfce7; color:#166534; border-radius:999px; padding:1px 8px; }
+.repair-kartu-okng .rk-ng{ background:#fee2e2; color:#991b1b; border-radius:999px; padding:1px 8px; }
+.repair-kartu-okng .rk-kosong{ color:#94a3b8; font-weight:600; }
 
 /* Pilih jam: kolom Jam & Menit seperti di PC -- sama di PC, iPad dan HP */
 .jam-wrap{ position:relative; }
