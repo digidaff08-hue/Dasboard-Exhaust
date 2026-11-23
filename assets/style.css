@@ -1113,7 +1113,7 @@ td.mono, .mono { font-family: var(--font-mono); }
 .pj-dt-klik { cursor: pointer; color: var(--blue, #2563eb); font-weight: 700; }
 .pj-dt-klik:hover { background: color-mix(in srgb, var(--blue, #2563eb) 10%, transparent); }
 
-.dkd-board{ --dkd-css-build:20261123e; width:1720px; background:#fff; padding:14px 14px 14px 18px; font-size:0.75rem; color:#111; font-family: Arial, Helvetica, sans-serif; border-left:8px solid var(--dkd-accent, #1f4e79); }
+.dkd-board{ --dkd-css-build:20261123j; width:1720px; background:#fff; padding:14px 14px 14px 18px; font-size:0.75rem; color:#111; font-family: Arial, Helvetica, sans-serif; border-left:8px solid var(--dkd-accent, #1f4e79); }
 /* Tombol kecil Print/Export PDF per board (muncul di dkd-info-bar, lihat
    dkdBuildBoardHTML) -- dipakai baik di tab Dekidaka ini maupun di modal
    "Lihat Dekidaka" (halaman line, assets/machine-page.js + assets/style.css
@@ -4796,14 +4796,26 @@ html.repair-solo #repair-solo-zone .repair-kartu[style*="display: none"]{ displa
 .rekap-ring th,.rekap-ring td{border:1px solid #111;padding:3px 9px;white-space:nowrap;text-transform:none;letter-spacing:0;color:#111}
 .rekap-ring th{background:#dbe5f1;text-align:left;font-weight:700}
 .rekap-ring td{text-align:right;font-weight:700;min-width:84px}
-.rekap-catatan{margin-top:6px;font-size:10px;color:#64748b}
+.rekap-catatan{margin-top:6px;font-size:10px;line-height:1.3;color:#64748b}
+/* Catatan dipaksa ringkas saat dicetak supaya lembarnya tetap 1 halaman. */
+.rekap-sheet-print .rekap-catatan{margin-top:3px;font-size:8.5px;line-height:1.25}
 
 /* Saat dicetak: lembar memenuhi lebar kertas, bingkai luar dihapus.
    padding-right 3px -- tanpa itu garis tepi kolom terakhir jatuh persis
    di batas kertas dan ikut terpotong printer. */
 .rekap-sheet-print{border:0;min-width:0;padding:0 3px 0 0;width:100%;box-sizing:border-box}
-.rekap-sheet-print .rekap-tabel tbody td{height:122px}
-.rekap-sheet-print .rekap-tabel td.rekap-gambar img{max-height:116px}
+/* 110px, bukan 122: pada A4 mendatar ruang cetaknya ~733px dan dengan
+   122px tinggi lembarnya 732px -- meleset 1px saja sudah jadi 2 halaman. */
+.rekap-sheet-print .rekap-tabel tbody td{height:110px}
+.rekap-sheet-print .rekap-tabel td.rekap-gambar img{max-height:104px}
+/* WAJIB pakai #dkdPrintArea: di @media print ada aturan lama
+   "#dkdPrintArea img { width:100%; max-height:100vh }" untuk papan
+   Dekidaka yang dicetak sebagai satu gambar. Karena pakai ID, aturan itu
+   mengalahkan selector kelas di atas, dan foto Posisi & Kategori ikut
+   dibesarkan sampai lembarnya tumpah ke halaman kedua. */
+@media print {
+  #dkdPrintArea .rekap-sheet img{width:auto;max-width:100%;height:auto;max-height:104px;object-fit:contain}
+}
 .rekap-sheet-print .rekap-tabel td.rekap-after b{min-height:22px}
 .rekap-sheet-print .rekap-tabel td.rekap-after > div:first-child{margin-bottom:16px}
 /* Jaring pengaman: kontrol Mode Atur tidak pernah ikut tercetak. */
@@ -4816,6 +4828,7 @@ html.repair-solo #repair-solo-zone .repair-kartu[style*="display: none"]{ displa
    kontrol di sini tidak ikut tercetak (rekapCetak membuang atribut Alpine
    dan kontrolnya, tapi aturan cetak di bawah jadi jaring pengaman). */
 .rekap-atur-info{font-size:.6875rem;color:#475569;flex-basis:100%;padding:2px 0 0}
+.rekap-atur-mati{color:#92400e}
 .rekap-isi-area{width:100%;font-size:11px;font-weight:700;text-align:center;padding:3px 4px;border:1px solid #93c5fd;border-radius:4px;background:#eff6ff;color:#111}
 .rekap-isi-area::placeholder{font-weight:400;color:#93a3b8}
 .rekap-isi-point{width:54px;font-size:11px;font-weight:700;text-align:center;padding:3px 2px;border:1px solid #93c5fd;border-radius:4px;background:#eff6ff;color:#111}

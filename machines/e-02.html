@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://esm.sh">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script>if (/[?&]solo3d=1/.test(location.search)) document.documentElement.classList.add("repair-solo");</script>
-<link rel="stylesheet" href="../assets/style.css?v=20261123e">
+<link rel="stylesheet" href="../assets/style.css?v=20261123j">
 <script src="../assets/pengaturan.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -21,11 +21,11 @@
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="../assets/supabaseClient.js?v=20261123e"></script>
+<script src="../assets/supabaseClient.js?v=20261123j"></script>
 <script src="../assets/realtime.js"></script>
 <script src="../assets/utils.js"></script>
 <script src="../assets/produksi-join.js"></script>
-<script src="../assets/machine-page.js?v=20261123e"></script>
+<script src="../assets/machine-page.js?v=20261123j"></script>
 <script src="../assets/andon.js"></script>
 <style>
   /* decor-bg-fix */
@@ -2271,7 +2271,11 @@
     <div class="rekap-panel" @click.stop>
       <div class="rekap-bar">
         <label>Bulan</label>
-        <input type="month" x-model="rekapBulan" @change="rekapMuat()">
+        <input type="month" x-model="rekapBulan" @change="rekapGantiBulan()">
+        <!-- Tanggal: untuk menyempitkan ke satu hari. Kosong = seluruh bulan. -->
+        <label>Tanggal</label>
+        <input type="date" x-model="rekapTanggal" :min="rekapBulan + '-01'" :max="rekapBulanAkhir()"
+               title="Kosongkan untuk seluruh bulan" @change="rekapMuat()">
         <!-- Model: SATU-SATU (D40, D13, 889F, ...), bukan nama gabungan
              file 3D-nya. Ganti model -> Part No ikut menyesuaikan. -->
         <label>Model</label>
@@ -2456,15 +2460,6 @@
             <template x-if="!rekapData.baris.length">
               <p class="rekap-kosong">Model ini belum punya titik repair.</p>
             </template>
-            <p class="rekap-catatan" x-show="rekapData.ringkasan.belumMasuk.pcs > 0">
-              Catatan: <b x-text="rekapData.ringkasan.belumMasuk.pcs"></b> pcs
-              (<span x-text="rekapData.ringkasan.belumMasuk.kejadian"></span> kejadian) belum masuk tabel.
-              <template x-if="rekapData.ringkasan.belumMasuk.titik">
-                <span>Titik <b x-text="rekapData.ringkasan.belumMasuk.titik"></b> belum dihubungkan ke Area mana pun &mdash;
-                hubungkan lewat <b>Atur Area</b> &rarr; <b>+ hubungkan titik</b> pada baris Area-nya.</span>
-              </template>
-              Angka ini tetap terhitung di QTY REPAIR PART &amp; rasio.
-            </p>
             <p class="rekap-catatan" x-show="rekapData.ringkasan.produksiSemuaModel">
               Catatan: Part No bulan ini belum terdaftar di model <span x-text="rekapData.header.model"></span>
               pada Master Data NG Inline, jadi Total Produksi memakai seluruh produksi line ini.

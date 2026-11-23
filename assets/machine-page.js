@@ -437,7 +437,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261123e";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261123j";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:40", "20:30"] },
@@ -960,6 +960,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     rekapBuka: false,
     rekapSibuk: false,
     rekapBulan: "",          // "YYYY-MM"
+    rekapTanggal: "",        // "YYYY-MM-DD"; kosong = seluruh bulan
     rekapModel: "",          // model yang dipilih di picker (D40 / D13 / 889F / ...)
     rekapPart: "",           // Part No yang dipilih; kosong = semua part model itu
     rekapViewId: "",         // view 3D yang memuat model itu (dihitung sendiri)
@@ -971,6 +972,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     rekapFoto: {},           // { "Jig 1": "https://...jpg" } -- gambar Posisi & Kategori
     rekapUnggah: "",         // nama Area yang fotonya sedang diunggah
     rekapWarisan: false,     // daftar Area yang tampil masih milik model lain (default)
+    _rekapTimer: null,       // penyegar otomatis selama rekap terbuka
+    _rekapFokus: null,
     rekapMarker: [],         // posisi titik di atas gambar tiap Area
     rekapTaruh: "",          // Area yang sedang dalam mode "taruh titik"
     rekapTaruhPos: null,     // { area, x, y } titik yang baru diklik, menunggu dipilih titiknya
@@ -5758,6 +5761,28 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const d = new Date();
       return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
     },
+    // Pilihan tanggal dalam bulan yang dipilih. Kosong = seluruh bulan.
+    rekapHariOpsi() {
+      const [y, m] = String(this.rekapBulan || "").split("-").map(Number);
+      if (!y || !m) return [];
+      const akhir = new Date(y, m, 0).getDate();
+      const out = [];
+      for (let d = 1; d <= akhir; d++) {
+        out.push({ nilai: this.rekapBulan + "-" + String(d).padStart(2, "0"), teks: String(d) });
+      }
+      return out;
+    },
+    // Tanggal terakhir bulan terpilih -- dipakai batas kalender.
+    rekapBulanAkhir() {
+      const [y, m] = String(this.rekapBulan || "").split("-").map(Number);
+      if (!y || !m) return "";
+      return this.rekapBulan + "-" + String(new Date(y, m, 0).getDate()).padStart(2, "0");
+    },
+    // Ganti bulan -> tanggal yang dipilih ikut dibuang kalau bukan bulan itu.
+    async rekapGantiBulan() {
+      if (this.rekapTanggal && this.rekapTanggal.slice(0, 7) !== this.rekapBulan) this.rekapTanggal = "";
+      await this.rekapMuat();
+    },
     rekapNamaBulan(ym) {
       const nama = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
       const [y, m] = String(ym || "").split("-");
@@ -5767,6 +5792,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
     // Awal & akhir bulan dalam format tanggal lokal "YYYY-MM-DD"
     rekapRentang(ym) {
+      // Kalau satu tanggal dipilih, rentangnya menyempit jadi hari itu saja.
+      if (this.rekapTanggal && this.rekapTanggal.slice(0, 7) === ym) {
+        const [y, m, d] = this.rekapTanggal.split("-").map(Number);
+        const a = new Date(y, m - 1, d);
+        return { a: localDateStr(a), b: localDateStr(a), awal: a, akhir: new Date(y, m - 1, d + 1) };
+      }
       const [y, m] = String(ym || "").split("-").map(Number);
       const a = new Date(y, m - 1, 1);
       const b = new Date(y, m, 0);          // tanggal 0 bulan depan = hari terakhir bulan ini
@@ -5817,21 +5848,48 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
     async bukaRekapRepair() {
       if (!this.rekapBulan) this.rekapBulan = this.rekapBulanIni();
-      if (!this.rekapModel) {
-        // Model awal: ikuti model yang sedang dibuka di tab Repair.
-        const aktif = (this.repairViews || []).find((v) => v.id === this.repairActiveViewId);
-        const pecah = this.rekapPecahLabel(aktif && aktif.label);
-        this.rekapModel = pecah[0] || this.rekapModelOpsi()[0] || "";
-      }
+      // Tampilan pertama: SEMUA MODEL -- gambaran se-line dulu, baru
+      // dipersempit sendiri ke satu model kalau perlu.
+      if (!this.rekapModel) this.rekapModel = "*";
       this.rekapBuka = true;
       // Halaman di belakang dikunci: tanpa ini roda mouse masih
       // menggulung halaman mesin di balik lembar rekap.
       document.body.style.overflow = "hidden";
       await this.rekapMuat();
+      this.rekapMulaiSegar();
+    },
+    // Selama rekap terbuka, datanya disegarkan sendiri. Input repair
+    // biasanya datang dari HP leader -- tanpa ini layar rekap harus
+    // di-refresh manual dulu baru angkanya muncul.
+    rekapMulaiSegar() {
+      this.rekapHentiSegar();
+      this._rekapTimer = setInterval(() => this.rekapSegarDiam(), 20000);
+      this._rekapFokus = () => { if (!document.hidden) this.rekapSegarDiam(); };
+      document.addEventListener("visibilitychange", this._rekapFokus);
+      window.addEventListener("focus", this._rekapFokus);
+    },
+    rekapHentiSegar() {
+      if (this._rekapTimer) { clearInterval(this._rekapTimer); this._rekapTimer = null; }
+      if (this._rekapFokus) {
+        document.removeEventListener("visibilitychange", this._rekapFokus);
+        window.removeEventListener("focus", this._rekapFokus);
+        this._rekapFokus = null;
+      }
+    },
+    // Penyegaran otomatis sengaja DILEWATI saat Mode Atur atau saat ada
+    // isian yang sedang dipakai -- kalau tidak, ketikan/pilihan bisa
+    // terlempar di tengah jalan.
+    rekapSegarDiam() {
+      if (!this.rekapBuka || this.rekapSibuk || this.rekapAtur) return;
+      const f = document.activeElement;
+      if (f && f.closest && f.closest(".rekap-overlay") &&
+          /^(INPUT|SELECT|TEXTAREA)$/.test(f.tagName)) return;
+      this.rekapMuat();
     },
     tutupRekapRepair() {
       this.rekapBuka = false;
       this.rekapAtur = false;
+      this.rekapHentiSegar();
       document.body.style.overflow = "";
     },
     // Ganti model -> Part No ikut ganti (pilihan lama dibuang kalau bukan
@@ -6094,7 +6152,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           if (l && !labelSisa.includes(l)) labelSisa.push(l);
         });
         labelSisa.sort();
-        const belumMasuk = { kejadian: sisa.length, pcs: pcs(sisa), titik: labelSisa.join(", ") };
+        // Dibatasi 10 nama saja: kalau semuanya ditulis, catatannya bisa
+        // dua-tiga baris dan hasil cetaknya jadi tumpah ke halaman kedua.
+        const titikTeks = labelSisa.length > 10
+          ? labelSisa.slice(0, 10).join(", ") + " dan " + (labelSisa.length - 10) + " lainnya"
+          : labelSisa.join(", ");
+        const belumMasuk = { kejadian: sisa.length, pcs: pcs(sisa), titik: titikTeks };
         // Lembarnya selalu 11 baris seperti formulir aslinya: sisanya baris
         // kosong, siap ditulis tangan / diisi belakangan.
         const MIN_BARIS = 11;
@@ -6116,7 +6179,9 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
             // supaya hasil cetaknya jelas mencakup model apa saja.
             model: semua ? (this.rekapModelOpsi().join(" / ") || "-") : (this.rekapModel || "-"),
             partNo: partNo.length ? partNo.join(" / ") : "-",
-            bulan: this.rekapNamaBulan(this.rekapBulan),
+            bulan: this.rekapTanggal && this.rekapTanggal.slice(0, 7) === this.rekapBulan
+              ? (Number(this.rekapTanggal.slice(8, 10)) + " " + this.rekapNamaBulan(this.rekapBulan))
+              : this.rekapNamaBulan(this.rekapBulan),
           },
           baris,
           ringkasan: {
@@ -6567,6 +6632,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           if (tanpaSentuh || tanpaOkNg) this.flash("Repair tersimpan, tapi " + (tanpaOkNg ? "OK/NG" : "posisi sentuh") + " belum bisa disimpan (database belum diperbarui).", true); else this.flash("Data Repair tersimpan.");
         }
         this.closeRepairModal();
+        if (this.rekapBuka) this.rekapMuat();   // rekap yang terbuka ikut diperbarui
       } catch (err) {
         this.flash("Gagal simpan Repair: " + (err.message || err), true);
       } finally {
@@ -6578,6 +6644,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const { error } = await supabaseClient.from("repair_log").delete().eq("id", id);
       if (error) { this.flash("Gagal hapus: " + error.message, true); return; }
       this.repairLogRows = this.repairLogRows.filter((r) => r.id !== id);
+      if (this.rekapBuka) this.rekapMuat();
     },
 
     // ---- Master Data: Kategori Repair ----
