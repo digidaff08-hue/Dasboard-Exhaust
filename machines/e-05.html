@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://esm.sh">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script>if (/[?&]solo3d=1/.test(location.search)) document.documentElement.classList.add("repair-solo");</script>
-<link rel="stylesheet" href="../assets/style.css?v=20261121w">
+<link rel="stylesheet" href="../assets/style.css?v=20261123e">
 <script src="../assets/pengaturan.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -21,11 +21,11 @@
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="../assets/supabaseClient.js?v=20261121w"></script>
+<script src="../assets/supabaseClient.js?v=20261123e"></script>
 <script src="../assets/realtime.js"></script>
 <script src="../assets/utils.js"></script>
 <script src="../assets/produksi-join.js"></script>
-<script src="../assets/machine-page.js?v=20261121w"></script>
+<script src="../assets/machine-page.js?v=20261123e"></script>
 <script src="../assets/andon.js"></script>
 <style>
   /* decor-bg-fix */
@@ -2272,19 +2272,32 @@
       <div class="rekap-bar">
         <label>Bulan</label>
         <input type="month" x-model="rekapBulan" @change="rekapMuat()">
+        <!-- Model: SATU-SATU (D40, D13, 889F, ...), bukan nama gabungan
+             file 3D-nya. Ganti model -> Part No ikut menyesuaikan. -->
         <label>Model</label>
-        <select x-model="rekapViewId" @change="rekapMuat()">
-          <template x-for="v in repairViews" :key="'rk-' + v.id">
-            <option :value="v.id" x-text="v.label"></option>
+        <select x-model="rekapModel" @change="rekapGantiModel()">
+          <option value="*">Semua Model</option>
+          <template x-for="m in rekapModelOpsi()" :key="'rk-' + m">
+            <option :value="m" x-text="m"></option>
           </template>
         </select>
-        <span x-show="rekapSibuk" style="font-size:.6875rem;color:#64748b;">Menghitung...</span>
+        <!-- Part No: hanya part milik model di atas. Angka di lembar ikut
+             disaring oleh pilihan ini. -->
+        <label>Part No</label>
+        <select x-model="rekapPart" @change="rekapMuat()">
+          <option value="">Semua Part No</option>
+          <template x-for="pn in rekapPartOpsi(rekapModel)" :key="'rp-' + pn">
+            <option :value="pn" x-text="pn"></option>
+          </template>
+        </select>
         <span class="rekap-spacer"></span>
         <!-- Mode Atur: kolom Area, Point dan gambar jadi bisa diedit
              LANGSUNG di tabelnya. Khusus admin karena ini data master. -->
         <template x-if="isAdmin()">
           <button type="button" class="btn-secondary btn-sm" :class="rekapAtur ? 'btn-primary' : ''"
-                  @click="rekapAtur = !rekapAtur; rekapPilihBaris = 0"
+                  :disabled="rekapSemuaModel()"
+                  :title="rekapSemuaModel() ? 'Pilih satu model dulu. Di Semua Model barisnya gabungan beberapa model.' : ''"
+                  @click="rekapAtur = !rekapAtur"
                   x-text="rekapAtur ? '✓ Selesai Atur' : '✏️ Atur Area'"></button>
         </template>
         <button type="button" class="btn-secondary btn-sm" @click="rekapExportExcel()" :disabled="!rekapData || rekapSibuk">&#11015; Excel</button>
@@ -2299,7 +2312,7 @@
           <p class="rekap-kosong">Pilih bulan dan model untuk melihat rekap.</p>
         </template>
         <template x-if="rekapData">
-          <div class="rekap-sheet" :class="rekapAtur ? 'rekap-sheet-atur' : ''">
+          <div class="rekap-sheet" :class="(rekapAtur ? 'rekap-sheet-atur ' : '') + (rekapSibuk ? 'rekap-sheet-sibuk' : '')">
             <h2 class="rekap-judul">RECORD REPAIR</h2>
             <div class="rekap-info">
               <div><b>LINE</b> : <span x-text="rekapData.header.line"></span></div>
@@ -2350,14 +2363,69 @@
                           <!-- Kolom gambar: di Mode Atur selnya jadi tombol
                                tempel foto; di luar Mode Atur cuma gambarnya. -->
                           <td class="rekap-gambar">
-                            <template x-if="r.foto"><img :src="r.foto" alt=""></template>
+                            <!-- Gambar + kotak angka repair tiap titik beserta
+                                 panahnya. Posisi titik disimpan dalam persen,
+                                 jadi ikut menyesuaikan saat gambar diperbesar
+                                 maupun saat dicetak. -->
+                            <template x-if="r.foto">
+                              <div class="rekap-foto-wrap"
+                                   :class="rekapTaruh === r.area ? 'menaruh' : ''"
+                                   @click="rekapKlikGambar(r.area, $event)">
+                                <img :src="r.foto" alt="">
+                                <!-- Satu panah = satu <svg> sendiri. <template x-for>
+                                     TIDAK BOLEH ditaruh di dalam <svg>: di dalam SVG
+                                     tag itu dianggap elemen gambar biasa, isinya tidak
+                                     pernah dirender dan Alpine melempar "t is not
+                                     defined". Jadi perulangannya di luar SVG. -->
+                                <template x-for="t in r.tanda" :key="'ph-' + r.no + '-' + t.id">
+                                  <svg class="rekap-panah" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                    <line :x1="t.kx" :y1="t.ky" :x2="t.x" :y2="t.y"></line>
+                                  </svg>
+                                </template>
+                                <template x-for="t in r.tanda" :key="'tk-' + r.no + '-' + t.id">
+                                  <span class="rekap-ujung" :style="'left:' + t.x + '%;top:' + t.y + '%'"></span>
+                                </template>
+                                <template x-for="t in r.tanda" :key="'kt-' + r.no + '-' + t.id">
+                                  <span class="rekap-kotak" :style="'left:' + t.kx + '%;top:' + t.ky + '%'"
+                                        :title="'Titik ' + t.label" x-text="t.jml"></span>
+                                </template>
+                                <!-- titik yang sudah ditaruh tapi bulan ini nol:
+                                     hanya kelihatan saat Mode Atur -->
+                                <template x-if="rekapAtur">
+                                  <span>
+                                    <template x-for="t in rekapTaruhDiArea(r.area)" :key="'at-' + r.no + '-' + t.point_id">
+                                      <button type="button" class="rekap-titik-atur"
+                                              :style="'left:' + t.x + '%;top:' + t.y + '%'"
+                                              :title="'Titik ' + t.label + ' -- klik untuk lepas dari Area ini'"
+                                              @click.stop="rekapHapusTaruh(r.area, t.point_id)"
+                                              x-text="t.label"></button>
+                                    </template>
+                                  </span>
+                                </template>
+                              </div>
+                            </template>
                             <template x-if="rekapAtur && r.area">
                               <div class="rekap-gambar-aksi">
                                 <label :class="rekapUnggah === r.area ? 'sibuk' : ''">
                                   <input type="file" accept="image/*" @change="rekapUnggahFoto(r.area, $event)">
                                   <span x-text="rekapUnggah === r.area ? 'mengunggah...' : (r.foto ? 'ganti gambar' : '+ tempel gambar')"></span>
                                 </label>
-                                <button type="button" x-show="r.foto" @click="rekapHapusFoto(r.area)">hapus</button>
+                                <button type="button" :class="rekapTaruh === r.area ? 'aktif' : ''"
+                                        @click="rekapMulaiTaruh(r.area, !!r.foto)"
+                                        x-text="rekapTaruh === r.area ? 'selesai taruh titik' : (r.foto ? '+ taruh titik' : '+ hubungkan titik')"></button>
+                                <button type="button" x-show="r.foto" @click="rekapHapusFoto(r.area)">hapus gambar</button>
+                                <!-- daftar titik, muncul setelah mengklik gambar -->
+                                <template x-if="rekapTaruhPos && rekapTaruhPos.area === r.area">
+                                  <div class="rekap-pilih-titik">
+                                    <p x-text="rekapTaruhPos.x === null ? 'Titik mana saja yang masuk Area ini?' : 'Titik mana yang ada di situ?'"></p>
+                                    <template x-for="o in rekapTitikBelumTaruh(r.area)" :key="'pl-' + r.no + '-' + o.p.id">
+                                      <button type="button" :class="o.disini ? 'on' : (o.diarea ? 'lain' : '')"
+                                              :title="o.diarea ? 'Sekarang di Area ' + o.diarea : ''"
+                                              @click="rekapSimpanTaruh(o.p)" x-text="o.nama"></button>
+                                    </template>
+                                    <button type="button" class="batal" @click="rekapTaruhPos = null">batal</button>
+                                  </div>
+                                </template>
                               </div>
                             </template>
                           </td>
@@ -2390,9 +2458,12 @@
             </template>
             <p class="rekap-catatan" x-show="rekapData.ringkasan.belumMasuk.pcs > 0">
               Catatan: <b x-text="rekapData.ringkasan.belumMasuk.pcs"></b> pcs
-              (<span x-text="rekapData.ringkasan.belumMasuk.kejadian"></span> kejadian) belum masuk tabel
-              karena titiknya belum diberi Area atau titiknya sudah dihapus. Angka ini tetap
-              terhitung di QTY REPAIR PART &amp; rasio.
+              (<span x-text="rekapData.ringkasan.belumMasuk.kejadian"></span> kejadian) belum masuk tabel.
+              <template x-if="rekapData.ringkasan.belumMasuk.titik">
+                <span>Titik <b x-text="rekapData.ringkasan.belumMasuk.titik"></b> belum dihubungkan ke Area mana pun &mdash;
+                hubungkan lewat <b>Atur Area</b> &rarr; <b>+ hubungkan titik</b> pada baris Area-nya.</span>
+              </template>
+              Angka ini tetap terhitung di QTY REPAIR PART &amp; rasio.
             </p>
             <p class="rekap-catatan" x-show="rekapData.ringkasan.produksiSemuaModel">
               Catatan: Part No bulan ini belum terdaftar di model <span x-text="rekapData.header.model"></span>

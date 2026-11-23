@@ -1113,7 +1113,7 @@ td.mono, .mono { font-family: var(--font-mono); }
 .pj-dt-klik { cursor: pointer; color: var(--blue, #2563eb); font-weight: 700; }
 .pj-dt-klik:hover { background: color-mix(in srgb, var(--blue, #2563eb) 10%, transparent); }
 
-.dkd-board{ --dkd-css-build:20261121w; width:1720px; background:#fff; padding:14px 14px 14px 18px; font-size:0.75rem; color:#111; font-family: Arial, Helvetica, sans-serif; border-left:8px solid var(--dkd-accent, #1f4e79); }
+.dkd-board{ --dkd-css-build:20261123e; width:1720px; background:#fff; padding:14px 14px 14px 18px; font-size:0.75rem; color:#111; font-family: Arial, Helvetica, sans-serif; border-left:8px solid var(--dkd-accent, #1f4e79); }
 /* Tombol kecil Print/Export PDF per board (muncul di dkd-info-bar, lihat
    dkdBuildBoardHTML) -- dipakai baik di tab Dekidaka ini maupun di modal
    "Lihat Dekidaka" (halaman line, assets/machine-page.js + assets/style.css
@@ -4719,7 +4719,10 @@ html.repair-solo #repair-solo-zone .repair-kartu[style*="display: none"]{ displa
 .rekap-isi{padding:8px 10px;flex:1;min-height:0;overflow:auto}
 .rekap-kosong{padding:26px 12px;text-align:center;color:#64748b;font-size:.8125rem}
 
-.rekap-sheet{background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif;padding:10px 12px;border:1px solid #cbd5e1;min-width:1000px}
+/* Pergantian picker dibuat mulus: lembarnya TIDAK dibongkar-pasang,
+   cuma diredupkan sebentar selagi angkanya dihitung ulang. Tidak ada
+   lagi tulisan "Menghitung..." yang muncul-hilang. */
+.rekap-sheet{transition:opacity .18s ease;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif;padding:10px 12px;border:1px solid #cbd5e1;min-width:1000px}
 .rekap-judul{text-align:center;font-size:19px;font-weight:700;letter-spacing:1px;margin:0 0 8px}
 .rekap-info{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid #111;margin-bottom:8px}
 .rekap-info>div{padding:4px 7px;font-size:12px;border-right:1px solid #111}
@@ -4752,16 +4755,40 @@ html.repair-solo #repair-solo-zone .repair-kartu[style*="display: none"]{ displa
 .rekap-tabel tbody td{height:max(58px, calc((100vh - 250px) / 5))}
 /* Mode Atur menambah satu baris keterangan di bar atas, jadi jatah
    tingginya ditambah supaya tetap tanpa scroll. */
+.rekap-sheet-sibuk{opacity:.55}
 .rekap-sheet-atur .rekap-tabel tbody td{height:max(52px, calc((100vh - 300px) / 5))}
 .rekap-tabel td.rekap-gambar{padding:3px}
+/* Pembungkus gambar: ukurannya mengikuti gambar itu sendiri, supaya
+   posisi kotak angka dalam persen jatuh tepat di atas gambarnya, bukan
+   di atas sel yang lebih lebar. */
+.rekap-foto-wrap{position:relative;display:inline-block;max-width:100%;line-height:0}
 .rekap-tabel td.rekap-gambar img{display:block;max-width:100%;max-height:max(48px, calc((100vh - 280px) / 5));margin:0 auto;object-fit:contain}
+/* Garis panah diberi halo putih -- gambar partnya bisa berlatar gelap,
+   tanpa halo garis hitamnya hilang tidak kelihatan. */
+.rekap-panah{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff)}
+.rekap-panah line{stroke:#111;stroke-width:1;vector-effect:non-scaling-stroke}
+/* ujung panah di titiknya, dengan cincin putih karena alasan yang sama */
+.rekap-ujung{position:absolute;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:#111;border:1.5px solid #fff;box-sizing:border-box;box-shadow:0 0 0 .5px #111;pointer-events:none}
+/* kotak angka pcs */
+.rekap-kotak{position:absolute;transform:translate(-50%,-50%);min-width:20px;padding:1px 4px;border:1px solid #111;background:#fff;color:#111;font-size:11px;font-weight:700;line-height:1.3;text-align:center;pointer-events:none}
+/* penanda titik, hanya saat Mode Atur -- untuk melepas titik dari Area */
+.rekap-titik-atur{position:absolute;transform:translate(-50%,-50%);min-width:18px;height:18px;padding:0 3px;border:1px solid #2563eb;border-radius:50%;background:#dbeafe;color:#1d4ed8;font-size:9px;font-weight:700;line-height:1;cursor:pointer}
+.rekap-foto-wrap.menaruh{outline:2px dashed #2563eb;outline-offset:2px;cursor:crosshair}
+.rekap-gambar-aksi button.aktif{border-color:#2563eb;background:#eff6ff;color:#1d4ed8}
+.rekap-pilih-titik{position:absolute;z-index:6;left:50%;transform:translateX(-50%);margin-top:4px;width:220px;background:#fff;border:1px solid #94a3b8;border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:6px;display:flex;flex-wrap:wrap;gap:4px}
+.rekap-pilih-titik p{width:100%;margin:0 0 2px;font-size:10px;color:#475569;text-align:center}
+.rekap-pilih-titik button{min-width:26px;font-size:10px;font-weight:700;padding:3px 5px;border:1px solid #cbd5e1;border-radius:4px;background:#f8fafc;color:#334155;cursor:pointer}
+.rekap-pilih-titik button.on{background:#2563eb;border-color:#2563eb;color:#fff}
+.rekap-pilih-titik button.lain{color:#cbd5e1;border-style:dashed}
+.rekap-pilih-titik button.batal{width:100%;margin-top:2px;color:#b91c1c;border-color:#fca5a5}
 /* After Repair: OK di atas, NG di bawah, masing-masing dengan kotak
    isian seperti formulir aslinya. */
 .rekap-tabel td.rekap-after{padding:6px 4px}
 .rekap-tabel td.rekap-after > div{display:flex;flex-direction:column;align-items:center;gap:2px}
-.rekap-tabel td.rekap-after > div:first-child{margin-bottom:14px}
+.rekap-tabel td.rekap-after > div:first-child{margin-bottom:20px}
 .rekap-tabel td.rekap-after span{font-size:10px;line-height:1}
-.rekap-tabel td.rekap-after b{display:block;min-width:34px;min-height:15px;border:1px solid #111;font-size:11px;line-height:1.3}
+/* Kotak OK/NG dibuat lebih tinggi -- sebelumnya terlalu pendek/gepeng. */
+.rekap-tabel td.rekap-after b{display:flex;align-items:center;justify-content:center;min-width:40px;min-height:26px;border:1px solid #111;font-size:12px;line-height:1.2}
 .rekap-ring{margin-top:9px;display:flex;justify-content:flex-end}
 /* width:auto -- tabel umum aplikasi lebarnya 100%, kotak ringkasan harus
    sempit dan menempel di kanan seperti di contoh. */
@@ -4777,8 +4804,12 @@ html.repair-solo #repair-solo-zone .repair-kartu[style*="display: none"]{ displa
 .rekap-sheet-print{border:0;min-width:0;padding:0 3px 0 0;width:100%;box-sizing:border-box}
 .rekap-sheet-print .rekap-tabel tbody td{height:122px}
 .rekap-sheet-print .rekap-tabel td.rekap-gambar img{max-height:116px}
+.rekap-sheet-print .rekap-tabel td.rekap-after b{min-height:22px}
+.rekap-sheet-print .rekap-tabel td.rekap-after > div:first-child{margin-bottom:16px}
 /* Jaring pengaman: kontrol Mode Atur tidak pernah ikut tercetak. */
-.rekap-sheet-print .rekap-gambar-aksi{display:none !important}
+.rekap-sheet-print .rekap-gambar-aksi,
+.rekap-sheet-print .rekap-titik-atur,
+.rekap-sheet-print .rekap-pilih-titik{display:none !important}
 
 /* ===== Mode Atur (admin): kontrol menempel DI DALAM sel rekap =====
    Tidak ada panel terpisah -- semua diedit di kolomnya sendiri. Semua
