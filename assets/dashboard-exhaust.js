@@ -34,6 +34,53 @@ const rataBulanan = (arr) => {
 };
 const angkaManual = (v) => (v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
 
+// ---- Kolom "FY sebelumnya" diambil dari 12 bulan FY itu ----
+// Dipakai BERSAMA oleh tab Tahunan, Kontrol Downtime, dan Kontrol Kualitas
+// supaya kolom FY '25 di ketiganya menampilkan angka yang sama persis.
+// Urutan sumbernya: 12 bulan FY sebelumnya di Dashboard FY -> kalau kosong,
+// angka yang diketik di kotak "Angka FY Sebelumnya" -> kalau dua-duanya
+// kosong, kolomnya dibiarkan KOSONG, bukan nol.
+async function fyPrevAmbil(fyStartYear) {
+  try {
+    const [h, b] = await Promise.all([
+      supabaseClient.from("fy_override").select("aktif").eq("fy", fyStartYear - 1).maybeSingle(),
+      supabaseClient.from("fy_override_bulan").select("*").eq("fy", fyStartYear - 1).order("bulan"),
+    ]);
+    // Saklar "pakai data manual" FY itu harus menyala, supaya artinya sama
+    // dengan saat FY tersebut dibuka sendiri di dashboard.
+    if (h.error || !h.data || !h.data.aktif || b.error) return [];
+    return b.data || [];
+  } catch (e) { return []; }
+}
+// rows = hasil fyPrevAmbil. Mengembalikan dua pembaca: persen & jumlah.
+function fyPrevHitung(rows) {
+  const peta = new Map((rows || []).map((r) => [Number(r.bulan), r]));
+  const kolom = (nama) => Array.from({ length: 12 }, (_, i) => {
+    const r = peta.get(i + 1);
+    return r ? angkaManual(r[nama]) : null;
+  });
+  return {
+    ada: peta.size > 0,
+    // satuan persen: rata-rata biasa, satu angka di belakang koma
+    persen(nama) {
+      if (!peta.size) return null;
+      const v = kolom(nama).filter((x) => x !== null);
+      return v.length ? Number((v.reduce((a, b) => a + b, 0) / v.length).toFixed(1)) : null;
+    },
+    // satuan jumlah: rata-rata per bulan, bulan kosong/nol tidak ikut membagi
+    jumlah(nama) { return peta.size ? rataBulanan(kolom(nama)) : null; },
+  };
+}
+// Pemilih siap pakai: angka dari 12 bulan kalau ada, kalau tidak angka ketikan.
+function fyPrevPilih(rows) {
+  const h = fyPrevHitung(rows);
+  const pakai = (d, manual) => (d === null || d === undefined ? angkaManual(manual) : d);
+  return {
+    persen: (nama, manual) => pakai(h.persen(nama), manual),
+    jumlah: (nama, manual) => pakai(h.jumlah(nama), manual),
+  };
+}
+
 const MACHINES = [
   { key: "E-02", label: "E-02", href: "machines/e-02.html" },
   { key: "E-03", label: "E-03", href: "machines/e-03.html" },
@@ -811,6 +858,7 @@ function dashboardExhaust() {
         // try/catch supaya tetap jalan normal kalau migration_fy_override.sql
         // belum dijalankan.
         let ovHeadQc = null;
+        const fypQc = fyPrevPilih(await fyPrevAmbil(fyStartYear));
         try {
           const { data: ovHeadData, error: ovHeadErr } = await supabaseClient
             .from("fy_override").select("*").eq("fy", fyStartYear).maybeSingle();
@@ -863,8 +911,8 @@ function dashboardExhaust() {
           // Angka FY sebelumnya (diisi tangan di Master Data) + tahun fiskal
           // yang sedang dilihat -- dipakai chart Month utk dua kolom kiri.
           fyStartYear,
-          fyPrevQty: angkaManual(ovHeadQc && ovHeadQc.ng_qty_fy_prev),
-          fyPrevValue: angkaManual(ovHeadQc && ovHeadQc.ng_value_fy_prev),
+          fyPrevQty: fypQc.jumlah("ng_qty", ovHeadQc && ovHeadQc.ng_qty_fy_prev),
+          fyPrevValue: fypQc.jumlah("ng_value", ovHeadQc && ovHeadQc.ng_value_fy_prev),
           perlineQty, perlineValue,
           permodelQty, permodelValue,
           dailyQty, dailyValue,
@@ -987,6 +1035,9 @@ function dashboardExhaust() {
           monthLabels: this.tahunan.monthLabels && this.tahunan.monthLabels.length ? this.tahunan.monthLabels.slice(2) : ["Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des","Jan","Feb","Mar"],
           qtyByMonth, valueByMonth,
           fyStartYear,
+          // NG Trial TIDAK punya kolom bulanan di fy_override_bulan, jadi
+          // kolom FY sebelumnya di sini masih dari angka ketikan di
+          // Dashboard FY. Chart lain sudah dari 12 bulan FY itu.
           fyPrevQty: angkaManual(ovHeadTrial && ovHeadTrial.ng_trial_qty_fy_prev),
           fyPrevValue: angkaManual(ovHeadTrial && ovHeadTrial.ng_trial_value_fy_prev),
           perlineQty, perlineValue,
@@ -1156,6 +1207,7 @@ function dashboardExhaust() {
         // Kalau FY ini dipasang data manual (Master Data > Dashboard FY),
         // angkanya ikut manual -- supaya sama dengan tab Tahunan.
         let ovHeadSp = null;
+        const fypSp = fyPrevPilih(await fyPrevAmbil(fyStartYear));
         try {
           const [hRes, bRes] = await Promise.all([
             supabaseClient.from("fy_override").select("*").eq("fy", fyStartYear).maybeSingle(),
@@ -1178,8 +1230,8 @@ function dashboardExhaust() {
           monthLabels: fyMonths.map((d) => monthLabelId[d.getMonth()]),
           actual, repairQty, target: 95,
           fyStartYear,
-          fyPrevSp: angkaManual(ovHeadSp && ovHeadSp.sp_fy_prev),
-          fyPrevRepair: angkaManual(ovHeadSp && ovHeadSp.sp_repair_fy_prev),
+          fyPrevSp: fypSp.persen("sp_actual", ovHeadSp && ovHeadSp.sp_fy_prev),
+          fyPrevRepair: fypSp.jumlah("sp_repair_qty", ovHeadSp && ovHeadSp.sp_repair_fy_prev),
         };
         this.qcFyLoadedKey = String(fyStartYear);
       } catch (e) {
@@ -2046,6 +2098,7 @@ function dashboardExhaust() {
         //   Semua Line -> angka bulanan di fy_override_bulan
         //   1 Line     -> dijumlah dari fy_override_kategori (jenis 'line')
         let ovHeadBln = null;
+        const fypBln = fyPrevPilih(await fyPrevAmbil(fyStartYear));
         try {
           const { data: ovH } = await supabaseClient
             .from("fy_override").select("*").eq("fy", fyStartYear).maybeSingle();
@@ -2094,9 +2147,11 @@ function dashboardExhaust() {
           fyTickLabel(fyStartYear - 1), fyTickLabel(fyStartYear), ...downtimeExhaust.labels,
         ];
         downtimeExhaust.values = [
-          // Kolom "FY sebelumnya" juga angka manual total semua PIC ->
-          // dikosongkan saat filter Supporting dipakai.
-          angkaManual(picFilter ? null : (ovHeadBln && ovHeadBln.downtime_fy_prev_menit)),
+          // Kolom "FY sebelumnya": 12 bulan FY itu kalau ada, kalau tidak
+          // angka ketikan. Keduanya total semua PIC, jadi tetap dikosongkan
+          // saat filter Supporting dipakai.
+          picFilter ? null
+            : fypBln.jumlah("downtime_exhaust_menit", ovHeadBln && ovHeadBln.downtime_fy_prev_menit),
           rataBulanan(downtimeExhaust.values),
           ...downtimeExhaust.values,
         ];
@@ -2165,6 +2220,7 @@ function dashboardExhaust() {
         // hasil hitungan RPC di atas. Dibungkus try/catch supaya dashboard
         // tetap jalan normal kalau migration_fy_override.sql belum dijalankan.
         let ovHead = null, ovBulan = [], ovKategori = [], ovPrev = null;
+        const ovPrevBulan = await fyPrevAmbil(fyStartYear);
         try {
           const [hRes, bRes, kRes] = await Promise.all([
             supabaseClient.from("fy_override").select("*").eq("fy", fyStartYear).maybeSingle(),
@@ -2236,7 +2292,7 @@ function dashboardExhaust() {
           koefRows: koefRes.data || [],
           targetRows: tgRes.data || [],
           fyStartYear, fyStart, fyEnd, prevFyStart,
-          ovHead, ovBulan, ovKategori, ovPrev,
+          ovHead, ovBulan, ovKategori, ovPrev, ovPrevBulan,
         };
 
         // Downtime Terbesar per line -- selalu tampilkan 5 baris ke bawah,
@@ -2473,14 +2529,22 @@ function dashboardExhaust() {
           ? Math.round(Number(row.downtime_menit)) : null;
       });
 
+      // ---- Kolom "FY sebelumnya" ----
+      // Urutan sumbernya: (1) kalau 12 bulan FY sebelumnya sudah diisi di
+      // Dashboard FY dan saklar "pakai data manual" FY itu menyala, kolom ini
+      // dihitung dari 12 bulan tersebut; (2) kalau belum, barulah memakai
+      // angka yang diketik di kotak "Angka FY Sebelumnya"; (3) kalau dua-duanya
+      // kosong, kolomnya dibiarkan KOSONG, bukan nol.
+      const fyp = fyPrevPilih(raw.ovPrevBulan);
+      const fyPrevPersen = fyp.persen, fyPrevJumlah = fyp.jumlah;
+
       // Dua kolom ringkasan = RATA-RATA MENIT PER BULAN (bukan total setahun),
       // supaya sejajar dengan batang bulanan di sebelahnya.
       const dtExhaustValues = [
-        // FY sebelumnya: pakai angka yang diketik di Master Data kalau ada.
+        // FY sebelumnya: 12 bulan FY itu kalau ada, baru angka ketikan.
         (() => {
-          const m = (raw.ovPrev && raw.ovPrev.downtime_fy_prev_menit);
-          if (m !== null && m !== undefined && m !== "" && Number.isFinite(Number(m))) return Math.round(Number(m));
-          return null;
+          const v = fyPrevJumlah("downtime_exhaust_menit", raw.ovPrev && raw.ovPrev.downtime_fy_prev_menit);
+          return v === null ? null : Math.round(v);
         })(),
         rataPerBulan(dtExhaustBulan),
         ...dtExhaustBulan,
@@ -2521,7 +2585,6 @@ function dashboardExhaust() {
       // FY BERJALAN dihitung dari 12 bulan di sebelah kanannya: rata-rata
       // untuk yang satuannya persen, total untuk yang satuannya jumlah.
       const ovp = raw.ovPrev || {};
-      const angkaOv = (v) => (v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
       const ngQtyBulan = fyMonths.map((d) => { const r = findRow(ngRows, d); return r ? Number(r.qty) : null; });
       const ngValBulan = fyMonths.map((d) => { const r = findRow(ngRows, d); return r ? Number(r.value) : null; });
 
@@ -2530,26 +2593,26 @@ function dashboardExhaust() {
         monthLabels: dtExhaustLabels,
         productivity: {
           value: productivityValue,
-          actual: [angkaOv(ovp.productivity_fy_prev), rataRata(productivityActual), ...productivityActual],
+          actual: [fyPrevPersen("productivity_actual", ovp.productivity_fy_prev), rataRata(productivityActual), ...productivityActual],
           target: [null, null, ...productivityTarget],
         },
         // Availability SENGAJA tanpa garis Target -- target: null
         availability: {
           value: availabilityValue,
-          actual: [angkaOv(ovp.availability_fy_prev), rataRata(availabilityActual), ...availabilityActual],
+          actual: [fyPrevPersen("availability_actual", ovp.availability_fy_prev), rataRata(availabilityActual), ...availabilityActual],
           target: null,
         },
         ngInline: {
           qty: lastNgRow ? Number(lastNgRow.qty) : 0,
           value: lastNgRow ? Number(lastNgRow.value) : 0,
-          qtyByMonth: [angkaOv(ovp.ng_qty_fy_prev), rataPerBulan(ngQtyBulan), ...ngQtyBulan],
-          valueByMonth: [angkaOv(ovp.ng_value_fy_prev), rataPerBulan(ngValBulan), ...ngValBulan],
+          qtyByMonth: [fyPrevJumlah("ng_qty", ovp.ng_qty_fy_prev), rataPerBulan(ngQtyBulan), ...ngQtyBulan],
+          valueByMonth: [fyPrevJumlah("ng_value", ovp.ng_value_fy_prev), rataPerBulan(ngValBulan), ...ngValBulan],
         },
         straightpass: {
           value: straightpassValue,
-          actual: [angkaOv(ovp.sp_fy_prev), rataRata(straightpassActual), ...straightpassActual],
+          actual: [fyPrevPersen("sp_actual", ovp.sp_fy_prev), rataRata(straightpassActual), ...straightpassActual],
           qty: [null, rataPerBulan(straightpassQty), ...straightpassQty],
-          repairQty: [angkaOv(ovp.sp_repair_fy_prev), rataPerBulan(straightpassRepairQty), ...straightpassRepairQty],
+          repairQty: [fyPrevJumlah("sp_repair_qty", ovp.sp_repair_fy_prev), rataPerBulan(straightpassRepairQty), ...straightpassRepairQty],
           target: 95,
         },
         downtimeExhaust: {
