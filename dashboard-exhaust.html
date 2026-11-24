@@ -164,6 +164,13 @@
           <div class="dxy-clock-time" x-text="timeStr()"></div>
           <div class="dxy-clock-date" x-text="dateStr()"></div>
         </div>
+        <!-- Muncul hanya kalau pengambilan data terakhir gagal. Angka di
+             layar sengaja TIDAK dikosongkan -- yang tampil data terakhir
+             yang berhasil, dan sistem mencoba menarik ulang sendiri. -->
+        <div class="dxy-koneksi" x-show="dxyKoneksiBermasalah" x-cloak>
+          <span class="dxy-koneksi-titik"></span>
+          Koneksi bermasalah &mdash; angka belum diperbarui, mencoba lagi&hellip;
+        </div>
       </div>
     </div>
 

@@ -902,3 +902,32 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
    dashboard ini -- sudah tergantikan tombol "Lihat Dekidaka" di tab
    Performance tiap halaman line (assets/machine-page.js + assets/style.css,
    yang TETAP dipakai, TIDAK ikut terhapus). */
+
+
+/* ---- Penanda koneksi bermasalah (header kanan atas) ----
+   Hanya tampil saat pengambilan data gagal. Sengaja kecil dan tidak
+   menutupi apa pun: dashboard ini dipajang di monitor line, jadi tidak
+   boleh ada kotak besar yang menghalangi angka. */
+.dxy-koneksi {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #FEF3C7;
+  color: #92400E;
+  border: 1px solid #FCD34D;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.dxy-koneksi-titik {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #F59E0B;
+  animation: dxyKoneksiKedip 1.2s ease-in-out infinite;
+}
+@keyframes dxyKoneksiKedip { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+[x-cloak] { display: none !important; }

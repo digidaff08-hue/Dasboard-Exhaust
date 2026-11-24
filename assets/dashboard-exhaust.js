@@ -118,6 +118,131 @@ const RT_TABLE_GROUP = {
   repair_log: "kualitas",
   repair_views: "kualitas",
 };
+// ---- Penjaga kegagalan ambil data ----
+// Supabase TIDAK melempar error kalau query gagal (token kedaluwarsa,
+// jaringan putus, kuota, RLS): dia mengembalikan { data: null, error }.
+// Karena hasilnya dipakai dengan pola `.data || []`, kegagalan tadi
+// berubah jadi "datanya memang kosong" -- grafik jadi blank, flag
+// *Loaded terlanjur disetel true, dan layar tidak pulih sendiri.
+// Penjaga ini dipanggil tepat setelah Promise.all: begitu ada satu saja
+// yang error, dia melempar error sungguhan supaya catch di pemanggil
+// yang menangani. Akibatnya data lama di layar TIDAK ditimpa dan flag
+// *Loaded tetap false, jadi percobaan berikutnya benar-benar menarik ulang.
+function pastikanSukses(daftar, nama) {
+  const gagal = (daftar || []).filter((r) => r && r.error);
+  if (!gagal.length) return;
+  const e = new Error("Ambil data " + nama + " gagal: " +
+    gagal.map((r) => (r.error && r.error.message) || String(r.error)).join(" | "));
+  e.__gagalAmbil = true;
+  throw e;
+}
+
+// ---- Penulis angka chart Downtime Exhaust (dipakai DUA tab) ----
+// Dibuat berpasangan karena keduanya berbagi satu daftar kotak terpakai:
+// angka batang (hitam) ditulis lebih dulu di dekat sumbu, lalu angka garis
+// FY sebelumnya (merah) dicarikan tempat DI ATASNYA. Aturannya tegas --
+// angka merah tidak pernah menimpa angka hitam, dan tidak pernah dipindah
+// ke bawah titik; kalau sempit, dia naik sampai batas atas chart.
+// Dulu kode ini hanya ada di tab Kontrol Downtime; sekarang tab Tahunan
+// memakai yang sama persis supaya perilakunya identik di dua tempat.
+function penulisAngkaDowntime(warnaGaris) {
+      // Dua penulis angka khusus chart ini: angka batang di BAWAH (dekat
+      // sumbu) dan angka garis FY sebelumnya di ATAS titiknya. Ditulis di
+      // sini, bukan dipakai bersama, supaya chart lain di tab ini tidak
+      // ikut berubah.
+      // Daftar kotak yang sudah terpakai angka -- dipakai BERSAMA oleh dua
+      // penulis angka di bawah supaya angka garis FY lalu tidak pernah
+      // menimpa angka batang (dulu bertabrakan di bulan yang garisnya
+      // turun rendah). Diisi ulang tiap kali chart digambar.
+      const kotakAngka = [];
+      const bertabrakan = (a) => kotakAngka.some((k) =>
+        !(a.x2 <= k.x1 || a.x1 >= k.x2 || a.y2 <= k.y1 || a.y1 >= k.y2));
+      // Angka ditulis dengan garis tepi putih tipis supaya tetap terbaca
+      // walau kebetulan jatuh di atas batang atau garis.
+      const tulisAngka = (ctx, txt, x, y) => {
+        ctx.save();
+        ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.lineJoin = "round";
+        ctx.strokeText(txt, x, y);
+        ctx.fillText(txt, x, y);
+        ctx.restore();
+      };
+      const angkaBatangBawah = (datasetIndex) => ({
+        id: "dxbDtBarBase",
+        afterDatasetsDraw(chart) {
+          const { ctx, chartArea } = chart;
+          const meta = chart.getDatasetMeta(datasetIndex);
+          const ds = chart.data.datasets[datasetIndex];
+          if (!meta || !ds || meta.type !== "bar" || !meta.data) return;
+          kotakAngka.length = 0;   // penulis pertama -> mulai dari bersih
+          const n = meta.data.length;
+          const slot = chartArea && n ? chartArea.width / n : 30;
+          const fs = slot < 18 ? 6.5 : slot < 26 ? 7.5 : slot < 40 ? 8.5 : 9.5;
+          ctx.save();
+          ctx.font = `700 ${fs}px Inter, sans-serif`;
+          ctx.textAlign = "center"; ctx.fillStyle = "#000000"; ctx.textBaseline = "bottom";
+          const baris = [];
+          meta.data.forEach((bar, i) => {
+            const v = Number(ds.data[i]);
+            if (ds.data[i] === null || ds.data[i] === undefined || Number.isNaN(v) || v === 0) return;
+            const { x, base } = bar.getProps(["x", "base"], true);
+            const txt = fmtNum(v);
+            const setengah = ctx.measureText(txt).width / 2 + 3;
+            let r = 0;
+            while (r < baris.length && x - setengah < baris[r]) r++;
+            baris[r] = x + setengah;
+            const y = base - 3 - r * (fs + 3);
+            tulisAngka(ctx, txt, x, y);
+            kotakAngka.push({ x1: x - setengah, x2: x + setengah, y1: y - fs, y2: y + 2 });
+          });
+          ctx.restore();
+        },
+      });
+      const angkaGarisAtas = (datasetIndex) => ({
+        id: "dxbDtLineTop",
+        afterDatasetsDraw(chart) {
+          const { ctx, chartArea } = chart;
+          const meta = chart.getDatasetMeta(datasetIndex);
+          const ds = chart.data.datasets[datasetIndex];
+          if (!meta || !ds || meta.type !== "line" || !meta.data) return;
+          const n = meta.data.length;
+          const slot = chartArea && n ? chartArea.width / n : 30;
+          const fs = slot < 18 ? 6.5 : slot < 26 ? 7.5 : slot < 40 ? 8.5 : 9.5;
+          ctx.save();
+          ctx.font = `700 ${fs}px Inter, sans-serif`;
+          // Angka garis FY sebelumnya ikut merah, sewarna garisnya.
+          ctx.textAlign = "center"; ctx.fillStyle = warnaGaris; ctx.textBaseline = "bottom";
+          meta.data.forEach((titik, i) => {
+            const v = Number(ds.data[i]);
+            if (ds.data[i] === null || ds.data[i] === undefined || Number.isNaN(v) || v === 0) return;
+            const { x, y } = titik.getProps(["x", "y"], true);
+            const atasAman = chartArea ? chartArea.top + fs : -Infinity;
+            const txt = fmtNum(v);
+            const setengah = ctx.measureText(txt).width / 2 + 3;
+            const kotakDi = (yy) => ({ x1: x - setengah, x2: x + setengah, y1: yy - fs, y2: yy + 2 });
+            // Mulai dari posisi normal (di atas titik), lalu digeser naik
+            // selangkah demi selangkah selama masih menabrak angka batang.
+            let yy = Math.max(atasAman, y - 5);
+            let aman = !bertabrakan(kotakDi(yy));
+            for (let coba = 0; !aman && coba < 10; coba++) {
+              const calon = yy - (fs + 3);
+              if (calon < atasAman) break;        // sudah mentok atas
+              yy = calon;
+              aman = !bertabrakan(kotakDi(yy));
+            }
+            // Angka merah WAJIB di atas. Kalau sampai mentok atas pun masih
+            // bertabrakan, dia tetap ditaruh di posisi paling atas yang
+            // tersedia -- TIDAK PERNAH dipindah ke bawah titik, supaya tidak
+            // mungkin menimpa angka hitam yang ada di dekat sumbu.
+            if (!aman) yy = atasAman;
+            tulisAngka(ctx, txt, x, yy);
+            kotakAngka.push(kotakDi(yy));
+          });
+          ctx.restore();
+        },
+      });
+  return { batang: angkaBatangBawah, garis: angkaGarisAtas };
+}
+
 // Jumlah hari dalam bulan tertentu (menangani tahun kabisat)
 function daysInMonth(year, month1to12) {
   return new Date(year, month1to12, 0).getDate();
@@ -832,6 +957,7 @@ function dashboardExhaust() {
           supabaseClient.rpc("dashboard_qc_ng_permodel", { p_type_ng: TYPE_NG, p_start: monthStart.toISOString(), p_end: monthEnd.toISOString() }),
           supabaseClient.rpc("dashboard_qc_ng_daily", { p_type_ng: TYPE_NG, p_start: monthStart.toISOString(), p_end: monthEnd.toISOString() }),
         ]);
+        pastikanSukses([monthRes, perlineRes, permodelRes, dailyRes], "NG Inline");
         if (monthRes.error) console.error("dashboard_qc_ng_month:", monthRes.error);
         if (perlineRes.error) console.error("dashboard_qc_ng_perline:", perlineRes.error);
         if (permodelRes.error) console.error("dashboard_qc_ng_permodel:", permodelRes.error);
@@ -921,7 +1047,7 @@ function dashboardExhaust() {
         this.qcNgInlineLoaded = true;
         await this.fetchQcNgInlineDetail();
       } catch (e) {
-        console.error("Gagal memuat data NG Inline (Kontrol Kualitas):", e);
+        this.dxyGagalMuat(e);
       }
     },
     // Ambil rincian baris NG untuk tabel "Rekap NG Inline".
@@ -981,6 +1107,7 @@ function dashboardExhaust() {
           supabaseClient.rpc("dashboard_qc_ng_permodel", { p_type_ng: TYPE_NG, p_start: monthStart.toISOString(), p_end: monthEnd.toISOString() }),
           supabaseClient.rpc("dashboard_qc_ng_daily", { p_type_ng: TYPE_NG, p_start: monthStart.toISOString(), p_end: monthEnd.toISOString() }),
         ]);
+        pastikanSukses([monthRes, perlineRes, permodelRes, dailyRes], "NG Trial");
         if (monthRes.error) console.error("dashboard_qc_ng_month (trial):", monthRes.error);
         if (perlineRes.error) console.error("dashboard_qc_ng_perline (trial):", perlineRes.error);
         if (permodelRes.error) console.error("dashboard_qc_ng_permodel (trial):", permodelRes.error);
@@ -1048,7 +1175,7 @@ function dashboardExhaust() {
         this.qcNgTrialLoaded = true;
         await this.fetchQcNgTrialDetail();
       } catch (e) {
-        console.error("Gagal memuat data NG Trial (Kontrol Kualitas):", e);
+        this.dxyGagalMuat(e);
       }
     },
     // Ambil rincian baris NG untuk tabel "Rekap NG Trial". Sama persis
@@ -1136,6 +1263,7 @@ function dashboardExhaust() {
           supabaseClient.rpc("dashboard_qc_repair_perline", { p_start: monthStart.toISOString(), p_end: monthEnd.toISOString() }),
           supabaseClient.rpc("dashboard_qc_repair_permodel", { p_start: monthStart.toISOString(), p_end: monthEnd.toISOString() }),
         ]);
+        pastikanSukses([perlineRes, permodelRes], "Qty Repair per line/model");
         if (perlineRes.error) { console.error("dashboard_qc_repair_perline:", perlineRes.error); return; }
         if (permodelRes.error) { console.error("dashboard_qc_repair_permodel:", permodelRes.error); return; }
         const perlineRows = perlineRes.data || [];
@@ -1144,7 +1272,7 @@ function dashboardExhaust() {
         this.qcRepair.permodelQty = QC_MODELS.map((model) => { const r = permodelRows.find((x) => x.model === model); return r ? Number(r.qty) || 0 : 0; });
         this.qcRepairPerlineModelLoaded = true;
       } catch (e) {
-        console.error("Gagal memuat Qty Repair per line/model:", e);
+        this.dxyGagalMuat(e);
       }
     },
     // Ambil stroke & NG per line/model (RPC baru dashboard_qc_produksi_*),
@@ -1165,6 +1293,7 @@ function dashboardExhaust() {
           supabaseClient.rpc("dashboard_bulanan_produksi", { p_start: fyStart.toISOString(), p_end: fyEnd.toISOString() }),
           supabaseClient.rpc("dashboard_qc_repair_month", { p_start: fyStart.toISOString(), p_end: fyEnd.toISOString() }),
         ]);
+        pastikanSukses([prodRes, repairRes], "Straightpass FY");
         // dashboard_bulanan_produksi & dashboard_qc_repair_month mengembalikan
         // SATU BARIS PER (bulan, mesin) -- persis seperti di tab Tahunan --
         // jadi harus dijumlah dulu per bulan (semua Line) sebelum dipakai.
@@ -1235,7 +1364,7 @@ function dashboardExhaust() {
         };
         this.qcFyLoadedKey = String(fyStartYear);
       } catch (e) {
-        console.error("Gagal mengambil Straightpass FY tab Kualitas:", e);
+        this.dxyGagalMuat(e);
       }
     },
     async fetchQcStraightpassBreakdown() {
@@ -1249,6 +1378,7 @@ function dashboardExhaust() {
           supabaseClient.rpc("dashboard_qc_produksi_daily", { p_start: monthStart.toISOString(), p_end: monthEnd.toISOString() }),
           supabaseClient.rpc("dashboard_qc_repair_daily", { p_start: monthStart.toISOString(), p_end: monthEnd.toISOString() }),
         ]);
+        pastikanSukses([perlineRes, permodelRes, dailyProdRes, dailyRepairRes], "Straightpass breakdown");
         if (perlineRes.error) { console.error("dashboard_qc_produksi_perline:", perlineRes.error); return; }
         if (permodelRes.error) { console.error("dashboard_qc_produksi_permodel:", permodelRes.error); return; }
         if (dailyProdRes.error) { console.error("dashboard_qc_produksi_daily:", dailyProdRes.error); return; }
@@ -1309,7 +1439,7 @@ function dashboardExhaust() {
         this.qcStraightpass = { perlineActual, permodelActual, dailyRepairQty, dailyPercent };
         this.qcStraightpassLoaded = true;
       } catch (e) {
-        console.error("Gagal memuat breakdown Straightpass:", e);
+        this.dxyGagalMuat(e);
       }
     },
     // Peta Line -> Model (qty & value per kombinasi line+model, bulan yang
@@ -1381,6 +1511,7 @@ function dashboardExhaust() {
             } catch (e) { return { data: null, error: e }; }
           })(),
         ]);
+        pastikanSukses([ngInlineRes, ngTrialRes, repairRes], "peta Line-Model");
         if (ngInlineRes.error) console.error("dashboard_qc_ng_detail_range (NG PRODUKSI, line-model map):", ngInlineRes.error);
         if (ngTrialRes.error) console.error("dashboard_qc_ng_detail_range (NG TRIAL, line-model map):", ngTrialRes.error);
         if (repairRes.error) { // cadangan: kalau production_log gagal dibaca, pakai sumber lama
@@ -1454,7 +1585,7 @@ function dashboardExhaust() {
         this.qcLineDayMap = { ngInline: ngiBuilt.dayMap, ngTrial: ngtBuilt.dayMap, repair: repBuilt.dayMap };
         this.qcLineModelMapLoaded = true;
       } catch (e) {
-        console.error("Gagal memuat peta Line-Model (Kontrol Kualitas):", e);
+        this.dxyGagalMuat(e);
       }
     },
     // ---------------------------------------------------------------
@@ -1478,6 +1609,12 @@ function dashboardExhaust() {
     // Default = FY yang sedang berjalan (Jan-Mar masih FY tahun lalu).
     tahunanYear: fyStartOf(new Date().getFullYear(), new Date().getMonth() + 1),
     tahunanYearOptions: [2025, 2026, 2027],
+    // Dinyalakan kalau pengambilan data terakhir gagal. Dipakai penanda
+    // kecil di header supaya operator tahu angka di layar sedang basi --
+    // bukan berarti hasilnya nol.
+    dxyKoneksiBermasalah: false,
+    _dxyGagalKe: 0,
+    _dxyGagalTimer: null,
     tahunanLoading: false, // skeleton "Memuat data" dinonaktifkan -- konten langsung tampil
     tahunanLoaded: false,
     tahunan: {
@@ -1683,6 +1820,52 @@ function dashboardExhaust() {
       }
       this.refetchActiveTab();
     },
+    // Dipanggil dari catch tiap pengambilan data. Menyalakan penanda lalu
+    // menjadwalkan percobaan ulang: 10 detik, 30 detik, lalu tiap 1 menit
+    // sampai berhasil. Data lama tetap tampil selama menunggu.
+    dxyGagalMuat(e) {
+      console.error("Gagal mengambil data, akan dicoba lagi:", e);
+      this.dxyKoneksiBermasalah = true;
+      const jeda = [10000, 30000][this._dxyGagalKe] || 60000;
+      this._dxyGagalKe++;
+      clearTimeout(this._dxyGagalTimer);
+      this._dxyGagalTimer = setTimeout(() => {
+        // refetchActiveTab() cuma menarik tab yang sedang dibuka; flag
+        // *Loaded masih false karena pengambilan tadi gagal sebelum sempat
+        // disetel, jadi tarikan ini benar-benar jalan.
+        this.refetchActiveTab();
+      }, jeda);
+    },
+    // Dipanggil setiap satu pengambilan data berhasil.
+    dxySuksesMuat() {
+      if (!this.dxyKoneksiBermasalah && !this._dxyGagalKe) return;
+      this.dxyKoneksiBermasalah = false;
+      this._dxyGagalKe = 0;
+      clearTimeout(this._dxyGagalTimer);
+      this._dxyGagalTimer = null;
+    },
+    // Satu panggilan RPC untuk SEMUA line sekaligus, menggantikan pola lama
+    // "1 panggilan per line" (6 permintaan). Ini memangkas jumlah permintaan
+    // per tarik-ulang dari sekitar 42 jadi 17, yang langsung menekan Log
+    // Ingestion di Supabase -- tanpa menambah jeda sedetik pun.
+    //
+    // Kalau RPC *_all belum dipasang di database, hasilnya error dan fungsi
+    // ini OTOMATIS kembali ke pola lama. Jadi urutan pasang SQL dan JS tidak
+    // penting, dan dashboard tidak pernah rusak karena salah satunya tertinggal.
+    async rpcSemuaLine(namaAll, argAll, namaSatu, argSatu) {
+      const res = await supabaseClient.rpc(namaAll, argAll);
+      if (!res.error) {
+        // Dipecah per line supaya bentuknya sama persis dengan pola lama:
+        // array sepanjang MACHINES, tiap elemen { data, error }.
+        const per = new Map(MACHINES.map((m) => [m.key, []]));
+        for (const r of res.data || []) {
+          const k = r.mesin;
+          if (per.has(k)) per.get(k).push(r);
+        }
+        return MACHINES.map((m) => ({ data: per.get(m.key), error: null }));
+      }
+      return Promise.all(MACHINES.map((m) => supabaseClient.rpc(namaSatu, argSatu(m))));
+    },
     async refetchActiveTab() {
       // PENTING: sengaja TIDAK memanggil destroyXCharts() di sini.
       // renderXCharts() sudah destroy+recreate tiap chart SATU-PER-SATU,
@@ -1869,6 +2052,7 @@ function dashboardExhaust() {
           picFilter ? supabaseClient.rpc("dashboard_bulanan_weekly_pic", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_pic: picFilter }) : kosong,
           picFilter ? supabaseClient.rpc("dashboard_bulanan_top_problems_summary_pic", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_limit: 10, p_mesin: mesinFilter, p_pic: picFilter }) : kosong,
         ]);
+        pastikanSukses([prodRes, picRes, lineRes, weeklyRes, dtExhaustRes, dtExhaustPrevRes, pHarianRes, pLineRes], "Bulanan");
         // Satu pintu: kalau filter PIC aktif -> pakai hasil *_pic, kalau tidak
         // -> pakai hasil lama. Bentuk datanya sengaja dibikin sama persis
         // (tanggal + downtime_menit, dst) supaya kode di bawah tidak berubah.
@@ -2172,10 +2356,11 @@ function dashboardExhaust() {
           downtimeTerbesarBulan,
         };
         this.bulananLoaded = true;
+        this.dxySuksesMuat();
         this._bulananLoadedLine = this.dxyLineFilterBulanan;
         this._bulananLoadedPic = this.dxySuppFilterBulanan;
       } catch (e) {
-        console.error("Gagal mengambil data Bulanan (harian):", e);
+        this.dxyGagalMuat(e);
       } finally {
         if (!opts.silent) this.bulananLoading = false;
       }
@@ -2215,6 +2400,7 @@ function dashboardExhaust() {
           supabaseClient.from("koefisien_kawat").select("tahun,nilai"),
           supabaseClient.from("productivity_target").select("tahun,bulan,target"),
         ]);
+        pastikanSukses([prodRes, ngRes, planByPicRes, lineRes, repairMonthRes], "Tahunan");
         // Data manual tab Tahunan (Master Data > Dashboard FY). Kalau FY ini
         // diaktifkan di sana, SEMUA chart Tahunan memakai angka itu -- bukan
         // hasil hitungan RPC di atas. Dibungkus try/catch supaya dashboard
@@ -2240,26 +2426,38 @@ function dashboardExhaust() {
           }
         } catch (e) { /* tabel belum ada -> pakai hitungan sistem seperti biasa */ }
         // Downtime Terbesar: ikut 1 tahun fiskal yang dipilih (bukan bulan berjalan)
-        const topRes = await Promise.all(MACHINES.map((m) =>
-          supabaseClient.rpc("dashboard_bulanan_top_problems", { p_mesin: m.key, p_start: fyStart.toISOString(), p_end: fyEnd.toISOString(), p_limit: 5 })
-        ));
+        const topRes = await this.rpcSemuaLine(
+          "dashboard_bulanan_top_problems_all",
+          { p_start: fyStart.toISOString(), p_end: fyEnd.toISOString(), p_limit: 5 },
+          "dashboard_bulanan_top_problems",
+          (m) => ({ p_mesin: m.key, p_start: fyStart.toISOString(), p_end: fyEnd.toISOString(), p_limit: 5 }));
+        pastikanSukses(topRes, "Downtime Terbesar");
         // NG Inline Terbesar & Repair Terbesar per Line: sama polanya seperti
         // topRes di atas (1 RPC per Line), supaya hasilnya bisa langsung
         // difilter per-Line di client (dxyLineFilter) tanpa refetch --
         // lihat dxyNgFlatTahunan()/dxyRepairFlatTahunan(). NG Inline pakai
         // type_ng "NG PRODUKSI" (sama seperti kartu NG Inline lain).
-        const ngTopRes = await Promise.all(MACHINES.map((m) =>
-          supabaseClient.rpc("dashboard_tahunan_ng_kategori_perline", { p_type_ng: "NG PRODUKSI", p_mesin: m.key, p_start: fyStart.toISOString(), p_end: fyEnd.toISOString(), p_limit: 5 })
-        ));
-        const repairTopRes = await Promise.all(MACHINES.map((m) =>
-          supabaseClient.rpc("dashboard_tahunan_repair_kategori_perline", { p_mesin: m.key, p_start: fyStart.toISOString(), p_end: fyEnd.toISOString(), p_limit: 5 })
-        ));
+        const ngTopRes = await this.rpcSemuaLine(
+          "dashboard_tahunan_ng_kategori_perline_all",
+          { p_type_ng: "NG PRODUKSI", p_start: fyStart.toISOString(), p_end: fyEnd.toISOString(), p_limit: 5 },
+          "dashboard_tahunan_ng_kategori_perline",
+          (m) => ({ p_type_ng: "NG PRODUKSI", p_mesin: m.key, p_start: fyStart.toISOString(), p_end: fyEnd.toISOString(), p_limit: 5 }));
+        pastikanSukses(ngTopRes, "NG Inline Terbesar");
+        const repairTopRes = await this.rpcSemuaLine(
+          "dashboard_tahunan_repair_kategori_perline_all",
+          { p_start: fyStart.toISOString(), p_end: fyEnd.toISOString(), p_limit: 5 },
+          "dashboard_tahunan_repair_kategori_perline",
+          (m) => ({ p_mesin: m.key, p_start: fyStart.toISOString(), p_end: fyEnd.toISOString(), p_limit: 5 }));
+        pastikanSukses(repairTopRes, "Repair Terbesar");
         // Downtime Supporting (Actual) per Line -- pola sama seperti topRes:
         // 1 RPC per Line, supaya chart Downtime Supporting bisa ikut Line
         // yang dipilih tanpa refetch (lihat dxyRebuildTahunanSeries()).
-        const downtimeActPerLineRes = await Promise.all(MACHINES.map((m) =>
-          supabaseClient.rpc("dashboard_tahunan_downtime_act_by_pic_perline", { p_mesin: m.key, p_start: fyStart.toISOString(), p_end: fyEnd.toISOString() })
-        ));
+        const downtimeActPerLineRes = await this.rpcSemuaLine(
+          "dashboard_tahunan_downtime_act_by_pic_perline_all",
+          { p_start: fyStart.toISOString(), p_end: fyEnd.toISOString() },
+          "dashboard_tahunan_downtime_act_by_pic_perline",
+          (m) => ({ p_mesin: m.key, p_start: fyStart.toISOString(), p_end: fyEnd.toISOString() }));
+        pastikanSukses(downtimeActPerLineRes, "Downtime Supporting per Line");
         // Downtime Exhaust: SENGAJA memakai RPC HARIAN (dashboard_harian_produksi),
         // sumber yang PERSIS SAMA dengan chart Downtime Exhaust di tab Kontrol
         // Downtime -- supaya angkanya tidak beda antara dua tab. Diambil 1 RPC
@@ -2269,9 +2467,12 @@ function dashboardExhaust() {
         // dijamin identik (bukan hasil menjumlah 6 Line sendiri).
         const dtExhaustAllRes = await supabaseClient.rpc("dashboard_harian_produksi",
           { p_start: fyStart.toISOString(), p_end: fyEnd.toISOString(), p_mesin: null });
-        const dtExhaustPerLineRes = await Promise.all(MACHINES.map((m) =>
-          supabaseClient.rpc("dashboard_harian_produksi", { p_start: fyStart.toISOString(), p_end: fyEnd.toISOString(), p_mesin: m.key })
-        ));
+        const dtExhaustPerLineRes = await this.rpcSemuaLine(
+          "dashboard_harian_produksi_all",
+          { p_start: fyStart.toISOString(), p_end: fyEnd.toISOString() },
+          "dashboard_harian_produksi",
+          (m) => ({ p_start: fyStart.toISOString(), p_end: fyEnd.toISOString(), p_mesin: m.key }));
+        pastikanSukses(dtExhaustPerLineRes, "Downtime Exhaust per Line");
 
         // Simpan semua data MENTAH (per bulan+mesin, atau per-line) supaya
         // bisa dihitung ulang tiap kali dxyLineFilter berubah TANPA refetch
@@ -2334,9 +2535,10 @@ function dashboardExhaust() {
         // (tanpa refetch) tiap kali dropdown Line di tab Tahunan diganti.
         this.dxyRebuildTahunanSeries();
         this.tahunanLoaded = true;
+        this.dxySuksesMuat();
         this.computeTahunanInsights();
       } catch (e) {
-        console.error("Gagal mengambil data Tahunan:", e);
+        this.dxyGagalMuat(e);
       } finally {
         if (!opts.silent) this.tahunanLoading = false;
       }
@@ -3849,104 +4051,7 @@ function dashboardExhaust() {
         const labels = b.downtimeExhaust.labels;
         const prevVals = b.downtimeExhaust.prevValues || [];
         const adaPrev = prevVals.some((v) => v !== null && v !== undefined);
-
-        // Dua penulis angka khusus chart ini: angka batang di BAWAH (dekat
-        // sumbu) dan angka garis FY sebelumnya di ATAS titiknya. Ditulis di
-        // sini, bukan dipakai bersama, supaya chart lain di tab ini tidak
-        // ikut berubah.
-        // Daftar kotak yang sudah terpakai angka -- dipakai BERSAMA oleh dua
-        // penulis angka di bawah supaya angka garis FY lalu tidak pernah
-        // menimpa angka batang (dulu bertabrakan di bulan yang garisnya
-        // turun rendah). Diisi ulang tiap kali chart digambar.
-        const kotakAngka = [];
-        const bertabrakan = (a) => kotakAngka.some((k) =>
-          !(a.x2 <= k.x1 || a.x1 >= k.x2 || a.y2 <= k.y1 || a.y1 >= k.y2));
-        // Angka ditulis dengan garis tepi putih tipis supaya tetap terbaca
-        // walau kebetulan jatuh di atas batang atau garis.
-        const tulisAngka = (ctx, txt, x, y) => {
-          ctx.save();
-          ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.lineJoin = "round";
-          ctx.strokeText(txt, x, y);
-          ctx.fillText(txt, x, y);
-          ctx.restore();
-        };
-        const angkaBatangBawah = (datasetIndex) => ({
-          id: "dxbDtBarBase",
-          afterDatasetsDraw(chart) {
-            const { ctx, chartArea } = chart;
-            const meta = chart.getDatasetMeta(datasetIndex);
-            const ds = chart.data.datasets[datasetIndex];
-            if (!meta || !ds || meta.type !== "bar" || !meta.data) return;
-            kotakAngka.length = 0;   // penulis pertama -> mulai dari bersih
-            const n = meta.data.length;
-            const slot = chartArea && n ? chartArea.width / n : 30;
-            const fs = slot < 18 ? 6.5 : slot < 26 ? 7.5 : slot < 40 ? 8.5 : 9.5;
-            ctx.save();
-            ctx.font = `700 ${fs}px Inter, sans-serif`;
-            ctx.textAlign = "center"; ctx.fillStyle = "#000000"; ctx.textBaseline = "bottom";
-            const baris = [];
-            meta.data.forEach((bar, i) => {
-              const v = Number(ds.data[i]);
-              if (ds.data[i] === null || ds.data[i] === undefined || Number.isNaN(v) || v === 0) return;
-              const { x, base } = bar.getProps(["x", "base"], true);
-              const txt = fmtNum(v);
-              const setengah = ctx.measureText(txt).width / 2 + 3;
-              let r = 0;
-              while (r < baris.length && x - setengah < baris[r]) r++;
-              baris[r] = x + setengah;
-              const y = base - 3 - r * (fs + 3);
-              tulisAngka(ctx, txt, x, y);
-              kotakAngka.push({ x1: x - setengah, x2: x + setengah, y1: y - fs, y2: y + 2 });
-            });
-            ctx.restore();
-          },
-        });
-        const angkaGarisAtas = (datasetIndex) => ({
-          id: "dxbDtLineTop",
-          afterDatasetsDraw(chart) {
-            const { ctx, chartArea } = chart;
-            const meta = chart.getDatasetMeta(datasetIndex);
-            const ds = chart.data.datasets[datasetIndex];
-            if (!meta || !ds || meta.type !== "line" || !meta.data) return;
-            const n = meta.data.length;
-            const slot = chartArea && n ? chartArea.width / n : 30;
-            const fs = slot < 18 ? 6.5 : slot < 26 ? 7.5 : slot < 40 ? 8.5 : 9.5;
-            ctx.save();
-            ctx.font = `700 ${fs}px Inter, sans-serif`;
-            ctx.textAlign = "center"; ctx.fillStyle = "#000000"; ctx.textBaseline = "bottom";
-            meta.data.forEach((titik, i) => {
-              const v = Number(ds.data[i]);
-              if (ds.data[i] === null || ds.data[i] === undefined || Number.isNaN(v) || v === 0) return;
-              const { x, y } = titik.getProps(["x", "y"], true);
-              const atasAman = chartArea ? chartArea.top + fs : -Infinity;
-              const txt = fmtNum(v);
-              const setengah = ctx.measureText(txt).width / 2 + 3;
-              const kotakDi = (yy) => ({ x1: x - setengah, x2: x + setengah, y1: yy - fs, y2: yy + 2 });
-              // Mulai dari posisi normal (di atas titik), lalu digeser naik
-              // selangkah demi selangkah selama masih menabrak angka batang.
-              let yy = Math.max(atasAman, y - 5);
-              let aman = !bertabrakan(kotakDi(yy));
-              for (let coba = 0; !aman && coba < 10; coba++) {
-                const calon = yy - (fs + 3);
-                if (calon < atasAman) break;        // sudah mentok atas
-                yy = calon;
-                aman = !bertabrakan(kotakDi(yy));
-              }
-              // Kalau tetap tidak dapat tempat di atas, taruh di BAWAH titik.
-              if (!aman) {
-                let turun = y + fs + 6;
-                const batasBawah = chartArea ? chartArea.bottom - 2 : Infinity;
-                for (let coba = 0; coba < 10 && bertabrakan(kotakDi(turun)) && turun + fs + 3 < batasBawah; coba++) {
-                  turun += fs + 3;
-                }
-                if (turun < batasBawah) yy = turun;
-              }
-              tulisAngka(ctx, txt, x, yy);
-              kotakAngka.push(kotakDi(yy));
-            });
-            ctx.restore();
-          },
-        });
+        const angkaDt = penulisAngkaDowntime("#DC2626");
 
         this.bulananCharts.dxbDowntimeExhaust = new Chart(canvas, {
           data: {
@@ -3955,14 +4060,16 @@ function dashboardExhaust() {
               { order: 2, type: "bar", label: "Downtime (menit)", data: vals, backgroundColor: barBg(canvas, CALM.sand, vals.length), borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
               ...(adaPrev ? [{
                 order: 1, type: "line", label: b.downtimeExhaust.prevLabel || "FY lalu",
-                data: prevVals, borderColor: "#6B7280", backgroundColor: "#6B7280",
+                // Garis FY sebelumnya sengaja MERAH, bukan abu-abu, supaya jelas
+                // bedanya dengan batang Downtime yang oranye.
+                data: prevVals, borderColor: "#DC2626", backgroundColor: "#DC2626",
                 borderWidth: 1.5, pointRadius: 1.5, tension: 0.3, spanGaps: true,
               }] : []),
             ],
           },
-          options: { responsive: true, maintainAspectRatio: false, animation: noAnim, layout: { padding: { top: adaPrev ? 30 : 20 } }, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
+          options: { responsive: true, maintainAspectRatio: false, animation: noAnim, layout: { padding: { top: adaPrev ? 44 : 20 } }, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
           plugins: adaPrev
-            ? [angkaBatangBawah(0), angkaGarisAtas(1), barBevelInset(0)]
+            ? [angkaDt.batang(0), angkaDt.garis(1), barBevelInset(0)]
             : [barValueLabels((v) => fmtNum(v)), barBevelInset(0)],
         });
       }, "downtimeExhaust");
@@ -4388,14 +4495,16 @@ function dashboardExhaust() {
       // mekanisme anti-tabrakan). Supaya tidak saling tumpuk, tinggi
       // label diselang-seling (zig-zag) antara baris genap & ganjil --
       // dipakai di chart Straight Pass (% Straightpass) & NG Inline (Value).
-      const lineValueLabelsAll = (formatter, datasetIndex = 1) => ({
+      // warna: hitam untuk semua chart, kecuali garis FY sebelumnya di
+      // Downtime Exhaust yang diberi merah supaya beda dari batangnya.
+      const lineValueLabelsAll = (formatter, datasetIndex = 1, warna = "#000000") => ({
         id: "dxyLineValueLabelsAll_" + datasetIndex + "_" + Math.random(),
         afterDatasetsDraw(chart) {
           const { ctx, chartArea } = chart;
           const meta = chart.getDatasetMeta(datasetIndex);
           const dataset = chart.data.datasets[datasetIndex];
           if (!meta || !dataset || meta.type !== "line" || !meta.data) return;
-          const textColor = "#000000";
+          const textColor = warna;
           const n = meta.data.length;
           const slotWidth = chartArea && n ? chartArea.width / n : 30;
           const fontSize = slotWidth < 18 ? 6 : slotWidth < 24 ? 7 : slotWidth < 34 ? 8 : slotWidth < 46 ? 9 : 10;
@@ -4581,6 +4690,7 @@ function dashboardExhaust() {
         // dengan angka garis yang ditulis di atas titiknya.
         const prevVals = b.downtimeExhaust.prevValues || [];
         const adaPrev = prevVals.some((v) => v !== null && v !== undefined);
+        const angkaDtTh = penulisAngkaDowntime("#DC2626");
         this.tahunanCharts.dxyDowntimeExhaust = new Chart(canvas, {
           data: {
             labels: labels,
@@ -4588,17 +4698,20 @@ function dashboardExhaust() {
               { order: 2, type: "bar", label: "Downtime (menit)", data: vals, backgroundColor: barBg(canvas, "#F97316", vals.length), borderRadius: 0, barPercentage: 0.6, categoryPercentage: 0.7 },
               ...(adaPrev ? [{
                 order: 1, type: "line", label: b.downtimeExhaust.prevLabel || "FY lalu",
-                data: prevVals, borderColor: "#6B7280", backgroundColor: "#6B7280",
+                // Garis FY sebelumnya sengaja MERAH, bukan abu-abu, supaya jelas
+                // bedanya dengan batang Downtime yang oranye.
+                data: prevVals, borderColor: "#DC2626", backgroundColor: "#DC2626",
                 borderWidth: 1.5, pointRadius: 1.5, tension: 0.3, spanGaps: true,
               }] : []),
             ],
           },
-          options: { responsive: true, maintainAspectRatio: false, animation: noAnim, layout: { padding: { top: 34 } }, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
-          plugins: [
-            barValueLabels((v) => fmtNum(v), 0, adaPrev ? "base" : "above"),
-            ...(adaPrev ? [lineValueLabelsAll((v) => (v === null ? "" : fmtNum(v)), 1)] : []),
-            barBevelInset(0),
-          ],
+          options: { responsive: true, maintainAspectRatio: false, animation: noAnim, layout: { padding: { top: adaPrev ? 46 : 34 } }, plugins: { legend: legend(true), tooltip: tooltip() }, scales: baseScales() },
+          // Sama persis dengan tab Kontrol Downtime: angka batang hitam di
+          // dekat sumbu, angka garis FY merah di atasnya dan tidak pernah
+          // menimpa yang hitam.
+          plugins: adaPrev
+            ? [angkaDtTh.batang(0), angkaDtTh.garis(1), barBevelInset(0)]
+            : [barValueLabels((v) => fmtNum(v), 0, "above"), barBevelInset(0)],
         });
       }, "downtimeExhaust");
 

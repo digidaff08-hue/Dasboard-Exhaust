@@ -437,7 +437,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261124b";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261124c";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:40", "20:30"] },
@@ -3963,14 +3963,17 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         pic: f.pic || null, waktu_tunggu: f.waktu_tunggu === "" ? null : Number(f.waktu_tunggu),
         ket: f.ket || null, area: f.area || null, status: f.status || null,
       };
-      if (f.problem) {
-        const selProblem = this.problemList.find((p) => p.value === f.problem);
-        this.learnProblem(f.problem, f.pic);
-        if (f.penyebab) this.learnCause(f.penyebab, selProblem ? selProblem.id : null);
-      } else if (f.penyebab) {
-        this.learnCause(f.penyebab, null);
-      }
-      if (f.area) this.learnArea(f.area);
+      // CATATAN: dulu di sini ada "belajar otomatis" -- apa pun isi Problem
+      // Kategori, Problem Detail, dan Area didaftarkan sendiri jadi master
+      // baru tiap kali Simpan. Itu masuk akal waktu ketiganya masih kolom
+      // ketik bebas, tapi sekarang ketiganya sudah dropdown yang isinya
+      // diatur di Master Data. Akibatnya fitur itu cuma menambah sampah:
+      // tiap kalimat kejadian yang pernah diketik leader jadi entri master
+      // permanen (mis. "Alarm 33 saat after proses"), sampai satu kategori
+      // bisa punya puluhan detail padahal yang disepakati cuma dua. Lebih
+      // buruk lagi, mengedit baris downtime LAMA akan mendaftarkan ulang
+      // teks lamanya. Jadi belajar-otomatis dimatikan; master hanya berubah
+      // lewat halaman Master Data.
       if (this.editingDowntimeId) {
         const { error } = await supabaseClient.from("downtime_log").update(payload).eq("id", this.editingDowntimeId);
         if (error) { this.flash("Gagal simpan: " + error.message, true); return; }
