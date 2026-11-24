@@ -437,7 +437,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261123j";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261124b";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:40", "20:30"] },
@@ -574,7 +574,10 @@ const DKD_REF_DATA = {
     ct: [
       ["1", "", "109", "33", "4", "889F", "8,25"],
       ["2", "", "109", "33", "4", "D40/D41", "8,25"],
-      ["3", "", "", "", "", "", ""],
+      // D13 CT-nya sama dengan D40/D41 di line ini, tapi tetap ditulis
+      // sebagai barisnya sendiri supaya Target per baris di Input Produksi
+      // Per Jam ketemu saat part-nya terdaftar sebagai model D13.
+      ["3", "", "109", "33", "4", "D13", "8,25"],
       ["4", "", "", "", "", "", ""],
     ],
   },
@@ -816,6 +819,9 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
   // load untuk part yang sama -> file 1,7 MB diunduh & di-parse 2x).
   let repairLoadInFlightViewId = null;
   const repairGeometryCache = new Map(); // view.id -> { object: THREE.Mesh|THREE.Group, box: THREE.Box3 } (biar ganti part gak fetch ulang file 3D-nya)
+  // Peta ruang kosong tiap gambar Area (url -> grid latar/isi). Dipakai
+  // menaruh kotak angka di bagian gambar yang kosong, bukan menimpa part.
+  const rekapPetaKosongCache = new Map();
   // Warna garis las (Point bentuk jalur/path) -- merah normal, oranye
   // saat digambar (drag berlangsung), oranye-terang saat kursor lagi
   // nempel/hover di garisnya (lihat buildWeldLineMarker & setRepairHover).
@@ -972,11 +978,11 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     rekapFoto: {},           // { "Jig 1": "https://...jpg" } -- gambar Posisi & Kategori
     rekapUnggah: "",         // nama Area yang fotonya sedang diunggah
     rekapWarisan: false,     // daftar Area yang tampil masih milik model lain (default)
-    _rekapTimer: null,       // penyegar otomatis selama rekap terbuka
-    _rekapFokus: null,
     rekapMarker: [],         // posisi titik di atas gambar tiap Area
     rekapTaruh: "",          // Area yang sedang dalam mode "taruh titik"
-    rekapTaruhPos: null,     // { area, x, y } titik yang baru diklik, menunggu dipilih titiknya
+    rekapTaruhPos: null,     // { area, x, y, bentuk } gambar baru, menunggu dipilih titiknya
+    rekapAlat: "titik",      // alat gambar: "titik" | "jalur" | "lingkaran"
+    rekapDraft: null,        // { area, t, p[], cx, cy, rx, ry } bentuk yang sedang ditarik
     // Dashboard Line (solo3d): jumlah Repair per titik/area pada 1 tanggal -> area menyala + angka di model.
     repairHeat: {}, repairHeatTgl: "", repairHariRows: [], repairKartu: null, repairKartuPos: null, repairPic: {}, repairModalTouch: null,
     repairEditMode: false, repairDrawShape: "freehand", repairSnapMode: false, repairNewViewLabel: "", repairNewViewFile: null, repairViewUploading: false,
@@ -1172,7 +1178,14 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         downtime_log: () => this.fetchDowntime(),
         dandori_log: () => this.fetchNonProduksi(),
         ng_inline_log: () => this.fetchNgInline(),
-        repair_log: () => { this.muatRepairHeat(); return this.fetchRepairLog(); },
+        repair_log: () => {
+          this.muatRepairHeat();
+          // Rekap Record Repair yang sedang terbuka ikut diperbarui,
+          // jadi begitu leader input angkanya langsung muncul tanpa
+          // perlu refresh halaman.
+          if (this.rekapBuka) this.rekapMuat();
+          return this.fetchRepairLog();
+        },
         repair_views: () => this.fetchRepairViews(),
       };
       // Lewat RealtimeHub (assets/realtime.js): bisa Supabase Realtime atau
@@ -4456,9 +4469,21 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (!this.pjTgl) return;
       const terakhir = this.pjAkhirTerakhir();
       const semua = this.pjBlokShift();
-      const blok = semua.filter((b) => !this.pjBlokTerisi(b) && (!terakhir || b.akhir > terakhir));
-      if (!blok.length) return;
+      // Blok yang mulainya sebelum kegiatan terakhir dilewati: sisanya
+      // diurus terpisah di bawah, supaya tidak dibuatkan baris dua kali.
+      const blok = semua.filter((b) => !this.pjBlokTerisi(b) && (!terakhir || b.awal >= terakhir));
+      // SISA BLOK. Kalau kegiatan terakhir berhenti di TENGAH blok (misal
+      // blok 12:30-13:30 tapi baris terakhir selesai 13:20), 10 menit
+      // sisanya masih jam kerja. Jadi baris berikutnya mulai dari 13:20,
+      // bukan lompat ke blok berikutnya. Sisa ini sengaja jadi barisnya
+      // sendiri dan berhenti di batas blok, supaya Qty-nya tetap terhitung
+      // di blok yang benar di papan Dekidaka.
+      const sisa = terakhir
+        ? semua.find((b) => terakhir > b.awal && terakhir < b.akhir)
+        : null;
+      if (!blok.length && !sisa) return;
       const antre = blok.slice();
+      if (sisa) antre.unshift({ awal: terakhir, akhir: sisa.akhir });
       const mulai = terakhir || this.pjRentangShift().a;
       if (mulai < semua[0].awal) {
         // Masih sebelum blok pertama shift: jeda persiapan (07:00-07:15 di
@@ -4479,10 +4504,6 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         } else {
           antre.unshift({ awal: mulai, akhir: blok[0].awal });
         }
-      } else if (terakhir && terakhir > blok[0].awal && terakhir < blok[0].akhir) {
-        // Kegiatan terakhir berhenti di tengah blok -> baris berikutnya
-        // menyambung dari situ, bukan dari awal blok.
-        antre[0] = { awal: terakhir, akhir: blok[0].akhir };
       }
       let n = 0;
       for (const b of this.pjBaris) {
@@ -5827,6 +5848,16 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     rekapSemuaModel() {
       return this.rekapModel === "*";
     },
+    // Model mana saja yang DITULISI saat mengatur Area. Di "Semua Model"
+    // semuanya ditulisi sekaligus -- di lapangan satu file 3D dipakai
+    // beberapa model dengan formulir yang sama persis (mis. D40, D13 dan
+    // 889F), jadi mengaturnya sekali lebih masuk akal daripada mengulang
+    // satu-satu per model.
+    rekapModelSasaran() {
+      if (!this.rekapSemuaModel()) return [this.rekapModel].filter(Boolean);
+      const out = this.rekapModelOpsi();
+      return out.length ? out : [];
+    },
     // Model yang sedang dihitung: satu, atau semuanya kalau "Semua Model".
     rekapModelAktif() {
       return this.rekapSemuaModel() ? this.rekapModelOpsi() : [this.rekapModel].filter(Boolean);
@@ -5846,6 +5877,149 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       return (this.repairViews || []).find((v) =>
         this.rekapPecahLabel(v.label).some((n) => n.toUpperCase() === m)) || null;
     },
+    // ---- Penempatan kotak angka yang menghindari gambar part ----
+    // Gambar Area dibaca sekali ke kisi kasar: tiap sel ditandai "kosong"
+    // (warna latar) atau "isi" (bagian part). Kotak angka lalu dicari
+    // tempatnya di sel yang kosong, jadi tidak menimpa partnya.
+    //
+    // Kalau gambar tidak bisa dibaca (mis. server tidak mengizinkan
+    // pembacaan piksel), hasilnya null dan penempatan kembali memakai
+    // arah tetap seperti sebelumnya -- tidak ada yang rusak.
+    async rekapPetaKosong(url) {
+      if (!url) return null;
+      if (rekapPetaKosongCache.has(url)) return rekapPetaKosongCache.get(url);
+      const janji = (async () => {
+        // Gambar diambil lewat fetch, BUKAN lewat <img> biasa.
+        // Alasannya: <img> di tabel memuat URL yang sama tanpa crossOrigin,
+        // dan salinan itu membuat kanvas "tercemar" -- getImageData langsung
+        // dilempar dan peta ruang kosongnya tidak pernah jadi. Itu yang
+        // bikin kotak angka tetap menimpa part walau penghindarnya ada.
+        let bitmap = null;
+        try {
+          const res = await fetch(url, { mode: "cors", cache: "reload" });
+          if (res.ok) bitmap = await createImageBitmap(await res.blob());
+        } catch (e) { bitmap = null; }
+        if (!bitmap) {
+          // Cadangan: lewat <img> dengan crossOrigin.
+          bitmap = await new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => resolve(img);
+            img.onerror = () => resolve(null);
+            img.src = url;
+          });
+        }
+        if (!bitmap) return null;
+        try {
+          const C = 64, R = 48;
+          const cv = document.createElement("canvas");
+          cv.width = C; cv.height = R;
+          const ctx = cv.getContext("2d", { willReadFrequently: true });
+          ctx.drawImage(bitmap, 0, 0, C, R);
+          const d = ctx.getImageData(0, 0, C, R).data;
+          // Warna latar ditebak dari keempat sudut gambar.
+          const sudut = [[0, 0], [C - 1, 0], [0, R - 1], [C - 1, R - 1]].map(([x, y]) => {
+            const i = (y * C + x) * 4;
+            return [d[i], d[i + 1], d[i + 2], d[i + 3]];
+          });
+          const kosong = new Uint8Array(C * R);
+          for (let y = 0; y < R; y++) {
+            for (let x = 0; x < C; x++) {
+              const i = (y * C + x) * 4;
+              if (d[i + 3] < 40) { kosong[y * C + x] = 1; continue; }   // transparan
+              const cocok = sudut.some((q) =>
+                q[3] >= 40 &&
+                Math.abs(d[i] - q[0]) < 30 && Math.abs(d[i + 1] - q[1]) < 30 && Math.abs(d[i + 2] - q[2]) < 30);
+              kosong[y * C + x] = cocok ? 1 : 0;
+            }
+          }
+          // Sel di tepi isi part ikut dianggap terpakai, supaya kotaknya
+          // tidak menempel mepet ke garis part.
+          const asli = kosong.slice();
+          for (let y = 0; y < R; y++) {
+            for (let x = 0; x < C; x++) {
+              if (!asli[y * C + x]) continue;
+              let dekat = false;
+              for (let dy = -1; dy <= 1 && !dekat; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                  const xx = x + dx, yy = y + dy;
+                  if (xx < 0 || yy < 0 || xx >= C || yy >= R) continue;
+                  if (!asli[yy * C + xx]) { dekat = true; break; }
+                }
+              }
+              if (dekat) kosong[y * C + x] = 0;
+            }
+          }
+          return { C, R, kosong };
+        } catch (e) {
+          return null;
+        }
+      })();
+      rekapPetaKosongCache.set(url, janji);
+      return janji;
+    },
+    // Cari tempat kotak angka: HARUS di bagian gambar yang kosong,
+    // tidak menimpa part. Dicoba dari dekat titiknya, memutar ke segala
+    // arah, makin menjauh sampai ketemu.
+    rekapCariTempatKotak(peta, tx, ty, sudahAda) {
+      const LW = 6.5, LH = 5;                      // setengah ukuran kotak, dalam persen
+      const bentrok = (x, y) => sudahAda.some((q) => Math.abs(q.x - x) < LW * 2.1 && Math.abs(q.y - y) < LH * 2.1);
+      const kosongDi = (x, y) => {
+        if (!peta) return false;                   // tanpa peta, jangan mengaku kosong
+        const x0 = Math.floor(((x - LW) / 100) * peta.C), x1 = Math.ceil(((x + LW) / 100) * peta.C);
+        const y0 = Math.floor(((y - LH) / 100) * peta.R), y1 = Math.ceil(((y + LH) / 100) * peta.R);
+        for (let yy = y0; yy <= y1; yy++) {
+          for (let xx = x0; xx <= x1; xx++) {
+            if (xx < 0 || yy < 0 || xx >= peta.C || yy >= peta.R) return false;  // keluar bingkai
+            if (!peta.kosong[yy * peta.C + xx]) return false;
+          }
+        }
+        return true;
+      };
+
+      if (peta) {
+        // Disapu rapat: 24 arah x jarak bertahap. Kiri-bawah lebih dulu
+        // karena paling enak dibaca (seperti contoh Point A).
+        const arah = [];
+        for (let i = 0; i < 24; i++) arah.push(135 + i * 15);
+        for (let r = 10; r <= 60; r += 3) {
+          for (const a of arah) {
+            const rad = (a * Math.PI) / 180;
+            const x = tx + Math.cos(rad) * r;
+            const y = ty + Math.sin(rad) * r * 0.8;
+            if (x < LW + 1 || x > 99 - LW || y < LH + 1 || y > 99 - LH) continue;
+            if (bentrok(x, y)) continue;
+            if (!kosongDi(x, y)) continue;
+            return { x: +x.toFixed(2), y: +y.toFixed(2) };
+          }
+        }
+        // Masih belum ketemu -> sapu SELURUH gambar, ambil tempat kosong
+        // yang paling dekat dengan titiknya.
+        let terbaik = null, terdekat = Infinity;
+        for (let y = LH + 1; y <= 99 - LH; y += 2) {
+          for (let x = LW + 1; x <= 99 - LW; x += 2) {
+            if (bentrok(x, y) || !kosongDi(x, y)) continue;
+            const j = (x - tx) * (x - tx) + (y - ty) * (y - ty);
+            if (j < terdekat) { terdekat = j; terbaik = { x: +x.toFixed(2), y: +y.toFixed(2) }; }
+          }
+        }
+        if (terbaik) return terbaik;
+      }
+
+      // Gambar tidak bisa dibaca (atau benar-benar penuh part): kotak
+      // ditaruh di pojok gambar -- pada gambar CAD pojok hampir selalu
+      // kosong, jauh lebih aman daripada menempel di sebelah titiknya.
+      const pojok = [
+        { x: LW + 2, y: 99 - LH - 1 },      // kiri bawah
+        { x: 99 - LW - 2, y: 99 - LH - 1 }, // kanan bawah
+        { x: LW + 2, y: LH + 2 },           // kiri atas
+        { x: 99 - LW - 2, y: LH + 2 },      // kanan atas
+        { x: 50, y: 99 - LH - 1 },          // tengah bawah
+        { x: 50, y: LH + 2 },               // tengah atas
+      ].sort((a, c) => ((a.x - tx) ** 2 + (a.y - ty) ** 2) - ((c.x - tx) ** 2 + (c.y - ty) ** 2));
+      for (const q of pojok) if (!bentrok(q.x, q.y)) return { x: +q.x.toFixed(2), y: +q.y.toFixed(2) };
+      return pojok[0];
+    },
     async bukaRekapRepair() {
       if (!this.rekapBulan) this.rekapBulan = this.rekapBulanIni();
       // Tampilan pertama: SEMUA MODEL -- gambaran se-line dulu, baru
@@ -5856,40 +6030,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       // menggulung halaman mesin di balik lembar rekap.
       document.body.style.overflow = "hidden";
       await this.rekapMuat();
-      this.rekapMulaiSegar();
-    },
-    // Selama rekap terbuka, datanya disegarkan sendiri. Input repair
-    // biasanya datang dari HP leader -- tanpa ini layar rekap harus
-    // di-refresh manual dulu baru angkanya muncul.
-    rekapMulaiSegar() {
-      this.rekapHentiSegar();
-      this._rekapTimer = setInterval(() => this.rekapSegarDiam(), 20000);
-      this._rekapFokus = () => { if (!document.hidden) this.rekapSegarDiam(); };
-      document.addEventListener("visibilitychange", this._rekapFokus);
-      window.addEventListener("focus", this._rekapFokus);
-    },
-    rekapHentiSegar() {
-      if (this._rekapTimer) { clearInterval(this._rekapTimer); this._rekapTimer = null; }
-      if (this._rekapFokus) {
-        document.removeEventListener("visibilitychange", this._rekapFokus);
-        window.removeEventListener("focus", this._rekapFokus);
-        this._rekapFokus = null;
-      }
-    },
-    // Penyegaran otomatis sengaja DILEWATI saat Mode Atur atau saat ada
-    // isian yang sedang dipakai -- kalau tidak, ketikan/pilihan bisa
-    // terlempar di tengah jalan.
-    rekapSegarDiam() {
-      if (!this.rekapBuka || this.rekapSibuk || this.rekapAtur) return;
-      const f = document.activeElement;
-      if (f && f.closest && f.closest(".rekap-overlay") &&
-          /^(INPUT|SELECT|TEXTAREA)$/.test(f.tagName)) return;
-      this.rekapMuat();
     },
     tutupRekapRepair() {
       this.rekapBuka = false;
       this.rekapAtur = false;
-      this.rekapHentiSegar();
       document.body.style.overflow = "";
     },
     // Ganti model -> Part No ikut ganti (pilihan lama dibuang kalau bukan
@@ -5897,9 +6041,6 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     async rekapGantiModel() {
       const opsi = this.rekapPartOpsi(this.rekapModel);
       if (this.rekapPart && !opsi.includes(this.rekapPart)) this.rekapPart = "";
-      // Mode Atur tidak berlaku di "Semua Model": barisnya hasil gabungan
-      // beberapa model, jadi tidak jelas perubahannya mau disimpan ke mana.
-      if (this.rekapSemuaModel()) this.rekapAtur = false;
       await this.rekapMuat();
     },
     async rekapMuat() {
@@ -6095,10 +6236,6 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         }
         const logTitik = (p) => rows.filter((r) => (r.point_id && r.point_id === p.id) ||
           (!r.point_id && p.label && String(r.point_label || "") === String(p.label)));
-        // Posisi kotak angka terhadap titiknya: diputar bergantian supaya
-        // kalau titiknya berdekatan kotaknya tidak saling menimpa.
-        const ARAH = [[-17, 15], [17, 15], [-17, -15], [17, -15], [0, 20], [0, -20]];
-        const jepit = (n) => Math.max(5, Math.min(95, n));
         const baris = urutanArea.map((nama, i) => {
           const milik = perArea.get(nama) || [];
           const punya = [];
@@ -6106,21 +6243,35 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           milik.forEach((p, k) => {
             const ls = logTitik(p);
             ls.forEach((r) => { if (!dipakai.has(r.id)) { dipakai.add(r.id); punya.push(r); } });
-            // Kotak angka cuma digambar untuk titik yang sudah ditaruh di
-            // gambar DAN ada repairnya bulan ini (0 tidak ditampilkan).
-            const m = marker.find((x) => x.point_id === p.id && x.area === nama);
+            // Titik bisa ditaruh di BEBERAPA tempat pada gambar (bentuk
+            // kembar: huruf C muncul dua kali). Angkanya tetap satu --
+            // datanya memang satu titik -- tapi panahnya ke semua tempat.
+            const semua = marker.filter((x) => x.point_id === p.id && x.area === nama &&
+                                               x.x_pct != null && x.y_pct != null);
             const jml = pcs(ls);
-            // Kotak angka hanya untuk titik yang sudah ada POSISINYA di
-            // gambar. Titik yang baru dihubungkan tanpa posisi tetap
-            // terhitung di Total Repair, cuma belum digambar kotaknya.
-            if (!m || m.x_pct == null || m.y_pct == null || jml <= 0) return;
-            const ax = Number(m.x_pct) || 0, ay = Number(m.y_pct) || 0;
-            const d = ARAH[k % ARAH.length];
+            // Titik yang baru dihubungkan tanpa posisi tetap terhitung di
+            // Total Repair, cuma belum digambar kotaknya.
+            if (!semua.length || jml <= 0) return;
+            // Satu point = satu gambar = satu kotak = satu panah. Kalau karena
+            // data lama masih ada beberapa, yang dipakai cukup yang pertama.
+            const posisi = semua.slice(0, 1).map((m) => ({
+              x: Number(m.x_pct), y: Number(m.y_pct),
+              b: m.bentuk && m.bentuk.t ? m.bentuk : { t: "titik" },
+              // jalur disiapkan sebagai teks "x,y x,y ..." supaya <polyline>
+              // tinggal memakainya langsung
+              garis: m.bentuk && m.bentuk.t === "jalur" && Array.isArray(m.bentuk.p)
+                ? m.bentuk.p.map((q) => q[0] + "," + q[1]).join(" ") : "",
+            }));
+            const ax = posisi.reduce((t, q) => t + q.x, 0) / posisi.length;
+            const ay = posisi.reduce((t, q) => t + q.y, 0) / posisi.length;
+            const kot = semua.find((m) => m.kotak_x != null && m.kotak_y != null);
+            // kx/ky diisi belakangan (lihat penempatan otomatis di bawah),
+            // kecuali kalau posisinya memang sudah ditentukan sendiri.
             tanda.push({
               id: p.id, label: p.label || "", jml,
-              x: ax, y: ay,
-              kx: m.kotak_x != null ? Number(m.kotak_x) : jepit(ax + d[0]),
-              ky: m.kotak_y != null ? Number(m.kotak_y) : jepit(ay + d[1]),
+              x: +ax.toFixed(2), y: +ay.toFixed(2), posisi,
+              kx: kot ? Number(kot.kotak_x) : null,
+              ky: kot ? Number(kot.kotak_y) : null,
             });
           });
           return {
@@ -6158,6 +6309,21 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           ? labelSisa.slice(0, 10).join(", ") + " dan " + (labelSisa.length - 10) + " lainnya"
           : labelSisa.join(", ");
         const belumMasuk = { kejadian: sisa.length, pcs: pcs(sisa), titik: titikTeks };
+        // --- Tempat kotak angka dicari OTOMATIS di bagian gambar yang
+        // kosong, supaya tidak menimpa gambar partnya. Gambarnya dibaca
+        // sekali ke kisi kasar lalu di-cache, jadi ini tidak berat. ---
+        for (const b of baris) {
+          if (!b.foto || !b.tanda || !b.tanda.length) continue;
+          const peta = await this.rekapPetaKosong(b.foto);
+          const sudahAda = [];
+          b.tanda.forEach((t) => {
+            if (t.kx != null && t.ky != null) { sudahAda.push({ x: t.kx, y: t.ky }); return; }
+            const pos = this.rekapCariTempatKotak(peta, t.x, t.y, sudahAda);
+            t.kx = pos.x; t.ky = pos.y;
+            sudahAda.push(pos);
+          });
+        }
+
         // Lembarnya selalu 11 baris seperti formulir aslinya: sisanya baris
         // kosong, siap ditulis tangan / diisi belakangan.
         const MIN_BARIS = 11;
@@ -6224,10 +6390,11 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // model yang sedang dibuka, supaya model asalnya tidak ikut berubah.
     async rekapPastikanMilikModel() {
       if (!this.rekapWarisan) return;
-      const salinan = (this.rekapAreaMaster || []).map((r) => ({
-        view_id: this.rekapViewId, model: this.rekapModel, area: r.area,
+      const salinan = [];
+      this.rekapModelSasaran().forEach((m) => (this.rekapAreaMaster || []).forEach((r) => salinan.push({
+        view_id: this.rekapViewId, model: m, area: r.area,
         urutan: r.urutan, poin: r.poin, foto_url: r.foto_url,
-      }));
+      })));
       if (salinan.length) {
         const { error } = await supabaseClient.from("repair_area_foto")
           .upsert(salinan, { onConflict: "view_id,model,area" });
@@ -6247,26 +6414,33 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const ids = this.rekapIdModel && this.rekapIdModel.length ? this.rekapIdModel : [vid];
       await this.rekapPastikanMilikModel();
       try {
+        const sasaran = this.rekapModelSasaran();
         if (lamaBersih && !baru) {
           if (!confirm('Hapus baris "' + lamaBersih + '"? Titiknya dilepas, datanya tidak terhapus.')) {
             await this.rekapMuat(); return;
           }
           await supabaseClient.from("repair_points").update({ area: null }).in("view_id", ids).eq("area", lamaBersih);
-          await supabaseClient.from("repair_area_foto").delete().in("view_id", ids).eq("model", this.rekapModel).eq("area", lamaBersih);
+          await supabaseClient.from("repair_area_foto").delete().in("view_id", ids).in("model", sasaran).eq("area", lamaBersih);
+          await supabaseClient.from("repair_area_titik").delete().in("view_id", ids).in("model", sasaran).eq("area", lamaBersih);
         } else if (!lamaBersih && baru) {
           const { error } = await supabaseClient.from("repair_area_foto")
-            .upsert({ view_id: vid, model: this.rekapModel, area: baru, urutan: no }, { onConflict: "view_id,model,area" });
+            .upsert(sasaran.map((m) => ({ view_id: vid, model: m, area: baru, urutan: no })),
+                    { onConflict: "view_id,model,area" });
           if (error) throw error;
         } else {
           await supabaseClient.from("repair_points").update({ area: baru }).in("view_id", ids).eq("area", lamaBersih);
           const lamaRow = (this.rekapAreaMaster || []).find((m) => m.area === lamaBersih);
           const { error } = await supabaseClient.from("repair_area_foto")
-            .upsert({ view_id: vid, model: this.rekapModel, area: baru, urutan: no,
-                      poin: lamaRow ? lamaRow.poin : null,
-                      foto_url: this.rekapFoto[lamaBersih] || null },
-                    { onConflict: "view_id,model,area" });
+            .upsert(sasaran.map((m) => ({
+              view_id: vid, model: m, area: baru, urutan: no,
+              poin: lamaRow ? lamaRow.poin : null,
+              foto_url: this.rekapFoto[lamaBersih] || null,
+            })), { onConflict: "view_id,model,area" });
           if (error) throw error;
-          await supabaseClient.from("repair_area_foto").delete().in("view_id", ids).eq("model", this.rekapModel).eq("area", lamaBersih);
+          // penanda titik ikut pindah ke nama Area yang baru
+          await supabaseClient.from("repair_area_titik")
+            .update({ area: baru }).in("view_id", ids).in("model", sasaran).eq("area", lamaBersih);
+          await supabaseClient.from("repair_area_foto").delete().in("view_id", ids).in("model", sasaran).eq("area", lamaBersih);
         }
       } catch (e) {
         this.flash("Gagal simpan Area: " + (e.message || e), true);
@@ -6281,7 +6455,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       const angka = String(nilai || "").trim();
       const poin = angka === "" ? null : Math.max(0, parseInt(angka, 10) || 0);
       const { error } = await supabaseClient.from("repair_area_foto")
-        .upsert({ view_id: this.rekapViewId, model: this.rekapModel, area: nama, poin }, { onConflict: "view_id,model,area" });
+        .upsert(this.rekapModelSasaran().map((m) => ({ view_id: this.rekapViewId, model: m, area: nama, poin })),
+                { onConflict: "view_id,model,area" });
       if (error) { this.flash("Gagal simpan Point: " + error.message, true); return; }
       await this.rekapMuat();
     },
@@ -6294,6 +6469,67 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     // diunggah. Jadi kalau belum ada gambar, daftar titiknya langsung
     // dibuka tanpa perlu mengklik posisi (titiknya tersimpan tanpa
     // koordinat; begitu gambarnya ada tinggal ditaruh posisinya).
+    // ---- Menggambar di atas foto (Mode Atur) ----
+    // Posisi disimpan dalam PERSEN terhadap ukuran gambar, jadi tetap pas
+    // walau gambarnya diperbesar atau saat dicetak.
+    rekapPosDi(ev, el) {
+      const k = el.getBoundingClientRect();
+      if (!k.width || !k.height) return null;
+      return {
+        x: +Math.max(0, Math.min(100, ((ev.clientX - k.left) / k.width) * 100)).toFixed(2),
+        y: +Math.max(0, Math.min(100, ((ev.clientY - k.top) / k.height) * 100)).toFixed(2),
+      };
+    },
+    rekapGambarMulai(nama, ev) {
+      if (!this.rekapAtur || this.rekapTaruhPos) return;
+      const p = this.rekapPosDi(ev, ev.currentTarget);
+      if (!p) return;
+      ev.preventDefault();
+      if (this.rekapAlat === "titik") {
+        this.rekapTaruhPos = { area: nama, x: p.x, y: p.y, bentuk: { t: "titik" } };
+        return;
+      }
+      if (this.rekapAlat === "jalur") this.rekapDraft = { area: nama, t: "jalur", p: [[p.x, p.y]] };
+      else this.rekapDraft = { area: nama, t: "lingkaran", cx: p.x, cy: p.y, rx: 0, ry: 0 };
+      try { ev.currentTarget.setPointerCapture(ev.pointerId); } catch (e) { /* tidak wajib */ }
+    },
+    rekapGambarGeser(nama, ev) {
+      const d = this.rekapDraft;
+      if (!d || d.area !== nama) return;
+      const p = this.rekapPosDi(ev, ev.currentTarget);
+      if (!p) return;
+      ev.preventDefault();
+      if (d.t === "jalur") {
+        const t = d.p[d.p.length - 1];
+        // titik terlalu rapat dibuang -- jalurnya jadi ringan & halus
+        if (Math.abs(t[0] - p.x) + Math.abs(t[1] - p.y) < 1.2) return;
+        d.p = d.p.concat([[p.x, p.y]]);
+      } else {
+        d.rx = +Math.abs(p.x - d.cx).toFixed(2);
+        d.ry = +Math.abs(p.y - d.cy).toFixed(2);
+      }
+    },
+    rekapGambarSelesai(nama, ev) {
+      const d = this.rekapDraft;
+      if (!d || d.area !== nama) return;
+      this.rekapDraft = null;
+      if (d.t === "jalur") {
+        if (d.p.length < 2) return;                    // cuma sentuhan, bukan garis
+        const tx = d.p.reduce((t, q) => t + q[0], 0) / d.p.length;
+        const ty = d.p.reduce((t, q) => t + q[1], 0) / d.p.length;
+        this.rekapTaruhPos = { area: nama, x: +tx.toFixed(2), y: +ty.toFixed(2), bentuk: { t: "jalur", p: d.p } };
+      } else {
+        if (d.rx < 1.5 && d.ry < 1.5) return;          // lingkaran terlalu kecil
+        this.rekapTaruhPos = { area: nama, x: d.cx, y: d.cy,
+                               bentuk: { t: "lingkaran", cx: d.cx, cy: d.cy, rx: d.rx, ry: d.ry } };
+      }
+    },
+    // Jalur yang sedang ditarik, dalam bentuk teks untuk <polyline>.
+    rekapDraftGaris() {
+      const d = this.rekapDraft;
+      if (!d || d.t !== "jalur") return "";
+      return d.p.map((q) => q[0] + "," + q[1]).join(" ");
+    },
     rekapMulaiTaruh(nama, adaGambar) {
       if (!adaGambar) {
         this.rekapTaruh = "";
@@ -6303,52 +6539,67 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       this.rekapTaruh = this.rekapTaruh === nama ? "" : nama;
       this.rekapTaruhPos = null;
     },
-    rekapKlikGambar(nama, ev) {
-      if (this.rekapTaruh !== nama) return;
-      const kotak = ev.currentTarget.getBoundingClientRect();
-      if (!kotak.width || !kotak.height) return;
-      this.rekapTaruhPos = {
-        area: nama,
-        x: +(((ev.clientX - kotak.left) / kotak.width) * 100).toFixed(2),
-        y: +(((ev.clientY - kotak.top) / kotak.height) * 100).toFixed(2),
-      };
-    },
     // Titik yang belum ditaruh di Area mana pun ditampilkan lebih dulu.
     rekapTitikBelumTaruh(nama) {
-      const sudah = new Set(this.rekapMarker.filter((m) => m.area === nama).map((m) => m.point_id));
+      const hitung = {};
+      this.rekapMarker.filter((m) => m.area === nama)
+        .forEach((m) => { hitung[m.point_id] = (hitung[m.point_id] || 0) + 1; });
       const lain = new Set(this.rekapMarker.filter((m) => m.area !== nama).map((m) => m.point_id));
       return (this.rekapTitik || []).map((p) => ({
         p,
         nama: String(p.label || "").trim() || "#" + ((this.rekapTitik || []).indexOf(p) + 1),
-        disini: sudah.has(p.id),
+        jumlah: hitung[p.id] || 0,            // berapa kali titik ini sudah ditaruh di Area ini
+        disini: !!hitung[p.id],
         diarea: lain.has(p.id) ? (this.rekapMarker.find((m) => m.point_id === p.id) || {}).area : "",
       }));
     },
+    // Satu titik BOLEH ditaruh lebih dari sekali di Area yang sama.
+    // Ini untuk bentuk kembar: di gambar CAD huruf C sering muncul di dua
+    // tempat padahal di model 3D cuma satu area bernama C. Angkanya tetap
+    // satu (datanya memang satu), tapi panahnya menunjuk ke semua tempat.
     async rekapSimpanTaruh(point) {
       const pos = this.rekapTaruhPos;
       if (!pos) return;
       await this.rekapPastikanMilikModel();
-      const { error } = await supabaseClient.from("repair_area_titik").upsert({
-        view_id: this.rekapViewId, model: this.rekapModel, area: pos.area,
-        point_id: point.id, x_pct: pos.x, y_pct: pos.y,
-      }, { onConflict: "view_id,model,area,point_id" });
+      // Satu point cuma boleh punya SATU gambar di satu Area, supaya di lembar
+      // rekap selalu 1 kotak dengan 1 panah. Gambar lama untuk point yang sama
+      // dibuang dulu, jadi yang baru menimpa.
+      const { error: eHapus } = await supabaseClient.from("repair_area_titik").delete()
+        .in("view_id", this.rekapIdModel || [this.rekapViewId])
+        .in("model", this.rekapModelSasaran())
+        .eq("area", pos.area).eq("point_id", point.id);
+      if (eHapus) { this.flash("Gagal menimpa gambar lama: " + eHapus.message, true); return; }
+      const { error } = await supabaseClient.from("repair_area_titik").insert(
+        this.rekapModelSasaran().map((m) => ({
+          view_id: this.rekapViewId, model: m, area: pos.area,
+          point_id: point.id, x_pct: pos.x, y_pct: pos.y,
+          bentuk: pos.bentuk || { t: "titik" },
+        })));
       if (error) { this.flash("Gagal menaruh titik: " + error.message, true); return; }
       this.rekapTaruhPos = null;
       await this.rekapMuat();
-      this.flash("Titik " + (point.label || "") + " ditaruh di " + pos.area + " ✓");
+      this.flash("Titik " + (point.label || "") + " ditaruh di " + pos.area + " \u2713");
     },
-    async rekapHapusTaruh(nama, pointId) {
-      const { error } = await supabaseClient.from("repair_area_titik").delete()
+    // Hapus SATU penanda (bukan semua penanda titik itu). Dicocokkan lewat
+    // koordinatnya, karena satu penaruhan menghasilkan satu baris untuk
+    // tiap model sasaran dengan koordinat yang sama persis.
+    async rekapHapusTaruh(nama, pointId, x, y) {
+      let q = supabaseClient.from("repair_area_titik").delete()
         .in("view_id", this.rekapIdModel || [this.rekapViewId])
-        .eq("model", this.rekapModel).eq("area", nama).eq("point_id", pointId);
+        .in("model", this.rekapModelSasaran()).eq("area", nama).eq("point_id", pointId);
+      if (x != null && y != null) q = q.eq("x_pct", x).eq("y_pct", y);
+      const { error } = await q;
       if (error) { this.flash("Gagal hapus titik: " + error.message, true); return; }
       await this.rekapMuat();
     },
     // Semua titik yang sudah ditaruh di satu Area (dipakai daftar di Mode Atur).
     rekapTaruhDiArea(nama) {
-      return this.rekapMarker.filter((m) => m.area === nama).map((m) => {
+      return this.rekapMarker.filter((m) => m.area === nama && m.x_pct != null).map((m) => {
         const p = (this.rekapTitik || []).find((x) => x.id === m.point_id);
-        return { point_id: m.point_id, label: (p && p.label) || "?", x: m.x_pct, y: m.y_pct };
+        return { kunci: m.id || (m.point_id + "-" + m.x_pct + "-" + m.y_pct),
+                 point_id: m.point_id, label: (p && p.label) || "?",
+                 x: Number(m.x_pct), y: Number(m.y_pct),
+                 b: m.bentuk && m.bentuk.t ? m.bentuk : { t: "titik" } };
       });
     },
     async rekapUnggahFoto(nama, ev) {
@@ -6365,9 +6616,10 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         if (upErr) throw upErr;
         const { data: pub } = supabaseClient.storage.from("repair-photos").getPublicUrl(path);
         const { error } = await supabaseClient.from("repair_area_foto")
-          .upsert({ view_id: this.rekapViewId, model: this.rekapModel, area: nama,
-                   foto_url: pub.publicUrl, updated_at: new Date().toISOString() },
-                  { onConflict: "view_id,model,area" });
+          .upsert(this.rekapModelSasaran().map((m) => ({
+            view_id: this.rekapViewId, model: m, area: nama,
+            foto_url: pub.publicUrl, updated_at: new Date().toISOString(),
+          })), { onConflict: "view_id,model,area" });
         if (error) throw error;
         this.rekapFoto = Object.assign({}, this.rekapFoto, { [nama]: pub.publicUrl });
         await this.rekapMuat();
@@ -6382,7 +6634,8 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       if (!confirm("Hapus gambar Area " + nama + "?")) return;
       await this.rekapPastikanMilikModel();
       const { error } = await supabaseClient.from("repair_area_foto")
-        .delete().in("view_id", this.rekapIdModel || [this.rekapViewId]).eq("model", this.rekapModel).eq("area", nama);
+        .delete().in("view_id", this.rekapIdModel || [this.rekapViewId])
+        .in("model", this.rekapModelSasaran()).eq("area", nama);
       if (error) { this.flash("Gagal hapus gambar: " + error.message, true); return; }
       const salin = Object.assign({}, this.rekapFoto); delete salin[nama];
       this.rekapFoto = salin;

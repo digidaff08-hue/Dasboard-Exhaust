@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://esm.sh">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script>if (/[?&]solo3d=1/.test(location.search)) document.documentElement.classList.add("repair-solo");</script>
-<link rel="stylesheet" href="../assets/style.css?v=20261123j">
+<link rel="stylesheet" href="../assets/style.css?v=20261124b">
 <script src="../assets/pengaturan.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -21,11 +21,11 @@
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="../assets/supabaseClient.js?v=20261123j"></script>
+<script src="../assets/supabaseClient.js?v=20261124b"></script>
 <script src="../assets/realtime.js"></script>
 <script src="../assets/utils.js"></script>
 <script src="../assets/produksi-join.js"></script>
-<script src="../assets/machine-page.js?v=20261123j"></script>
+<script src="../assets/machine-page.js?v=20261124b"></script>
 <script src="../assets/andon.js"></script>
 <style>
   /* decor-bg-fix */
@@ -2299,8 +2299,6 @@
              LANGSUNG di tabelnya. Khusus admin karena ini data master. -->
         <template x-if="isAdmin()">
           <button type="button" class="btn-secondary btn-sm" :class="rekapAtur ? 'btn-primary' : ''"
-                  :disabled="rekapSemuaModel()"
-                  :title="rekapSemuaModel() ? 'Pilih satu model dulu. Di Semua Model barisnya gabungan beberapa model.' : ''"
                   @click="rekapAtur = !rekapAtur"
                   x-text="rekapAtur ? '✓ Selesai Atur' : '✏️ Atur Area'"></button>
         </template>
@@ -2373,21 +2371,72 @@
                                  maupun saat dicetak. -->
                             <template x-if="r.foto">
                               <div class="rekap-foto-wrap"
-                                   :class="rekapTaruh === r.area ? 'menaruh' : ''"
-                                   @click="rekapKlikGambar(r.area, $event)">
-                                <img :src="r.foto" alt="">
+                                   :class="rekapAtur && r.area ? 'menggambar' : ''"
+                                   @pointerdown="rekapGambarMulai(r.area, $event)"
+                                   @pointermove="rekapGambarGeser(r.area, $event)"
+                                   @pointerup="rekapGambarSelesai(r.area, $event)"
+                                   @pointercancel="rekapDraft = null">
+                                <img :src="r.foto" alt="" draggable="false">
+                                <!-- Bentuk merah yang digambar sendiri di foto:
+                                     jalur bebas, lingkaran, atau titik. Semua
+                                     koordinatnya persen, jadi ikut menyesuaikan
+                                     saat gambar diperbesar maupun dicetak. -->
+                                <template x-for="t in r.tanda" :key="'bt-' + r.no + '-' + t.id">
+                                  <span>
+                                    <template x-for="(q, qi) in t.posisi" :key="'bq-' + r.no + '-' + t.id + '-' + qi">
+                                      <span>
+                                        <!-- x-if HARUS di luar <svg>: di dalam SVG,
+                                             <template> dianggap elemen gambar biasa
+                                             dan isinya tidak pernah dirender. -->
+                                        <template x-if="q.b.t === 'jalur'">
+                                          <svg class="rekap-bentuk" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                            <polyline :points="q.garis" fill="none"></polyline>
+                                          </svg>
+                                        </template>
+                                        <template x-if="q.b.t === 'lingkaran'">
+                                          <svg class="rekap-bentuk" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                            <ellipse :cx="q.b.cx" :cy="q.b.cy" :rx="q.b.rx" :ry="q.b.ry" fill="none"></ellipse>
+                                          </svg>
+                                        </template>
+                                      </span>
+                                    </template>
+                                  </span>
+                                </template>
+                                <!-- bentuk yang sedang ditarik -->
+                                <template x-if="rekapDraft && rekapDraft.area === r.area && rekapDraft.t === 'jalur'">
+                                  <svg class="rekap-bentuk rekap-bentuk-draft" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                    <polyline :points="rekapDraftGaris()" fill="none"></polyline>
+                                  </svg>
+                                </template>
+                                <template x-if="rekapDraft && rekapDraft.area === r.area && rekapDraft.t === 'lingkaran'">
+                                  <svg class="rekap-bentuk rekap-bentuk-draft" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                    <ellipse :cx="rekapDraft.cx" :cy="rekapDraft.cy"
+                                             :rx="rekapDraft.rx" :ry="rekapDraft.ry" fill="none"></ellipse>
+                                  </svg>
+                                </template>
                                 <!-- Satu panah = satu <svg> sendiri. <template x-for>
                                      TIDAK BOLEH ditaruh di dalam <svg>: di dalam SVG
                                      tag itu dianggap elemen gambar biasa, isinya tidak
                                      pernah dirender dan Alpine melempar "t is not
                                      defined". Jadi perulangannya di luar SVG. -->
+                                <!-- Satu panah per TEMPAT. Titik yang sama bisa
+                                     ditaruh di beberapa tempat (bentuk kembar),
+                                     angkanya satu tapi panahnya ke semuanya. -->
                                 <template x-for="t in r.tanda" :key="'ph-' + r.no + '-' + t.id">
-                                  <svg class="rekap-panah" viewBox="0 0 100 100" preserveAspectRatio="none">
-                                    <line :x1="t.kx" :y1="t.ky" :x2="t.x" :y2="t.y"></line>
-                                  </svg>
+                                  <span>
+                                    <template x-for="(q, qi) in t.posisi" :key="'pq-' + r.no + '-' + t.id + '-' + qi">
+                                      <svg class="rekap-panah" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                        <line :x1="t.kx" :y1="t.ky" :x2="q.x" :y2="q.y"></line>
+                                      </svg>
+                                    </template>
+                                  </span>
                                 </template>
                                 <template x-for="t in r.tanda" :key="'tk-' + r.no + '-' + t.id">
-                                  <span class="rekap-ujung" :style="'left:' + t.x + '%;top:' + t.y + '%'"></span>
+                                  <span>
+                                    <template x-for="(q, qi) in t.posisi" :key="'pu-' + r.no + '-' + t.id + '-' + qi">
+                                      <span class="rekap-ujung" :style="'left:' + q.x + '%;top:' + q.y + '%'"></span>
+                                    </template>
+                                  </span>
                                 </template>
                                 <template x-for="t in r.tanda" :key="'kt-' + r.no + '-' + t.id">
                                   <span class="rekap-kotak" :style="'left:' + t.kx + '%;top:' + t.ky + '%'"
@@ -2397,11 +2446,11 @@
                                      hanya kelihatan saat Mode Atur -->
                                 <template x-if="rekapAtur">
                                   <span>
-                                    <template x-for="t in rekapTaruhDiArea(r.area)" :key="'at-' + r.no + '-' + t.point_id">
+                                    <template x-for="t in rekapTaruhDiArea(r.area)" :key="'at-' + r.no + '-' + t.kunci">
                                       <button type="button" class="rekap-titik-atur"
                                               :style="'left:' + t.x + '%;top:' + t.y + '%'"
-                                              :title="'Titik ' + t.label + ' -- klik untuk lepas dari Area ini'"
-                                              @click.stop="rekapHapusTaruh(r.area, t.point_id)"
+                                              :title="'Titik ' + t.label + ' -- klik untuk hapus penanda ini'"
+                                              @click.stop="rekapHapusTaruh(r.area, t.point_id, t.x, t.y)"
                                               x-text="t.label"></button>
                                     </template>
                                   </span>
@@ -2414,18 +2463,30 @@
                                   <input type="file" accept="image/*" @change="rekapUnggahFoto(r.area, $event)">
                                   <span x-text="rekapUnggah === r.area ? 'mengunggah...' : (r.foto ? 'ganti gambar' : '+ tempel gambar')"></span>
                                 </label>
-                                <button type="button" :class="rekapTaruh === r.area ? 'aktif' : ''"
-                                        @click="rekapMulaiTaruh(r.area, !!r.foto)"
-                                        x-text="rekapTaruh === r.area ? 'selesai taruh titik' : (r.foto ? '+ taruh titik' : '+ hubungkan titik')"></button>
+                                <!-- Alat gambar. Pilih alatnya, lalu gambar
+                                     langsung di fotonya. -->
+                                <template x-if="r.foto">
+                                  <span class="rekap-alat">
+                                    <button type="button" :class="rekapAlat === 'titik' ? 'aktif' : ''"
+                                            @click="rekapAlat = 'titik'">&#9679; Titik</button>
+                                    <button type="button" :class="rekapAlat === 'jalur' ? 'aktif' : ''"
+                                            @click="rekapAlat = 'jalur'">&#10022; Jalur</button>
+                                    <button type="button" :class="rekapAlat === 'lingkaran' ? 'aktif' : ''"
+                                            @click="rekapAlat = 'lingkaran'">&#9711; Lingkaran</button>
+                                  </span>
+                                </template>
+                                <button type="button" x-show="!r.foto"
+                                        @click="rekapMulaiTaruh(r.area, false)">+ hubungkan titik</button>
                                 <button type="button" x-show="r.foto" @click="rekapHapusFoto(r.area)">hapus gambar</button>
                                 <!-- daftar titik, muncul setelah mengklik gambar -->
                                 <template x-if="rekapTaruhPos && rekapTaruhPos.area === r.area">
                                   <div class="rekap-pilih-titik">
-                                    <p x-text="rekapTaruhPos.x === null ? 'Titik mana saja yang masuk Area ini?' : 'Titik mana yang ada di situ?'"></p>
+                                    <p x-text="rekapTaruhPos.x === null ? 'Titik mana saja yang masuk Area ini?' : 'Gambar ini titik yang mana?'"></p>
                                     <template x-for="o in rekapTitikBelumTaruh(r.area)" :key="'pl-' + r.no + '-' + o.p.id">
                                       <button type="button" :class="o.disini ? 'on' : (o.diarea ? 'lain' : '')"
-                                              :title="o.diarea ? 'Sekarang di Area ' + o.diarea : ''"
-                                              @click="rekapSimpanTaruh(o.p)" x-text="o.nama"></button>
+                                              :title="o.jumlah ? 'Sudah ditaruh ' + o.jumlah + 'x di Area ini -- klik lagi untuk menambah tempat' : (o.diarea ? 'Sekarang di Area ' + o.diarea : '')"
+                                              @click="rekapSimpanTaruh(o.p)"
+                                              x-text="o.nama + (o.jumlah > 1 ? ' \u00d7' + o.jumlah : '')"></button>
                                     </template>
                                     <button type="button" class="batal" @click="rekapTaruhPos = null">batal</button>
                                   </div>
