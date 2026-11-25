@@ -29,7 +29,9 @@
 const REALTIME_PROVIDER = "pusher";            // "supabase" | "pusher"
 const PUSHER_KEY = "fce0ec5ae3eb100a007e";     // App Key (bukan Secret!) dari dashboard Pusher
 const PUSHER_CLUSTER = "ap1";                  // ap1 = Singapura
-const PUSHER_JS_URL = "https://cdn.jsdelivr.net/npm/pusher-js@8.4.0/dist/web/pusher.min.js";
+// Disalin ke server sendiri (assets/vendor) supaya tidak bergantung CDN luar:
+// kalau jaringan ke internet putus tapi jaringan lokal hidup, halaman tetap jalan.
+const PUSHER_JS_URL = "/assets/vendor/pusher-8.4.0.min.js";
 
 // Channel yang TETAP memakai Supabase walau mode "pusher". Absensi/cuti
 // jarang berubah (hanya karena aksi orang, bukan sinkronisasi sheet) dan

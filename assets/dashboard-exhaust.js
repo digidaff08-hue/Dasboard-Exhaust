@@ -2058,6 +2058,29 @@ function dashboardExhaust() {
       document.documentElement.style.setProperty("--dxy-atas", atas + "px");
       document.documentElement.style.setProperty("--dxy-bawah", bawah + "px");
       this.pasBarisAkhir(el);
+      this.pantauIsiSatuLayar(el);
+    },
+
+    // Saat pertama dibuka, data dan grafiknya baru sampai beberapa detik
+    // kemudian -- jauh setelah pengukuran terakhir (detik 1,2). Akibatnya
+    // tinggi baris atas berubah setelah diukur, dan layarnya jadi
+    // melebihi satu layar sampai tab dipindah lalu dibalikkan. Pemantau
+    // ini mengukur ulang begitu baris mana pun di atas berubah tinggi.
+    // Yang dipantau HANYA baris atas, bukan baris terakhir, supaya
+    // pengepasan tidak memicu dirinya sendiri terus-menerus.
+    pantauIsiSatuLayar(bagian) {
+      const dxy = bagian && bagian.querySelector(":scope > .dxy");
+      if (!dxy || this._dxyDiamati === dxy) return;
+      this._dxyDiamati = dxy;
+      if (typeof ResizeObserver !== "function") return;
+      if (!this._pengamatIsi) {
+        this._pengamatIsi = new ResizeObserver(() => {
+          clearTimeout(this._pengamatJeda);
+          this._pengamatJeda = setTimeout(() => this.ukurAtasSatuLayar(), 120);
+        });
+      }
+      this._pengamatIsi.disconnect();
+      [...dxy.children].slice(0, -1).forEach((a) => this._pengamatIsi.observe(a));
     },
 
     // Baris paling bawah (kolom-kolom "Terbesar"/"Rekap") dipaskan lewat
@@ -2103,7 +2126,9 @@ function dashboardExhaust() {
       window.addEventListener("resize", ukur);
       // Masuk/keluar F11 kadang tidak memicu resize di sebagian browser.
       document.addEventListener("fullscreenchange", () => setTimeout(ukur, 60));
-      setTimeout(ukur, 0); setTimeout(ukur, 400); setTimeout(ukur, 1200);
+      // Jaring tambahan untuk muatan pertama yang lambat (data + grafik
+      // kadang baru selesai di atas 1 detik).
+      [0, 400, 1200, 2500, 5000].forEach((ms) => setTimeout(ukur, ms));
     },
     async refetchActiveTab() {
       // PENTING: sengaja TIDAK memanggil destroyXCharts() di sini.

@@ -437,7 +437,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261125c";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261125d";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:40", "20:30"] },
@@ -1078,7 +1078,14 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
         // utama. Kalau operator sempat buka tab itu sebelum datanya sampai,
         // tabelnya sebentar kosong lalu otomatis keisi sendiri (reaktivitas
         // Alpine) -- bukan error, cuma nunggu giliran.
-        Promise.all([
+        // Promise-nya disimpan (bukan cuma ditembak lalu dilupakan) karena
+        // pembuka Record Repair lewat ?rekap=1 HARUS menunggu batch ini:
+        // lembar rekap butuh daftar model 3D (repair_views) dan daftar Part
+        // No. Tanpa menunggu, lembarnya terbuka saat keduanya masih kosong
+        // -> kolom Area, Point dan gambar posisi ikut kosong, padahal
+        // datanya ada. Dibuka manual dari tab Repair tidak kena masalah ini
+        // karena saat operator mengklik, data latarnya sudah sampai.
+        this._dataTabLainSiap = Promise.all([
           this.fetchDowntime(), this.fetchProblems(), this.fetchCauses(), this.fetchAreas(),
           this.fetchNgInline(), this.fetchNgAreaMaster(), this.fetchRepairViews(), this.fetchRepairKategori(),
           this.fetchRepairLog(), this.fetchRepairPartNoOptions(),
@@ -1150,6 +1157,7 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           // Dashboard Line: di sana rekapnya dibuka sebagai tab baru.
           if (wantTab === "repair" && new URLSearchParams(location.search).get("rekap") === "1") {
             this.tab = "repair";
+            try { await this._dataTabLainSiap; } catch (e) { /* sebagian gagal, lanjut apa adanya */ }
             this.bukaRekapRepair();
           }
         } catch (e) { /* noop -- URL aneh, biarin default */ }
@@ -6077,6 +6085,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
     },
     async rekapMuat() {
       if (!this.rekapBulan || !this.rekapModel) { this.rekapData = null; return; }
+      // Daftar model 3D adalah kunci seluruh lembar ini: dari situ didapat
+      // view_id, lalu Area, Point, gambar posisi dan penandanya. Kalau
+      // dipanggil sebelum daftarnya sampai (mis. dibuka otomatis dari
+      // halaman lain), ambil dulu -- jangan tampilkan lembar kosong.
+      if (!(this.repairViews || []).length) {
+        try { await this.fetchRepairViews(); } catch (e) { /* biar jalan apa adanya */ }
+      }
       this.rekapSibuk = true;
       try {
         const semua = this.rekapSemuaModel();
