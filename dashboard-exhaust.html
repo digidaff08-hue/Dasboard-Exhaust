@@ -185,7 +185,7 @@
 
     <!-- ===== TAB: BULANAN (harian, tanggal 1-31) ===== -->
     <template x-if="activeTab === 'bulanan'">
-      <div class="dxy-fill">
+      <div class="dxy-fill dxy-satu-layar">
         <template x-if="bulananLoading">
           <div class="dxy">
             <div class="dxy-skeleton-row">
@@ -353,9 +353,24 @@
                     <span x-text="qcActiveFilterChips('bulananTopProblem').length"></span> filter<span>✕</span>
                   </span>
                 </div>
+                <span class="dxy-dt-top-tools">
+                  <button type="button" class="dxy-mini-btn" @click="gantiDtTopTampil()"
+                          :title="dtTopTampil === 'grafik' ? 'Lihat sebagai tabel' : 'Lihat sebagai grafik'"
+                          x-text="dtTopTampil === 'grafik' ? 'Tabel' : 'Grafik'"></button>
+                  <button type="button" class="dxy-mini-btn" x-show="dtTopTampil === 'grafik'"
+                          @click="bukaDtTopSemua()" :title="'Lihat semua problem (' + dtTopJumlah() + ')'">&#128065;</button>
+                  <button type="button" class="dxy-mini-btn" x-show="dtTopTampil === 'grafik'"
+                          @click="dtTopUnduhPng(false)" title="Simpan grafik jadi gambar PNG">&#128247;</button>
+                </span>
                 <span class="dxy-panel-sub" style="font-weight:700; color:var(--dxy-text);" x-text="bulananMonthLabel"></span>
               </div>
-              <div class="dxy-table-scroll">
+              <!-- GRAFIK: batang Menit (sumbu kiri) + garis Frekuensi (sumbu kanan) -->
+              <div class="dxy-dt-top-chart" x-show="dtTopTampil === 'grafik'">
+                <canvas id="dxbTopProblem"></canvas>
+                <div class="dxy-dt-top-kosong" x-show="!dtTopJumlah()">Belum ada data downtime bulan ini.</div>
+              </div>
+              <!-- TABEL: tetap ada, dipakai kalau butuh klik rincian / saringan kolom -->
+              <div class="dxy-table-scroll" x-show="dtTopTampil === 'tabel'">
                 <table class="dxy-table qc-detail-table">
                   <thead>
                     <tr>
@@ -387,7 +402,7 @@
       </div>
     </template>
     <template x-if="activeTab === 'tahunan'">
-      <div class="dxy-fill">
+      <div class="dxy-fill dxy-satu-layar">
         <template x-if="tahunanLoading">
           <div class="dxy">
             <div class="dxy-skeleton-row">
@@ -599,7 +614,7 @@
       </div>
     </template>
     <template x-if="activeTab === 'kualitas'">
-      <div class="dxy-fill">
+      <div class="dxy-fill dxy-satu-layar">
         <div class="dxy">
 
           <!-- ===== Baris 1: Filter bar (Bulan/Tahun) ===== -->
@@ -1531,6 +1546,22 @@
       </div>
     </div>
   </template>
+
+  <!-- Jendela besar: SELURUH problem, dibuka dari ikon mata di panel
+       Downtime Terbesar. Bentuk grafiknya sama persis, cuma semua problem
+       ikut digambar dan labelnya dipendekkan kalau jumlahnya banyak. -->
+  <div class="dxy-dt-top-modal" x-show="dtTopSemua" x-cloak @click.self="tutupDtTopSemua()">
+    <div class="dxy-dt-top-modal-box">
+      <div class="dxy-dt-top-modal-head">
+        <span>&#128293; Downtime Terbesar &mdash; semua problem (<span x-text="dtTopJumlah()"></span>)</span>
+        <span class="dxy-dt-top-modal-sub" x-text="bulananMonthLabel"></span>
+        <span style="flex:1 1 auto"></span>
+        <button type="button" class="dxy-mini-btn" @click="dtTopUnduhPng(true)" title="Simpan grafik jadi gambar PNG">&#128247;</button>
+        <button type="button" class="dxy-mini-btn" @click="tutupDtTopSemua()" title="Tutup (Esc)">&#10005;</button>
+      </div>
+      <div class="dxy-dt-top-modal-body"><canvas id="dxbTopProblemBesar"></canvas></div>
+    </div>
+  </div>
 
   <!-- Popup detail "Downtime Terbesar" (bottom Bulanan) -- double-klik row
        di tabel Problem untuk lihat breakdown per Line untuk bulan yang lagi

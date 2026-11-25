@@ -11,8 +11,11 @@
 <link rel="preconnect" href="https://ugrbunhudqhycgjlkwha.supabase.co">
 <link rel="preconnect" href="https://esm.sh">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script>if (/[?&]solo3d=1/.test(location.search)) document.documentElement.classList.add("repair-solo");</script>
-<link rel="stylesheet" href="../assets/style.css?v=20261124c">
+<script>if (/[?&]solo3d=1/.test(location.search)) document.documentElement.classList.add("repair-solo");
+// ?rekap=1 -> tab khusus lembar Record Repair. Kelasnya dipasang di sini,
+// sebelum apa pun digambar, supaya halaman mesin tidak sempat berkedip.
+if (/[?&]rekap=1/.test(location.search)) document.documentElement.classList.add("rekap-solo");</script>
+<link rel="stylesheet" href="../assets/style.css?v=20261125c">
 <script src="../assets/pengaturan.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -21,11 +24,11 @@
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="../assets/supabaseClient.js?v=20261124c"></script>
+<script src="../assets/supabaseClient.js?v=20261125c"></script>
 <script src="../assets/realtime.js"></script>
 <script src="../assets/utils.js"></script>
 <script src="../assets/produksi-join.js"></script>
-<script src="../assets/machine-page.js?v=20261124c"></script>
+<script src="../assets/machine-page.js?v=20261125c"></script>
 <script src="../assets/andon.js"></script>
 <style>
   /* decor-bg-fix */
@@ -1724,7 +1727,7 @@
                 <!-- Layar besar: modelnya memenuhi layar supaya titik kecil
                      lebih mudah dilihat & disentuh. Ukuran kanvas diurus
                      sendiri oleh ResizeObserver yang sudah ada. -->
-                <button type="button" class="btn-secondary btn-sm" :class="repairLayarPenuh ? 'btn-primary' : ''"
+                <button type="button" class="btn-secondary btn-sm repair-btn-layar" :class="repairLayarPenuh ? 'btn-primary' : ''"
                         @click="repairLayarPenuh = !repairLayarPenuh"
                         :title="repairLayarPenuh ? 'Keluar dari layar besar (Esc)' : 'Lihat model di layar besar'"
                         x-text="repairLayarPenuh ? '👁 Keluar layar besar' : '👁 Layar besar'"></button>
@@ -1739,7 +1742,7 @@
                 <!-- Record Repair: rekap bulanan yang bisa di-export ke Excel
                      atau PDF. SENGAJA DI LUAR <template x-if="isAdmin()"> --
                      semua user boleh membukanya, bukan admin saja. -->
-                <button type="button" class="btn-secondary btn-sm" @click="bukaRekapRepair()"
+                <button type="button" class="btn-secondary btn-sm" @click="bukaRecordRepair()"
                         title="Rekap Record Repair bulanan (Excel / PDF)">📋 Record Repair</button>
               </div>
             </div>

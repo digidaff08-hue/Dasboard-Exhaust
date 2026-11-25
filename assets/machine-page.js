@@ -437,7 +437,7 @@ const DKD_DESC_ITEMS = ["Target", "Hasil Aktual", "Rasio Dekidaka", "Selisih", "
 const DKD_MAINT_ITEMS = ["Abnormality", "Cleaning Nozzle", "Ganti tip", "Ganti Box", "Dandori", "MP"];
 const DKD_ROWS_PER_BLOCK = DKD_DESC_ITEMS.length;
 const DKD_TOTAL_BLOCKS = 11;
-const DKD_BUILD = "20261124c";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
+const DKD_BUILD = "20261125c";   // samakan dengan DEKI_VER di assets/dashboard-line.js dan --dkd-css-build di style.css
 const DKD_CYCLE_ROWS_COUNT = 5;
 const DKD_TIME_TABLE = {
   1:  { senKam1: ["07:15", "08:00"], jumat1: ["07:15", "08:00"], shift2: ["19:40", "20:30"] },
@@ -1145,6 +1145,13 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
           // langsung terbuka, halaman line di belakangnya disembunyikan, dan
           // tombol Tutup memberi tahu halaman induk (postMessage).
           if (new URLSearchParams(location.search).get("dekidaka") === "1") this.dekidakaMulaiInline();
+          // ?tab=repair&rekap=1 -> langsung buka lembar Record Repair. Dipakai
+          // tombol Record Repair saat halaman ini sedang jadi iframe di
+          // Dashboard Line: di sana rekapnya dibuka sebagai tab baru.
+          if (wantTab === "repair" && new URLSearchParams(location.search).get("rekap") === "1") {
+            this.tab = "repair";
+            this.bukaRekapRepair();
+          }
         } catch (e) { /* noop -- URL aneh, biarin default */ }
       } catch (err) {
         this.flash("Gagal memuat halaman: " + (err.message || err), true);
@@ -6023,6 +6030,22 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       for (const q of pojok) if (!bentrok(q.x, q.y)) return { x: +q.x.toFixed(2), y: +q.y.toFixed(2) };
       return pojok[0];
     },
+    // Dipanggil tombol "Record Repair". Di Dashboard Line halaman ini tampil
+    // di dalam iframe kecil dengan mode solo3d, dan di mode itu SEMUA yang di
+    // luar #repair-solo-zone disembunyikan (lihat style.css .repair-solo), jadi
+    // lembar rekapnya terbuka tapi tidak pernah kelihatan -- itu sebabnya dulu
+    // tombolnya seperti tidak berfungsi. Di sana rekapnya dibuka sebagai
+    // halaman penuh di tab baru, bukan dipaksa muat di kotak kecil.
+    bukaRecordRepair() {
+      let solo = false;
+      try { solo = new URLSearchParams(location.search).get("solo3d") === "1"; } catch (e) {}
+      if (!solo) return this.bukaRekapRepair();
+      // Di Dashboard Line halaman ini cuma iframe kecil (sekitar 300px), jadi
+      // lembar rekap tidak mungkin muat di situ. TIDAK membuka tab baru juga
+      // -- yang diminta: tetap di Dashboard Line. Jadi induknya diberi tahu,
+      // dan dia yang membuka rekap sebagai jendela besar di halamannya sendiri.
+      try { window.parent.postMessage({ bukaRecordRepair: true }, "*"); } catch (e) {}
+    },
     async bukaRekapRepair() {
       if (!this.rekapBulan) this.rekapBulan = this.rekapBulanIni();
       // Tampilan pertama: SEMUA MODEL -- gambaran se-line dulu, baru
@@ -6035,6 +6058,12 @@ function machinePage(machineKey, machineLabel, extraFields, routingMax, kategori
       await this.rekapMuat();
     },
     tutupRekapRepair() {
+      // Mode ?rekap=1 dipakai saat halaman ini jadi iframe jendela besar di
+      // Dashboard Line. Tutup di sini berarti menutup jendelanya di induk,
+      // bukan menutup apa pun di halaman ini.
+      if (document.documentElement.classList.contains("rekap-solo")) {
+        try { window.parent.postMessage({ tutupRecordRepair: true }, "*"); } catch (e) {}
+      }
       this.rekapBuka = false;
       this.rekapAtur = false;
       document.body.style.overflow = "";

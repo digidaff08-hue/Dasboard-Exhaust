@@ -176,24 +176,39 @@ function penulisAngkaDowntime(warnaGaris) {
           kotakAngka.length = 0;   // penulis pertama -> mulai dari bersih
           const n = meta.data.length;
           const slot = chartArea && n ? chartArea.width / n : 30;
-          const fs = slot < 18 ? 6.5 : slot < 26 ? 7.5 : slot < 40 ? 8.5 : 9.5;
+          let fs = slot < 18 ? 6.5 : slot < 26 ? 7.5 : slot < 40 ? 8.5 : 9.5;
           ctx.save();
-          ctx.font = `700 ${fs}px Inter, sans-serif`;
-          ctx.textAlign = "center"; ctx.fillStyle = "#000000"; ctx.textBaseline = "bottom";
-          const baris = [];
+
+          // Angka batang SELALU satu baris rapat di dasar grafik, tidak pernah
+          // ditumpuk ke atas. Dulu yang bersenggolan dinaikkan satu baris, dan
+          // di panel sempit (tab Kontrol Downtime) hasilnya berundak-undak,
+          // beda dengan tab Tahunan yang panelnya lebar. Sekarang kalau sempit
+          // yang mengecil hurufnya, bukan barisnya yang naik.
+          const isi = [];
           meta.data.forEach((bar, i) => {
             const v = Number(ds.data[i]);
             if (ds.data[i] === null || ds.data[i] === undefined || Number.isNaN(v) || v === 0) return;
             const { x, base } = bar.getProps(["x", "base"], true);
-            const txt = fmtNum(v);
-            const setengah = ctx.measureText(txt).width / 2 + 3;
-            let r = 0;
-            while (r < baris.length && x - setengah < baris[r]) r++;
-            baris[r] = x + setengah;
-            const y = base - 3 - r * (fs + 3);
-            tulisAngka(ctx, txt, x, y);
-            kotakAngka.push({ x1: x - setengah, x2: x + setengah, y1: y - fs, y2: y + 2 });
+            isi.push({ x, base, txt: fmtNum(v) });
           });
+          if (isi.length) {
+            // Cari ukuran huruf terbesar yang masih membuat angka terlebar muat
+            // di jatah lebarnya sendiri. Dibatasi 5px supaya tetap terbaca.
+            ctx.font = `700 ${fs}px Inter, sans-serif`;
+            let lebarMaks = 0;
+            for (const p of isi) lebarMaks = Math.max(lebarMaks, ctx.measureText(p.txt).width);
+            // +8 = sisa jarak antar angka, supaya tidak mepet bersinggungan
+            const butuh = lebarMaks + 8;
+            if (butuh > slot) fs = Math.max(5, fs * (slot / butuh));
+            ctx.font = `700 ${fs}px Inter, sans-serif`;
+            ctx.textAlign = "center"; ctx.fillStyle = "#000000"; ctx.textBaseline = "bottom";
+            for (const p of isi) {
+              const setengah = ctx.measureText(p.txt).width / 2 + 3;
+              const y = p.base - 3;
+              tulisAngka(ctx, p.txt, p.x, y);
+              kotakAngka.push({ x1: p.x - setengah, x2: p.x + setengah, y1: y - fs, y2: y + 2 });
+            }
+          }
           ctx.restore();
         },
       });
@@ -434,6 +449,9 @@ function dashboardExhaust() {
       if (this.activeTab === "kualitas" && tab !== "kualitas") this.destroyKualitasCharts();
       if (this.activeTab === "attendance" && tab !== "attendance") this.destroyAttendanceCharts();
       this.activeTab = tab;
+      // Tinggi "satu layar" diukur ulang: tiap tab punya bilah filter
+      // sendiri, jadi jarak ke awal isinya bisa berbeda.
+      this.$nextTick(() => this.ukurAtasSatuLayar());
       if (tab === "plan_harian") { await this.fetchPlanHarian(); return; }
       // Tab langsung digambar pakai data yang sudah ada di memori (hasil
       // prefetch di init() / kunjungan sebelumnya), baru kemudian fetch
@@ -1613,6 +1631,13 @@ function dashboardExhaust() {
     // kecil di header supaya operator tahu angka di layar sedang basi --
     // bukan berarti hasilnya nol.
     dxyKoneksiBermasalah: false,
+    // Panel "Downtime Terbesar" di tab Kontrol Downtime: bawaannya grafik,
+    // tabelnya masih bisa dipanggil lewat tombol -- di tabel ada klik-dua-kali
+    // untuk rincian problem dan saringan per kolom yang tidak ada di grafik.
+    dtTopTampil: "grafik",
+    dtTopSemua: false,
+    // 10, bukan 15: di lebar panel ini 15 nama problem mulai timpa-tindih.
+    DT_TOP_TAMPIL: 10,
     _dxyGagalKe: 0,
     _dxyGagalTimer: null,
     tahunanLoading: false, // skeleton "Memuat data" dinonaktifkan -- konten langsung tampil
@@ -1660,6 +1685,10 @@ function dashboardExhaust() {
     PIC_REF: ["PE", "MESIN", "DIES", "QC", "PC-SUPP", "PROD", "PRESS"],
     MACHINES_REF: MACHINES,
     async init() {
+      this.pasangUkurSatuLayar();
+      // Tab bisa berpindah dari mana saja, bukan cuma dari tombolnya,
+      // jadi pengukuran digantung ke perubahan nilainya langsung.
+      this.$watch("activeTab", () => this.$nextTick(() => this.ukurAtasSatuLayar()));
       this.profile = profilCacheAmbil();   // tampilkan menu dulu dari ingatan, dikoreksi di bawah
       this.session = await requireAuth();
       if (!await requireStaff(this.session)) return;
@@ -1866,6 +1895,216 @@ function dashboardExhaust() {
       }
       return Promise.all(MACHINES.map((m) => supabaseClient.rpc(namaSatu, argSatu(m))));
     },
+    // Baris Downtime Terbesar untuk GRAFIK. Sudah urut terbesar dari database.
+    // semua=false -> 15 teratas saja, supaya batangnya masih terbaca.
+    dtTopRows(semua) {
+      const r = ((this.bulanan && this.bulanan.downtimeTerbesarBulan) || [])
+        .filter((x) => x && x.problem && (Number(x.menit) || Number(x.frekuensi)));
+      return semua ? r : r.slice(0, this.DT_TOP_TAMPIL);
+    },
+    dtTopJumlah() { return this.dtTopRows(true).length; },
+    dtTopKeterangan() {
+      return (this.dxyLineFilterBulanan || "Semua Line") + "  \u00B7  " + (this.bulananMonthLabel || "");
+    },
+    // Nama problem panjang-panjang, jadi dipenggal jadi beberapa baris supaya
+    // muat di sumbu bawah. Chart.js menerima array = satu baris per elemen.
+    dtTopLabel(nama, perBaris, maksBaris) {
+      perBaris = perBaris || 14; maksBaris = maksBaris || 3;
+      const kata = String(nama || "").trim().split(/\s+/);
+      const baris = []; let kini = "";
+      for (const k of kata) {
+        if (!kini) { kini = k; continue; }
+        if ((kini + " " + k).length <= perBaris) kini += " " + k;
+        else { baris.push(kini); kini = k; }
+      }
+      if (kini) baris.push(kini);
+      if (baris.length <= maksBaris) return baris;
+      const potong = baris.slice(0, maksBaris);
+      potong[maksBaris - 1] = potong[maksBaris - 1].slice(0, perBaris - 1) + "…";
+      return potong;
+    },
+    // Unduh grafik jadi PNG. Latarnya diputihkan dulu -- kanvas Chart.js itu
+    // tembus pandang, kalau langsung disimpan hasilnya gelap saat ditempel.
+    dtTopUnduhPng(besar) {
+      const c = document.getElementById(besar ? "dxbTopProblemBesar" : "dxbTopProblem");
+      if (!c) return;
+      // Grafik jendela besar sudah punya judul di dalam kanvasnya. Yang dari
+      // panel kecil belum, jadi kanvasnya ditinggikan dan judulnya digambar
+      // di sini supaya gambar yang tersimpan tidak kehilangan keterangan.
+      const skala = (c.width || 1) / (c.clientWidth || c.width || 1);
+      const kepala = besar ? 0 : Math.round(44 * skala);
+      const k = document.createElement("canvas");
+      k.width = c.width; k.height = c.height + kepala;
+      const g = k.getContext("2d");
+      g.fillStyle = "#ffffff"; g.fillRect(0, 0, k.width, k.height);
+      if (kepala) {
+        g.textAlign = "center"; g.fillStyle = "#000000";
+        g.font = "800 " + Math.round(15 * skala) + "px Inter, sans-serif";
+        g.fillText("DOWNTIME TERBESAR", k.width / 2, Math.round(19 * skala));
+        g.fillStyle = "#64748b";
+        g.font = "700 " + Math.round(10 * skala) + "px Inter, sans-serif";
+        g.fillText(this.dtTopKeterangan(), k.width / 2, Math.round(34 * skala));
+      }
+      g.drawImage(c, 0, kepala);
+      const nama = "Downtime-Terbesar_" + (this.dxyLineFilterBulanan || "Semua-Line") + "_" +
+        String(this.bulananMonthLabel || "").replace(/\s+/g, "-") + ".png";
+      k.toBlob((blob) => {
+        if (!blob) return;
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = nama;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      }, "image/png");
+    },
+    bukaDtTopSemua() {
+      this.dtTopSemua = true;
+      this.$nextTick(() => this.gambarDtTop(true));
+    },
+    tutupDtTopSemua() {
+      this.dtTopSemua = false;
+      if (this.bulananCharts && this.bulananCharts.dxbTopProblemBesar) {
+        try { this.bulananCharts.dxbTopProblemBesar.destroy(); } catch (e) {}
+        this.bulananCharts.dxbTopProblemBesar = null;
+      }
+    },
+    gantiDtTopTampil() {
+      this.dtTopTampil = this.dtTopTampil === "grafik" ? "tabel" : "grafik";
+      if (this.dtTopTampil === "grafik") this.$nextTick(() => this.gambarDtTop(false));
+    },
+    // Grafik "Downtime Terbesar": batang Menit (sumbu kiri, angka di dasar)
+    // + garis Frekuensi hitam (sumbu kanan, angka di atas). Penulis angkanya
+    // dipakai bersama dengan chart Downtime Exhaust, jadi aturan "angka atas
+    // tidak pernah menimpa angka bawah" otomatis ikut berlaku di sini.
+    gambarDtTop(besar) {
+      const id = besar ? "dxbTopProblemBesar" : "dxbTopProblem";
+      const canvas = document.getElementById(id);
+      if (!canvas || typeof Chart === "undefined") return;
+      this.bulananCharts = this.bulananCharts || {};
+      if (this.bulananCharts[id]) { try { this.bulananCharts[id].destroy(); } catch (e) {} this.bulananCharts[id] = null; }
+
+      const rows = this.dtTopRows(!!besar);
+      if (!rows.length) return;
+      // Di jendela besar problemnya bisa puluhan -> labelnya dipendekkan.
+      const perBaris = besar && rows.length > 24 ? 10 : 14;
+      const labels = rows.map((r) => this.dtTopLabel(r.problem, perBaris, besar ? 2 : 3));
+      const menit = rows.map((r) => Number(r.menit) || 0);
+      const freq = rows.map((r) => Number(r.frekuensi) || 0);
+      const angka = penulisAngkaDowntime("#111827");
+      const garis = cssVar("--border") || "#cbd5e1";
+      const teks = "#000000";
+
+      this.bulananCharts[id] = new Chart(canvas, {
+        data: {
+          labels,
+          datasets: [
+            { order: 2, type: "bar", label: "Menit", data: menit, yAxisID: "y",
+              backgroundColor: "#F59E0B", borderRadius: 0, barPercentage: 0.72, categoryPercentage: 0.78 },
+            { order: 1, type: "line", label: "Freq", data: freq, yAxisID: "y1",
+              borderColor: "#111827", backgroundColor: "#111827", borderWidth: 1.6,
+              pointRadius: 2.4, pointHoverRadius: 4, tension: 0.25, fill: false },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, animation: false,
+          layout: { padding: { top: 44 } },
+          plugins: {
+            // Judul digambar DI DALAM kanvas, bukan di HTML, supaya ikut
+            // terbawa saat grafiknya disimpan jadi gambar. Di panel kecil
+            // judulnya tidak dipasang -- sudah ada di kepala panel, dan
+            // ruangnya sempit; untuk PNG-nya ditambahkan saat menyimpan.
+            title: { display: !!besar, text: "DOWNTIME TERBESAR", color: teks, font: { size: 14, weight: "800" }, padding: { top: 2, bottom: 1 } },
+            subtitle: { display: !!besar, text: this.dtTopKeterangan(), color: "#64748b", font: { size: 10, weight: "700" }, padding: { bottom: 6 } },
+            legend: { display: true, position: "bottom", labels: { color: teks, boxWidth: 5, boxHeight: 5, usePointStyle: true, pointStyle: "circle", font: { size: 7.5 }, padding: 3 } },
+            tooltip: {
+              backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"),
+              borderColor: cssVar("--border"), borderWidth: 1, padding: 8, cornerRadius: 8,
+              callbacks: {
+                // Nama di sumbu dipenggal; di tooltip ditampilkan utuh.
+                title: (it) => (rows[it[0].dataIndex] || {}).problem || "",
+                label: (it) => (it.datasetIndex === 0 ? "Menit: " : "Freq: ") + fmtNum(it.parsed.y),
+              },
+            },
+          },
+          scales: {
+            x: { ticks: { color: teks, font: { size: besar ? 7.5 : 8 }, autoSkip: false, maxRotation: 0, minRotation: 0 },
+                 grid: { display: false }, border: { display: true, color: garis } },
+            y: { position: "left", title: { display: true, text: "Menit", color: teks, font: { size: 9, weight: "700" } },
+                 ticks: { color: teks, font: { size: 9 }, maxTicksLimit: 5 },
+                 grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: garis },
+                 beginAtZero: true, grace: "10%" },
+            y1: { position: "right", title: { display: true, text: "Freq", color: teks, font: { size: 9, weight: "700" } },
+                  ticks: { color: teks, font: { size: 9 }, maxTicksLimit: 5, precision: 0 },
+                  grid: { display: false }, border: { display: true, color: garis },
+                  beginAtZero: true, grace: "20%" },
+          },
+        },
+        plugins: [angka.batang(0), angka.garis(1)],
+      });
+    },
+    // Mengukur jarak dari atas layar ke awal isi tab, lalu menyimpannya di
+    // --dxy-atas. Dipakai aturan .dxy-satu-layar di CSS. Diukur, bukan
+    // ditebak, supaya tetap benar kalau judul/bilah filter melipat di layar
+    // sempit, dan ikut berubah saat masuk/keluar layar penuh (F11).
+    ukurAtasSatuLayar() {
+      const el = [...document.querySelectorAll(".dxy-satu-layar")].find((e) => e.offsetParent !== null);
+      if (!el) return;
+      const atas = Math.max(0, Math.round(el.getBoundingClientRect().top + window.scrollY));
+      // Pembungkusnya (<main>) punya padding bawah; kalau tidak ikut dihitung,
+      // halaman kelebihan persis sebesar padding itu dan tetap bisa digulung.
+      let bawah = 0;
+      const induk = el.parentElement;
+      if (induk) bawah = Math.round(parseFloat(getComputedStyle(induk).paddingBottom) || 0);
+      document.documentElement.style.setProperty("--dxy-atas", atas + "px");
+      document.documentElement.style.setProperty("--dxy-bawah", bawah + "px");
+      this.pasBarisAkhir(el);
+    },
+
+    // Baris paling bawah (kolom-kolom "Terbesar"/"Rekap") dipaskan lewat
+    // ukuran nyata, bukan lewat peregangan CSS: panel tabel tetap memakai
+    // tinggi isinya walau jalurnya sudah dipersempit, jadi tingginya kita
+    // tetapkan sendiri lalu daerah gulung di dalamnya dibatasi sisa ruang.
+    pasBarisAkhir(bagian) {
+      const dxy = bagian.querySelector(":scope > .dxy");
+      if (!dxy) return;
+      const baris = dxy.lastElementChild;
+      if (!baris) return;
+      const gulung = [...baris.querySelectorAll(".dxy-table-scroll, .qc-rekap-scroll")];
+      // Bersihkan dulu supaya pengukuran tidak memakai angka lama.
+      baris.style.removeProperty("height");
+      [...baris.children].forEach((a) => a.style.removeProperty("height"));
+      gulung.forEach((s) => s.style.removeProperty("max-height"));
+      baris.style.marginBottom = "0px";
+      const jarak = parseFloat(getComputedStyle(dxy).rowGap) || 0;
+      let dipakai = 0;
+      [...dxy.children].forEach((a) => {
+        if (a === baris) return;
+        const g = getComputedStyle(a);
+        // Jaraknya datang dari margin tiap baris, bukan cuma dari gap.
+        dipakai += a.offsetHeight + jarak + (parseFloat(g.marginTop) || 0) + (parseFloat(g.marginBottom) || 0);
+      });
+      const sisa = Math.floor(bagian.clientHeight - dipakai);
+      if (!(sisa > 140)) return;
+      baris.style.setProperty("height", sisa + "px", "important");
+      [...baris.children].forEach((a) => a.style.setProperty("height", sisa + "px", "important"));
+      gulung.forEach((s) => {
+        const panel = s.closest(".dxy-panel");
+        if (!panel) return;
+        const selisih = Math.round(s.getBoundingClientRect().top - panel.getBoundingClientRect().top);
+        const padBawah = parseFloat(getComputedStyle(panel).paddingBottom) || 0;
+        const muat = Math.floor(panel.clientHeight - selisih + (parseFloat(getComputedStyle(panel).paddingTop) || 0) - padBawah);
+        if (muat > 60) s.style.setProperty("max-height", muat + "px", "important");
+      });
+    },
+    pasangUkurSatuLayar() {
+      if (this._ukurTerpasang) return;
+      this._ukurTerpasang = true;
+      const ukur = () => this.ukurAtasSatuLayar();
+      window.addEventListener("resize", ukur);
+      // Masuk/keluar F11 kadang tidak memicu resize di sebagian browser.
+      document.addEventListener("fullscreenchange", () => setTimeout(ukur, 60));
+      setTimeout(ukur, 0); setTimeout(ukur, 400); setTimeout(ukur, 1200);
+    },
     async refetchActiveTab() {
       // PENTING: sengaja TIDAK memanggil destroyXCharts() di sini.
       // renderXCharts() sudah destroy+recreate tiap chart SATU-PER-SATU,
@@ -2037,7 +2276,11 @@ function dashboardExhaust() {
           supabaseClient.rpc("dashboard_harian_downtime_by_pic", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_mesin: mesinFilter }),
           supabaseClient.rpc("dashboard_harian_downtime_by_line", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString() }),
           supabaseClient.rpc("dashboard_bulanan_weekly", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString() }),
-          supabaseClient.rpc("dashboard_bulanan_top_problems_summary", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_limit: 10, p_mesin: mesinFilter }),
+          // p_limit dinaikkan dari 10 ke 200: grafik Downtime Terbesar menggambar
+          // 15 teratas, dan ikon mata membuka SELURUHNYA. Sebulan biasanya
+          // cuma 20-40 problem, jadi 200 praktis berarti semua, dan tetap
+          // satu permintaan -- tidak menambah beban.
+          supabaseClient.rpc("dashboard_bulanan_top_problems_summary", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_limit: 200, p_mesin: mesinFilter }),
           supabaseClient.rpc("dashboard_harian_produksi", { p_start: fyStart.toISOString(), p_end: fyEnd.toISOString(), p_mesin: mesinFilter }),
           // FY SEBELUMNYA -- untuk garis pembanding per bulan di chart
           // Downtime Exhaust. Satu panggilan tambahan, ikut filter Line.
@@ -2050,7 +2293,7 @@ function dashboardExhaust() {
           picFilter ? supabaseClient.rpc("dashboard_downtime_harian_pic", { p_start: prevFyStartBln.toISOString(), p_end: fyStart.toISOString(), p_mesin: mesinFilter, p_pic: picFilter }) : kosong,
           picFilter ? supabaseClient.rpc("dashboard_downtime_by_line_pic", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_pic: picFilter }) : kosong,
           picFilter ? supabaseClient.rpc("dashboard_bulanan_weekly_pic", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_pic: picFilter }) : kosong,
-          picFilter ? supabaseClient.rpc("dashboard_bulanan_top_problems_summary_pic", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_limit: 10, p_mesin: mesinFilter, p_pic: picFilter }) : kosong,
+          picFilter ? supabaseClient.rpc("dashboard_bulanan_top_problems_summary_pic", { p_start: periodStart.toISOString(), p_end: periodEnd.toISOString(), p_limit: 200, p_mesin: mesinFilter, p_pic: picFilter }) : kosong,
         ]);
         pastikanSukses([prodRes, picRes, lineRes, weeklyRes, dtExhaustRes, dtExhaustPrevRes, pHarianRes, pLineRes], "Bulanan");
         // Satu pintu: kalau filter PIC aktif -> pakai hasil *_pic, kalau tidak
@@ -4037,6 +4280,9 @@ function dashboardExhaust() {
       };
       safe(() => kpiBigPct("dxbProductivity", b.dayLabels, b.productivity.actual, b.productivity.target, CALM.productivity), "productivity");
       safe(() => kpiBigPct("dxbAvailability", b.dayLabels, b.availability.actual, b.availability.target, CALM.sage, 0.8), "availability");
+      // Downtime Terbesar: menggantikan tabel lama. Tabelnya masih ada,
+      // tinggal ditukar lewat tombol di kepala panel.
+      safe(() => { if (this.dtTopTampil === "grafik") this.gambarDtTop(false); }, "topProblem");
 
       // --- Downtime Exhaust (FY, 12 bulan Apr..Mar) -- gaya sama persis
       // seperti chart "Downtime Exhaust" di tab Tahunan, TAPI datanya

@@ -287,6 +287,16 @@
             <button type="button" class="dl-tool dl-foto-tutup" title="Tutup (Esc)" @click="r3dBesar = false">&#10005;</button>
           </div>
         </div>
+        <!-- Record Repair versi besar. Dibuka dari tombol di dalam iframe
+             model 3D: iframe itu mengirim pesan, halaman INI yang membuka
+             jendelanya. Dengan begitu tidak ada pindah halaman dan tidak
+             ada tab baru -- tetap di Dashboard Line. -->
+        <div class="dl-r3d-modal" x-show="recBuka" x-cloak @click.self="recBuka = false">
+          <div class="dl-r3d-modal-box">
+            <template x-if="recBuka"><iframe :src="recordRepairUrl" title="Record Repair"></iframe></template>
+            <button type="button" class="dl-tool dl-foto-tutup" title="Tutup (Esc)" @click="recBuka = false">&#10005;</button>
+          </div>
+        </div>
         <!-- Dekidaka versi besar (layar penuh) -->
         <div class="dl-besar" x-show="dekiBuka" x-cloak @click.self="tutupDekidaka()">
           <div class="dl-besar-box">

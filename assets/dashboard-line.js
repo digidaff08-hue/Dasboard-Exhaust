@@ -18,7 +18,7 @@
   const COL = { productivity: "#0EA5E9", availability: "#10B981", downtime: "#F97316", ngInline: "#F43F5E", money: "#1D4ED8", straight: "#14B8A6", perjam: "#6366F1", trend: "#2563EB" };
 
   // Naikkan setiap kali file Dekidaka (machine-page.js, style.css, dekidaka-line.html) berubah.
-  const DEKI_VER = "20261124c";
+  const DEKI_VER = "20261125c";
 
   const mgCache = {};   // hasil Trend Volume per line|tahun|bulan -> tidak hitung ulang saat pindah line (berlaku 10 menit)
   const pad2 = (n) => String(n).padStart(2, "0");
@@ -450,6 +450,9 @@
       get jumlahHari() { return new Date(this.tahun, this.bulan, 0).getDate(); },
       get labelHari() { return Array.from({ length: this.jumlahHari }, (_, i) => String(i + 1)); },
       get repair3dUrl() { return "machines/" + this.activeTab.toLowerCase() + ".html?tab=repair&solo3d=1&v=" + DEKI_VER; },
+      // Lembar Record Repair, dibuka sebagai jendela besar di halaman ini.
+      recBuka: false,
+      get recordRepairUrl() { return "machines/" + this.activeTab.toLowerCase() + ".html?tab=repair&rekap=1&v=" + DEKI_VER; },
       get dekiUrl() { return "dekidaka-line.html?line=" + this.activeTab + "&solo=1&dekidaka=1&inline=1&v=" + DEKI_VER; },
       dekiSiap: false,
       dekiZoom: "",
@@ -1142,6 +1145,9 @@
           const dariBesar = !!(frBesar && frBesar.contentWindow === e.source);
           if (d.repair3dBuild) { this.r3dTerima = true; this.r3dVer = d.repair3dBuild; if (d.repair3dBuild !== DEKI_VER) this.pesan = "Kotak 3D versi " + d.repair3dBuild + ", halaman versi " + DEKI_VER + " - unggah assets/machine-page.js dan folder machines/, lalu Ctrl+F5."; }
           if (d.repairSiap) this.repairSinkron();
+          // Tombol "Record Repair" di dalam iframe model 3D.
+          if (d.bukaRecordRepair) this.recBuka = true;
+          if (d.tutupRecordRepair) this.recBuka = false;
           if (d.repairTotal) this.repair3dTotal = d.repairTotal;
           if (d.dekidakaSiap) { if (dariBesar) { this.dekiBesarSiap = true; this.dekiSinkron(frBesar); } else { this.dekiSiap = true; this.dekiSinkron(document.querySelector(".dl-deki iframe")); if (!this.mingguHasil) this.mintaMingguan(); } }
           if (d.dekidakaZoom) { if (dariBesar) this.dekiZoomBesar = d.dekidakaZoom; else this.dekiZoom = d.dekidakaZoom; }

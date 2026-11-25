@@ -931,3 +931,144 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
 }
 @keyframes dxyKoneksiKedip { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
 [x-cloak] { display: none !important; }
+
+
+/* ---- Panel Downtime Terbesar: grafik batang + garis ---- */
+.dxy-dt-top-tools { display: inline-flex; gap: 4px; margin-left: auto; margin-right: 8px; }
+.dxy-mini-btn {
+  border: 1px solid var(--dxy-border, #cbd5e1); background: var(--dxy-panel, #fff);
+  color: var(--dxy-text, #0f172a); border-radius: 6px; cursor: pointer;
+  font-size: 11px; line-height: 1; padding: 3px 7px;
+}
+.dxy-mini-btn:hover { background: #eef2ff; border-color: #a5b4fc; }
+.dxy-dt-top-chart { position: relative; flex: 1 1 auto; min-height: 190px; padding: 4px 6px 2px; }
+.dxy-dt-top-chart canvas { width: 100% !important; height: 100% !important; }
+.dxy-dt-top-kosong {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; color: #94a3b8;
+}
+
+/* Jendela besar "semua problem" */
+.dxy-dt-top-modal {
+  position: fixed; inset: 0; z-index: 3200; background: rgba(15, 23, 42, .72);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.dxy-dt-top-modal-box {
+  background: var(--dxy-panel, #fff); border-radius: 12px; width: 100%; height: 100%;
+  display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 60px rgba(0, 0, 0, .5);
+}
+.dxy-dt-top-modal-head {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  border-bottom: 1px solid var(--dxy-border, #e2e8f0);
+  font-size: 12px; font-weight: 800; color: var(--dxy-text, #0f172a);
+}
+.dxy-dt-top-modal-sub { font-weight: 700; color: var(--dxy-muted, #64748b); }
+/* Grafiknya boleh digulung mendatar kalau problemnya banyak sekali. */
+.dxy-dt-top-modal-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 8px 10px 12px; }
+.dxy-dt-top-modal-body canvas { height: 100% !important; min-width: 100%; }
+
+
+/* ==========================================================
+   SATU LAYAR  (tab Tahunan, Kontrol Downtime, Kontrol Kualitas)
+   ==========================================================
+   Dulu semua tinggi dipatok angka tetap (chart-box 185px, tabel 210px,
+   rekap 198px), jadi di monitor tinggi ada ruang menganggur dan di monitor
+   pendek terpotong. Sekarang isi tab dipaksa setinggi layar, lalu BARIS
+   PALING BAWAH yang menyerap sisa ruangnya -- itulah panel yang diminta
+   mengecil: tabel Terbesar di Tahunan, Downtime Line + grafik Downtime
+   Terbesar di Kontrol Downtime, dan ketiga Rekap di Kontrol Kualitas.
+   Grafik di baris atas TIDAK diubah ukurannya, sesuai permintaan.
+   --dxy-atas diisi dari JS = jarak dari atas layar ke awal isi tab,
+   supaya tetap benar saat jendela biasa maupun layar penuh (F11). */
+.dxy-satu-layar {
+  /* min-height, bukan height: isi boleh melebihi layar di monitor yang
+     benar-benar pendek (laptop), dan halaman tinggal digulung sedikit --
+     lebih baik daripada isinya terpotong diam-diam. */
+  min-height: calc(100dvh - var(--dxy-atas, 97px) - var(--dxy-bawah, 28px));
+  height: calc(100dvh - var(--dxy-atas, 97px) - var(--dxy-bawah, 28px));
+  display: flex; flex-direction: column; overflow: visible;
+}
+.dxy-satu-layar > .dxy { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+
+/* Baris atas tetap setinggi aslinya; yang terakhir menyerap sisa. */
+.dxy-satu-layar > .dxy > * { flex: 0 0 auto; }
+/* flex-basis 0, bukan auto: dengan auto, tinggi dasarnya = tinggi isi,
+   dan baris ini jadi melimpah keluar alih-alih menyusut. Dengan 0 dia
+   mengambil persis sisa ruang yang ada. */
+.dxy-satu-layar > .dxy > *:last-child { flex: 1 1 0; min-height: 0; }
+
+/* --- Tahunan & Kontrol Downtime: baris terakhir berisi panel tabel --- */
+/* Baris terakhir dipindah dari grid ke flex-baris. Sebagai item grid,
+   panel tabel tetap memakai tinggi isinya walau jalurnya sudah dipersempit
+   (peregangan tidak jalan kalau isinya lebih tinggi dari jalur), jadi
+   isinya menyembul keluar layar. Sebagai item flex, tingginya mengikuti
+   baris dan isinya yang menyusut. Lebar kolom ditiru lewat flex-grow
+   sesuai angka span-nya, jadi tampilannya tetap sama. */
+.dxy-satu-layar > .dxy > .dxy-chart-grid:last-child {
+  display: flex; flex-direction: row; flex-wrap: nowrap; gap: 6px;
+  align-items: stretch; align-content: stretch;
+  /* Tanpa ini jalur grid-nya memakai tinggi isi dan tidak mau menyusut,
+     sehingga isinya malah terpotong. minmax(0,1fr) membolehkan menyusut,
+     dan batas bawahnya dijaga supaya tabel tetap terbaca. */
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 150px;
+}
+.dxy-satu-layar > .dxy > .dxy-chart-grid:last-child .dxy-panel {
+  /* height:100% sama alasannya seperti kolom Kualitas: tanpa itu panelnya
+     memakai tinggi isi dan melimpah keluar jalur grid, jadi tidak menyusut. */
+  /* Jangan pasang height:100% di sini: persen pada item grid malah dihitung
+     balik ke tinggi isinya sendiri, jadi peregangan jalur grid mati dan
+     panelnya melimpah. Biarkan align-self: stretch yang bekerja. */
+  min-height: 0 !important; align-self: stretch;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.dxy-satu-layar > .dxy > .dxy-chart-grid:last-child .dxy-table-scroll {
+  flex: 1 1 auto; min-height: 80px; max-height: none !important; height: auto;
+}
+.dxy-satu-layar > .dxy > .dxy-chart-grid:last-child .dxy-dt-top-chart {
+  flex: 1 1 auto; min-height: 120px;
+}
+
+/* --- Kontrol Kualitas: tiga kolom, Rekap di dasar tiap kolom --- */
+.dxy-satu-layar > .dxy > .dxy-qc-grid { min-height: 0; grid-template-rows: minmax(0, 1fr); }
+/* Kolomnya harus benar-benar setinggi jalur grid-nya; tanpa height:100%
+   kolom memakai tinggi isinya sendiri lalu melimpah keluar, dan panel Rekap
+   di dasarnya tidak pernah ikut menyusut. */
+.dxy-satu-layar .dxy-qc-grid { align-items: stretch; }
+.dxy-satu-layar .dxy-qc-col {
+  min-height: 0; height: 100%; display: flex; flex-direction: column; overflow: hidden;
+}
+.dxy-satu-layar .dxy-qc-grid .dxy-qc-col > .dxy-panel:last-child {
+  flex: 1 1 auto; min-height: 0 !important; display: flex; flex-direction: column; overflow: hidden;
+}
+/* Selektornya sengaja sepanjang ini: aturan lama
+   ".dxy-qc-grid .dxy-qc-col .dxy-panel .qc-rekap-scroll { height:198px!important }"
+   lebih khusus, jadi kalau kurang panjang tingginya tetap terkunci 198px
+   dan panelnya tidak mau menyusut. */
+.dxy-satu-layar .dxy-qc-grid .dxy-qc-col .dxy-panel .qc-rekap-scroll {
+  flex: 1 1 auto; min-height: 70px;
+  height: auto !important; max-height: none !important;
+}
+
+/* Jendela besar "semua problem" tidak ikut dipotong induknya. */
+.dxy-satu-layar .dxy-dt-top-modal { position: fixed; }
+
+.dxy-satu-layar > .dxy > .dxy-chart-grid:last-child > * { min-width: 0; min-height: 0; flex: 1 1 0; }
+.dxy-satu-layar > .dxy > .dxy-chart-grid:last-child > .dxy-span-2  { flex-grow: 2; }
+.dxy-satu-layar > .dxy > .dxy-chart-grid:last-child > .dxy-span-3  { flex-grow: 3; }
+.dxy-satu-layar > .dxy > .dxy-chart-grid:last-child > .dxy-span-4  { flex-grow: 4; }
+.dxy-satu-layar > .dxy > .dxy-chart-grid:last-child > .dxy-span-5  { flex-grow: 5; }
+.dxy-satu-layar > .dxy > .dxy-chart-grid:last-child > .dxy-span-6  { flex-grow: 6; }
+.dxy-satu-layar > .dxy > .dxy-chart-grid:last-child > .dxy-span-8  { flex-grow: 8; }
+.dxy-satu-layar > .dxy > .dxy-chart-grid:last-child > .dxy-span-12 { flex-grow: 12; }
+
+/* Panel "Terbesar" di Tahunan dulu dikunci mati 356px (height/min/max
+   sekaligus, pakai !important) supaya tiga kolomnya rata. Di mode satu
+   layar kuncinya dibuka -- tingginya diatur ukuran layar, dan tiga
+   kolomnya tetap rata karena sama-sama mengikuti tinggi barisnya. */
+.dxy-satu-layar .dxy-panel.dxy-table-panel-sm.dxy-tahunan-terbesar-panel {
+  height: auto !important; min-height: 0 !important; max-height: none !important;
+}
+.dxy-satu-layar .dxy-panel.dxy-table-panel-sm.dxy-tahunan-terbesar-panel .dxy-table-scroll {
+  height: auto !important; min-height: 60px !important; max-height: none !important;
+}

@@ -1113,7 +1113,7 @@ td.mono, .mono { font-family: var(--font-mono); }
 .pj-dt-klik { cursor: pointer; color: var(--blue, #2563eb); font-weight: 700; }
 .pj-dt-klik:hover { background: color-mix(in srgb, var(--blue, #2563eb) 10%, transparent); }
 
-.dkd-board{ --dkd-css-build:20261124c; width:1720px; background:#fff; padding:14px 14px 14px 18px; font-size:0.75rem; color:#111; font-family: Arial, Helvetica, sans-serif; border-left:8px solid var(--dkd-accent, #1f4e79); }
+.dkd-board{ --dkd-css-build:20261125c; width:1720px; background:#fff; padding:14px 14px 14px 18px; font-size:0.75rem; color:#111; font-family: Arial, Helvetica, sans-serif; border-left:8px solid var(--dkd-accent, #1f4e79); }
 /* Tombol kecil Print/Export PDF per board (muncul di dkd-info-bar, lihat
    dkdBuildBoardHTML) -- dipakai baik di tab Dekidaka ini maupun di modal
    "Lihat Dekidaka" (halaman line, assets/machine-page.js + assets/style.css
@@ -4665,6 +4665,29 @@ html.repair-solo #repair-solo-zone > div[x-show="repairEditMode"],
 html.repair-solo #repair-solo-zone > div[x-show="repairEditMode && repairSelectedPointId"] { display: none !important; }
 html.repair-solo #repair-solo-zone .repair-edit-toggle { margin: 2px 0 0; justify-content: center; }
 html.repair-solo #repair-solo-zone .repair-part-switcher { margin: 2px 4px 4px !important; justify-content: center; }
+
+/* Tombol "Layar besar" tidak dipakai saat halaman ini jadi iframe di
+   Dashboard Line: di sana sudah ada ikon mata di judul panelnya, dan
+   membesarkan model di dalam iframe kecil tidak ada gunanya. Di halaman
+   mesin biasa tombolnya tetap ada. */
+html.repair-solo #repair-solo-zone .repair-btn-layar { display: none !important; }
+
+/* Tab khusus Record Repair (?rekap=1, dibuka dari Dashboard Line).
+   Halaman mesin di belakangnya disembunyikan supaya tab ini benar-benar
+   cuma berisi lembar rekap -- tanpa menu kiri, tanpa tab Input Produksi. */
+html.rekap-solo, html.rekap-solo body { background: #fff; overflow: hidden; }
+html.rekap-solo body * { visibility: hidden; }
+html.rekap-solo .rekap-overlay,
+html.rekap-solo .rekap-overlay * { visibility: visible !important; }
+html.rekap-solo .rekap-overlay { z-index: 120; }
+/* Tulisan selagi data ditarik. Pseudo-element tidak kena "body *" di atas,
+   jadi tetap terlihat, lalu tertutup sendiri oleh lembar rekap. */
+html.rekap-solo body::before {
+  content: "Memuat Record Repair\2026";
+  position: fixed; inset: 0; z-index: 1; background: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font: 600 0.875rem Inter, sans-serif; color: #64748b;
+}
 
 /* tombol kecil di bawah model (Reset Tampilan, Tampilkan Area) */
 html.repair-solo #repair-solo-zone .repair-edit-toggle { margin: 0; padding: 2px 4px 4px; gap: 6px; flex: 0 0 auto; flex-wrap: nowrap; }
