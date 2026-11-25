@@ -5,7 +5,7 @@
 // ini cuma men-cache HTML/CSS/JS-nya, bukan data produksi.
 // =========================================================
 // Naikkan versi ini tiap ada perubahan besar supaya cache lama dibuang.
-const CACHE_NAME = "v337-target-kpi";
+const CACHE_NAME = "v338-pustaka-lokal";
 
 const SHELL_FILES = [
   "/login.html",
@@ -40,6 +40,20 @@ const SHELL_FILES = [
   "/machines/e-05.html",
   "/machines/e-06.html",
   "/machines/e-07.html",
+  // Pustaka luar (Alpine, Supabase, Chart.js, dll) sekarang disimpan di
+  // server sendiri. Dulu diambil dari cdn.jsdelivr.net dan TIDAK ikut
+  // tersimpan di sini -- service worker sengaja melewati domain lain --
+  // sehingga saat jaringan putus halaman bisa blank total karena Alpine
+  // tidak pernah jalan. Dengan ikut dicache, app benar-benar bisa dibuka
+  // tanpa jaringan.
+  "/assets/vendor/alpine-3.17.5.min.js",
+  "/assets/vendor/supabase-2.119.2.js",
+  "/assets/vendor/chart-4.6.2.umd.min.js",
+  "/assets/vendor/chartjs-plugin-datalabels-2.2.0.min.js",
+  "/assets/vendor/xlsx-0.18.5.full.min.js",
+  "/assets/vendor/jspdf-2.5.1.umd.min.js",
+  "/assets/vendor/html2canvas-1.4.1.min.js",
+  "/assets/vendor/pusher-8.4.0.min.js",
 ];
 
 self.addEventListener("install", (event) => {
