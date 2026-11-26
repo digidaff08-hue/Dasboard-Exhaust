@@ -668,6 +668,17 @@
                 <div class="dxy-chart-box qc-chart-daily"><canvas id="qcNgInlineDaily"></canvas></div>
               </div>
 
+              <div class="dxy-panel">
+                <div class="dxy-panel-head">
+                  <span class="dxy-panel-title">NG Inline Terbesar</span>
+                  <div class="dxy-dt-top-tools">
+                    <button type="button" class="dxy-mini-btn" @click="bukaQcTopSemua('ngInline')" title="Lihat semua kategori">&#128065;</button>
+                    <button type="button" class="dxy-mini-btn" @click="qcTopUnduhPng('ngInline', false)" title="Simpan grafik jadi gambar PNG">&#128247;</button>
+                  </div>
+                </div>
+                <div class="dxy-chart-box qc-chart-top"><canvas id="qcTopNgInline"></canvas></div>
+              </div>
+
               <div class="dxy-panel dxy-table-panel-sm">
                 <div class="dxy-panel-head">
                   <div class="qc-panel-title-group">
@@ -733,6 +744,17 @@
                 <div class="dxy-chart-box qc-chart-daily"><canvas id="qcNgTrialDaily"></canvas></div>
               </div>
 
+              <div class="dxy-panel">
+                <div class="dxy-panel-head">
+                  <span class="dxy-panel-title">NG Trial Terbesar</span>
+                  <div class="dxy-dt-top-tools">
+                    <button type="button" class="dxy-mini-btn" @click="bukaQcTopSemua('ngTrial')" title="Lihat semua kategori">&#128065;</button>
+                    <button type="button" class="dxy-mini-btn" @click="qcTopUnduhPng('ngTrial', false)" title="Simpan grafik jadi gambar PNG">&#128247;</button>
+                  </div>
+                </div>
+                <div class="dxy-chart-box qc-chart-top"><canvas id="qcTopNgTrial"></canvas></div>
+              </div>
+
               <div class="dxy-panel dxy-table-panel-sm">
                 <div class="dxy-panel-head">
                   <div class="qc-panel-title-group">
@@ -795,6 +817,17 @@
               <div class="dxy-panel">
                 <div class="dxy-panel-head"><span class="dxy-panel-title">Daily · % Straightpass</span></div>
                 <div class="dxy-chart-box qc-chart-daily"><canvas id="qcStraightpassDaily"></canvas></div>
+              </div>
+
+              <div class="dxy-panel">
+                <div class="dxy-panel-head">
+                  <span class="dxy-panel-title">Repair Terbesar</span>
+                  <div class="dxy-dt-top-tools">
+                    <button type="button" class="dxy-mini-btn" @click="bukaQcTopSemua('repair')" title="Lihat semua kategori">&#128065;</button>
+                    <button type="button" class="dxy-mini-btn" @click="qcTopUnduhPng('repair', false)" title="Simpan grafik jadi gambar PNG">&#128247;</button>
+                  </div>
+                </div>
+                <div class="dxy-chart-box qc-chart-top"><canvas id="qcTopRepair"></canvas></div>
               </div>
 
               <div class="dxy-panel dxy-table-panel-sm">
@@ -1550,7 +1583,24 @@
   <!-- Jendela besar: SELURUH problem, dibuka dari ikon mata di panel
        Downtime Terbesar. Bentuk grafiknya sama persis, cuma semua problem
        ikut digambar dan labelnya dipendekkan kalau jumlahnya banyak. -->
-  <div class="dxy-dt-top-modal" x-show="dtTopSemua" x-cloak @click.self="tutupDtTopSemua()">
+  <!-- Jendela besar untuk 3 grafik "Terbesar" di tab Kontrol Kualitas.
+       Satu jendela dipakai bergantian (qcTopBesarJenis menentukan isinya),
+       bukan tiga jendela terpisah -- markupnya sama persis, cuma datanya
+       yang beda. -->
+  <div class="dxy-dt-top-modal" x-show="qcTopBesarJenis" x-cloak @click.self="tutupQcTopSemua()" @keydown.escape.window="tutupQcTopSemua()">
+    <div class="dxy-dt-top-modal-box">
+      <div class="dxy-dt-top-modal-head">
+        <span x-text="qcTopJudul(qcTopBesarJenis) + ' \u2014 semua kategori (' + qcTopJumlah(qcTopBesarJenis) + ')'"></span>
+        <span class="dxy-dt-top-modal-sub" x-text="qcTopKeterangan(qcTopBesarJenis)"></span>
+        <span style="flex:1 1 auto"></span>
+        <button type="button" class="dxy-mini-btn" @click="qcTopUnduhPng(qcTopBesarJenis, true)" title="Simpan grafik jadi gambar PNG">&#128247;</button>
+        <button type="button" class="dxy-mini-btn" @click="tutupQcTopSemua()" title="Tutup (Esc)">&#10005;</button>
+      </div>
+      <div class="dxy-dt-top-modal-body"><canvas id="qcTopBesar"></canvas></div>
+    </div>
+  </div>
+
+  <div class="dxy-dt-top-modal" x-show="dtTopSemua" x-cloak @click.self="tutupDtTopSemua()" @keydown.escape.window="tutupDtTopSemua()">
     <div class="dxy-dt-top-modal-box">
       <div class="dxy-dt-top-modal-head">
         <span>&#128293; Downtime Terbesar &mdash; semua problem (<span x-text="dtTopJumlah()"></span>)</span>

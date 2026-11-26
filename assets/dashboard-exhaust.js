@@ -1659,6 +1659,11 @@ function dashboardExhaust() {
     },
     tahunanCharts: {},
     qcCharts: {},
+    // 3 grafik "Terbesar" di tab Kontrol Kualitas (NG Inline / NG Trial /
+    // Repair). Dihitung dari baris detail yang SUDAH ada di halaman, jadi
+    // tidak menambah satu pun permintaan ke Supabase.
+    QC_TOP_TAMPIL: 10,       // batang yang tampil di panel kecil
+    qcTopBesarJenis: "",     // jenis yang lagi dibuka di jendela besar ("" = tertutup)
     qcChartsLoading: false, // skeleton di kotak chart Kontrol Kualitas
     qcHasData: false,       // sudah pernah sukses load minimal sekali
     _qcLoadToken: 0,
@@ -2042,6 +2047,175 @@ function dashboardExhaust() {
         plugins: [angka.batang(0), angka.garis(1)],
       });
     },
+
+    // ===== 3 grafik "Terbesar" di tab Kontrol Kualitas =====
+    // Sumbernya baris detail yang juga mengisi tabel Rekap di bawahnya,
+    // jadi grafik dan tabel selalu sepakat: filter Line di bilah atas dan
+    // filter per-kolom di tabel ikut terpakai di sini.
+    qcTopKonfig(jenis) {
+      if (jenis === "repair") {
+        // Data Repair tidak punya kolom Value, jadi hanya batang Qty.
+        return { judul: "REPAIR TERBESAR", kategori: "repairKategori", warna: "#14B8A6",
+                 batangKunci: "qty", batangNama: "Pcs", garis: false };
+      }
+      if (jenis === "ngTrial") {
+        return { judul: "NG TRIAL TERBESAR", kategori: "ngKategori", warna: "#06B6D4",
+                 batangKunci: "value", batangNama: "Value", garis: true };
+      }
+      return { judul: "NG INLINE TERBESAR", kategori: "ngKategori", warna: "#F43F5E",
+               batangKunci: "value", batangNama: "Value", garis: true };
+    },
+    qcTopJudul(jenis) { return this.qcTopKonfig(jenis).judul; },
+    qcTopKeterangan(jenis) {
+      const line = this.qcLineFilter === "ALL" ? "Semua Line" : this.qcLineFilter;
+      return line + " \u00b7 " + (this.qcMonthShortLabel || "");
+    },
+    // Angka bisa datang sebagai teks berformat Indonesia ("1.234" atau
+    // "1.234,5"): titik = pemisah ribuan, koma = desimal. Kalau titiknya
+    // ikut dianggap desimal, "80.000" jadi 80 -- totalnya ngawur. Jadi
+    // titik dibuang, koma diubah jadi titik.
+    qcTopAngka(v) {
+      if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+      const bersih = String(v == null ? "" : v).replace(/[^\d,-]/g, "").replace(",", ".");
+      const n = Number(bersih);
+      return Number.isFinite(n) ? n : 0;
+    },
+    qcTopRows(jenis, semua) {
+      const k = this.qcTopKonfig(jenis);
+      const semuaBaris = this.qcRawRowsFor(jenis) || [];
+      const perLine = this.qcLineFilter === "ALL" ? semuaBaris : semuaBaris.filter((r) => r.line === this.qcLineFilter);
+      const baris = this.qcApplyColFilters(jenis, perLine);
+      const peta = new Map();
+      baris.forEach((r) => {
+        const nama = String(r[k.kategori] == null ? "" : r[k.kategori]).trim();
+        if (!nama) return;
+        const o = peta.get(nama) || { kategori: nama, nilai: 0, pcs: 0 };
+        o.nilai += this.qcTopAngka(r[k.batangKunci]);
+        o.pcs += this.qcTopAngka(r.qty);
+        peta.set(nama, o);
+      });
+      const urut = [...peta.values()].sort((a, b) => b.nilai - a.nilai);
+      return semua ? urut : urut.slice(0, this.QC_TOP_TAMPIL);
+    },
+    qcTopJumlah(jenis) { return jenis ? this.qcTopRows(jenis, true).length : 0; },
+    bukaQcTopSemua(jenis) {
+      this.qcTopBesarJenis = jenis;
+      this.$nextTick(() => this.gambarQcTop(jenis, true));
+    },
+    tutupQcTopSemua() {
+      this.qcTopBesarJenis = "";
+      if (this.qcCharts.qcTopBesar) {
+        try { this.qcCharts.qcTopBesar.destroy(); } catch (e) {}
+        delete this.qcCharts.qcTopBesar;
+      }
+    },
+    qcTopUnduhPng(jenis, besar) {
+      const id = besar ? "qcTopBesar" : this.qcTopKanvas(jenis);
+      const c = document.getElementById(id);
+      if (!c) return;
+      // Panel kecil belum punya judul di dalam kanvasnya -> ditambahkan di
+      // sini, sama seperti Downtime Terbesar, supaya gambar yang tersimpan
+      // tidak kehilangan keterangan.
+      const skala = (c.width || 1) / (c.clientWidth || c.width || 1);
+      const kepala = besar ? 0 : Math.round(44 * skala);
+      const k = document.createElement("canvas");
+      k.width = c.width; k.height = c.height + kepala;
+      const g = k.getContext("2d");
+      g.fillStyle = "#ffffff"; g.fillRect(0, 0, k.width, k.height);
+      if (kepala) {
+        g.textAlign = "center"; g.fillStyle = "#000000";
+        g.font = "800 " + Math.round(15 * skala) + "px Inter, sans-serif";
+        g.fillText(this.qcTopJudul(jenis), k.width / 2, Math.round(19 * skala));
+        g.fillStyle = "#64748b";
+        g.font = "700 " + Math.round(10 * skala) + "px Inter, sans-serif";
+        g.fillText(this.qcTopKeterangan(jenis), k.width / 2, Math.round(34 * skala));
+      }
+      g.drawImage(c, 0, kepala);
+      const nama = this.qcTopJudul(jenis).replace(/\s+/g, "-") + "_" +
+        (this.qcLineFilter === "ALL" ? "Semua-Line" : this.qcLineFilter) + "_" +
+        String(this.qcMonthShortLabel || "").replace(/\s+/g, "-") + ".png";
+      k.toBlob((blob) => {
+        if (!blob) return;
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = nama;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      }, "image/png");
+    },
+    qcTopKanvas(jenis) {
+      return jenis === "repair" ? "qcTopRepair" : jenis === "ngTrial" ? "qcTopNgTrial" : "qcTopNgInline";
+    },
+    gambarQcTop(jenis, besar) {
+      if (!jenis) return;
+      const id = besar ? "qcTopBesar" : this.qcTopKanvas(jenis);
+      const canvas = document.getElementById(id);
+      if (!canvas || typeof Chart === "undefined") return;
+      if (this.qcCharts[id]) { try { this.qcCharts[id].destroy(); } catch (e) {} delete this.qcCharts[id]; }
+
+      const k = this.qcTopKonfig(jenis);
+      const rows = this.qcTopRows(jenis, !!besar);
+      if (!rows.length) return;
+      // Panelnya cuma sepertiga layar, jadi nama kategorinya dipenggal.
+      const perBaris = besar ? (rows.length > 24 ? 10 : 14) : 9;
+      const labels = rows.map((r) => this.dtTopLabel(r.kategori, perBaris, besar ? 2 : 3));
+      const nilai = rows.map((r) => r.nilai);
+      const pcs = rows.map((r) => r.pcs);
+      // Penulis angka yang sama dengan Downtime Terbesar: angka batang
+      // dipaksa satu baris di dasar, angka garis selalu di atas titiknya
+      // dan tidak pernah menimpa angka batang.
+      const angka = penulisAngkaDowntime("#111827");
+      const garisWarna = cssVar("--border") || "#cbd5e1";
+      const teks = "#000000";
+      const dataset = [
+        { order: 2, type: "bar", label: k.batangNama, data: nilai, yAxisID: "y",
+          backgroundColor: k.warna, borderRadius: 0, barPercentage: 0.72, categoryPercentage: 0.78 },
+      ];
+      if (k.garis) {
+        dataset.push({ order: 1, type: "line", label: "Pcs", data: pcs, yAxisID: "y1",
+          borderColor: "#111827", backgroundColor: "#111827", borderWidth: 1.6,
+          pointRadius: 2.4, pointHoverRadius: 4, tension: 0.25, fill: false });
+      }
+      const skala = {
+        x: { ticks: { color: teks, font: { size: besar ? 7.5 : 7 }, autoSkip: false, maxRotation: 0, minRotation: 0 },
+             grid: { display: false }, border: { display: true, color: garisWarna } },
+        y: { position: "left", title: { display: true, text: k.batangNama, color: teks, font: { size: 9, weight: "700" } },
+             ticks: { color: teks, font: { size: 8 }, maxTicksLimit: 5 },
+             grid: { color: cssVar("--chart-grid"), drawTicks: false }, border: { display: true, color: garisWarna },
+             beginAtZero: true, grace: "10%" },
+      };
+      if (k.garis) {
+        skala.y1 = { position: "right", title: { display: true, text: "Pcs", color: teks, font: { size: 9, weight: "700" } },
+                     ticks: { color: teks, font: { size: 8 }, maxTicksLimit: 5, precision: 0 },
+                     grid: { display: false }, border: { display: true, color: garisWarna },
+                     beginAtZero: true, grace: "20%" };
+      }
+
+      this.qcCharts[id] = new Chart(canvas, {
+        data: { labels, datasets: dataset },
+        options: {
+          responsive: true, maintainAspectRatio: false, animation: false,
+          layout: { padding: { top: k.garis ? 40 : 26 } },
+          plugins: {
+            // Judul digambar DI DALAM kanvas supaya ikut terbawa ke PNG.
+            title: { display: !!besar, text: k.judul, color: teks, font: { size: 14, weight: "800" }, padding: { top: 2, bottom: 1 } },
+            subtitle: { display: !!besar, text: this.qcTopKeterangan(jenis), color: "#64748b", font: { size: 10, weight: "700" }, padding: { bottom: 6 } },
+            legend: { display: true, position: "bottom", labels: { color: teks, boxWidth: 5, boxHeight: 5, usePointStyle: true, pointStyle: "circle", font: { size: 7.5 }, padding: 3 } },
+            tooltip: {
+              backgroundColor: cssVar("--panel"), titleColor: cssVar("--text"), bodyColor: cssVar("--text"),
+              borderColor: cssVar("--border"), borderWidth: 1, padding: 8, cornerRadius: 8,
+              callbacks: {
+                // Nama di sumbu dipenggal; di tooltip ditampilkan utuh.
+                title: (it) => (rows[it[0].dataIndex] || {}).kategori || "",
+                label: (it) => (it.datasetIndex === 0 ? k.batangNama + ": " : "Pcs: ") + fmtNum(it.parsed.y),
+              },
+            },
+          },
+          scales: skala,
+        },
+        plugins: k.garis ? [angka.batang(0), angka.garis(1)] : [angka.batang(0)],
+      });
+    },
     // Mengukur jarak dari atas layar ke awal isi tab, lalu menyimpannya di
     // --dxy-atas. Dipakai aturan .dxy-satu-layar di CSS. Diukur, bukan
     // ditebak, supaya tetap benar kalau judul/bilah filter melipat di layar
@@ -2058,7 +2232,67 @@ function dashboardExhaust() {
       document.documentElement.style.setProperty("--dxy-atas", atas + "px");
       document.documentElement.style.setProperty("--dxy-bawah", bawah + "px");
       this.pasBarisAkhir(el);
+      this.pasKolomKualitas(el);
       this.pantauIsiSatuLayar(el);
+    },
+
+    // Tinggi isi kolom Kontrol Kualitas dibagi lewat pengukuran, bukan lewat
+    // angka tetap di CSS. Alasannya: panel Rekap dikunci 246px dan daerah
+    // gulungnya 198px, dua-duanya pakai !important, jadi kalau tinggi kotak
+    // grafik dipatok angka tetap, begitu ada panel baru (grafik Terbesar)
+    // isi kolomnya tidak muat lalu TERPOTONG -- Rekapnya seolah hilang.
+    // Dengan dibagi begini, apa pun ukuran monitornya semua kebagian:
+    // di layar tinggi grafiknya ikut membesar, di layar pendek semuanya
+    // mengecil bersama sampai batas bawah masing-masing, dan Rekap selalu
+    // kelihatan.
+    pasKolomKualitas(bagian) {
+      const kolom = [...bagian.querySelectorAll(".dxy-qc-col")];
+      if (!kolom.length) return;
+      const MIN_KOTAK = 80;   // batas bawah kotak grafik
+      const MIN_REKAP = 72;   // batas bawah daerah gulung Rekap
+      // Bobot pembagian sisa ruang: Month, Perline/Model, Daily, Terbesar, Rekap.
+      const BOBOT = { month: 1.3, sub: 1.0, daily: 1.05, top: 1.25, rekap: 1.1 };
+      const pasang = (el, px) => {
+        if (!el) return;
+        el.style.setProperty("height", px + "px", "important");
+        el.style.setProperty("min-height", px + "px", "important");
+        el.style.setProperty("max-height", px + "px", "important");
+      };
+      kolom.forEach((kol) => {
+        const month = kol.querySelector(".qc-chart-month");
+        const sub = [...kol.querySelectorAll(".qc-chart-sub")];
+        const daily = kol.querySelector(".qc-chart-daily");
+        const top = kol.querySelector(".qc-chart-top");
+        const gulung = kol.querySelector(".qc-rekap-scroll");
+        if (!month || !daily || !gulung) return;
+        // Panel Rekap aslinya diatur melar mengisi sisa ruang kolom. Kalau
+        // dibiarkan, "sisa ruang" selalu nol -- dia yang menelan semuanya --
+        // dan pembagian di bawah tidak pernah jalan. Tingginya sekarang
+        // diatur di sini, jadi melarnya dimatikan.
+        const panelRekap = gulung.closest(".dxy-panel");
+        if (panelRekap) panelRekap.style.setProperty("flex", "0 0 auto", "important");
+        // 1) semuanya dikecilkan dulu ke batas bawah, supaya pengukuran
+        //    sisa ruang tidak terpengaruh angka hasil pembagian sebelumnya.
+        pasang(month, MIN_KOTAK); sub.forEach((s) => pasang(s, MIN_KOTAK));
+        pasang(daily, MIN_KOTAK); pasang(top, MIN_KOTAK); pasang(gulung, MIN_REKAP);
+        // 2) ukur sisa ruang kolom, lalu dibagi menurut bobot di atas.
+        const jarak = parseFloat(getComputedStyle(kol).rowGap) || 0;
+        const anak = [...kol.children];
+        const isi = anak.reduce((n, a) => n + a.offsetHeight, 0) + jarak * Math.max(0, anak.length - 1);
+        const sisa = Math.floor(kol.clientHeight - isi);
+        if (sisa <= 0) return;
+        const totalBobot = BOBOT.month + BOBOT.sub + BOBOT.daily + (top ? BOBOT.top : 0) + BOBOT.rekap;
+        const bagi = (b) => Math.floor((sisa * b) / totalBobot);
+        pasang(month, MIN_KOTAK + bagi(BOBOT.month));
+        sub.forEach((s) => pasang(s, MIN_KOTAK + bagi(BOBOT.sub)));
+        pasang(daily, MIN_KOTAK + bagi(BOBOT.daily));
+        if (top) pasang(top, MIN_KOTAK + bagi(BOBOT.top));
+        pasang(gulung, MIN_REKAP + bagi(BOBOT.rekap));
+      });
+      // Chart.js baru menyesuaikan kanvasnya pada putaran berikutnya; tanpa
+      // dipaksa di sini, kanvas sempat lebih besar dari kotaknya dan
+      // gambarnya terlihat menyembul sekejap setiap ganti tab.
+      Object.values(this.qcCharts || {}).forEach((c) => { try { c.resize(); } catch (e) {} });
     },
 
     // Saat pertama dibuka, data dan grafiknya baru sampai beberapa detik
@@ -5557,6 +5791,9 @@ function dashboardExhaust() {
       qcDualAxisDaily("qcNgInlineDaily", QC_BAR.ngInline, "#8B5CF6", "Qty", "Value", false, ngiDailyQty, ngiDailyValue, { isMoney: true });
       qcDualAxisDaily("qcNgTrialDaily", QC_BAR.ngTrial, "#8B5CF6", "Qty", "Value", false, ngtDailyQty, ngtDailyValue, { isMoney: true });
       qcDualAxisDaily("qcStraightpassDaily", QC_BAR.straightpass, SP_LINE, "Qty Repair", "% Straightpass", true, spDailyRepairQty, this.qcStraightpass.dailyPercent, { barLabelPos: "base" });
+      // 3 grafik "Terbesar" di bawah Daily -- ikut digambar ulang tiap kali
+      // tab ini dirender (ganti bulan/tahun/line, atau data baru masuk).
+      ["ngInline", "ngTrial", "repair"].forEach((jn) => safe(() => this.gambarQcTop(jn, false), "Terbesar " + jn));
     },
     // Chart Trend Kehadiran Harian (tanggal 1-31) di tab Kontrol Attendance.
     // Batang BERTUMPUK (stacked): Hadir + Izin + Sakit + Cuti + Mangkir,

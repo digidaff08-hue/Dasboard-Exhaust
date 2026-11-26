@@ -657,9 +657,13 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
 .dxy-qc-subgrid .dxy-panel:hover { border-color: #BAE6FD; box-shadow: 0 2px 6px rgba(14,165,233,.10); }
 [data-theme="dark"] .dxy-qc-subgrid .dxy-panel { border-color: #163650; border-top-color: #0284C7; }
 [data-theme="dark"] .dxy-qc-subgrid .dxy-panel:hover { border-color: #0369A1; }
-.qc-chart-month  { min-height: 200px !important; max-height: 200px; }
-.qc-chart-sub    { min-height: 160px !important; max-height: 160px; }
-.qc-chart-daily  { min-height: 170px !important; max-height: 170px; }
+/* Tinggi dikecilkan dari 200/160/170 untuk memberi tempat grafik
+   "Terbesar" yang baru di bawah Daily, tanpa menambah tinggi halaman --
+   tab ini harus tetap muat satu layar. */
+.qc-chart-month  { min-height: 150px !important; max-height: 150px; }
+.qc-chart-sub    { min-height: 110px !important; max-height: 110px; }
+.qc-chart-daily  { min-height: 115px !important; max-height: 115px; }
+.qc-chart-top    { min-height: 140px !important; max-height: 140px; }
 .qc-detail-table { font-size: 0.4375rem; table-layout: fixed; }
 .qc-detail-table thead th { padding: 5px 4px; font-size: 0.4375rem; white-space: nowrap; overflow: hidden; text-overflow: clip; text-align: center !important; text-transform: none !important; letter-spacing: normal !important; }
 /* text-overflow: ellipsis (bukan clip) -- tooltip bawaan browser sudah
@@ -1072,3 +1076,19 @@ table.qc-detail-table tbody tr.dxy-row-clickable:hover { background: rgba(37,99,
 .dxy-satu-layar .dxy-panel.dxy-table-panel-sm.dxy-tahunan-terbesar-panel .dxy-table-scroll {
   height: auto !important; min-height: 60px !important; max-height: none !important;
 }
+
+/* Panel Rekap di tiap kolom Kualitas dikunci mati 246px (height + min + max,
+   semuanya !important) supaya tiga kolomnya rata tinggi. Di mode satu layar
+   kuncinya dibuka: tingginya harus ikut sisa ruang, kalau tidak dia tetap
+   246px dan isi kolom yang lain -- termasuk grafik Terbesar yang baru --
+   yang terpotong keluar layar. Tiga kolom tetap rata karena sama-sama
+   mengikuti tinggi barisnya. */
+.dxy-satu-layar .dxy-qc-col .dxy-panel.dxy-table-panel-sm {
+  height: auto !important; min-height: 0 !important; max-height: none !important;
+}
+
+/* Kanvas tanpa grafik punya tinggi bawaan 150px dan bisa menyembul keluar
+   kotaknya saat kotaknya dipersempit (atau sekejap sebelum Chart.js sempat
+   menyesuaikan ukuran). Dipotong di sini supaya tidak pernah mendorong isi
+   kolom keluar layar. */
+.dxy-satu-layar .dxy-chart-box { overflow: hidden; }
